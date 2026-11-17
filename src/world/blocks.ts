@@ -17,7 +17,7 @@ interface BlockDef {
   emit?: number;
   filter?: number;
   hardness: number;
-  drop?: string;
+  drop?: string; // a block or item name
 }
 
 const defs = data.blocks as BlockDef[];
@@ -85,13 +85,6 @@ export function blockId(name: string): number {
 
 export function blockName(id: number): string {
   return defs[id]?.name ?? 'air';
-}
-
-/** What mining a block gives: its "drop" if set, else the block itself; nothing for unbreakables. */
-export function blockDrop(id: number): number {
-  const d = defs[id];
-  if (!d || d.hardness < 0 || d.render === 'none') return 0;
-  return d.drop ? blockId(d.drop) : id;
 }
 
 // Frequently used ids, resolved once.

@@ -3,7 +3,8 @@
 
 import { iconFor } from './icons.ts';
 import { BLOCK_DEFS } from '../world/blocks.ts';
-import type { Hotbar } from '../sim/hotbar.ts';
+import type { Inventory } from '../sim/inventory.ts';
+import { itemLabel } from '../world/items.ts';
 
 const CSS = `
 #ui * { box-sizing: border-box; }
@@ -272,12 +273,12 @@ export class Hud {
     (this.breath.firstChild as HTMLElement).style.width = `${Math.round(fraction * 100)}%`;
   }
 
-  updateHotbar(h: Hotbar): void {
-    const sig = h.slots.map((s) => (s ? `${s.id}:${s.count}` : '-')).join(',') + `|${h.selected}|${h.creative}`;
+  updateHotbar(h: Inventory): void {
+    const sig = h.slots.slice(0, 9).map((s) => (s ? `${s.id}:${s.count}:${s.wear ?? 0}` : '-')).join(',') + `|${h.selected}|${h.creative}`;
     if (sig === this.hotbarSig) return;
     const selChanged = !this.hotbarSig.endsWith(`|${h.selected}|${h.creative}`) && this.hotbarSig !== '';
     this.hotbarSig = sig;
-    h.slots.forEach((s, i) => {
+    h.slots.slice(0, 9).forEach((s, i) => {
       const d = this.slots[i];
       d.className = 'hv-slot' + (i === h.selected ? ' sel' : '');
       d.innerHTML = '';
@@ -286,7 +287,7 @@ export class Hud {
       const img = el('img', '', d); img.src = iconFor(s.id); img.alt = '';
       if (!h.creative) el('span', '', d).textContent = String(s.count);
     });
-    if (selChanged) this.flashLabel(h.current ? BLOCK_DEFS[h.current.id].label : 'Empty hand');
+    if (selChanged) this.flashLabel(h.current ? itemLabel(h.current.id) : 'Empty hand');
   }
 
   flashLabel(text: string): void {

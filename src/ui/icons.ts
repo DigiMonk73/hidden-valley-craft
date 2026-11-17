@@ -3,18 +3,22 @@
 
 import { B_FACE_TEX, B_RENDER, RENDER, TEXTURE_NAMES } from '../world/blocks.ts';
 import { drawTexture, TEX } from '../render/textures.ts';
+import { drawItemIcon } from '../render/itemIcons.ts';
+import { itemDef } from '../world/items.ts';
 
 const cache = new Map<number, string>();
 
-function textureCanvas(layer: number): HTMLCanvasElement {
+function pixelCanvas(px: Uint8ClampedArray): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = c.height = TEX;
   const ctx = c.getContext('2d')!;
   const img = ctx.createImageData(TEX, TEX);
-  img.data.set(drawTexture(TEXTURE_NAMES[layer]));
+  img.data.set(px);
   ctx.putImageData(img, 0, 0);
   return c;
 }
+
+function textureCanvas(layer: number): HTMLCanvasElement { return pixelCanvas(drawTexture(TEXTURE_NAMES[layer])); }
 
 export function iconFor(id: number): string {
   const hit = cache.get(id);
@@ -25,7 +29,9 @@ export function iconFor(id: number): string {
   const ctx = c.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
   const k = 1 / TEX;
-  if (B_RENDER[id] === RENDER.cube || B_RENDER[id] === RENDER.liquid) {
+  const item = itemDef(id);
+  if (item) ctx.drawImage(pixelCanvas(drawItemIcon(item.icon)), 4, 4, S - 8, S - 8);
+  else if (B_RENDER[id] === RENDER.cube || B_RENDER[id] === RENDER.liquid) {
     const top = textureCanvas(B_FACE_TEX[id * 6 + 2]);
     const left = textureCanvas(B_FACE_TEX[id * 6 + 4]);
     const right = textureCanvas(B_FACE_TEX[id * 6 + 0]);

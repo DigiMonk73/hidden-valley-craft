@@ -8,7 +8,7 @@ import type { World } from '../world/world.ts';
 export const SAVE_FORMAT = 'hidden-valley-blocks-save';
 export const SAVE_VERSION = 1;
 
-export interface Slot { name: string; count: number }
+export interface Slot { name: string; count: number; wear?: number }
 
 export interface SaveData {
   format: string;

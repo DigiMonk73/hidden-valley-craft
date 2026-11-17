@@ -8,7 +8,8 @@ import { Renderer } from './render/renderer.ts';
 import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
-import { Hotbar } from './sim/hotbar.ts';
+import { Inventory } from './sim/inventory.ts';
+import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { Sound, materialOf } from './audio/audio.ts';
@@ -17,7 +18,6 @@ import { openStore, writePending, readPending, clearPending, type Store } from '
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
-import { B_HARDNESS } from './world/blocks.ts';
 import { HOME, WATERFALL, VALLEY, POOL, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
@@ -42,7 +42,7 @@ export class Game {
   streamer!: Streamer;
   exec!: Executor;
   player = new Player();
-  hotbar = Hotbar.starter();
+  hotbar = Inventory.starter();
   hud: Hud;
   sound = new Sound();
   private stepDist = 0;
@@ -298,9 +298,9 @@ export class Game {
     const t = this.target;
     if (!m.active || !t) { m.progress = 0; return; }
     if (t.x !== m.x || t.y !== m.y || t.z !== m.z) { m.x = t.x; m.y = t.y; m.z = t.z; m.progress = 0; }
-    const hardness = B_HARDNESS[t.id];
-    if (hardness < 0) return; // bedrock and other unbreakables
-    m.progress += hardness === 0 ? 1 : dt / hardness;
+    const seconds = mineSeconds(t.id, this.hotbar.current?.id ?? 0);
+    if (seconds < 0) return; // bedrock and other unbreakables
+    m.progress += seconds === 0 ? 1 : dt / seconds;
     this.digTimer -= dt;
     if (this.digTimer <= 0) { this.sound.dig(materialOf(t.id)); this.digTimer = 0.24; }
     if (m.progress >= 1) {
@@ -315,6 +315,10 @@ export class Game {
     const lv = this.world.lightAt(x, y + 1, z);
     const r = breakBlock(this.world, this.hotbar, x, y, z);
     if (r.changed) {
+      // The right tool wears with each block it mines.
+      const held = this.hotbar.current;
+      const tool = held ? toolOf(held.id) : undefined;
+      if (tool && tool.kind === toolFor(id) && this.hotbar.wearTool()) this.hud.toast('Your tool broke');
       this.renderer.particles.burst(id, x, y, z, Math.max(0.15, Math.max((lv >> 4) * this.sky.daylight, lv & 15) / 15));
       this.sound.breakBlock(materialOf(id));
     }
@@ -421,7 +425,7 @@ export class Game {
     this.player.pitch = d.player.pitch;
     this.player.flying = d.player.flying;
     this.hour = d.hour;
-    this.hotbar = Hotbar.fromSave(d.hotbar, d.selected);
+    this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
   }
 
   private get unsaved(): boolean { return this.editCount !== this.savedCount; }
@@ -523,7 +527,7 @@ export class Game {
     this.mining.active = false;
     if (d) this.applySave(d);
     else {
-      this.hotbar = Hotbar.starter();
+      this.hotbar = Inventory.starter();
       this.hour = 16.5;
       this.player.flying = false;
       this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
