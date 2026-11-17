@@ -21,7 +21,7 @@ const W = Number(process.env.W || 960), H = Number(process.env.H || 540), RD = p
 
 mkdirSync('out', { recursive: true });
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: Number(process.env.DSF || 1) });
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[page]', m.text()); });
 page.on('pageerror', (e) => console.log('[page error]', e.message));
 for (const [name, spec] of Object.entries(shots)) {
@@ -30,7 +30,7 @@ for (const [name, spec] of Object.entries(shots)) {
   const url = `${BASE}?test&rd=${RD}&hour=${hour}&cam=${cam}`;
   const t0 = Date.now();
   await page.goto(url);
-  await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 240_000, polling: 500 });
+  await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 600_000, polling: 500 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `out/${name}.png` });
   console.log(`${name}: ${((Date.now() - t0) / 1000).toFixed(1)} s`);

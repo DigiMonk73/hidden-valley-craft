@@ -60,22 +60,32 @@ void main() {
   gl_Position = p.xyww; // always at the far plane
 }`;
 
-const SKY_FRAG = /* glsl */ `
-precision highp float;
-in vec3 vDir;
+/** The sky's colour in a direction, without stars. Shared with the block shader's fog, so distant
+ * land fades into exactly the sky behind it. */
+export const SKY_COLOR_GLSL = /* glsl */ `
 uniform vec3 uZenith, uHorizon, uSunGlow, uSunDir;
-uniform float uDaylight;
-out vec4 outColor;
-float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
-void main() {
-  vec3 d = normalize(vDir);
+vec3 skyColor(vec3 d) {
   float up = clamp(d.y, -0.2, 1.0);
   vec3 col = mix(uHorizon, uZenith, pow(max(up, 0.0), 0.55));
   col = mix(col, uHorizon * 0.55, clamp(-up * 4.0, 0.0, 1.0));
   float s = max(dot(d, uSunDir), 0.0);
-  // Glow around the sun, wider near the horizon, and the disc itself.
+  // Glow around the sun, wider near the horizon.
   col += uSunGlow * (pow(s, 8.0) * 0.35 + pow(s, 64.0) * 0.6) * (1.0 - 0.4 * max(uSunDir.y, 0.0));
-  col += uSunGlow * smoothstep(0.9993, 0.9996, s) * 2.0;
+  return col;
+}`;
+
+const SKY_FRAG = /* glsl */ `
+precision highp float;
+in vec3 vDir;
+uniform float uDaylight;
+out vec4 outColor;
+${SKY_COLOR_GLSL}
+float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+void main() {
+  vec3 d = normalize(vDir);
+  vec3 col = skyColor(d);
+  // The sun's disc.
+  col += uSunGlow * smoothstep(0.9993, 0.9996, max(dot(d, uSunDir), 0.0)) * 2.0;
   // Stars, fading in as the day light goes.
   float night = 1.0 - smoothstep(0.15, 0.45, uDaylight);
   if (night > 0.0 && d.y > 0.0) {

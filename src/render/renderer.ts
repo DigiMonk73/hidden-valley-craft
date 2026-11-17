@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { TEXTURE_NAMES } from '../world/blocks.ts';
 import { buildTextureStack, TEX } from './textures.ts';
-import { createSkyDome, applySky, type SkyState } from './sky.ts';
+import { createSkyDome, applySky, SKY_COLOR_GLSL, type SkyState } from './sky.ts';
 import type { ChunkMesh, MeshPart } from '../mesh/mesher.ts';
 import { CS } from '../world/constants.ts';
 
@@ -18,6 +18,7 @@ out float vAo;
 out vec2 vLight;
 out float vShade;
 out float vDist;
+out vec3 vWorld;
 void main() {
   int flags = int(aPack.x + 0.5);
   int face = flags & 7;
@@ -39,6 +40,7 @@ void main() {
   if (liquid && face == 2) world.y += sin(uTime * 1.1 + world.x * 0.6 + world.z * 0.45) * 0.035 - 0.035;
   vec4 view = viewMatrix * world;
   vDist = length(view.xyz);
+  vWorld = world.xyz;
   gl_Position = projectionMatrix * view;
 }`;
 
@@ -51,17 +53,18 @@ in float vAo;
 in vec2 vLight;
 in float vShade;
 in float vDist;
+in vec3 vWorld;
 uniform sampler2DArray uTex;
 uniform float uDaylight;
 uniform vec3 uSkyLight;
 uniform vec3 uBlockLight;
-uniform vec3 uFog;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uOpacity;
 uniform bool uCutout;
 out vec4 outColor;
-float curve(float l) { return l / (3.0 - 2.0 * l); } // light level → brightness, like a lightmap
+${SKY_COLOR_GLSL}
+float curve(float l) { return l / (2.2 - 1.2 * l); } // light level → brightness, like a lightmap
 void main() {
   vec3 tc = vec3(vUv, vLayer);
   vec4 tex = texture(uTex, tc);
@@ -73,11 +76,12 @@ void main() {
   float sky = curve(vLight.x) * uDaylight;
   float blk = curve(vLight.y);
   vec3 light = max(uSkyLight * sky, uBlockLight * blk);
-  light = max(light, vec3(0.025));
+  light = max(light, vec3(0.035));
   float ao = mix(0.42, 1.0, vAo);
   vec3 col = tex.rgb * light * ao * vShade;
   float fog = smoothstep(uFogNear, uFogFar, vDist);
-  col = mix(col, uFog, fog);
+  // Fog takes the colour of the sky behind the fragment, so the edge of the world melts into it.
+  col = mix(col, skyColor(normalize(vWorld - cameraPosition)), fog);
   outColor = vec4(col, tex.a * uOpacity);
 }`;
 
@@ -118,7 +122,10 @@ export class Renderer {
       uDaylight: { value: 1 },
       uSkyLight: { value: new THREE.Color(1, 1, 1) },
       uBlockLight: { value: new THREE.Color('#ffd08c') },
-      uFog: { value: new THREE.Color('#a8cbe3') },
+      uZenith: { value: new THREE.Color() },
+      uHorizon: { value: new THREE.Color() },
+      uSunGlow: { value: new THREE.Color() },
+      uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       uFogNear: { value: 120 },
       uFogFar: { value: 250 },
       uOpacity: { value: 1 },
@@ -167,7 +174,10 @@ export class Renderer {
       u.uTime.value = time;
       u.uDaylight.value = s.daylight;
       u.uSkyLight.value.copy(s.skyLight);
-      u.uFog.value.copy(s.fog);
+      u.uZenith.value.copy(s.zenith);
+      u.uHorizon.value.copy(s.horizon);
+      u.uSunGlow.value.copy(s.sunGlow);
+      u.uSunDir.value.copy(s.sunDir);
     }
     this.gl.setClearColor(s.fog);
   }

@@ -50,7 +50,9 @@ export class Streamer {
   private wanted(x: number, z: number): [number, number][] {
     const pcx = Math.floor(x / CS), pcz = Math.floor(z / CS);
     const out: [number, number, number][] = [];
-    const r = this.radius;
+    // One ring beyond the drawn radius is generated too, so every column inside it can be meshed
+    // and the fog line falls on finished ground instead of a cut edge.
+    const r = this.radius + 1;
     for (let dz = -r; dz <= r; dz++)
       for (let dx = -r; dx <= r; dx++) {
         const d = Math.hypot(dx, dz);
@@ -81,7 +83,7 @@ export class Streamer {
     }
     // 2. Let far columns go.
     const pcx = Math.floor(x / CS), pcz = Math.floor(z / CS);
-    const keep = this.radius + 2;
+    const keep = this.radius + 3;
     for (const col of this.world.columns) {
       if (!col) continue;
       if (Math.hypot(col.cx - pcx, col.cz - pcz) <= keep) continue;
@@ -94,6 +96,7 @@ export class Streamer {
       if (this.meshing.has(ch.key)) continue;
       if (!this.world.column(ch.cx, ch.cz)) { this.dirty.delete(ch); continue; }
       if (!this.world.canMesh(ch.cx, ch.cz)) continue;
+      if (Math.hypot(ch.cx * CS + 16 - x, ch.cz * CS + 16 - z) / CS > this.radius + 0.75) continue; // beyond the fog
       this.dirty.delete(ch);
       ch.dirty = false;
       if (ch.empty) { this.renderer.removeChunk(ch.key); continue; }
@@ -150,7 +153,7 @@ export class Streamer {
     const key = r.cz * COLS_X + r.cx;
     this.pendingCols.delete(key);
     const pcx = Math.floor(this.px / CS), pcz = Math.floor(this.pz / CS);
-    if (Math.hypot(r.cx - pcx, r.cz - pcz) > this.radius + 2) return; // the player has moved on
+    if (Math.hypot(r.cx - pcx, r.cz - pcz) > this.radius + 3) return; // the player has moved on
     if (this.world.column(r.cx, r.cz)) return;
     const col = this.world.addColumn(r.cx, r.cz, r.chunks);
     for (const ch of col.chunks) { ch.dirty = true; this.dirty.add(ch); }
