@@ -145,6 +145,13 @@ export class Renderer {
   readonly particles = new Particles();
   private farland: FarLand | null = null;
   private clouds = new Clouds();
+  /** Which columns have real blocks drawn: the distant land stays out of them. */
+  private drawnTex = (() => {
+    const t = new THREE.DataTexture(new Uint8Array(64 * 64), 64, 64, THREE.RedFormat, THREE.UnsignedByteType);
+    t.magFilter = t.minFilter = THREE.NearestFilter;
+    t.needsUpdate = true;
+    return t;
+  })();
 
   constructor(canvas: HTMLCanvasElement) {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -237,9 +244,16 @@ export class Renderer {
     }
   }
 
+  setDrawnColumns(mask: Uint8Array): void {
+    // The texture reads bytes as 0–1, so a drawn column is stored as 255.
+    const data = this.drawnTex.image.data as Uint8Array;
+    for (let i = 0; i < mask.length; i++) data[i] = mask[i] ? 255 : 0;
+    this.drawnTex.needsUpdate = true;
+  }
+
   /** The distant landscape, once a worker has built it. */
   setFarLand(m: FarMesh): void {
-    this.farland = new FarLand(m, this.solidMat.uniforms.uTex.value);
+    this.farland = new FarLand(m, this.solidMat.uniforms.uTex.value, this.drawnTex);
     this.scene.add(this.farland.mesh);
   }
 
@@ -260,8 +274,7 @@ export class Renderer {
     }
     this.gl.setClearColor(s.fog);
     this.particles.sync(this.gl.domElement.height, this.camera.fov, FOG_NEAR, FOG_FAR, s);
-    // The distant land shows from just inside the edge of the loaded blocks.
-    this.farland?.sync(s, this.fogDist - 12, FOG_NEAR, FOG_FAR);
+    this.farland?.sync(s, FOG_NEAR, FOG_FAR);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
   }
 

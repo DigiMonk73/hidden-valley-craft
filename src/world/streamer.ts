@@ -21,6 +21,10 @@ export class Streamer {
   private px = 0;
   private pz = 0;
   radius = 8; // columns
+  /** One byte per column: 1 where the real blocks are drawn, so the distant land hides there. */
+  readonly drawn = new Uint8Array(COLS_X * COLS_Z);
+  private drawnDirty = true;
+  onDrawnChange: ((mask: Uint8Array) => void) | null = null;
   stats = { columns: 0, genQueued: 0, meshQueued: 0 };
 
   constructor(world: World, exec: Executor, renderer: Renderer) {
@@ -90,6 +94,7 @@ export class Streamer {
       if (Math.hypot(col.cx - pcx, col.cz - pcz) <= keep) continue;
       for (const ch of col.chunks) { this.renderer.removeChunk(ch.key); this.dirty.delete(ch); }
       this.world.removeColumn(col.cx, col.cz);
+      this.drawnDirty = true;
     }
     // 3. Mesh chunks that changed, once their neighbourhood is loaded.
     const start = performance.now();
@@ -100,7 +105,7 @@ export class Streamer {
       if (Math.hypot(ch.cx * CS + 16 - x, ch.cz * CS + 16 - z) / CS > this.radius + 0.75) continue; // beyond the fog
       this.dirty.delete(ch);
       ch.dirty = false;
-      if (ch.empty) { this.renderer.removeChunk(ch.key); continue; }
+      if (ch.empty) { this.renderer.removeChunk(ch.key); ch.hasMesh = true; this.drawnDirty = true; continue; }
       const { blocks, light } = this.world.padded(ch);
       const key = ch.key, version = ch.version;
       this.meshing.set(key, version);
@@ -127,8 +132,17 @@ export class Streamer {
       if (!col) continue;
       const ch = col.chunks[cy];
       this.renderer.setChunkMesh(key, cx, cy, cz, result.mesh);
+      if (!ch.hasMesh) { ch.hasMesh = true; this.drawnDirty = true; }
       if (ch.version !== result.version) { ch.dirty = true; this.dirty.add(ch); } // changed while meshing
       else this.urgent.delete(key);
+    }
+    if (this.drawnDirty) {
+      this.drawnDirty = false;
+      for (let i = 0; i < this.drawn.length; i++) {
+        const col = this.world.columns[i];
+        this.drawn[i] = col && col.chunks.every((c) => c.hasMesh) ? 1 : 0;
+      }
+      this.onDrawnChange?.(this.drawn);
     }
     this.stats.columns = this.world.columns.reduce((n, c) => n + (c ? 1 : 0), 0);
     this.stats.genQueued = this.pendingCols.size;
@@ -148,6 +162,7 @@ export class Streamer {
     this.meshing.clear();
     this.urgent.clear();
     this.uploads = [];
+    this.drawnDirty = true;
   }
 
   private onColumn(r: GenResult): void {

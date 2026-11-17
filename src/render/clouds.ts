@@ -30,9 +30,11 @@ void main() {
   float a = texture(uClouds, uv).r;
   if (a < 0.5) discard;
   float dist = length(vWorld.xz - cameraPosition.xz);
-  vec3 lit = mix(vec3(1.0), uSkyLight, 0.5) * (0.35 + 0.65 * uDaylight);
+  // Bright by day, barely there at night (daylight bottoms out at 0.3 under the moon).
+  float day = clamp((uDaylight - 0.3) / 0.7, 0.0, 1.0);
+  vec3 lit = mix(vec3(1.0), uSkyLight, 0.5) * (0.1 + 0.9 * day);
   vec3 col = mix(lit, skyColor(normalize(vWorld - cameraPosition)), smoothstep(500.0, 1900.0, dist));
-  outColor = vec4(col, 0.74 * (1.0 - smoothstep(1500.0, 2000.0, dist)));
+  outColor = vec4(col, (0.45 + 0.29 * day) * (1.0 - smoothstep(1500.0, 2000.0, dist)));
 }`;
 
 export class Clouds {

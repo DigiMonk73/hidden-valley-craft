@@ -16,6 +16,8 @@ export class Chunk {
   dirty = true;
   /** Bumped on every change; a mesh built from an older version is stale. */
   version = 0;
+  /** Has been drawn at least once (a mesh, or found to need none). */
+  hasMesh = false;
 
   cx: number;
   cy: number;
