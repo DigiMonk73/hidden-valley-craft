@@ -33,7 +33,7 @@ project's `docs/DESIGN.md`, in the private repository `DigiMonk73/hidden-valley`
 - **A phase session** works only on its own branch (`phase3`, `phase4`…). It:
   - commits each finished step there with its tests and pushes the branch;
   - never pushes to `main` and never publishes the page;
-  - ends by having a fresh reviewer check its work, fixing what it finds, and messaging the lead with what was built, the test results and up to 5 screenshots' paths.
+  - ends by having a fresh reviewer check its work, fixing what it finds, and messaging the lead with what was built, the test results and what it saw in its screenshots (the lead takes the pictures the owner gets).
 - **The lead** reads the diff, runs the checks again, merges the branch into `main`, publishes and reports to the owner.
 
 ## Where it lives
