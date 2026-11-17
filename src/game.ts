@@ -197,6 +197,8 @@ export class Game {
     // HUD.
     this.hud.updateHotbar(this.hotbar);
     this.hud.setMining(this.mining.active ? this.mining.progress : 0);
+    const m = this.mining;
+    this.renderer.showCrack(m.x, m.y, m.z, m.active && this.target ? m.progress : 0);
     this.hud.setBreath(p.breath / BREATH_MAX, p.headInWater || p.breath < BREATH_MAX - 0.01);
     this.fps.frames++;
     if (now - this.fps.t > 500) { this.fps.value = Math.round((this.fps.frames * 1000) / (now - this.fps.t)); this.fps.frames = 0; this.fps.t = now; }

@@ -138,10 +138,10 @@ const DRAW: Record<string, (c: Canvas16) => void> = {
     c.blobs(9, [hex('#a39e94'), hex('#6d6860'), hex('#bcb6aa'), hex('#7d6f62')], [0.8, 1.5], hex('#d0cabe'));
   },
   mud(c) { c.noise(hex('#4c3b2b'), 7, [hex('#3e2f22'), hex('#5a4734')], 0.2); for (let k = 0; k < 4; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#7d6a55')); },
-  iron_ore(c) { limestone(c); c.blobs(5, [hex('#a85a32'), hex('#c47643'), hex('#8a4526')], [0.8, 1.4], hex('#e09a63')); },
-  flint_ore(c) { limestone(c); c.blobs(4, [hex('#2b2a2e'), hex('#3b3a40')], [0.9, 1.6], hex('#8b8a95')); },
-  coal_ore(c) { limestone(c); c.blobs(6, [hex('#1d1c1c'), hex('#2a2828')], [0.7, 1.3], hex('#4a4848')); },
-  copper_ore(c) { limestone(c); c.blobs(5, [hex('#3f9c84'), hex('#2f7f6a'), hex('#c06c3a')], [0.6, 1.2], hex('#7fd3bb')); },
+  iron_ore(c) { limestone(c); c.blobs(6, [hex('#a85a32'), hex('#c47643'), hex('#8a4526')], [1.1, 1.8], hex('#e09a63')); },
+  flint_ore(c) { limestone(c); c.blobs(5, [hex('#2b2a2e'), hex('#3b3a40')], [1.1, 1.9], hex('#8b8a95')); },
+  coal_ore(c) { limestone(c); c.blobs(7, [hex('#1d1c1c'), hex('#2a2828')], [1.0, 1.7], hex('#4a4848')); },
+  copper_ore(c) { limestone(c); c.blobs(6, [hex('#3f9c84'), hex('#2f7f6a'), hex('#c06c3a')], [0.9, 1.6], hex('#7fd3bb')); },
   water(c) {
     c.noise(hex('#2e6f86'), 6, [hex('#2a6479'), hex('#3a8198')], 0.25);
     for (let k = 0; k < 5; k++) {
@@ -254,12 +254,20 @@ const DRAW: Record<string, (c: Canvas16) => void> = {
     }
   },
   bromeliad(c) {
+    // A rosette of broad, arching leaves around a red-orange flower spike.
     c.clearAlpha();
-    for (let k = 0; k < 7; k++) {
-      const a = (k / 7) * Math.PI;
-      for (let t = 0; t < 7; t++) c.set(Math.round(7.5 + Math.cos(a) * t), Math.round(15 - Math.sin(a) * t * 0.9), k % 2 ? hex('#4d8c32') : hex('#5fa23e'));
+    const greens = [hex('#3f7f2c'), hex('#52973a'), hex('#66ab45')];
+    for (let k = 0; k < 9; k++) {
+      const a = Math.PI * (0.08 + (k / 8) * 0.84);
+      const len = 6 + (k % 3);
+      for (let t = 0; t < len; t++) {
+        const x = Math.round(7.5 + Math.cos(a) * t), y = Math.round(15 - Math.sin(a) * t * 0.95 + (t > len - 3 ? 1 : 0));
+        c.set(x, y, greens[(k + t) % 3]);
+        c.set(x + (Math.cos(a) > 0 ? -1 : 1), y, greens[(k + t + 1) % 3]);
+      }
     }
-    for (let y = 6; y < 11; y++) for (let x = 6; x < 10; x++) c.set(x, y, y < 8 ? hex('#e8452c') : hex('#f07a2a'));
+    for (let y = 3; y < 10; y++) for (let x = 6; x < 10; x++) if ((x + y) % 3 !== 0 || y > 6) c.set(x, y, y < 6 ? hex('#ff5a2e') : hex('#e8392a'));
+    c.set(7, 2, hex('#ffd34a')); c.set(8, 3, hex('#ffd34a'));
   },
   orchid(c) {
     c.clearAlpha();
@@ -304,5 +312,35 @@ export function hasTexture(name: string): boolean { return name in DRAW; }
 export function buildTextureStack(names: string[]): Uint8Array {
   const out = new Uint8Array(names.length * TEX * TEX * 4);
   names.forEach((n, i) => out.set(drawTexture(n), i * TEX * TEX * 4));
+  return out;
+}
+
+/** Ten stages of cracks for a block being mined, as dark strokes on transparent; stage 9 is nearly broken. */
+export function buildCrackStages(): Uint8Array {
+  const STAGES = 10;
+  const rng = makeRng(4242);
+  // Strokes wander out from the middle; each stage draws a few more of them.
+  const strokes: [number, number][][] = [];
+  for (let s = 0; s < 22; s++) {
+    let x = 6 + rng() * 4, y = 6 + rng() * 4;
+    const a = rng() * Math.PI * 2;
+    const pts: [number, number][] = [];
+    for (let k = 0; k < 6 + rng() * 6; k++) {
+      pts.push([Math.floor(x), Math.floor(y)]);
+      x += Math.cos(a + (rng() - 0.5) * 1.6) * 1.1;
+      y += Math.sin(a + (rng() - 0.5) * 1.6) * 1.1;
+    }
+    strokes.push(pts);
+  }
+  const out = new Uint8Array(STAGES * TEX * TEX * 4);
+  for (let st = 0; st < STAGES; st++) {
+    const n = Math.round(((st + 1) / STAGES) * strokes.length);
+    for (let s = 0; s < n; s++)
+      for (const [x, y] of strokes[s]) {
+        if (x < 0 || y < 0 || x > 15 || y > 15) continue;
+        const i = (st * TEX * TEX + y * TEX + x) * 4;
+        out[i] = 20; out[i + 1] = 18; out[i + 2] = 16; out[i + 3] = 200;
+      }
+  }
   return out;
 }

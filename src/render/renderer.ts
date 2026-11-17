@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { TEXTURE_NAMES } from '../world/blocks.ts';
-import { buildTextureStack, TEX } from './textures.ts';
+import { buildTextureStack, buildCrackStages, TEX } from './textures.ts';
 import { createSkyDome, applySky, SKY_COLOR_GLSL, type SkyState } from './sky.ts';
 import type { ChunkMesh, MeshPart } from '../mesh/mesher.ts';
 import { CS } from '../world/constants.ts';
@@ -139,6 +139,7 @@ export class Renderer {
   private index: THREE.BufferAttribute;
   private indexQuads: number;
   private outline: THREE.LineSegments;
+  private crack: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
   private fogDist = 256;
   stats = { chunks: 0, quads: 0 };
   readonly particles = new Particles();
@@ -203,6 +204,22 @@ export class Renderer {
     this.outline.visible = false;
     this.scene.add(this.outline);
     this.particles.addTo(this.scene);
+
+    // Cracks spreading over the block being mined, darkening it stage by stage.
+    const crackTex = new THREE.DataArrayTexture(buildCrackStages(), TEX, TEX, 10);
+    crackTex.magFilter = THREE.NearestFilter;
+    crackTex.minFilter = THREE.NearestFilter;
+    crackTex.needsUpdate = true;
+    this.crack = new THREE.Mesh(new THREE.BoxGeometry(1.006, 1.006, 1.006), new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+      uniforms: { uCracks: { value: crackTex }, uStage: { value: 0 } },
+      vertexShader: 'out vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'precision highp float; precision highp sampler2DArray; in vec2 vUv; uniform sampler2DArray uCracks; uniform float uStage; out vec4 outColor;' +
+        'void main() { vec4 c = texture(uCracks, vec3(vUv.x, 1.0 - vUv.y, uStage)); if (c.a < 0.1) discard; outColor = vec4(c.rgb, 0.75); }',
+    }));
+    this.crack.visible = false;
+    this.crack.renderOrder = 15;
+    this.scene.add(this.crack);
     this.scene.add(this.clouds.mesh);
   }
 
@@ -291,6 +308,13 @@ export class Renderer {
     this.outline.visible = true;
   }
   hideOutline(): void { this.outline.visible = false; }
+
+  /** Shows mining progress (0–1) as cracks on a block; 0 hides them. */
+  showCrack(x: number, y: number, z: number, progress: number): void {
+    this.crack.visible = progress > 0.02;
+    this.crack.position.set(x + 0.5, y + 0.5, z + 0.5);
+    this.crack.material.uniforms.uStage.value = Math.min(9, Math.floor(progress * 10));
+  }
 
   render(): void {
     this.sky.position.copy(this.camera.position);
