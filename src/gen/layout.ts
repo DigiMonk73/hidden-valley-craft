@@ -211,9 +211,10 @@ export function outsideHeight(x: number, z: number): number {
   const rd = Math.abs(x - (ZONES.ravineX + 6 * Math.sin(z / 45)));
   if (rd < 26) base = mix(42, base, smoothstep(10, 26, rd));
 
-  // The world's edge rises into mountains so no edge is ever seen.
+  // The world's edge rises into a range of forested mountains, so no edge is ever seen.
   const edge = Math.min(x, z, WORLD_X - 1 - x, WORLD_Z - 1 - z);
-  base = mix(base, 176, smoothstep(90, 10, edge));
+  const peaks = 150 + 28 * (1 - Math.abs(noiseB.noise2(x / 140, z / 140))) + 10 * noise.noise2(x / 45, z / 45);
+  base = mix(base, Math.max(base, peaks), smoothstep(280, 30, edge));
 
   return Math.round(Math.max(30, Math.min(182, base)));
 }

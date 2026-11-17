@@ -32,6 +32,7 @@ export class Streamer {
 
   /** Lower runs sooner: nearest first, the player's own edits before anything. */
   priority = (job: Job): number => {
+    if (job.kind === 'far') return 6; // after the nearest columns, before the distant ones
     if (job.kind === 'gen') return Math.hypot(job.cx * CS + 16 - this.px, job.cz * CS + 16 - this.pz) / CS + 1.5;
     const cz = Math.floor(job.key / CHUNKS_Y / COLS_X);
     const cx = Math.floor(job.key / CHUNKS_Y) % COLS_X;

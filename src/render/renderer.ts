@@ -8,6 +8,13 @@ import { createSkyDome, applySky, SKY_COLOR_GLSL, type SkyState } from './sky.ts
 import type { ChunkMesh, MeshPart } from '../mesh/mesher.ts';
 import { CS } from '../world/constants.ts';
 import { Particles } from './particles.ts';
+import { FarLand } from './farland.ts';
+import { Clouds } from './clouds.ts';
+import type { FarMesh } from '../gen/farland.ts';
+
+/** One atmosphere for everything: blocks, distant land and particles fade into the sky alike. */
+const FOG_NEAR = 150;
+const FOG_FAR = 1350;
 
 const BLOCK_VERT = /* glsl */ `
 in vec4 aPack;
@@ -135,6 +142,8 @@ export class Renderer {
   private fogDist = 256;
   stats = { chunks: 0, quads: 0 };
   readonly particles = new Particles();
+  private farland: FarLand | null = null;
+  private clouds = new Clouds();
 
   constructor(canvas: HTMLCanvasElement) {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -194,6 +203,7 @@ export class Renderer {
     this.outline.visible = false;
     this.scene.add(this.outline);
     this.particles.addTo(this.scene);
+    this.scene.add(this.clouds.mesh);
   }
 
   resize(w: number, h: number): void {
@@ -205,9 +215,15 @@ export class Renderer {
   setRenderDistance(blocks: number): void {
     this.fogDist = blocks;
     for (const m of [this.solidMat, this.waterMat]) {
-      m.uniforms.uFogNear.value = blocks * 0.7;
-      m.uniforms.uFogFar.value = blocks * 0.98;
+      m.uniforms.uFogNear.value = FOG_NEAR;
+      m.uniforms.uFogFar.value = FOG_FAR;
     }
+  }
+
+  /** The distant landscape, once a worker has built it. */
+  setFarLand(m: FarMesh): void {
+    this.farland = new FarLand(m, this.solidMat.uniforms.uTex.value);
+    this.scene.add(this.farland.mesh);
   }
 
   applySky(s: SkyState, time: number): void {
@@ -226,8 +242,10 @@ export class Renderer {
       u.uMistColor.value.copy(s.mistColor);
     }
     this.gl.setClearColor(s.fog);
-    const u = this.solidMat.uniforms;
-    this.particles.sync(this.gl.domElement.height, this.camera.fov, u.uFogNear.value, u.uFogFar.value, s);
+    this.particles.sync(this.gl.domElement.height, this.camera.fov, FOG_NEAR, FOG_FAR, s);
+    // The distant land shows from just inside the edge of the loaded blocks.
+    this.farland?.sync(s, this.fogDist - 12, FOG_NEAR, FOG_FAR);
+    this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
   }
 
   private makePart(part: MeshPart, mat: THREE.Material, key: number, cx: number, cy: number, cz: number): THREE.Mesh | undefined {

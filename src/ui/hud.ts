@@ -207,7 +207,8 @@ export class Hud {
     const set = el('div', 'hv-set', p);
     el('label', '', set).textContent = 'View distance';
     const rd = el('select', '', set);
-    for (const c of [4, 6, 8, 10, 12]) { const o = el('option', '', rd); o.value = String(c); o.textContent = `${c * 32} m`; }
+    // 224 m is the least: it keeps the whole valley at full detail from anywhere inside it.
+    for (const c of [7, 8, 10, 12]) { const o = el('option', '', rd); o.value = String(c); o.textContent = `${c * 32} m`; }
     rd.value = '8';
     rd.onchange = () => a.setRenderDistance(Number(rd.value));
     el('label', '', set).textContent = 'Mouse sensitivity';

@@ -5,15 +5,18 @@ import { CS, CHUNKS_Y } from '../world/constants.ts';
 import { generateColumn } from '../gen/terrain.ts';
 import { lightColumn } from '../world/light.ts';
 import { meshChunk, type ChunkMesh } from '../mesh/mesher.ts';
+import { buildFarLand, type FarMesh } from '../gen/farland.ts';
 import type { ChunkPayload } from '../world/world.ts';
 
 export type GenJob = { kind: 'gen'; cx: number; cz: number; edits: number[] };
 export type MeshJob = { kind: 'mesh'; key: number; version: number; blocks: Uint16Array; light: Uint8Array };
-export type Job = GenJob | MeshJob;
+export type FarJob = { kind: 'far' };
+export type Job = GenJob | MeshJob | FarJob;
 
 export type GenResult = { kind: 'gen'; cx: number; cz: number; chunks: ChunkPayload[] };
 export type MeshResult = { kind: 'mesh'; key: number; version: number; mesh: ChunkMesh };
-export type JobResult = GenResult | MeshResult;
+export type FarResult = { kind: 'far'; mesh: FarMesh };
+export type JobResult = GenResult | MeshResult | FarResult;
 
 const V = CS * CS * CS;
 
@@ -41,6 +44,10 @@ export function runJob(job: Job): { result: JobResult; transfer: ArrayBuffer[] }
       chunks.push(payload);
     }
     return { result: { kind: 'gen', cx: job.cx, cz: job.cz, chunks }, transfer };
+  }
+  if (job.kind === 'far') {
+    const mesh = buildFarLand();
+    return { result: { kind: 'far', mesh }, transfer: [mesh.positions.buffer, mesh.colors.buffer, mesh.mats.buffer, mesh.index.buffer] as ArrayBuffer[] };
   }
   const mesh = meshChunk(job.blocks, job.light);
   const transfer: ArrayBuffer[] = [];

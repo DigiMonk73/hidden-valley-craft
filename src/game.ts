@@ -106,6 +106,7 @@ export class Game {
     const workers = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
     this.exec = await createExecutor((j) => this.streamer.priority(j), workers);
     this.streamer = new Streamer(this.world, this.exec, this.renderer);
+    void this.exec.submit({ kind: 'far' }).then((r) => { if (r.kind === 'far') this.renderer.setFarLand(r.mesh); }, (e) => console.error('distant land failed', e));
     this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
 
     let resumed = false;
@@ -340,6 +341,7 @@ export class Game {
   }
 
   private setRenderDistance(chunks: number, persist: boolean): void {
+    chunks = Math.max(this.opts.test ? 2 : 7, Math.min(12, chunks || 8));
     this.streamer.radius = chunks;
     this.renderer.setRenderDistance(chunks * CS);
     this.hud.settingsInputs.rd.value = String(chunks);
