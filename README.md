@@ -1,0 +1,97 @@
+# Hidden Valley — Block Edition
+
+A block-built, browser version of *Hidden Valley*. A hidden karst valley is a permanently safe
+home to mine, build and grow in. Outside it, danger rises zone by zone. It follows the script in
+the Unity project's `docs/DESIGN.md` and is a separate game; the Unity project is never changed
+from here.
+
+- **The plan:** [docs/PLAN.md](docs/PLAN.md) covers the zones, the billionaire's inheritance and the phases 0–9.
+- **Where things stand:** [docs/STATUS.md](docs/STATUS.md).
+- **Licences:** [LICENSES.md](LICENSES.md).
+
+## Run it
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+The page that is played is one self-contained file. Build it with:
+
+```bash
+npm run build
+```
+
+The result is `dist/index.html`, under 14 MB; the build fails above that.
+
+## Check it
+
+```bash
+npm test
+```
+
+```bash
+npm run typecheck
+```
+
+The end-to-end play-through and the screenshot tool both use headless Chromium. Serve the build
+first, because workers can't start from a `file://` page:
+
+```bash
+npx vite preview --port 4173
+```
+
+Then, in a second terminal:
+
+```bash
+node tests/e2e/play.mjs
+```
+
+```bash
+RD=8 node tools/shot.mjs
+```
+
+Two more drawing tools write into `out/`:
+
+```bash
+npm run map
+```
+
+```bash
+node --experimental-strip-types tools/texsheet.ts
+```
+
+`npm run map` draws the world layout as a picture; the second command draws every block texture
+side by side.
+
+## How it is built
+
+The stack is TypeScript, Vite and Three.js (WebGL 2), with Web Workers.
+
+**The world**
+- It is bounded and designed: 2,048 × 2,048 × 192 blocks, 1 block = 1 m.
+- It is generated from `src/gen/layout.ts`, so the same layout always gives the same world.
+- Saves store only the player's edits.
+
+**Main parts**
+
+| Part | Path |
+|---|---|
+| Generation | `src/gen/` |
+| Light (flood fill, sky and block) | `src/world/light.ts` |
+| Chunk store and edits | `src/world/world.ts` |
+| Streaming | `src/world/streamer.ts` |
+| Meshing (per-face, corner shading, smooth light) | `src/mesh/mesher.ts` |
+| Workers, with a main-thread fallback | `src/jobs/` |
+| Rendering and sky | `src/render/` |
+| Player, raycast and hotbar | `src/sim/` |
+| Browser-only code (storage, files, mouse) | `src/platform/` |
+| Saves | `src/save/` |
+| HUD and menus | `src/ui/` |
+| The game loop | `src/game.ts` |
+| Block definitions | `data/blocks.json` |
+
+Textures are original 16×16 pixel art drawn by code (`src/render/textures.ts`).
