@@ -80,3 +80,65 @@ The pace stays slow and deliberate, with small encounters (DESIGN.md).
 - A death outside makes a lost pack holding exactly what was carried.
 
 **Play-through:** swim through the gate, climb to the road, shoot a deer with the bow, cook venison.
+
+## Handoff (2026-11-17): what is built, what is left
+
+Branch `phase3`. The lead session published Phase 2 and handed the rest of this phase to a phase session (AGENTS.md, "Sessions").
+
+**Built and tested** (`tests/wayout.test.ts`):
+- **Layout:** `src/gen/layout.ts` has `POCKET`, `GATE`, `GATE_LEVERS`, `TUNNEL_LAMPS`, `POCKET_LANTERN`, `RAMP`, `ROAD`, `PLACES`, and `roadZ`, `roadHeight`, `rampAt`, `onRoad`. `outsideHeight` now cuts the ramp, the road and the warren's bank into `naturalHeight`.
+- **Terrain:** `src/gen/terrain.ts` has `buildGate` (air pocket, gate stones, levers, sealed lamps, the pocket lantern), `paveRoad`, `placeBufferPlaces` (the ranger sign and post, the warren's burrows) and the morpho tree at the end of `placeTrees`. Trees stay off the road and out of the clearings.
+- **The gate:** `src/sim/gate.ts`, wired into `src/game.ts`:
+  - the lever opens it on right-click;
+  - `tickGate` handles sound, a camera shake and saving;
+  - it closes behind the swimmer, never onto them, and a gate saved open closes on load.
+- **Blocks** (`data/blocks.json`, with textures in `src/render/textures.ts`): `gate_stone`, `gate_lever`, `sealed_lamp`, `ranger_sign`, `sign_post`, `snare`, `snare_caught`, `hutch`, `lost_pack`.
+  - A block holds things when it has a `container` slot count; `World.containerAt` reads it.
+- **Sounds** (`src/audio/audio.ts`): `gate`, `thud`, `bowDraw`, `bowRelease`, `rifle`, `hit`, `rustle`, `grunt`, `growl`, `hurt`.
+  - The owl at dusk plays from `update`.
+  - The others are written but not yet called.
+- **Creatures, logic only** (`src/entity/creatures.ts`, `src/entity/spawner.ts`):
+  - kinds, minds, bodies that never enter the sanctuary, `think`, `hurt`, `rayHitCreature`;
+  - the spawn table, `trySpawn`, `despawnFar`.
+  - They have no tests yet and are not in the game.
+
+**Left to build, in this order:**
+1. **Check the way out by eye.** Take screenshots of:
+   - the tunnel at the gate and in the pocket;
+   - the ramp from the canyon pool;
+   - the road with the ranger sign, the warren and the morpho tree.
+
+   Fix what looks wrong; for example, leg 1 of the ramp leaves a small gully against the wall. Add a journal entry (`data/journal.json`) in the builder's voice that tells where the two marked stones are.
+2. **Morpho butterflies and the tower.**
+   - Blue morpho particles around the morpho tree by day (`src/render/particles.ts`, like the fireflies).
+   - The ridge tower's silhouette in the distant land, at `PLACES.ridgeTower`: a thin lattice mesh with the same fog as `src/render/farland.ts`.
+3. **Items, icons and recipes:**
+   - Items: `hide`, `bone`, `leather`, `rabbit_raw` / `rabbit_cooked`, `venison_raw` / `venison_cooked`, `pork_raw` / `pork_cooked`, `puma_pelt`, `live_rabbit`, `arrowhead`, `leather_armor`.
+   - Icons go in `src/render/itemIcons.ts`.
+   - Recipes as in step 4 above. The `drops` in `KINDS` use these names.
+4. **Creatures in the game:**
+   - A `Wild` system (`src/entity/wild.ts`) owns creatures and arrows. It runs at 20 Hz from `Game.tick`, spawns and despawns, and calls `think`. A hit on the player applies armour: the vest ×0.7, leather ×0.85, the best one carried. It also plays the sounds.
+   - A creature renderer (`src/render/creatures.ts`) draws box models: body, head and four legs that swing with `stride`. It shades them with the block shader's sky, block light and fog uniforms (copy them from `solidMat`), and gives a red flash when hurt.
+   - Tests: zero hostile spawns in the sanctuary over 100,000 samples, and a creature pushed toward the valley never enters it.
+5. **Hunting.** All shots and blows also check `rayHitCreature` before blocks.
+   - **Melee:** a left-click on a creature in reach hits with the held item's damage (fist 2, knife 5, spear 8, axe 7, machete 9). Give a short cooldown.
+   - **Bow:** hold the right button to draw (up to 1 s), release to shoot an arrow entity with gravity for 12–22 damage. It uses an `arrow`; an arrow that hits a block stays there, and walking over it picks it up.
+   - **Rifle:** right-click fires a hitscan shot for 45 and uses a `rifle_round`. Creatures within 60 m hear it.
+   - **Drops:** a kill puts the drops in the pack, or tells you if the pack is full.
+   - **Tests:** arrow flight, damage and drops.
+6. **Snare and hutch.**
+   - A rabbit whose cell is a `snare` turns it into `snare_caught` and is removed. Right-clicking gives a `live_rabbit` and resets the snare.
+   - The hutch: on each new in-game day (06:00, or waking), a loaded hutch with 2 or more `live_rabbit` gains one, up to 8.
+   - Tests for both.
+7. **Death outside.** At 0 HP outside the sanctuary:
+   - Everything carried goes into a `lost_pack` placed at the nearest free cell where you fell (its container gets exactly the slots). The pack is emptied and you wake at the bed.
+   - Inside the valley nothing changes.
+   - Test: the pack holds exactly what was carried.
+8. **The play-through.** Extend `tests/e2e/play.mjs`:
+   - swim from the valley pool to the gate, pull the lever and pass;
+   - reach the road;
+   - shoot a deer with the bow (set the scene with `window.__hv`, as the other steps do);
+   - cook venison at the stove.
+9. **Review.** A fresh reviewer agent that did not write the code checks the branch. Fix what it finds, each bug with a test that fails on the old code. Then message the lead.
+
+**Checks before every push:** `npx tsc --noEmit`, `npx vitest run`, `npx vite build`, and with `npx vite preview --port 4173` running, `node tests/e2e/play.mjs`. Run vitest and the play-through one after the other, never together: the container runs out of memory.
