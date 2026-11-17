@@ -51,6 +51,8 @@ await page.waitForFunction(() => {
 }, null, { timeout: 10_000, polling: 100 }).catch(() => {});
 const target = await g(() => { const t = window.__hv.game.target; return t && { x: t.x, y: t.y, z: t.z, id: t.id }; });
 check('looks at a block', !!target, JSON.stringify(target));
+// Hold the right tool for it (an axe for planks, a pickaxe for stone), as a player would.
+await g((id) => { const k = window.__hv.bestTool(id); if (k >= 0) window.__hv.game.hotbar.selected = k; }, target.id);
 // Software rendering is slow, so game time runs behind the clock here: wait for the result.
 await page.waitForFunction((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z) === 0, target, { timeout: 30_000 }).catch(() => {});
 await page.mouse.up();
@@ -109,6 +111,18 @@ for (const k of ['0', '6', '1', '8', '✓']) await page.locator('.pp-keypad butt
 await page.waitForTimeout(300);
 const opened = await g(() => window.__hv.game.flags.has('safe_open'));
 check('the code from the journal opens the safe', opened);
+
+// Sleep in the bed at night: morning comes, and the garden has grown.
+await page.mouse.click(400, 225);
+await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
+await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1813 && t.z === 1019; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+const gardenBefore = await g(() => window.__hv.gardenStages());
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForTimeout(500);
+const morning = await g(() => ({ hour: window.__hv.game.hour, stages: window.__hv.gardenStages() }));
+check('sleeping in the bed brings morning', Math.abs(morning.hour - 6) < 0.2, `hour ${morning.hour.toFixed(2)}`);
+check('the garden grows overnight', morning.stages > gardenBefore, `crop stages ${gardenBefore} → ${morning.stages}`);
 
 // Eat from the hotbar: the builder's tinned food (slot 5 at the start).
 // (Closing the chest with Esc can't recapture the mouse, so a click comes first, as a player would.)

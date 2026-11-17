@@ -53,7 +53,8 @@
           8,
           16
         ]
-      ]
+      ],
+      "filter": 15
     },
     {
       "render": "model",
@@ -73,7 +74,8 @@
           8,
           16
         ]
-      ]
+      ],
+      "filter": 15
     },
     {
       "render": "model",
@@ -102,7 +104,8 @@
           16,
           16
         ]
-      ]
+      ],
+      "filter": 15
     },
     {
       "render": "model",
@@ -131,7 +134,8 @@
           16,
           16
         ]
-      ]
+      ],
+      "filter": 15
     },
     {
       "render": "model",
@@ -153,7 +157,7 @@
           11
         ]
       ],
-      "collideTop": 24
+      "collideTop": 32
     },
     {
       "render": "model",
@@ -611,7 +615,8 @@
           16,
           11
         ]
-      ]
+      ],
+      "filter": 15
     },
     {
       "render": "model",

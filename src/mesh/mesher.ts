@@ -224,9 +224,10 @@ function meshModel(part: PartBuilder, blocks: Uint16Array, light: Uint8Array, id
       const onEdge = n[axis] > 0 ? hi[axis] === 1 : lo[axis] === 0;
       const ni = pi + n[0] * AXIS_STRIDE[0] + n[1] * AXIS_STRIDE[1] + n[2] * AXIS_STRIDE[2];
       if (onEdge && B_OPAQUE[blocks[ni]]) continue;
-      // Light from the cell the face looks into, if it is open; otherwise the block's own cell.
-      const lv = onEdge && !B_OPAQUE[blocks[ni]] ? light[ni] : light[pi];
-      const sky = (lv >> 4) * 16, blk = (lv & 15) * 16;
+      // Light from the cell the face looks toward, or the block's own cell, whichever is brighter
+      // (a slab or pipe holds sunlight out of its own cell, so its faces take their light from outside).
+      const own = light[pi], out = B_OPAQUE[blocks[ni]] ? 0 : light[ni];
+      const sky = Math.max(own >> 4, out >> 4) * 16, blk = Math.max(own & 15, out & 15) * 16;
       const layer = B_FACE_TEX[id * 6 + f];
       const cs = FACE_CORNERS[f];
       part.ensure();

@@ -13,7 +13,7 @@ import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationOf, type Station } from './sim/crafting.ts';
-import { randomTicks, till, sow, pickCoffee, FARMLAND } from './sim/farming.ts';
+import { randomTicks, till, sow, pickCoffee, growWhileAway, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
@@ -68,6 +68,9 @@ export class Game {
   private wasInWater = false;
   private tickCount = 0;
   private frameDt = 0;
+  /** Seconds of actual play (stops when paused or a screen is open): for boosts and bites. */
+  private playTime = 0;
+  private biteCued = false;
   /** A line in the water: where the bobber floats, when a fish bites and how long it stays on. */
   private fishing: { at: [number, number, number]; biteAt: number; biteEnd: number } | null = null;
   vitals: Vitals = freshVitals();
@@ -108,6 +111,7 @@ export class Game {
     this.paper = new PaperScreen(ui);
     this.screen.onChange = () => this.edited();
     this.screen.onMake = () => this.sound.place('wood');
+    this.screen.onFull = () => this.hud.toast('No room in your pack for that');
     this.hud = new Hud(ui, {
       play: () => this.resume(),
       saveNow: () => void this.save(true),
@@ -244,6 +248,12 @@ export class Game {
   }
 
   private tick(dt: number): void {
+    // With a screen open the player's body waits (no hunger, no sinking); the world goes on.
+    if (this.screen.isOpen || this.paper.isOpen) {
+      if ((this.tickCount = (this.tickCount + 1) % 3) === 0) randomTicks(this.world, this.player.x, this.player.z, Math.random);
+      return;
+    }
+    this.playTime += dt;
     const input = this.readInput();
     const p = this.player;
     const px = p.x, pz = p.z, vy = p.vy;
@@ -296,9 +306,10 @@ export class Game {
     // Putting the rod away or walking off ends it.
     if (f && (this.hotbar.current?.id !== itemId('fishing_rod') || Math.hypot(p.x - f.at[0], p.z - f.at[2]) > 14)) this.fishing = null;
     const g = this.fishing;
-    if (g && this.time >= g.biteAt && this.time - this.frameDt < g.biteAt) { this.sound.splash(); this.hud.toast('A bite! Right-click!', 1500); }
-    if (g && this.time > g.biteEnd + 4) this.fishing = null;
-    const biting = g && this.time >= g.biteAt && this.time <= g.biteEnd ? 1 : 0;
+    if (g && this.playTime >= g.biteAt && !this.biteCued) { this.biteCued = true; this.sound.splash(); this.hud.toast('A bite! Right-click!', 1500); }
+    if (!g) this.biteCued = false;
+    if (g && this.playTime > g.biteEnd + 4) this.fishing = null;
+    const biting = g && this.playTime >= g.biteAt && this.playTime <= g.biteEnd ? 1 : 0;
     this.renderer.showBobber(g ? g.at : null, biting, this.time);
   }
 
@@ -306,7 +317,7 @@ export class Game {
 
   private tickSurvival(dt: number, input: Input): void {
     const p = this.player, v = this.vitals;
-    p.speed = this.time < this.coffeeUntil ? 1.15 : 1;
+    p.speed = this.playTime < this.coffeeUntil ? 1.15 : 1;
     const fall = p.landedFall;
     p.landedFall = 0;
     if (this.hotbar.creative || p.flying) return;
@@ -434,11 +445,15 @@ export class Game {
     }
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
-    if (toggleDoor(this.world, t.x, t.y, t.z)) { this.sound.place('stone'); this.edited(); return; }
+    const door = toggleDoor(this.world, t.x, t.y, t.z, (x, y, z) => this.player.intersectsBlock(x, y, z));
+    if (door === 'blocked') { this.hud.toast('Step out of the doorway first'); return; }
+    if (door) { this.sound.place('stone'); this.edited(); return; }
     const station = stationOf(t.id);
     if (station) { this.openScreen(null, station); return; }
     // The garden: pick ripe coffee, till with a hoe, sow seeds on farmland.
-    if (pickCoffee(this.world, this.hotbar, t.x, t.y, t.z)) { this.sound.place('leaves'); this.edited(); return; }
+    const picked = pickCoffee(this.world, this.hotbar, t.x, t.y, t.z);
+    if (picked === 'full') { this.hud.toast('No room in your pack for the beans'); return; }
+    if (picked) { this.sound.place('leaves'); this.edited(); return; }
     const held = this.hotbar.current;
     if (held && held.id === itemId('steel_hoe') && till(this.world, t.x, t.y, t.z)) { this.hotbar.wearTool(); this.sound.dig('soil'); this.edited(); return; }
     if (t.id === FARMLAND && t.ny === 1 && sow(this.world, this.hotbar, t.x, t.y, t.z)) { this.sound.place('soil'); this.edited(); return; }
@@ -457,6 +472,9 @@ export class Game {
     const name = BLOCK_DEFS[id]?.base ?? blockName(id);
     if (name === 'bed') {
       if (this.hour < 17 && this.hour >= 6) { this.hud.toast('You can sleep from five in the evening'); return true; }
+      // A night's sleep (up to thirteen hours) moves the garden on as if those hours had passed.
+      const hours = (6 - this.hour + 24) % 24;
+      growWhileAway(this.world, this.player.x, this.player.z, hours, Math.random);
       this.hour = 6;
       this.spawn = { x: this.player.x, y: this.player.y, z: this.player.z, yaw: this.player.yaw };
       this.vitals.hp = Math.min(100, this.vitals.hp + 30);
@@ -531,18 +549,18 @@ export class Game {
     if (held && held.id === itemId('fishing_rod')) {
       if (this.fishing) {
         const f = this.fishing;
-        if (this.time >= f.biteAt && this.time <= f.biteEnd) {
-          this.hotbar.add(itemId('trout_raw'));
-          this.hud.toast('A rainbow trout!');
+        if (this.playTime >= f.biteAt && this.playTime <= f.biteEnd) {
+          if (this.hotbar.add(itemId('trout_raw')) > 0) this.hud.toast('No room in your pack: the trout slips back into the water');
+          else this.hud.toast('A rainbow trout!');
           this.sound.splash();
           this.edited();
-        } else this.hud.toast(this.time < f.biteAt ? 'You reel in. Nothing yet.' : 'It got away.');
+        } else this.hud.toast(this.playTime < f.biteAt ? 'You reel in. Nothing yet.' : 'It got away.');
         this.fishing = null;
         return true;
       }
       if (wet && (wet.id === WATER)) {
         const wait = 4 + Math.random() * 6;
-        this.fishing = { at: [wet.x + 0.5, wet.y + 0.9, wet.z + 0.5], biteAt: this.time + wait, biteEnd: this.time + wait + 2.5 };
+        this.fishing = { at: [wet.x + 0.5, wet.y + 0.9, wet.z + 0.5], biteAt: this.playTime + wait, biteEnd: this.playTime + wait + 2.5 };
         this.sound.splash();
         return true;
       }
@@ -555,7 +573,7 @@ export class Game {
       if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
       this.hotbar.take();
       if (held.id === itemId('water_jug')) this.hotbar.add(itemId('empty_jug'));
-      if (held.id === itemId('coffee')) { this.coffeeUntil = this.time + 90; this.hud.toast('Coffee on the balcony: a spring in your step'); }
+      if (held.id === itemId('coffee')) { this.coffeeUntil = this.playTime + 90; this.hud.toast('Coffee on the balcony: a spring in your step'); }
       this.edited();
       return true;
     }
@@ -578,7 +596,7 @@ export class Game {
   }
 
   private closeScreen(): void {
-    this.screen.close();
+    if (!this.screen.close()) { this.hud.toast('No room to put that down: make space first'); return; }
     this.hud.showWorldHud(true);
     this.edited();
     if (this.playing) this.look.engage();
@@ -664,13 +682,23 @@ export class Game {
 
   // ---- Saving ------------------------------------------------------------------------------
 
+  /** The pack as it should be saved: with anything held on a screen's cursor put back in it. */
+  private carried(): Inventory {
+    const held = this.screen.held;
+    if (!held) return this.hotbar;
+    const inv = this.hotbar.clone();
+    const left = inv.stow({ ...held });
+    if (left) { inv.grow(inv.size + 1); inv.stow(left); } // no room: one extra slot rather than lose it
+    return inv;
+  }
+
   snapshot(): SaveData {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
       format: SAVE_FORMAT, version: SAVE_VERSION, savedAt: new Date().toISOString(), hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
-      hotbar: this.hotbar.toSave(), selected: this.hotbar.selected, palette, edits,
+      hotbar: this.carried().toSave(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),

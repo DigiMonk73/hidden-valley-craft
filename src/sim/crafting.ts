@@ -44,11 +44,14 @@ export function canMake(inv: Inventory, r: Recipe): boolean {
   return r.in.every(([id, n]) => inv.count(id) >= Math.max(1, n));
 }
 
-/** Makes one batch: takes the inputs, gives the output (and anything returned). False if short of something. */
-export function make(inv: Inventory, r: Recipe): boolean {
-  if (!canMake(inv, r)) return false;
-  for (const [id, n] of r.in) if (n > 0) inv.remove(id, n);
-  inv.add(r.out[0], r.out[1]);
-  for (const [id, n] of r.returns) inv.add(id, n);
-  return true;
+/** Makes one batch: takes the inputs, gives the output (and anything returned). Nothing happens if short of an
+ * input or if the result would not fit in the pack (so nothing is ever lost). */
+export function make(inv: Inventory, r: Recipe): 'made' | 'short' | 'full' {
+  if (!canMake(inv, r)) return 'short';
+  // Try it on a copy first: the inputs freed may make room, or the pack may be too full.
+  const trial = inv.clone();
+  for (const [id, n] of r.in) if (n > 0) trial.remove(id, n);
+  if (trial.add(r.out[0], r.out[1]) > 0 || r.returns.some(([id, n]) => trial.add(id, n) > 0)) return 'full';
+  inv.slots = trial.slots;
+  return 'made';
 }

@@ -27,7 +27,7 @@ export function cropOf(block: number): { kind: string; stage: number } | undefin
 export function cropDrops(block: number): [number, number][] | undefined {
   const c = cropOf(block);
   if (!c) return undefined;
-  if (c.kind === 'coffee') return [[itemId('coffee_beans'), c.stage === 2 ? 3 : 0]];
+  if (c.kind === 'coffee') return [[itemId('coffee_beans'), c.stage === 2 ? 3 : 1]]; // a bean to plant again
   const info = CROPS[c.kind];
   if (c.stage < LAST_STAGE) return [[itemId(info.seed), 1]];
   const out: [number, number][] = [[itemId(info.produce), info.ripe]];
@@ -37,6 +37,7 @@ export function cropDrops(block: number): [number, number][] | undefined {
 
 /** Which crop a held item sows, if it is a seed (or a potato). */
 export function sows(item: number): string | undefined {
+  if (item === itemId('coffee_beans')) return 'coffee';
   for (const [kind, info] of Object.entries(CROPS)) if (itemId(info.seed) === item) return kind;
   return undefined;
 }
@@ -52,17 +53,47 @@ export function sow(world: World, inv: Inventory, x: number, y: number, z: numbe
   const held = inv.current;
   const kind = held && sows(held.id);
   if (!kind || world.blockAt(x, y, z) !== FARMLAND || world.blockAt(x, y + 1, z) !== AIR) return false;
-  if (!world.setBlock(x, y + 1, z, blockId(`crop_${kind}_0`))) return false;
+  if (!world.setBlock(x, y + 1, z, blockId(kind === 'coffee' ? 'coffee_bush_0' : `crop_${kind}_0`))) return false;
   inv.take();
   return true;
 }
 
 /** Picks a ripe coffee bush: beans, and the bush goes back to green cherries. */
-export function pickCoffee(world: World, inv: Inventory, x: number, y: number, z: number): boolean {
+export function pickCoffee(world: World, inv: Inventory, x: number, y: number, z: number): boolean | 'full' {
   if (blockName(world.blockAt(x, y, z)) !== 'coffee_bush_2') return false;
+  const trial = inv.clone();
+  if (trial.add(itemId('coffee_beans'), 3) > 0) return 'full';
   world.setBlock(x, y, z, blockId('coffee_bush_1'));
   inv.add(itemId('coffee_beans'), 3);
   return true;
+}
+
+/**
+ * Hours passing at once (a night's sleep): every crop near the player grows as many stages as random
+ * ticks would have given it in that time, on average about one stage every five game hours.
+ */
+export function growWhileAway(world: World, px: number, pz: number, hours: number, rand: () => number): number {
+  const expected = hours / 5.4;
+  let grown = 0;
+  const pcx = Math.floor(px / 32), pcz = Math.floor(pz / 32);
+  for (let dz = -3; dz <= 3; dz++)
+    for (let dx = -3; dx <= 3; dx++) {
+      const col = world.column(pcx + dx, pcz + dz);
+      if (!col) continue;
+      for (const ch of col.chunks) {
+        if (!ch.blocks) continue;
+        for (let i = 0; i < 32768; i++) {
+          if (!cropOf(ch.blocks[i])) continue;
+          // How many steps: a Poisson draw around the expected number.
+          let steps = 0, p = Math.exp(-expected), acc = p;
+          const r = rand();
+          while (r > acc && steps < 4) { steps++; p *= expected / steps; acc += p; }
+          const x = ch.cx * 32 + (i & 31), y = ch.cy * 32 + (i >> 10), z = ch.cz * 32 + ((i >> 5) & 31);
+          for (let k = 0; k < steps; k++) if (grow(world, x, y, z)) grown++; else break;
+        }
+      }
+    }
+  return grown;
 }
 
 /** One growth step for the block at (x, y, z), if it is a crop that can grow there now. */

@@ -110,7 +110,8 @@ export class Player {
   /** The highest top of any solid block the body would overlap at (x, y, z); −Infinity if none. */
   private obstacleTop(x: number, y: number, z: number, blockAt: BlockAt): number {
     const x0 = Math.floor(x - WIDTH / 2), x1 = Math.floor(x + WIDTH / 2 - 1e-6);
-    const y0 = Math.floor(y), y1 = Math.floor(y + HEIGHT - 1e-6);
+    // From one block below the feet: a railing's collision stands taller than its block.
+    const y0 = Math.floor(y) - 1, y1 = Math.floor(y + HEIGHT - 1e-6);
     const z0 = Math.floor(z - WIDTH / 2), z1 = Math.floor(z + WIDTH / 2 - 1e-6);
     let top = -Infinity;
     for (let by = y0; by <= y1; by++)
@@ -120,7 +121,7 @@ export class Player {
           if (!B_SOLID[id]) continue;
           // Slabs, stairs and railings stop the body at their own height, not the block's.
           const t = by + B_TOP[id] / 16;
-          if (t > y + 1e-6) top = Math.max(top, t);
+          if (t > y + 1e-6 && by < y + HEIGHT) top = Math.max(top, t);
         }
     return top;
   }

@@ -20,14 +20,17 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   // A broken block next to water lets the water in (still water, for now).
   const besideWater = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a, b, c]) => isWaterId(world.blockAt(x + a, y + b, z + c)));
   if (!world.setBlock(x, y, z, besideWater ? WATER : AIR)) return { changed: false, full: false };
-  if (held) world.containers.delete(packPos(x, y, z));
+  // An emptied chest's record stays (empty), so a chest put back here never refills with the builder's things.
+  if (held) world.containers.set(packPos(x, y, z), held.map(() => null));
   let full = false;
   // Crops give their harvest; everything else its one drop.
   const drops = cropDrops(id) ?? [[dropOf(id), 1]];
   for (const [item, n] of drops) if (item && n > 0 && !hotbar.creative && hotbar.add(item, n) > 0) full = true;
   // Plants on top lose their footing.
   const above = world.blockAt(x, y + 1, z);
-  if (B_RENDER[above] === RENDER.cross && world.setBlock(x, y + 1, z, AIR) && !hotbar.creative) { const d = dropOf(above); if (d) hotbar.add(d); }
+  if (B_RENDER[above] === RENDER.cross && world.setBlock(x, y + 1, z, AIR) && !hotbar.creative) {
+    for (const [item, n] of cropDrops(above) ?? [[dropOf(above), 1]]) if (item && n > 0 && hotbar.add(item, n) > 0) full = true;
+  }
   return { changed: true, full };
 }
 
@@ -53,17 +56,29 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
   return [x, y, z];
 }
 
-/** Opens or shuts a door: the block and the door blocks stacked with it. Returns false if it isn't a door. */
-export function toggleDoor(world: World, x: number, y: number, z: number): boolean {
-  const name = blockName(world.blockAt(x, y, z));
-  const m = name.match(/^(steel_door)(_open)?(@\w+)?$/);
-  if (!m) return false;
-  const next = m[1] + (m[2] ? '' : '_open') + (m[3] ?? '');
+/**
+ * Opens or shuts a door: every connected block of it (both halves, both leaves). It won't shut on
+ * someone standing in it ('blocked'). Returns false if the block isn't a door.
+ */
+export function toggleDoor(world: World, x: number, y: number, z: number, occupied: (x: number, y: number, z: number) => boolean = () => false): boolean | 'blocked' {
   const from = world.blockAt(x, y, z);
-  // Find the whole stack of this door, then swap every part.
-  let y0 = y, y1 = y;
-  while (world.blockAt(x, y0 - 1, z) === from) y0--;
-  while (world.blockAt(x, y1 + 1, z) === from) y1++;
-  for (let k = y0; k <= y1; k++) world.setBlock(x, k, z, blockId(next));
+  const m = blockName(from).match(/^(steel_door)(_open)?(@\w+)?$/);
+  if (!m) return false;
+  const next = blockId(m[1] + (m[2] ? '' : '_open') + (m[3] ?? ''));
+  // The door's parts: the same block, joined up, down and sideways (a few blocks at most).
+  const parts: [number, number, number][] = [];
+  const seen = new Set<string>();
+  const stack: [number, number, number][] = [[x, y, z]];
+  while (stack.length && parts.length < 8) {
+    const [a, b, c] = stack.pop()!;
+    const k = `${a},${b},${c}`;
+    if (seen.has(k) || world.blockAt(a, b, c) !== from) continue;
+    seen.add(k);
+    parts.push([a, b, c]);
+    for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) stack.push([a + dx, b + dy, c + dz]);
+  }
+  const shutting = !!m[2];
+  if (shutting && parts.some(([a, b, c]) => occupied(a, b, c))) return 'blocked'; // never shut on someone
+  for (const [a, b, c] of parts) world.setBlock(a, b, c, next);
   return true;
 }

@@ -27,6 +27,26 @@ export class Inventory {
   }
 
   get size(): number { return this.slots.length; }
+
+  clone(): Inventory {
+    const c = new Inventory(this.slots.length);
+    c.slots = this.slots.map((s) => (s ? { ...s } : null));
+    c.selected = this.selected;
+    c.creative = this.creative;
+    return c;
+  }
+
+  /** Puts a stack anywhere it fits, keeping its wear; returns what is left over (null if all of it fitted). */
+  stow(s: Stack): Stack | null {
+    if (s.wear === undefined) {
+      const left = this.add(s.id, s.count);
+      return left > 0 ? { id: s.id, count: left } : null;
+    }
+    const empty = this.slots.findIndex((x) => !x);
+    if (empty < 0) return s;
+    this.slots[empty] = s;
+    return null;
+  }
   get current(): Stack | null { return this.slots[this.selected]; }
 
   select(i: number): void { this.selected = ((i % HOTBAR) + HOTBAR) % HOTBAR; }
@@ -97,7 +117,8 @@ export class Inventory {
   }
 
   static fromSave(slots: (Slot | null)[], selected: number): Inventory {
-    const inv = new Inventory(Math.max(BASE_SLOTS, Math.min(BACKPACK_SLOTS, slots.length)));
+    // One past the backpack's size is allowed: a save made with an item held and no room left.
+    const inv = new Inventory(Math.max(BASE_SLOTS, Math.min(BACKPACK_SLOTS + 1, slots.length)));
     slots.slice(0, inv.size).forEach((s, i) => {
       if (!s) return;
       try { inv.slots[i] = { id: itemId(s.name), count: Math.min(maxStack(itemId(s.name)), s.count), ...(s.wear ? { wear: s.wear } : {}) }; } catch { /* an item that no longer exists */ }

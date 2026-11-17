@@ -53,6 +53,8 @@ export class InventoryScreen {
   onChange: () => void = () => {};
   /** Called when something is made, with what it was (for a sound). */
   onMake: (r: Recipe) => void = () => {};
+  /** Called when something can't be made because the pack has no room for it. */
+  onFull: () => void = () => {};
 
   constructor(root: HTMLElement) {
     const style = document.createElement('style');
@@ -91,17 +93,28 @@ export class InventoryScreen {
     this.render();
   }
 
-  /** Closes the screen; anything held on the cursor goes back into the inventory. */
-  close(): void {
+  /** What is on the cursor right now (it belongs in a save too). */
+  get held(): Stack | null { return this.cursor; }
+
+  /**
+   * Closes the screen; anything held on the cursor goes back into the pack or the open chest, wear
+   * and all. If there is no room anywhere, the screen stays open (returns false) so nothing is lost.
+   */
+  close(): boolean {
     if (this.cursor && this.inv) {
-      const left = this.inv.add(this.cursor.id, this.cursor.count);
-      if (left > 0 && this.chest) { const spare = this.chest.slots.findIndex((s) => !s); if (spare >= 0) this.chest.slots[spare] = { id: this.cursor.id, count: left }; }
+      let left: Stack | null = this.inv.stow(this.cursor);
+      if (left && this.chest) {
+        const spare = this.chest.slots.findIndex((s) => !s);
+        if (spare >= 0) { this.chest.slots[spare] = left; left = null; }
+      }
+      if (left) { this.cursor = left; this.render(); return false; }
     }
     this.cursor = null;
     this.wrap.hidden = true;
     this.tip.hidden = true;
     this.inv = null;
     this.chest = null;
+    return true;
   }
 
   private render(): void {
@@ -150,6 +163,8 @@ export class InventoryScreen {
       cell.title = d.label;
       cell.addEventListener('mousedown', (e) => {
         e.preventDefault();
+        // Put down whatever was held first, so picking a block never loses it.
+        if (this.cursor && this.inv) { const left = this.inv.stow(this.cursor); if (left) return; }
         this.cursor = { id, count: maxStack(id) };
         this.render();
       });
@@ -195,7 +210,12 @@ export class InventoryScreen {
       btn.className = 'iv-make';
       btn.textContent = 'Make';
       btn.disabled = !ok;
-      btn.onclick = () => { if (make(inv, r)) { this.onMake(r); this.onChange(); this.render(); } };
+      btn.onclick = () => {
+        const result = make(inv, r);
+        if (result === 'made') { this.onMake(r); this.onChange(); }
+        if (result === 'full') this.onFull();
+        this.render();
+      };
       row.append(img, mid, btn);
       list.append(row);
     }
