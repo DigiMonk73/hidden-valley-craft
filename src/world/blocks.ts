@@ -26,6 +26,7 @@ interface BlockSource {
   facing?: boolean; // placed facing the player: expands into four blocks (name, name@east, @south, @west)
   collideTop?: number; // collision height in sixteenths if not the boxes' own (a railing is 32: no jumping or stepping over)
   crop?: { kind: string; stage: number }; // a crop at a growth stage (the last stage is ripe)
+  container?: number; // holds things, like a chest: how many slots
 }
 
 export interface BlockDef extends BlockSource {

@@ -43,6 +43,7 @@ export class Sound {
   private cave!: GainNode;
   private nextBird = 0;
   private nextFrog = 0;
+  private nextOwl = 0;
   volume = 0.8;
   muted = false;
 
@@ -195,6 +196,21 @@ export class Sound {
       this.frog(l);
       this.nextFrog = t + 0.8 + Math.random() * 3;
     }
+    // The owl at dusk: night is coming, and outside the valley night is when the puma hunts.
+    if (l.hour > 17.7 && l.hour < 18.7 && t > this.nextOwl) {
+      this.owl(l);
+      this.nextOwl = t + 14 + Math.random() * 12;
+    }
+  }
+
+  private owl(l: Listener): void {
+    const t = this.ctx!.currentTime + 0.05;
+    const p = this.around(l, 25, 60, 15);
+    // Hoo, hoo-hoo, hooooo: soft, low, a little breathy.
+    [[0, 0.32], [0.62, 0.16], [0.84, 0.16], [1.14, 0.75]].forEach(([d, len]) => {
+      this.chirp(p, t + d, 400, 360, len, 0.09, 'sine');
+      this.chirp(p, t + d, 800, 720, len * 0.8, 0.012, 'sine');
+    });
   }
 
   /** A short sound placed around the listener. */
@@ -302,6 +318,113 @@ export class Sound {
     else if (m === 'wood') this.thump(210, 0.08, 0.22);
     else this.burst(0.07, 'lowpass', 800, 0.7, 0.18);
   }
+
+  // ---- Outside: the gate, weapons and animals ----------------------------------------------------
+
+  /** A sound source at a point in the world. */
+  private at(x: number, y: number, z: number): PannerNode {
+    const p = new PannerNode(this.ctx!, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 4, rolloffFactor: 1.2, positionX: x, positionY: y, positionZ: z });
+    p.connect(this.sfx);
+    return p;
+  }
+
+  private noiseAt(dest: AudioNode, at: number, dur: number, type: BiquadFilterType, freq: number, q: number, gain: number, attack = 0.005): void {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(gain, at + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    src.connect(f).connect(g).connect(dest);
+    src.start(at, Math.random() * 3, dur + 0.05);
+  }
+
+  /** The gate's ritual: stone grinding on stone over a deep rumble. */
+  gate(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.brown;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 260; f.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.5, t + 0.25);
+    g.gain.setValueAtTime(0.5, t + 1.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.1);
+    // The grinding judders.
+    const jud = ctx.createOscillator(); jud.frequency.value = 11;
+    const judDepth = ctx.createGain(); judDepth.gain.value = 0.25;
+    jud.connect(judDepth).connect(g.gain);
+    jud.start(t); jud.stop(t + 2.2);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(t, Math.random() * 2, 2.2);
+    this.chirp(this.sfx, t, 46, 38, 2.0, 0.35);
+    this.noiseAt(this.sfx, t + 0.1, 1.8, 'highpass', 2600, 0.7, 0.05, 0.3);
+  }
+
+  /** The slab settling: a heavy thud. */
+  thud(): void { this.thump(70, 0.35, 0.4); this.burst(0.2, 'lowpass', 400, 0.7, 0.2); }
+
+  bowDraw(): void { if (this.ctx) this.chirp(this.sfx, this.ctx.currentTime, 180, 260, 0.35, 0.05, 'sawtooth'); }
+  bowRelease(): void { this.thump(130, 0.12, 0.3); this.burst(0.08, 'bandpass', 1800, 2, 0.12); }
+
+  /** The rifle: a sharp crack, then the canyon throwing it back. */
+  rifle(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noiseAt(this.sfx, t, 0.25, 'lowpass', 5000, 0.5, 0.9, 0.001);
+    this.chirp(this.sfx, t, 120, 50, 0.3, 0.6);
+    for (const [d, g] of [[0.35, 0.18], [0.7, 0.09], [1.2, 0.05]]) this.noiseAt(this.sfx, t + d, 0.5, 'lowpass', 900, 0.6, g, 0.02);
+  }
+
+  /** An arrow or a blow landing on an animal. */
+  hit(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z);
+    this.chirp(p, this.ctx.currentTime, 160, 90, 0.09, 0.4);
+    this.noiseAt(p, this.ctx.currentTime, 0.06, 'bandpass', 1200, 1, 0.2);
+  }
+
+  /** Leaves thrashing as an animal bolts. */
+  rustle(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    for (let i = 0; i < 4; i++) this.noiseAt(p, t + i * 0.09 + Math.random() * 0.04, 0.14, 'bandpass', 3000 + Math.random() * 1500, 0.7, 0.18);
+  }
+
+  /** A wild boar's grunt. */
+  grunt(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    for (let i = 0; i < 2; i++) {
+      this.chirp(p, t + i * 0.22, 110, 80, 0.16, 0.5, 'sawtooth');
+      this.noiseAt(p, t + i * 0.22, 0.15, 'lowpass', 500, 0.8, 0.3);
+    }
+  }
+
+  /** The puma's low growl before it lunges. */
+  growl(x: number, y: number, z: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const p = this.at(x, y, z), t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(95, t + 0.6);
+    const trem = ctx.createOscillator(); trem.frequency.value = 23;
+    const tremDepth = ctx.createGain(); tremDepth.gain.value = 0.3;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.35, t + 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600;
+    trem.connect(tremDepth).connect(g.gain);
+    o.connect(lp).connect(g).connect(p);
+    o.start(t); o.stop(t + 0.85); trem.start(t); trem.stop(t + 0.85);
+  }
+
+  /** A blow landing on the player. */
+  hurt(): void { this.thump(90, 0.18, 0.5); this.burst(0.12, 'lowpass', 700, 0.7, 0.3); }
 
   splash(): void {
     const ctx = this.ctx;

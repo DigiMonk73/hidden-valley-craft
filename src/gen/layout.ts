@@ -67,6 +67,45 @@ export const CANYON = { x: 1560, halfFloor: 14, wallRun: 16, z0: 620, z1: 1460 }
 export const CANYON_POOL = { cx: 1564, cz: 1024, radius: 9, depth: 5 };
 export const TUNNEL = { x0: 1566, x1: 1607, z: 1024, y0: 62, y1: 65, halfWidth: 1 };
 
+/**
+ * The builder's gate in the drowned tunnel, and the air pocket beside it (docs/PHASE3.md, step 1).
+ * Swimming from the valley: dive at the pool, swim west to the gate, pull the marked stone on the
+ * north wall, swim through into the pocket and breathe, then on to the canyon pool. Both levers are
+ * on the north wall: the valley one under water just before the gate, the pocket one above the water.
+ */
+export const POCKET = { x0: 1583, x1: 1591, z0: 1022, z1: 1027, y0: 62, water: 64, y1: 68 }; // [x0,x1) × [z0,z1), air above `water` up to y1
+export const GATE = { x0: 1591, x1: 1593, z0: TUNNEL.z - TUNNEL.halfWidth, z1: TUNNEL.z + TUNNEL.halfWidth + 1, y0: TUNNEL.y0, y1: TUNNEL.y1 };
+export const GATE_LEVERS: [number, number, number][] = [[1594, 63, 1022], [1589, 66, 1021]];
+/** Lamps the builder set in the rock: either side of the gate, and the lantern in the pocket. */
+export const TUNNEL_LAMPS: [number, number, number][] = [[1595, 63, 1026], [1600, 65, 1024], [1584, 63, 1021]];
+export const POCKET_LANTERN: [number, number, number] = [1587, 67, 1024];
+
+/**
+ * The switchback up the canyon's west wall, from the canyon floor beside the pool to the rim where
+ * the old road begins: x, z, walking height (one block up for every two along).
+ */
+export const RAMP: [number, number, number][] = [
+  [1556, 1031, 71],
+  [1552, 1057, 84],
+  [1546, 1061, 86],
+  [1543, 1035, 99],
+  [1538, 1031, 101],
+  [1534, 1052, 0], // the road's height here, filled in below
+];
+export const RAMP_HALF_WIDTH = 1.9;
+
+/** The old road: cracked asphalt, four wide, from the top of the ramp west through the buffer to the saddle and on. */
+export const ROAD = { east: 1534, west: 1100, halfWidth: 2 };
+
+/** The buffer's places, off the road (DESIGN.md: wilderness buffer). */
+export const PLACES = {
+  rangerSign: { x: 1497, z: 0 }, // z beside the road, filled in below
+  morphoTree: { x: 1322, z: 0, clearing: 9 },
+  warren: { x: 1418, z: 0, radius: 7 },
+  /** The ruined radio tower on Zone-4's ridge: seen from afar, not reachable yet. */
+  ridgeTower: { x: 360, z: 380, height: 64 },
+};
+
 /** The garden ground at the foot of the path, kept clear of trees for Phase 2's planting. */
 export const GARDEN = { x0: 1728, x1: 1770, z0: 1012, z1: 1050 };
 
@@ -165,8 +204,28 @@ export function valleyFloorHeight(x: number, z: number): number {
   return VALLEY.floor + Math.round(Math.max(-1, Math.min(1, n * 1.6)));
 }
 
-/** Walking height of the land outside the valley's cliff (the plateau and the zones). */
+/** Walking height of the land outside the valley's cliff: the land itself, with the ramp and the road cut into it. */
 export function outsideHeight(x: number, z: number): number {
+  const onRoadX = x <= ROAD.east + 1 && x >= ROAD.west - 6;
+  const roadD = onRoadX ? Math.abs(z + 0.5 - roadZ(x)) : Infinity;
+  if (roadD < ROAD.halfWidth) return roadHeight(x);
+  const ramp = rampAt(x, z);
+  if (ramp.dist < RAMP_HALF_WIDTH) return Math.round(ramp.height);
+  const natural = naturalHeight(x, z, true);
+  if (onRoadX) {
+    const d = roadD;
+    // Shoulders: the land eases down (or up) to the road over a few blocks.
+    if (d < ROAD.halfWidth + 3.5) return Math.round(mix(roadHeight(x), natural, smoothstep(ROAD.halfWidth, ROAD.halfWidth + 3.5, d)));
+  }
+  // The rabbit warren: a low grassy bank beside the road.
+  const w = PLACES.warren;
+  const wd = Math.hypot(x - w.x, z - w.z);
+  if (wd < w.radius + 3) return Math.round(natural + 3 * (1 - smoothstep(w.radius - 3, w.radius + 3, wd)));
+  return Math.round(natural);
+}
+
+/** The land outside the valley before anything is built on it. `fine` adds the small bumps (not under the road). */
+function naturalHeight(x: number, z: number, fine: boolean): number {
   // Large regions, west of the valley along the road.
   let base: number;
   if (x >= ZONES.saddleX) {
@@ -174,7 +233,7 @@ export function outsideHeight(x: number, z: number): number {
     base = 96 + 14 * smoothstep(1460, ZONES.saddleX, x);
   } else if (x >= ZONES.ravineX + 40) {
     // Zone-1 basin: sloping gently down from the saddle toward the ravine.
-    base = mix(84, 108, smoothstep(ZONES.midX - 40, ZONES.saddleX, x));
+    base = mix(84, 110, smoothstep(ZONES.midX - 40, ZONES.saddleX, x)); // meets the buffer's 110 at the saddle
   } else {
     // West of the ravine: Zone-3's river plain.
     base = 76;
@@ -196,7 +255,7 @@ export function outsideHeight(x: number, z: number): number {
   base = mix(base, plateau, 1 - smoothstep(130, 200, d));
 
   // Surface detail.
-  base += 5 * noiseB.fbm2(x / 70, z / 70, 4) + 1.5 * noise.noise2(x / 9, z / 9);
+  base += 5 * noiseB.fbm2(x / 70, z / 70, 4) + (fine ? 1.5 * noise.noise2(x / 9, z / 9) : 0);
 
   // The canyon west of the valley: steep walls, flat floor.
   if (z > CANYON.z0 - 40 && z < CANYON.z1 + 40) {
@@ -216,7 +275,7 @@ export function outsideHeight(x: number, z: number): number {
   const peaks = 150 + 28 * (1 - Math.abs(noiseB.noise2(x / 140, z / 140))) + 10 * noise.noise2(x / 45, z / 45);
   base = mix(base, Math.max(base, peaks), smoothstep(280, 30, edge));
 
-  return Math.round(Math.max(30, Math.min(182, base)));
+  return Math.max(30, Math.min(182, base));
 }
 
 /** Walking height anywhere, ignoring the cliff's 3D shape (used for trees and the map). */
@@ -225,3 +284,46 @@ export function surfaceHeight(x: number, z: number): number {
   if (d < VALLEY.radius - 6) return valleyFloorHeight(x, z);
   return outsideHeight(x, z);
 }
+
+// ---------------------------------------------------------------------------------------
+// The way out: the ramp and the old road.
+// ---------------------------------------------------------------------------------------
+
+/** The road's centre line: straight west along the buffer, bending north-east up to the ramp's top. */
+export function roadZ(x: number): number {
+  const bend = smoothstep(1380, ROAD.east, x);
+  return VALLEY.cz + 28 * bend + 4 * Math.sin(x / 53) * (1 - bend);
+}
+
+const roadHeights = new Float32Array(WORLD_X).fill(NaN);
+
+/** The road's walking height at x: the lie of the land along it, without the small bumps. */
+export function roadHeight(x: number): number {
+  const i = Math.max(0, Math.min(WORLD_X - 1, Math.floor(x)));
+  if (Number.isNaN(roadHeights[i])) roadHeights[i] = Math.round(naturalHeight(i, Math.floor(roadZ(i)), false));
+  return roadHeights[i];
+}
+
+/** Distance to the ramp's centre line and its walking height there. */
+export function rampAt(x: number, z: number): { dist: number; height: number } {
+  let best = Infinity, height = 0;
+  if (x < 1526 || x > 1564 || z < 1022 || z > 1068) return { dist: best, height };
+  for (let i = 0; i < RAMP.length - 1; i++) {
+    const a = RAMP[i], b = RAMP[i + 1];
+    const [d, t] = distToSegment(x + 0.5, z + 0.5, a[0], a[1], b[0], b[1]);
+    if (d < best) { best = d; height = mix(a[2], b[2], t); }
+  }
+  return { dist: best, height };
+}
+
+/** Is (x, z) on the road or ramp (with a margin), where nothing grows? */
+export function onRoad(x: number, z: number, margin = 0): boolean {
+  if (rampAt(x, z).dist < RAMP_HALF_WIDTH + margin) return true;
+  return x <= ROAD.east + 1 && x >= ROAD.west && Math.abs(z + 0.5 - roadZ(x)) < ROAD.halfWidth + margin;
+}
+
+// The ramp ends at the road's height; the places sit beside the road.
+RAMP[RAMP.length - 1][2] = roadHeight(ROAD.east);
+PLACES.rangerSign.z = Math.round(roadZ(PLACES.rangerSign.x)) + 4;
+PLACES.morphoTree.z = Math.round(roadZ(PLACES.morphoTree.x)) - 17;
+PLACES.warren.z = Math.round(roadZ(PLACES.warren.x)) + 15;

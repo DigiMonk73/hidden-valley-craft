@@ -33,7 +33,7 @@
     { "name": "orchid", "label": "Orchid", "tex": "orchid", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0 },
     { "name": "bamboo", "label": "Bamboo", "tex": "bamboo", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1 },
     { "name": "moss", "label": "Moss", "tex": "moss", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.2, "drop": "dirt" },
-    { "name": "chest", "label": "Chest", "tex": { "top": "chest_top", "side": "chest_side", "bottom": "chest_top" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
+    { "name": "chest", "label": "Chest", "container": 27, "tex": { "top": "chest_top", "side": "chest_side", "bottom": "chest_top" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
     { "name": "road", "label": "Broken asphalt", "tex": "road", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "drop": "gravel" },
     {
       "render": "model",
@@ -666,7 +666,7 @@
     { "name": "workbench", "label": "Workbench", "tex": { "top": "workbench_top", "side": "workbench_side", "bottom": "planks" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
     { "name": "smelter", "label": "Smelter", "tex": { "top": "cobble", "side": "cobble", "bottom": "cobble", "front": "smelter_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 9, "facing": true, "hardness": 0.8 },
     { "name": "kiln", "label": "Kiln", "tex": { "top": "stone_bricks", "side": "stone_bricks", "bottom": "stone_bricks", "front": "kiln_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 7, "facing": true, "hardness": 0.8 },
-    { "name": "wall_safe", "label": "Wall safe", "tex": { "top": "steel", "side": "steel", "bottom": "steel", "front": "safe_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "facing": true, "hardness": -1 },
+    { "name": "wall_safe", "label": "Wall safe", "container": 27, "tex": { "top": "steel", "side": "steel", "bottom": "steel", "front": "safe_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "facing": true, "hardness": -1 },
     { "name": "farmland", "label": "Tilled soil", "tex": { "top": "farmland", "side": "dirt", "bottom": "dirt" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.25, "drop": "dirt" },
     { "name": "crop_corn_0", "label": "Corn (growing)", "tex": "crop_corn_0", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0, "crop": { "kind": "corn", "stage": 0 } },
     { "name": "crop_corn_1", "label": "Corn (growing)", "tex": "crop_corn_1", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0, "crop": { "kind": "corn", "stage": 1 } },
@@ -698,6 +698,15 @@
     { "name": "crop_herbs_3", "label": "Herbs (ripe)", "tex": "crop_herbs_3", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0, "crop": { "kind": "herbs", "stage": 3 } },
     { "name": "coffee_bush_0", "label": "Coffee bush", "tex": "coffee_bush_0", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.2, "crop": { "kind": "coffee", "stage": 0 } },
     { "name": "coffee_bush_1", "label": "Coffee bush", "tex": "coffee_bush_1", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.2, "crop": { "kind": "coffee", "stage": 1 } },
-    { "name": "coffee_bush_2", "label": "Coffee bush (ripe)", "tex": "coffee_bush_2", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.2, "crop": { "kind": "coffee", "stage": 2 } }
+    { "name": "coffee_bush_2", "label": "Coffee bush (ripe)", "tex": "coffee_bush_2", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.2, "crop": { "kind": "coffee", "stage": 2 } },
+    {"name": "gate_stone", "label": "Rock", "tex": "limestone", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": -1},
+    {"name": "gate_lever", "label": "Marked stone", "tex": "gate_lever", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": -1},
+    {"name": "sealed_lamp", "label": "Sealed lamp", "tex": "sealed_lamp", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 13, "hardness": 0.6},
+    {"name": "ranger_sign", "label": "Toppled ranger sign", "tex": {"top": "ranger_sign", "side": "planks", "bottom": "planks"}, "render": "model", "boxes": [[0, 0, 2, 16, 2, 14]], "layer": "cutout", "solid": false, "opaque": false, "facing": true, "hardness": 0.3, "drop": "planks"},
+    {"name": "sign_post", "label": "Broken post", "tex": "planks", "render": "model", "boxes": [[6, 0, 6, 10, 11, 10]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3, "drop": "stick"},
+    {"name": "snare", "label": "Snare", "tex": "snare", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.05},
+    {"name": "snare_caught", "label": "Snare (a rabbit!)", "tex": "snare_caught", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.05, "drop": "live_rabbit"},
+    {"name": "hutch", "label": "Rabbit hutch", "tex": {"top": "planks", "side": "hutch_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "container": 9},
+    {"name": "lost_pack", "label": "Your lost pack", "tex": "lost_pack", "render": "model", "boxes": [[3, 0, 3, 13, 8, 13], [5, 8, 5, 11, 10, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.4, "drop": "cordage", "container": 46}
   ]
 }

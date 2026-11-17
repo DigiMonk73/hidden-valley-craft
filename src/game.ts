@@ -13,6 +13,7 @@ import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationOf, type Station } from './sim/crafting.ts';
+import { Gate, GATE_LEVER } from './sim/gate.ts';
 import { randomTicks, till, sow, pickCoffee, growWhileAway, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
@@ -29,7 +30,7 @@ import { openStore, writePending, readPending, clearPending, type Store } from '
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
-import { HOME, WATERFALL, VALLEY, POOL, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, creekDistance } from './gen/layout.ts';
+import { HOME, WATERFALL, VALLEY, POOL, GATE, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
 const SAVE_KEY = 'save:1';
@@ -74,6 +75,9 @@ export class Game {
   /** A line in the water: where the bobber floats, when a fish bites and how long it stays on. */
   private fishing: { at: [number, number, number]; biteAt: number; biteEnd: number } | null = null;
   vitals: Vitals = freshVitals();
+  /** The builder's gate in the tunnel, and how hard the ground is shaking from it. */
+  gate = new Gate();
+  private shake = 0;
   /** Where the player wakes after a death or a night's sleep. */
   spawn = { x: 0, y: 0, z: 0, yaw: 0 };
   private coffeeUntil = 0;
@@ -221,7 +225,9 @@ export class Game {
 
     // Camera and sky.
     const cam = this.renderer.camera;
-    cam.position.set(p.x, p.eyeY, p.z);
+    this.shake = Math.max(0, this.shake - dt);
+    const quake = this.shake > 0 ? Math.min(1, this.shake) * 0.05 : 0;
+    cam.position.set(p.x + quake * Math.sin(this.time * 61), p.eyeY + quake * Math.sin(this.time * 47), p.z);
     cam.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
     this.sky = skyAt(this.hour);
     this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
@@ -269,6 +275,7 @@ export class Game {
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
     this.tickSurvival(dt, input);
+    this.tickGate(dt);
     // Mark where the player has been, for the map table (once a second).
     if (Math.floor(this.time) !== this.lastExplore) {
       this.lastExplore = Math.floor(this.time);
@@ -311,6 +318,17 @@ export class Game {
     if (g && this.playTime > g.biteEnd + 4) this.fishing = null;
     const biting = g && this.playTime >= g.biteAt && this.playTime <= g.biteEnd ? 1 : 0;
     this.renderer.showBobber(g ? g.at : null, biting, this.time);
+  }
+
+  private tickGate(dt: number): void {
+    const before = this.gate.rows;
+    const e = this.gate.update(dt, this.world, this.player);
+    if (e === 'grind') { this.sound.gate(); this.shake = 2; }
+    if (e === 'open' || e === 'shut') { this.sound.thud(); this.shake = Math.max(this.shake, 0.4); }
+    if (this.gate.rows !== before) {
+      this.streamer.markUrgentAround(GATE.x0, GATE.y0, GATE.z0);
+      this.edited();
+    }
   }
 
   // ---- Survival ------------------------------------------------------------------------------
@@ -445,6 +463,10 @@ export class Game {
     }
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
+    if (t.id === GATE_LEVER) {
+      if (this.gate.pull() === 'grind') { this.sound.gate(); this.shake = 2; }
+      return;
+    }
     const door = toggleDoor(this.world, t.x, t.y, t.z, (x, y, z) => this.player.intersectsBlock(x, y, z));
     if (door === 'blocked') { this.hud.toast('Step out of the doorway first'); return; }
     if (door) { this.sound.place('stone'); this.edited(); return; }
@@ -819,6 +841,7 @@ export class Game {
     this.world.edits.clear();
     this.world.containers.clear();
     this.mining.active = false;
+    this.gate = new Gate();
     if (d) this.applySave(d);
     else {
       this.hotbar = Inventory.starter();
