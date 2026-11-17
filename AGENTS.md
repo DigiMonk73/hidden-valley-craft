@@ -27,6 +27,15 @@ project's `docs/DESIGN.md`, in the private repository `DigiMonk73/hidden-valley`
 - **Design data stays plain data** (`data/*.json`). Saves store block *names*, so ids may change between builds.
 - **A bug fix gets a test that fails on the old code.**
 
+## Sessions (the owner, 2026-11-17)
+
+- **One lead session** owns `main`, the published page and the reviews. It writes each phase's plan into `docs/PHASEn.md` and starts a **phase session** to build it, so no one conversation grows too long.
+- **A phase session** works only on its own branch (`phase3`, `phase4`…). It:
+  - commits each finished step there with its tests and pushes the branch;
+  - never pushes to `main` and never publishes the page;
+  - ends by having a fresh reviewer check its work, fixing what it finds, and messaging the lead with what was built, the test results and what it saw in its screenshots (the lead takes the pictures the owner gets).
+- **The lead** reads the diff, runs the checks again, merges the branch into `main`, publishes and reports to the owner.
+
 ## Where it lives
 
 - **The repository:** https://github.com/DigiMonk73/hidden-valley-craft, branch `main`. The owner made it for this game and asked for everything to be pushed there.
