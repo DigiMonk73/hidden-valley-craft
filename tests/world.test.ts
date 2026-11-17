@@ -75,6 +75,22 @@ describe('mesher', () => {
     for (let v = 0; v < 24; v++) expect(m.solid.pack[v * 4 + 1]).toBe(3);
   });
 
+  it('fills water to the top of its block under a solid block, and lowers it under open air', () => {
+    const blocks = new Uint16Array(PADDED_VOLUME);
+    const light = new Uint8Array(PADDED_VOLUME).fill(0xf0);
+    blocks[paddedIndex(5, 5, 5)] = WATER;
+    blocks[paddedIndex(5, 6, 5)] = blockId('limestone');
+    blocks[paddedIndex(9, 5, 5)] = WATER;
+    const m = meshChunk(blocks, light);
+    const tops = (x: number) => {
+      const ys: number[] = [];
+      for (let v = 0; v < m.water.quads * 4; v++) if (Math.floor(m.water.positions[v * 3]) === x || m.water.positions[v * 3] === x + 1) ys.push(m.water.positions[v * 3 + 1]);
+      return Math.max(...ys);
+    };
+    expect(tops(4)).toBe(5); // chunk-local y: cell 4 spans 4…5
+    expect(tops(8)).toBeCloseTo(4.875);
+  });
+
   it('meshes a real chunk of the valley', () => {
     const world = new World();
     for (let cz = 31; cz <= 33; cz++)

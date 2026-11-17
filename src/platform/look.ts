@@ -14,15 +14,16 @@ export class Look {
   invertY = false;
   onDelta: (dx: number, dy: number) => void = () => {};
   onModeChange: (m: LookMode) => void = () => {};
+  onNotice: (text: string) => void = () => {};
   private canvas: HTMLCanvasElement;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === canvas) { this.everCaptured = true; this.setMode('captured'); }
+      if (document.pointerLockElement === canvas) { this.everCaptured = true; this.captureBlocked = false; this.setMode('captured'); }
       else if (this.mode === 'captured') this.setMode('off');
     });
-    document.addEventListener('pointerlockerror', () => this.fallBack());
+    document.addEventListener('pointerlockerror', () => this.refused());
     document.addEventListener('mousemove', (e) => {
       if (this.mode === 'off') return;
       const k = this.sensitivity * (this.mode === 'free' ? 1.4 : 1);
@@ -40,18 +41,19 @@ export class Look {
   /** Called from a click: capture the mouse, or use free-look where capture is blocked. */
   engage(): void {
     if (this.captureBlocked) { this.setMode('free'); return; }
-    let settled = false;
-    const done = () => { settled = true; };
-    document.addEventListener('pointerlockchange', done, { once: true });
+    let answered = false;
+    document.addEventListener('pointerlockchange', () => { answered = true; }, { once: true });
+    const refused = () => { answered = true; this.refused(); };
     try {
       const r = (this.canvas.requestPointerLock as () => unknown)();
-      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => this.fallBack());
+      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(refused);
     } catch {
-      this.fallBack();
+      refused();
       return;
     }
-    // Some browsers neither lock nor report an error inside a sandboxed frame.
-    setTimeout(() => { if (!settled && this.mode !== 'captured') this.fallBack(); }, 700);
+    // Some sandboxed frames neither capture nor refuse: look freely meanwhile. If capture does
+    // arrive later it takes over, and the next click tries capture again.
+    setTimeout(() => { if (!answered && this.mode !== 'captured') this.setMode('free'); }, 700);
   }
 
   release(): void {
@@ -59,9 +61,14 @@ export class Look {
     this.setMode('off');
   }
 
-  private fallBack(): void {
+  private refused(): void {
     if (this.mode === 'captured') return;
-    if (this.everCaptured) { this.setMode('off'); return; } // try again in a moment, not a sandbox block
+    if (this.everCaptured) {
+      // Capture has worked before, so this is the browser's short pause after Esc, not a sandbox.
+      this.setMode('off');
+      this.onNotice('Click to look around');
+      return;
+    }
     this.captureBlocked = true;
     this.setMode('free');
   }

@@ -3,7 +3,7 @@
 // and smooth light, which is why faces are not merged (merging would flatten both).
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
-import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, RENDER, LAYER, WATER } from '../world/blocks.ts';
+import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, RENDER, LAYER } from '../world/blocks.ts';
 
 export interface MeshPart {
   quads: number;
@@ -127,7 +127,8 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
         const isWater = render === RENDER.liquid;
         const part = isWater ? water : solid;
         const waveFlag = B_LAYER[id] === LAYER.cutout && B_FILTER[id] > 0 ? FLAG_WAVE : 0;
-        const waterAbove = isWater && blocks[pi + PS * PS] === WATER;
+        // Water sits a little low only where open air is above it; under anything else it fills its block.
+        const openAbove = isWater && B_RENDER[blocks[pi + PS * PS]] === RENDER.none;
 
         for (let f = 0; f < 6; f++) {
           const n = FACE_NORMALS[f];
@@ -167,7 +168,7 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
 
           // Flip the quad's diagonal when that makes the shading interpolate evenly.
           const start = aos[0] + aos[2] < aos[1] + aos[3] ? 1 : 0;
-          const top = isWater && f !== 3 && !waterAbove ? 0.875 : 1;
+          const top = openAbove && f !== 3 ? 0.875 : 1;
           for (let j = 0; j < 4; j++) {
             const k = (j + start) & 3;
             const px = x + cs[k * 3];

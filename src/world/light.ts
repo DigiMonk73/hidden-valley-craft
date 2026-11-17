@@ -212,7 +212,11 @@ export function relightBlock(host: LightHost, x: number, y: number, z: number, n
       let best = c === BLOCK ? B_EMIT[newId] : 0;
       for (const [dx, dy, dz] of DIRS) {
         const ny = y + dy;
-        if (ny >= WORLD_Y) { if (c === SKY && dy === 1) best = 15; continue; }
+        if (ny >= WORLD_Y) {
+          // Open sky above the world: full sun, less whatever this block filters (as lightColumn does).
+          if (c === SKY && dy === 1) best = Math.max(best, f === 0 ? 15 : 14 - f);
+          continue;
+        }
         if (ny < 0) continue;
         const nl = chan(host.lightAt(x + dx, ny, z + dz), c);
         const v = c === SKY && dy === 1 && nl === 15 && f === 0 ? 15 : nl - 1 - f;

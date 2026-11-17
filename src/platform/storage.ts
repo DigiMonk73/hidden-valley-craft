@@ -90,3 +90,19 @@ export async function openStore(): Promise<Store> {
   } catch { /* blocked */ }
   return new MemoryStore();
 }
+
+// A last-moment copy for when the page closes: localStorage writes finish before the call returns,
+// unlike IndexedDB's, so this survives a tab being closed mid-save. Read back at the next start.
+const PENDING = 'hvb:pending-save';
+
+export function writePending(bytes: Uint8Array): boolean {
+  try { localStorage.setItem(PENDING, toB64(bytes)); return true; } catch { return false; }
+}
+
+export function readPending(): Uint8Array | null {
+  try { const v = localStorage.getItem(PENDING); return v ? fromB64(v) : null; } catch { return null; }
+}
+
+export function clearPending(): void {
+  try { localStorage.removeItem(PENDING); } catch { /* blocked */ }
+}

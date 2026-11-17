@@ -9,12 +9,13 @@ import { skyAt, DAY_SECONDS } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { Hotbar } from './sim/hotbar.ts';
+import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
 import { Hud } from './ui/hud.ts';
 import { Look } from './platform/look.ts';
-import { openStore, type Store } from './platform/storage.ts';
+import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
-import { collectEdits, restoreEdits, encodeSave, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
-import { AIR, WATER, B_HARDNESS, B_RENDER, B_SOLID, RENDER, blockDrop } from './world/blocks.ts';
+import { collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
+import { B_HARDNESS } from './world/blocks.ts';
 import { HOME, zoneAt, ZONE_DANGER } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
@@ -54,7 +55,11 @@ export class Game {
   private time = 0;
   private lastSave = 0;
   private fps = { frames: 0, t: 0, value: 0 };
-  private dirtySave = false;
+  /** Edits made so far, and how many of them the last good save holds. */
+  private editCount = 0;
+  private savedCount = 0;
+  private lastEdit = 0;
+  private saving = false;
   private cachedCode: string | null = null;
   private downloads: Downloads | null = null;
 
@@ -78,6 +83,7 @@ export class Game {
       this.player.yaw -= dx;
       this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch - dy));
     };
+    this.look.onNotice = (t) => this.hud.toast(t);
     this.look.onModeChange = (m) => {
       if (m === 'off' && this.playing) this.pause();
       if (m === 'free') this.hud.toast('This page can’t capture the mouse here: move the mouse to look, or use the arrow keys.', 6000);
@@ -97,11 +103,17 @@ export class Game {
     this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
 
     let resumed = false;
-    if (this.opts.handover) { this.applySave(this.opts.handover); resumed = true; this.dirtySave = true; }
+    if (this.opts.handover) { this.applySave(this.opts.handover); resumed = true; this.editCount++; }
     else if (!this.opts.test) {
+      // The stored save, or the copy written as the page last closed, whichever is newer.
       const bytes = await this.store.get(SAVE_KEY);
-      const data = bytes ? await decodeSave(bytes) : null;
+      const stored = bytes ? await decodeSave(bytes) : null;
+      const pendingBytes = readPending();
+      const pending = pendingBytes ? await decodeSave(pendingBytes) : null;
+      const data = pending && (!stored || pending.savedAt > stored.savedAt) ? pending : stored;
       if (data) { this.applySave(data); resumed = true; }
+      if (data === pending && pending) this.editCount++; // still to be written to the main store
+      else clearPending();
     }
     if (!resumed) {
       this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
@@ -173,7 +185,8 @@ export class Game {
     if (now - this.fps.t > 500) { this.fps.value = Math.round((this.fps.frames * 1000) / (now - this.fps.t)); this.fps.frames = 0; this.fps.t = now; }
     if (this.hud.debugVisible) this.hud.setDebug(this.debugText());
 
-    if (this.playing && this.dirtySave && this.time - this.lastSave > 60) void this.save(false);
+    // Save a couple of seconds after the player stops changing things, and at least once a minute.
+    if (this.playing && this.unsaved && !this.saving && (this.time - this.lastEdit > 2.5 || this.time - this.lastSave > 60)) void this.save(false);
   }
 
   private tick(dt: number): void {
@@ -223,37 +236,17 @@ export class Game {
   }
 
   private breakBlock(x: number, y: number, z: number): void {
-    const id = this.world.blockAt(x, y, z);
     this.streamer.markUrgentAround(x, y, z);
-    // A broken block next to water lets the water in (still water, for now).
-    const besideWater = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a, b, c]) => this.world.blockAt(x + a, y + b, z + c) === WATER);
-    this.world.setBlock(x, y, z, besideWater ? WATER : AIR);
-    const drop = blockDrop(id);
-    if (drop && !this.hotbar.creative && !this.hotbar.add(drop)) this.hud.toast('Your hotbar is full');
-    // Plants on top lose their footing.
-    const above = this.world.blockAt(x, y + 1, z);
-    if (B_RENDER[above] === RENDER.cross) {
-      this.world.setBlock(x, y + 1, z, AIR);
-      if (!this.hotbar.creative) this.hotbar.add(above);
-    }
-    this.dirtySave = true;
+    const r = breakBlock(this.world, this.hotbar, x, y, z);
+    if (r.full) this.hud.toast('Your hotbar is full');
+    if (r.changed) this.edited();
   }
 
   private placeBlock(): void {
-    const t = this.target;
-    if (!t || !this.hotbar.current) return;
-    // Plants are replaced in place; otherwise the block goes against the face looked at.
-    const intoPlant = B_RENDER[t.id] === RENDER.cross;
-    const x = intoPlant ? t.x : t.x + t.nx, y = intoPlant ? t.y : t.y + t.ny, z = intoPlant ? t.z : t.z + t.nz;
-    const there = this.world.blockAt(x, y, z);
-    if (there !== AIR && there !== WATER && B_RENDER[there] !== RENDER.cross) return;
-    const id = this.hotbar.current.id;
-    if (B_SOLID[id] && this.player.intersectsBlock(x, y, z)) return;
-    if (B_RENDER[id] === RENDER.cross && !B_SOLID[this.world.blockAt(x, y - 1, z)]) return; // plants need ground
-    this.hotbar.take();
+    if (!this.target) return;
+    const [x, y, z] = placeTarget(this.target);
     this.streamer.markUrgentAround(x, y, z);
-    this.world.setBlock(x, y, z, id);
-    this.dirtySave = true;
+    if (placeBlock(this.world, this.hotbar, this.player, this.target)) this.edited();
   }
 
   // ---- Input ---------------------------------------------------------------------------------
@@ -287,8 +280,9 @@ export class Game {
       e.preventDefault();
       this.hotbar.select(this.hotbar.selected + (e.deltaY > 0 ? 1 : -1));
     }, { passive: false });
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.dirtySave) void this.save(false); });
-    window.addEventListener('pagehide', () => { if (this.dirtySave) void this.save(false); });
+    // Leaving: the write has to start before this event returns, so it skips compression.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.saveNow(); });
+    window.addEventListener('pagehide', () => this.saveNow());
   }
 
   private resume(): void {
@@ -338,15 +332,36 @@ export class Game {
     this.hotbar = Hotbar.fromSave(d.hotbar, d.selected);
   }
 
+  private get unsaved(): boolean { return this.editCount !== this.savedCount; }
+
+  private edited(): void { this.editCount++; this.lastEdit = this.time; }
+
   private async save(announce: boolean): Promise<void> {
     if (this.opts.test) return;
+    const holds = this.editCount;
+    this.saving = true;
     const bytes = await encodeSave(this.snapshot());
     const ok = await this.store.set(SAVE_KEY, bytes);
+    this.saving = false;
     this.lastSave = this.time;
-    if (ok) this.dirtySave = false;
+    if (ok) {
+      this.savedCount = Math.max(this.savedCount, holds);
+      if (!this.unsaved) clearPending();
+    }
     if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
     if (!this.playing) void this.refreshCode();
     this.updateSaveStatus();
+  }
+
+  /** Saves at once, uncompressed, without waiting: used when the page is being hidden or closed. */
+  private saveNow(): void {
+    if (this.opts.test || !this.unsaved || !this.store) return;
+    const holds = this.editCount;
+    const bytes = encodeSaveNow(this.snapshot());
+    writePending(bytes); // finishes before this returns, whatever happens to the page next
+    void this.store.set(SAVE_KEY, bytes).then((ok) => {
+      if (ok) this.savedCount = Math.max(this.savedCount, holds);
+    });
   }
 
   private updateSaveStatus(): void {
@@ -403,6 +418,7 @@ export class Game {
 
   /** Rebuilds the world from a save (or from nothing) in place: no page reload, so it works without storage. */
   private restart(d: SaveData | null): void {
+    clearPending(); // a close-time copy of the old valley must not come back at the next start
     this.streamer.reset();
     this.world.edits.clear();
     this.mining.active = false;
@@ -415,7 +431,7 @@ export class Game {
       this.player.yaw = SPAWN.yaw;
       this.player.pitch = SPAWN.pitch;
     }
-    this.dirtySave = false;
+    this.savedCount = this.editCount;
     this.ready = false;
     this.hud.setLoading(0, 1);
     this.hud.setLoadingVisible();

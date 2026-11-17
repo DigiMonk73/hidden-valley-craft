@@ -61,6 +61,11 @@ async function gzip(bytes: Uint8Array, mode: 'compress' | 'decompress'): Promise
   }
 }
 
+/** Uncompressed and synchronous: for saving while the page is closing, when there is no time to wait. */
+export function encodeSaveNow(data: SaveData): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(data));
+}
+
 export async function encodeSave(data: SaveData): Promise<Uint8Array> {
   const json = new TextEncoder().encode(JSON.stringify(data));
   return (await gzip(json, 'compress')) ?? json; // plain JSON if the browser can't compress

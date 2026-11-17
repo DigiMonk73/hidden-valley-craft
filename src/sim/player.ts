@@ -109,8 +109,12 @@ export class Player {
 
   private move(dt: number, blockAt: BlockAt): void {
     if (this.collides(this.x, this.y, this.z, blockAt)) {
-      // Stuck inside a block (it was placed on us, or the world loaded around us): rise out of it.
-      this.y = Math.floor(this.y) + 1;
+      // Stuck inside a block (the world loaded around us): step up into open space if there is
+      // some within two blocks; never climb further, or a stuck player would rise through rock.
+      for (const up of [1, 2]) {
+        const y = Math.floor(this.y) + up;
+        if (!this.collides(this.x, y, this.z, blockAt)) { this.y = y; break; }
+      }
       this.vy = 0;
       return;
     }
@@ -119,7 +123,7 @@ export class Player {
     this.onGround = false;
     if (this.collides(this.x, ny, this.z, blockAt)) {
       if (this.vy < 0) { this.y = Math.floor(ny) + 1; this.onGround = true; }
-      else this.y = Math.ceil(ny + HEIGHT) - HEIGHT - 1e-4;
+      else this.y = Math.floor(ny + HEIGHT) - HEIGHT - 1e-4; // head stops just under the ceiling
       this.vy = 0;
     } else this.y = ny;
     // Then each horizontal axis, stepping up one block when walking into a ledge.

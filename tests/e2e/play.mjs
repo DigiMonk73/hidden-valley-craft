@@ -83,6 +83,15 @@ check('a saved edit survives a reload', restored === 0, `storage: ${store}, bloc
 const pos = await g(() => { const p = window.__hv.game.player; return [p.x, p.z]; });
 check('the player is where they saved', Math.abs(pos[0] - x1) < 3, `x ${pos[0].toFixed(1)}`);
 
+// Close without saving: the page saves as it goes.
+const t3 = { x: t2.x, y: t2.y, z: t2.z - 2 };
+const before3 = await g((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z), t3);
+await g((t) => window.__hv.game.breakBlock(t.x, t.y, t.z), t3);
+await page.reload();
+await idle();
+const after3 = await g((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z), t3);
+check('leaving the page keeps the last edit', before3 !== 0 && after3 !== before3, `block ${before3} → ${after3} after reload`);
+
 check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok).length;
