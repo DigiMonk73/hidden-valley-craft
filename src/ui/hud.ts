@@ -71,6 +71,14 @@ export interface MenuActions {
   setVolume(v: number): void;
 }
 
+/** The view distances the menu offers, in chunks of 32 m: 224 m keeps the whole valley at full detail. */
+export const VIEW_CHUNKS = [7, 8, 10, 12];
+
+/** The offered view distance nearest a saved one (older builds also allowed 4 and 6). */
+export function nearestViewChunks(n: number): number {
+  return VIEW_CHUNKS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', parent?: HTMLElement): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -209,7 +217,7 @@ export class Hud {
     el('label', '', set).textContent = 'View distance';
     const rd = el('select', '', set);
     // 224 m is the least: it keeps the whole valley at full detail from anywhere inside it.
-    for (const c of [7, 8, 10, 12]) { const o = el('option', '', rd); o.value = String(c); o.textContent = `${c * 32} m`; }
+    for (const c of VIEW_CHUNKS) { const o = el('option', '', rd); o.value = String(c); o.textContent = `${c * 32} m`; }
     rd.value = '8';
     rd.onchange = () => a.setRenderDistance(Number(rd.value));
     el('label', '', set).textContent = 'Mouse sensitivity';

@@ -46,3 +46,18 @@ describe('placing and mining', () => {
     expect(h.slots.filter(Boolean).map((s) => s!.id).sort()).toEqual([blockId('dirt'), blockId('fern')].sort());
   });
 });
+
+describe('the waterfall counts as water', () => {
+  it('a block can be placed into falling water, and mining beside it lets water in', () => {
+    const w = world();
+    const h = Hotbar.starter();
+    const FALL = blockId('falling_water');
+    w.setBlock(1808, 82, 1024, FALL);
+    const placed = placeBlock(w, h, nobody, { x: 1808, y: 81, z: 1024, nx: 0, ny: 1, nz: 0, id: blockId('planks'), dist: 1 });
+    expect(placed).toEqual([1808, 82, 1024]);
+    w.setBlock(1808, 82, 1024, FALL);
+    w.setBlock(1809, 82, 1024, blockId('dirt'));
+    breakBlock(w, new Hotbar(), 1809, 82, 1024);
+    expect(w.blockAt(1809, 82, 1024)).toBe(blockId('water'));
+  });
+});

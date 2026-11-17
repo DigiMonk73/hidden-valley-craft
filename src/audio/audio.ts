@@ -146,6 +146,10 @@ export class Sound {
     return src;
   }
 
+  /** Silences everything while the game is paused or the page is hidden. */
+  suspend(): void { void this.ctx?.suspend(); }
+  resume(): void { void this.ctx?.resume(); }
+
   /** Every frame: where the player is and what is around them. */
   update(l: Listener): void {
     const ctx = this.ctx;

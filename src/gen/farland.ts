@@ -88,10 +88,15 @@ export function buildFarLand(): FarMesh {
         if (ny >= y) return;
         quad(pts.map((p) => [p[0], p[1] === 1 ? y : ny, p[2]]), c, shade, face);
       };
-      if (i < N - 1) side(h[k + 1], [[x1, 0, z1], [x1, 0, z0], [x1, 1, z0], [x1, 1, z1]], 184, 1);
-      if (i > 0) side(h[k - 1], [[x0, 0, z0], [x0, 0, z1], [x0, 1, z1], [x0, 1, z0]], 184, 1);
-      if (j < M - 1) side(h[k + N], [[x0, 0, z1], [x1, 0, z1], [x1, 1, z1], [x0, 1, z1]], 214, 2);
-      if (j > 0) side(h[k - N], [[x1, 0, z0], [x0, 0, z0], [x0, 1, z0], [x1, 1, z0]], 214, 2);
+      // On a 32 m column edge the neighbour may be hidden (real blocks drawn there instead), so the
+      // side always reaches below the ground: otherwise the sky shows under a floating canopy.
+      const SKIRT = 4; // cells per column
+      const below = ground[k] - 8;
+      const nb = (n: number, onEdge: boolean) => (onEdge ? Math.min(n, below) : n);
+      if (i < N - 1) side(nb(h[k + 1], i % SKIRT === SKIRT - 1), [[x1, 0, z1], [x1, 0, z0], [x1, 1, z0], [x1, 1, z1]], 184, 1);
+      if (i > 0) side(nb(h[k - 1], i % SKIRT === 0), [[x0, 0, z0], [x0, 0, z1], [x0, 1, z1], [x0, 1, z0]], 184, 1);
+      if (j < M - 1) side(nb(h[k + N], j % SKIRT === SKIRT - 1), [[x0, 0, z1], [x1, 0, z1], [x1, 1, z1], [x0, 1, z1]], 214, 2);
+      if (j > 0) side(nb(h[k - N], j % SKIRT === 0), [[x1, 0, z0], [x0, 0, z0], [x0, 1, z0], [x1, 1, z0]], 214, 2);
     }
   return { positions: new Float32Array(pos), colors: new Uint8Array(clr), mats: new Uint16Array(mat), index: new Uint32Array(idx) };
 }

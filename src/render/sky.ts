@@ -92,10 +92,10 @@ void main() {
   // The sun's disc, and the moon opposite it with a faint halo at night.
   col += uSunGlow * smoothstep(0.9993, 0.9996, max(dot(d, uSunDir), 0.0)) * 2.0;
   float m = max(dot(d, -uSunDir), 0.0);
-  float nightM = 1.0 - smoothstep(0.2, 0.5, uDaylight);
+  float nightM = 1.0 - smoothstep(0.4, 0.7, uDaylight); // night daylight is 0.3, so full moon at night
   col += vec3(0.92, 0.94, 1.0) * (smoothstep(0.99955, 0.99975, m) * 0.9 + pow(m, 40.0) * 0.08) * nightM;
   // Stars, fading in as the day light goes.
-  float night = 1.0 - smoothstep(0.15, 0.45, uDaylight);
+  float night = 1.0 - smoothstep(0.35, 0.65, uDaylight);
   if (night > 0.0 && d.y > 0.0) {
     vec3 cell = floor(d * 280.0);
     float h = hash(cell);

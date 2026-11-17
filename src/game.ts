@@ -10,7 +10,7 @@ import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { Hotbar } from './sim/hotbar.ts';
 import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
-import { Hud } from './ui/hud.ts';
+import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { Sound, materialOf } from './audio/audio.ts';
 import { Look } from './platform/look.ts';
 import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
@@ -341,6 +341,7 @@ export class Game {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code);
       if (e.code === 'Escape' && this.playing) this.pause();
+      if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
       if (!this.playing) return;
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
       if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
@@ -348,7 +349,6 @@ export class Game {
       if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
       if (e.code === 'BracketLeft') this.hour = (this.hour + 23) % 24;
       if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible;
-      if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; });
@@ -366,7 +366,10 @@ export class Game {
       this.hotbar.select(this.hotbar.selected + (e.deltaY > 0 ? 1 : -1));
     }, { passive: false });
     // Leaving: the write has to start before this event returns, so it skips compression.
-    document.addEventListener('visibilitychange', () => { if (document.hidden) this.saveNow(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { this.saveNow(); this.sound.suspend(); }
+      else if (this.playing) this.sound.resume();
+    });
     window.addEventListener('pagehide', () => this.saveNow());
   }
 
@@ -380,6 +383,7 @@ export class Game {
 
   private pause(): void {
     this.playing = false;
+    this.sound.suspend();
     this.mining.active = false;
     this.keys.clear();
     this.look.release();
@@ -543,7 +547,8 @@ export class Game {
       const b = await this.store.get(SETTINGS_KEY);
       if (!b) return;
       const s = JSON.parse(new TextDecoder().decode(b));
-      if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(s.rd);
+      // Older builds allowed 4 and 6; the least now is 7 (224 m), and the menu offers 7, 8, 10 and 12.
+      if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(nearestViewChunks(s.rd));
       if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }
       if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
       if (typeof s.vol === 'number') { this.sound.volume = s.vol; this.hud.settingsInputs.vol.value = String(s.vol); }

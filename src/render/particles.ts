@@ -39,7 +39,7 @@ ${SKY_COLOR_GLSL}
 void main() {
   vec2 p = gl_PointCoord - 0.5;
   float a = vColor.a;
-  if (vKind > 0.5) a *= smoothstep(0.5, 0.05, length(p)); // mist and fireflies are soft and round
+  if (vKind > 0.5) a *= 1.0 - smoothstep(0.05, 0.5, length(p)); // mist and fireflies are soft and round
   if (a < 0.01) discard;
   float fog = smoothstep(uFogNear, uFogFar, vDist);
   vec3 col = vKind > 1.5 ? vColor.rgb : mix(vColor.rgb, skyColor(normalize(vWorld - cameraPosition)), fog);

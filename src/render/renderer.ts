@@ -118,7 +118,7 @@ void main() {
   // Morning mist lies low in the valley and thickens with distance.
   if (uMist > 0.0) {
     float inValley = 1.0 - smoothstep(uValley.z - 10.0, uValley.z + 6.0, length(vWorld.xz - uValley.xy));
-    float low = smoothstep(84.0, 70.0, vWorld.y);
+    float low = 1.0 - smoothstep(70.0, 84.0, vWorld.y);
     float m = uMist * inValley * low * (1.0 - exp(-vDist * 0.03));
     col = mix(col, uMistColor, m * 0.85);
   }
