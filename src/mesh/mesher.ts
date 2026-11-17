@@ -97,8 +97,9 @@ class PartBuilder {
  * blocks and light are PS³ (34³) arrays: index paddedIndex(x+1, y+1, z+1) is chunk cell (x, y, z).
  * Positions in the output are relative to the chunk's corner.
  */
-export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
+export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMesh {
   if (blocks.length !== PADDED_VOLUME) throw new Error('meshChunk expects a padded chunk');
+  const light = lightForDrawing(blocks, sourceLight);
   const solid = new PartBuilder();
   const water = new PartBuilder();
 
@@ -207,6 +208,35 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
       }
 
   return { solid: solid.finish(), water: water.finish() };
+}
+
+/**
+ * Slabs, stairs and pipes keep sunlight out of their own cell (so it can't pour down a chimney or
+ * through a slab roof), which leaves that cell dark. Drawn as it is, the slab's faces and the faces
+ * beside it would turn black. For drawing only, each such cell takes the light it would have from its
+ * open neighbours: full sun from straight above, one level less from the sides and below.
+ */
+export function lightForDrawing(blocks: Uint16Array, light: Uint8Array): Uint8Array {
+  let out: Uint8Array | null = null;
+  const up = PS * PS;
+  for (let y = 1; y < PS - 1; y++)
+    for (let z = 1; z < PS - 1; z++)
+      for (let x = 1; x < PS - 1; x++) {
+        const i = paddedIndex(x, y, z);
+        const id = blocks[i];
+        if (B_OPAQUE[id] || B_FILTER[id] < 15) continue;
+        out ??= light.slice();
+        let sky = 0, blk = 0;
+        for (const d of [up, -up, 1, -1, PS, -PS]) {
+          const n = i + d;
+          if (B_OPAQUE[blocks[n]] || B_FILTER[blocks[n]] >= 15) continue;
+          const lv = light[n];
+          sky = Math.max(sky, d === up ? lv >> 4 : (lv >> 4) - 1);
+          blk = Math.max(blk, (lv & 15) - 1);
+        }
+        out[i] = (Math.max(sky, light[i] >> 4) << 4) | Math.max(blk, light[i] & 15);
+      }
+  return out ?? light;
 }
 
 /**

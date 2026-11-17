@@ -5,7 +5,7 @@
 import data from '../../data/recipes.json' with { type: 'json' };
 import { itemId } from '../world/items.ts';
 import { blockName, BLOCK_DEFS } from '../world/blocks.ts';
-import type { Inventory } from './inventory.ts';
+import type { Inventory, Stack } from './inventory.ts';
 
 export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery';
 
@@ -46,12 +46,14 @@ export function canMake(inv: Inventory, r: Recipe): boolean {
 
 /** Makes one batch: takes the inputs, gives the output (and anything returned). Nothing happens if short of an
  * input or if the result would not fit in the pack (so nothing is ever lost). */
-export function make(inv: Inventory, r: Recipe): 'made' | 'short' | 'full' {
+export function make(inv: Inventory, r: Recipe, held: Stack | null = null): 'made' | 'short' | 'full' {
   if (!canMake(inv, r)) return 'short';
-  // Try it on a copy first: the inputs freed may make room, or the pack may be too full.
+  // Try it on a copy first: the inputs freed may make room, or the pack may be too full. Anything held
+  // on the screen's cursor must still fit afterwards, or the screen could never be closed.
   const trial = inv.clone();
   for (const [id, n] of r.in) if (n > 0) trial.remove(id, n);
   if (trial.add(r.out[0], r.out[1]) > 0 || r.returns.some(([id, n]) => trial.add(id, n) > 0)) return 'full';
+  if (held && trial.clone().stow({ ...held })) return 'full';
   inv.slots = trial.slots;
   return 'made';
 }
