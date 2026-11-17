@@ -32,7 +32,7 @@ for (const [name, spec] of Object.entries(shots)) {
   await page.goto(url);
   await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 600_000, polling: 500 });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `out/${name}.png` });
+  await page.screenshot({ path: `out/${name}.png`, timeout: 180_000 });
   console.log(`${name}: ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 await browser.close();

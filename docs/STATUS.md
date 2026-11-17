@@ -5,6 +5,7 @@ _The page to resume from. Keep it short; history lives in git._
 ## Now (2026-11-17)
 
 - **The phase:** Phase 0, Foundations, is built and waiting for the owner to play its link and pass it.
+- **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, version 1, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
 - **Where the code lives:** this machine only, in `/home/user/hidden-valley-blocks`, with local git history and no remote yet. Every published build carries `source-bundle.json`.
 - **The repo:** the owner will create an empty private repo later; attach it and push everything.
 
