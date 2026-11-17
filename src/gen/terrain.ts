@@ -365,6 +365,7 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
   }
   // The builder's chests: what he left (src/gen/inheritance.ts).
   for (const c of HOME_CHESTS) {
+    if (c.safe) continue; // the safe is set into the wall by furnish()
     if (c.x >= x0 && c.x < x0 + CS && c.z >= z0 && c.z < z0 + CS) col[ci(c.x - x0, c.y, c.z - z0)] = CHEST;
   }
   furnish(col, x0, z0);

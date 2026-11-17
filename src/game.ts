@@ -8,7 +8,7 @@ import { Renderer } from './render/renderer.ts';
 import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
-import { WATER, FALLING_WATER } from './world/blocks.ts';
+import { WATER, FALLING_WATER, BLOCK_DEFS, blockName } from './world/blocks.ts';
 import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
@@ -17,6 +17,9 @@ import { randomTicks, till, sow, pickCoffee, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
+import { PaperScreen } from './ui/paperScreen.ts';
+import { drawMap } from './ui/mapView.ts';
+import journalData from '../data/journal.json' with { type: 'json' };
 import { homeChestAt } from './gen/inheritance.ts';
 import { itemId, foodOf } from './world/items.ts';
 import { BACKPACK_SLOTS } from './sim/inventory.ts';
@@ -53,6 +56,12 @@ export class Game {
   hotbar = Inventory.starter();
   hud: Hud;
   screen: InventoryScreen;
+  paper: PaperScreen;
+  /** Columns the player has been near (for the map table). */
+  explored = new Uint8Array(64 * 64);
+  /** Things that have happened for good (the safe opened). */
+  flags = new Set<string>();
+  private lastExplore = -1;
   sound = new Sound();
   private stepDist = 0;
   private digTimer = 0;
@@ -96,6 +105,7 @@ export class Game {
     this.renderer = new Renderer(canvas);
     this.look = new Look(canvas);
     this.screen = new InventoryScreen(ui);
+    this.paper = new PaperScreen(ui);
     this.screen.onChange = () => this.edited();
     this.screen.onMake = () => this.sound.place('wood');
     this.hud = new Hud(ui, {
@@ -117,7 +127,7 @@ export class Game {
     };
     this.look.onNotice = (t) => this.hud.toast(t);
     this.look.onModeChange = (m) => {
-      if (m === 'off' && this.playing && !this.screen.isOpen) this.pause();
+      if (m === 'off' && this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
       if (m === 'free') this.hud.toast('This page can’t capture the mouse here: move the mouse to look, or use the arrow keys.', 6000);
     };
     const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
@@ -249,6 +259,15 @@ export class Game {
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
     this.tickSurvival(dt, input);
+    // Mark where the player has been, for the map table (once a second).
+    if (Math.floor(this.time) !== this.lastExplore) {
+      this.lastExplore = Math.floor(this.time);
+      const cx = Math.floor(p.x / 32), cz = Math.floor(p.z / 32);
+      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+        const x = cx + dx, z = cz + dz;
+        if (x >= 0 && z >= 0 && x < 64 && z < 64) this.explored[z * 64 + x] = 1;
+      }
+    }
     // Crops grow on random ticks near the player (20 a second).
     if ((this.tickCount = (this.tickCount + 1) % 3) === 0) randomTicks(this.world, p.x, p.z, Math.random);
     // Arrow keys turn too (useful where the mouse can't be captured).
@@ -260,7 +279,7 @@ export class Game {
   }
 
   private readInput(): Input {
-    if (this.screen.isOpen) return { forward: 0, strafe: 0, jump: false, sprint: false, descend: false };
+    if (this.screen.isOpen || this.paper.isOpen) return { forward: 0, strafe: 0, jump: false, sprint: false, descend: false };
     const k = this.keys;
     return {
       forward: (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0),
@@ -402,7 +421,19 @@ export class Game {
     // Using what is in front comes first: a chest opens.
     const t = this.target;
     const chest = this.world.containerAt(t.x, t.y, t.z);
+    if (chest && blockName(t.id).startsWith('wall_safe') && !this.flags.has('safe_open')) {
+      this.openPaper(() => this.paper.keypad('Wall safe', (code) => {
+        if (code !== '0618') return false;
+        this.flags.add('safe_open');
+        this.edited();
+        this.closePaper();
+        this.hud.toast('The safe clicks open');
+        return true;
+      }));
+      return;
+    }
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
+    if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
     if (toggleDoor(this.world, t.x, t.y, t.z)) { this.sound.place('stone'); this.edited(); return; }
     const station = stationOf(t.id);
     if (station) { this.openScreen(null, station); return; }
@@ -419,6 +450,61 @@ export class Game {
       this.edited();
       this.sound.place(materialOf(id));
     }
+  }
+
+  /** The builder's things: bed, bookshelves, computer, phone, map table. True if one was used. */
+  private useFurniture(x: number, y: number, z: number, id: number): boolean {
+    const name = BLOCK_DEFS[id]?.base ?? blockName(id);
+    if (name === 'bed') {
+      if (this.hour < 17 && this.hour >= 6) { this.hud.toast('You can sleep from five in the evening'); return true; }
+      this.hour = 6;
+      this.spawn = { x: this.player.x, y: this.player.y, z: this.player.z, yaw: this.player.yaw };
+      this.vitals.hp = Math.min(100, this.vitals.hp + 30);
+      this.vitals.hunger = Math.max(0, this.vitals.hunger - 10);
+      this.vitals.thirst = Math.max(0, this.vitals.thirst - 10);
+      this.edited();
+      this.hud.toast('You sleep, and wake to mist on the valley. You will wake here from now on.', 4500);
+      void this.save(false);
+      return true;
+    }
+    if (name === 'bookshelf') { this.openPaper(() => this.paper.journal(journalData.entries)); return true; }
+    if (name === 'computer') {
+      const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
+      this.openPaper(() => this.paper.computer([
+        ['Hot wallet', '0.05000000 BTC', 'btc'],
+        ['Cold wallet', cold ? '2.50000000 BTC (connected)' : 'not connected', cold ? 'btc' : 'dim'],
+        ['Mining', 'no rig: needs a solar array and battery bank', 'dim'],
+        ['Satellite uplink', 'no antenna', 'dim'],
+        ['Last note', '“Back before the rains.”'],
+      ], 'R.’s terminal'));
+      return true;
+    }
+    if (name === 'phone') {
+      this.openPaper(() => this.paper.computer([
+        ['Mamá', 'no answer', 'dim'], ['Lucía', 'no answer', 'dim'], ['Dr. Alvarez', 'no answer', 'dim'], ['Raúl (pilot)', 'no answer', 'dim'],
+        ['Signal', 'satellite: weak', ''],
+      ], 'Satellite phone · the builder’s contacts'));
+      return true;
+    }
+    if (name === 'map_table') {
+      this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z), 'The builder’s map · filled in where you have been'));
+      return true;
+    }
+    return false;
+  }
+
+  private openPaper(show: () => void): void {
+    this.mining.active = false;
+    this.keys.clear();
+    show();
+    this.hud.showWorldHud(false);
+    this.look.release();
+  }
+
+  private closePaper(): void {
+    this.paper.close();
+    this.hud.showWorldHud(true);
+    if (this.playing) this.look.engage();
   }
 
   /** Right-click with an item in hand: returns true if the item did something. */
@@ -462,6 +548,7 @@ export class Game {
       }
     }
     if (!held) return false;
+    if (held.id === itemId('builders_journal')) { this.openPaper(() => this.paper.journal(journalData.entries)); return true; }
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : 0;
     if (food || heal) {
@@ -506,6 +593,10 @@ export class Game {
       this.keys.add(e.code);
       if (this.screen.isOpen) {
         if (e.code === 'Escape' || e.code === 'KeyE') this.closeScreen();
+        return;
+      }
+      if (this.paper.isOpen) {
+        if (e.code === 'Escape' || e.code === 'KeyE') this.closePaper();
         return;
       }
       if (e.code === 'Escape' && this.playing) this.pause();
@@ -582,6 +673,7 @@ export class Game {
       hotbar: this.hotbar.toSave(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
+      flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
     };
   }
 
@@ -595,6 +687,9 @@ export class Game {
     this.hour = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
+    this.flags = new Set(d.flags ?? []);
+    this.explored = new Uint8Array(64 * 64);
+    for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
   }
 
@@ -701,6 +796,8 @@ export class Game {
       this.hotbar = Inventory.starter();
       this.vitals = freshVitals();
       this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+      this.flags = new Set();
+      this.explored = new Uint8Array(64 * 64);
       this.hour = 16.5;
       this.player.flying = false;
       this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);

@@ -95,7 +95,7 @@ The safe and the furniture follow in steps 2–3.
 
 Stations take time to run.
 
-## 6. The builder's life
+## 6. The builder's life — DONE (2026-11-17)
 
 - **Sleep:** the bed works from 17:00, skips to 06:00, sets your spawn and saves.
 - **Bookshelves:** the builder's journal, about 8 entries in his voice. They tell how he found the valley, why he built here and what he left, and include the safe's code.

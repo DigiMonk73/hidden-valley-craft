@@ -27,6 +27,8 @@ export interface SaveData {
   containers?: [number, number, number, (Slot | null)[]][];
   vitals?: { hp: number; hunger: number; thirst: number };
   spawn?: { x: number; y: number; z: number; yaw: number };
+  flags?: string[];
+  explored?: number[];
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

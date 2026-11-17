@@ -7,7 +7,7 @@ import type { Stack } from '../sim/inventory.ts';
 
 export const CHEST_SLOTS = 27;
 
-export interface HomeChest { x: number; y: number; z: number; title: string; items: [string, number][] }
+export interface HomeChest { x: number; y: number; z: number; title: string; items: [string, number][]; safe?: boolean }
 
 export const HOME_CHESTS: HomeChest[] = [
   { x: 1813, y: 82, z: 1016, title: 'Linen chest', items: [
@@ -34,6 +34,8 @@ export const HOME_CHESTS: HomeChest[] = [
   { x: 1832, y: 82, z: 1022, title: 'Armory', items: [
     ['hunting_rifle', 1], ['rifle_rounds', 40], ['compound_bow', 1], ['arrow', 30], ['machete', 1], ['armor_vest', 1],
   ] },
+  // The wall safe in the vault (its code is in the journal): the cold wallet.
+  { x: 1829, y: 83, z: 1027, title: 'Wall safe', items: [['hardware_wallet', 1]], safe: true },
   { x: 1832, y: 82, z: 1025, title: 'Expedition kit', items: [
     ['first_aid_kit', 6], ['water_filter', 1], ['binoculars', 1], ['headlamp', 1], ['backpack_upgrade', 1],
   ] },

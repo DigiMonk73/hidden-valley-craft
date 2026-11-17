@@ -1,0 +1,13 @@
+{
+  "_comment": "The builder's journal, read from the bookshelves or the journal itself. Closed exposition: he is never found (DESIGN.md, ADR-017). The safe's code is the date in the sixth entry (0618).",
+  "entries": [
+    { "title": "Found", "text": "The survey team said the sinkhole was dry rock. They were wrong about the water and right to leave. A current under the canyon pool pulled me sideways into a passage, and when I came up for air I was in the greenest place I have ever seen. I bought the whole range the next week, through three companies, so that nobody would ever connect it to me." },
+    { "title": "The east wall", "text": "The cave faces west. Every evening the sun drops behind the falls and the whole room goes gold. I had the balcony dressed in stone and a railing run all the way round, except where the path goes down. The stove went on the left with its back to the rock, and a proper pipe, because I am not living in smoke." },
+    { "title": "Eternal spring", "text": "It never freezes here. Mist in the mornings, rain some afternoons, clear for sunset. The coffee does well along the south side of the garden. Corn, beans and squash together, the old way, and they hold each other up. The trout came with the water; I never stocked them." },
+    { "title": "The news", "text": "Every week the feeds are worse. Borders closing, the labs in the north gone quiet, a sickness nobody will name. I have stopped telling anyone where I am. The phone still has their numbers and I check it anyway, every night, like a fool." },
+    { "title": "Provisions", "text": "Stocked the pantry for months. Rifle, bow and the vest are in the vault behind the steel door, with the medical kits and the pack I carried in Patagonia. Iron in the pantry wall, enough to keep a forge busy. If you are reading this and I am not here: it is yours now. Look after it." },
+    { "title": "The safe", "text": "The cold wallet is in the safe in the vault wall. I set the code to the day I first swam through, the eighteenth of June. Month first, the American way, four digits. Some days you want to remember." },
+    { "title": "Workshop notes", "text": "The kiln burns logs to charcoal. The smelter takes ore from the pantry wall with charcoal and gives good iron. Nails, arrowheads and lanterns at the anvil. The stove and the fireplace will cook anything worth eating. Hoe the ground before you sow; the seeds are in the pantry." },
+    { "title": "Last", "text": "Sirens on the satellite feed. Lucía called from the coast road and then the line went dead. I am going out through the pool one more time to bring her back. I will be home before the rains. The lanterns are lit. — R." }
+  ]
+}

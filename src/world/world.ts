@@ -6,7 +6,7 @@ import {
 } from './constants.ts';
 import { AIR, BEDROCK, B_OPAQUE } from './blocks.ts';
 import { joinSeams, relightBlock, packPos, type LightHost } from './light.ts';
-import { blockId } from './blocks.ts';
+import { blockId, BLOCK_DEFS } from './blocks.ts';
 import { initialContents } from '../gen/inheritance.ts';
 import type { Stack } from '../sim/inventory.ts';
 
@@ -73,7 +73,8 @@ export class World implements LightHost {
 
   /** The contents of the chest at a position, or null if there is no chest there. */
   containerAt(x: number, y: number, z: number): (Stack | null)[] | null {
-    if (this.blockAt(x, y, z) !== CHEST) return null;
+    const id = this.blockAt(x, y, z);
+    if (id !== CHEST && BLOCK_DEFS[id]?.base !== 'wall_safe') return null;
     const key = packPos(x, y, z);
     let c = this.containers.get(key);
     if (!c) { c = initialContents(x, y, z); this.containers.set(key, c); }

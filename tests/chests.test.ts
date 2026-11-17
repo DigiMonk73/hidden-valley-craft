@@ -20,13 +20,13 @@ describe('the builder’s chests', () => {
     const w = home();
     const all = new Map<number, number>();
     for (const c of HOME_CHESTS) {
-      expect(w.blockAt(c.x, c.y, c.z)).toBe(blockId('chest'));
+      expect(w.blockAt(c.x, c.y, c.z)).toBe(c.safe ? blockId('wall_safe') : blockId('chest'));
       for (const s of w.containerAt(c.x, c.y, c.z)!) if (s) all.set(s.id, (all.get(s.id) ?? 0) + s.count);
     }
     // The plan's promise: weapons, ammo, food, tools, medicine and gear from day one.
     for (const [name, n] of [['hunting_rifle', 1], ['rifle_rounds', 40], ['compound_bow', 1], ['arrow', 30], ['machete', 1], ['armor_vest', 1],
       ['first_aid_kit', 6], ['water_filter', 1], ['binoculars', 1], ['headlamp', 1], ['backpack_upgrade', 1], ['canned_food', 32],
-      ['water_jug', 16], ['fishing_rod', 1], ['seeds_corn', 16], ['builders_journal', 1]] as [string, number][]) {
+      ['water_jug', 16], ['fishing_rod', 1], ['seeds_corn', 16], ['builders_journal', 1], ['hardware_wallet', 1]] as [string, number][]) {
       expect(all.get(itemId(name)), name).toBe(n);
     }
   });
@@ -52,5 +52,12 @@ describe('the builder’s chests', () => {
     restoreContainers(w2, d);
     expect(w2.containerAt(c.x, c.y, c.z)![0]).toBeNull();
     expect(w2.containerAt(c.x, c.y, c.z)![1]).toEqual({ id: itemId('rifle_rounds'), count: 40 });
+  });
+});
+
+describe('the journal and the safe', () => {
+  it('the journal gives the safe’s code', async () => {
+    const j = (await import('../data/journal.json')).default;
+    expect(j.entries.some((e: { text: string }) => /eighteenth of June/.test(e.text) && /Month first/.test(e.text))).toBe(true);
   });
 });

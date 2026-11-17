@@ -89,12 +89,34 @@ const hasRifle = await g(() => window.__hv.game.hotbar.slots.some((s) => s && s.
 await page.keyboard.press('Escape');
 check('Shift-click takes the rifle', hasRifle);
 
+// Read the journal at the bookshelves, then open the vault safe with the code it gives.
+await page.mouse.click(400, 225);
+await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+await g(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1029.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; });
+await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1814; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForTimeout(400);
+const journal = await page.locator('.pp-panel').textContent().catch(() => '');
+check('the bookshelf opens the builder’s journal', /builder's journal/i.test(journal ?? ''), (journal ?? '').slice(0, 60));
+await page.keyboard.press('KeyE');
+await page.mouse.click(400, 225);
+await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+await g(() => { const p = window.__hv.game.player; p.setPosition(1829.5, 82, 1024.5); p.yaw = Math.PI; p.pitch = -0.15; });
+await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1829 && t.z === 1027; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForTimeout(400);
+for (const k of ['0', '6', '1', '8', '✓']) await page.locator('.pp-keypad button', { hasText: k }).first().click();
+await page.waitForTimeout(300);
+const opened = await g(() => window.__hv.game.flags.has('safe_open'));
+check('the code from the journal opens the safe', opened);
+
 // Eat from the hotbar: the builder's tinned food (slot 5 at the start).
 // (Closing the chest with Esc can't recapture the mouse, so a click comes first, as a player would.)
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
-await g(() => { const gm = window.__hv.game; gm.vitals.hunger = 50; gm.hotbar.selected = 4; gm.player.pitch = 1.2; });
-await page.waitForTimeout(300);
+await g(() => { const gm = window.__hv.game; gm.vitals.hunger = 50; gm.hotbar.selected = 4; gm.player.setPosition(1808.5, 82, 1024.5); gm.player.pitch = 1.2; });
+// Wait until what is in front is plain rock (nothing that opens), so the click eats.
+await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.pitch = 1.2; return !t || !gm.world.containerAt(t.x, t.y, t.z); }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
 await page.mouse.click(400, 225, { button: 'right' });
 await page.waitForFunction(() => window.__hv.game.vitals.hunger > 70, null, { timeout: 10_000 }).catch(() => {});
 const hunger = await g(() => window.__hv.game.vitals.hunger);
