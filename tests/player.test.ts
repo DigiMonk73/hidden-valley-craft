@@ -55,3 +55,17 @@ describe('player under a ceiling', () => {
     expect(p.y).toBe(10);
   });
 });
+
+describe('falls', () => {
+  it('a drop of ten blocks lands as a ten-block fall; a step down does not count', () => {
+    const p = new Player();
+    const floor = (_x: number, y: number) => (y <= 0 ? STONE : AIR);
+    p.setPosition(0.5, 11, 0.5);
+    run(p, 180, still, floor);
+    expect(p.landedFall).toBeGreaterThan(9.5);
+    p.landedFall = 0;
+    p.setPosition(0.5, 2, 0.5);
+    run(p, 60, still, floor);
+    expect(p.landedFall).toBeLessThan(1.5);
+  });
+});

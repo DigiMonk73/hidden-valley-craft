@@ -36,9 +36,16 @@ export class Player {
   breath = BREATH_MAX;
   /** Smoothed eye height, so stepping up a block glides instead of jolting. */
   eyeY = 0;
+  /** Walking speed multiplier (coffee). */
+  speed = 1;
+  /** Highest point of the current fall, and how far the last landing fell (read and cleared by the game). */
+  private fallTop = 0;
+  landedFall = 0;
 
   setPosition(x: number, y: number, z: number): void {
     this.x = x; this.y = y; this.z = z;
+    this.fallTop = y;
+    this.landedFall = 0;
     this.vx = this.vy = this.vz = 0;
     this.eyeY = y + EYE;
   }
@@ -75,7 +82,7 @@ export class Player {
       this.vy = Math.max(-2.5, Math.min(3.2, this.vy));
       this.vy *= 1 - Math.min(1, dt * 1.5);
     } else {
-      const speed = input.sprint ? SPRINT : WALK;
+      const speed = (input.sprint ? SPRINT : WALK) * this.speed;
       const accel = this.onGround ? 14 : 3;
       this.vx += (wx * speed - this.vx) * Math.min(1, dt * accel);
       this.vz += (wz * speed - this.vz) * Math.min(1, dt * accel);
@@ -84,7 +91,15 @@ export class Player {
       if (input.jump && this.onGround) this.vy = JUMP_SPEED;
     }
 
+    const wasOnGround = this.onGround;
     this.move(dt, blockAt);
+    // Falls are measured from the highest point since leaving the ground; water and flight break them.
+    if (this.flying || this.inWater) this.fallTop = this.y;
+    else if (!this.onGround) this.fallTop = Math.max(this.fallTop, this.y);
+    else {
+      if (!wasOnGround) this.landedFall = Math.max(this.landedFall, this.fallTop - this.y);
+      this.fallTop = this.y;
+    }
     // Glide the eye toward its true height (fast down, gentle up).
     const target = this.y + EYE;
     const k = target > this.eyeY ? 14 : 30;

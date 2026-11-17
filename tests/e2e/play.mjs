@@ -89,6 +89,17 @@ const hasRifle = await g(() => window.__hv.game.hotbar.slots.some((s) => s && s.
 await page.keyboard.press('Escape');
 check('Shift-click takes the rifle', hasRifle);
 
+// Eat from the hotbar: the builder's tinned food (slot 5 at the start).
+// (Closing the chest with Esc can't recapture the mouse, so a click comes first, as a player would.)
+await page.mouse.click(400, 225);
+await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+await g(() => { const gm = window.__hv.game; gm.vitals.hunger = 50; gm.hotbar.selected = 4; gm.player.pitch = 1.2; });
+await page.waitForTimeout(300);
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForFunction(() => window.__hv.game.vitals.hunger > 70, null, { timeout: 10_000 }).catch(() => {});
+const hunger = await g(() => window.__hv.game.vitals.hunger);
+check('eating fills hunger', hunger > 70, `hunger ${hunger.toFixed(0)}`);
+
 // Mine a block next to it and leave the hole, then save and reload.
 const t2 = { x: target.x, y: target.y, z: target.z + 1 };
 await g((t) => window.__hv.game.world.setBlock(t.x, t.y, t.z, 0), t2);

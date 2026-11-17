@@ -25,6 +25,8 @@ export interface SaveData {
   edits: [number, number[]][];
   /** Chests that have been opened: [x, y, z, slots]. */
   containers?: [number, number, number, (Slot | null)[]][];
+  vitals?: { hp: number; hunger: number; thirst: number };
+  spawn?: { x: number; y: number; z: number; yaw: number };
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

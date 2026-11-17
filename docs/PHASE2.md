@@ -48,7 +48,7 @@ The safe and the furniture follow in steps 2–3.
 | Vault | Steel door; armory chests (rifle and 40 rounds, compound bow and 30 arrows, machete, vest, 6 first-aid kits, filter, binoculars, headlamp, backpack upgrade); the wall safe (code in the journal) holding the hardware wallet |
 | Garden | Planted rows at mixed stages, and the coffee grove |
 
-## 4. Survival
+## 4. Survival — DONE (2026-11-17)
 
 - **Stats:** HP, hunger and thirst, out of 100.
   - Hunger empties in about 40 real minutes and thirst in about 25. They are a little gentler than the prototype's, because the valley is peaceful.

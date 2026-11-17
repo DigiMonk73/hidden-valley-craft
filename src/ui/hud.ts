@@ -20,10 +20,18 @@ const CSS = `
 .hv-slot img { position: absolute; inset: 1px; width: 44px; height: 44px; image-rendering: pixelated; }
 .hv-slot span { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
 .hv-slot i { position: absolute; left: 3px; top: 1px; font-size: 10px; font-style: normal; opacity: .55; }
-.hv-label { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); font-size: 14px; text-shadow: 0 1px 3px #000; transition: opacity .4s; }
-.hv-breath { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); width: 200px; height: 8px; border-radius: 4px;
+.hv-label { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); font-size: 14px; text-shadow: 0 1px 3px #000; transition: opacity .4s; }
+.hv-breath { position: absolute; left: 50%; bottom: 126px; transform: translateX(-50%); width: 200px; height: 8px; border-radius: 4px;
   background: rgba(0,0,0,.4); overflow: hidden; }
 .hv-breath b { display: block; height: 100%; background: linear-gradient(90deg, #6fc3ff, #c9ecff); }
+.hv-vitals { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); display: flex; gap: 14px; font-size: 11px; }
+.hv-vital { display: flex; align-items: center; gap: 5px; text-shadow: 0 1px 2px #000; }
+.hv-vital u { display: block; width: 110px; height: 7px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; }
+.hv-vital u b { display: block; height: 100%; transition: width .25s; }
+.hv-vital.low { animation: hv-pulse 1s infinite; }
+@keyframes hv-pulse { 50% { opacity: .45; } }
+.hv-hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(160, 20, 10, .55)); }
 .hv-toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
   background: rgba(14, 20, 16, .75); font-size: 15px; transition: opacity .5s; text-align: center; max-width: 80vw; }
 .hv-debug { position: absolute; left: 8px; top: 8px; font: 12px/1.35 ui-monospace, Menlo, monospace; background: rgba(0,0,0,.5);
@@ -94,6 +102,9 @@ export class Hud {
   private label: HTMLDivElement;
   private breath: HTMLDivElement;
   private toastEl: HTMLDivElement;
+  private vitalBars: { wrap: HTMLDivElement; bar: HTMLElement }[] = [];
+  private hurt!: HTMLDivElement;
+  private hurtTimer = 0;
   private debugEl: HTMLDivElement;
   private modeEl: HTMLDivElement;
   private menu: HTMLDivElement;
@@ -127,6 +138,17 @@ export class Hud {
 
     const bar = el('div', 'hv-hotbar', root);
     for (let i = 0; i < 9; i++) this.slots.push(el('div', 'hv-slot', bar));
+    // Health, hunger, thirst: just above the hotbar.
+    const vit = el('div', 'hv-vitals', root);
+    for (const [name, color] of [['Health', '#e5533d'], ['Food', '#e8a33a'], ['Water', '#4fa8e8']]) {
+      const w = el('div', 'hv-vital', vit);
+      el('span', '', w).textContent = name;
+      const u = el('u', '', w);
+      const b = el('b', '', u);
+      b.style.background = color;
+      this.vitalBars.push({ wrap: w, bar: b });
+    }
+    this.hurt = el('div', 'hv-hurt', root);
     this.label = el('div', 'hv-label', root);
     this.breath = el('div', 'hv-breath', root);
     el('b', '', this.breath);
@@ -306,9 +328,26 @@ export class Hud {
 
   setMode(text: string): void { this.modeEl.textContent = text; }
 
+  setVitals(hp: number, hunger: number, thirst: number, show: boolean): void {
+    [hp, hunger, thirst].forEach((v, i) => {
+      const { wrap, bar } = this.vitalBars[i];
+      wrap.style.display = show ? '' : 'none';
+      bar.style.width = `${Math.round(v)}%`;
+      wrap.classList.toggle('low', v < 20);
+    });
+  }
+
+  /** A red flash at the edges of the screen when hurt. */
+  flashHurt(): void {
+    this.hurt.style.transition = 'none';
+    this.hurt.style.opacity = '1';
+    clearTimeout(this.hurtTimer);
+    this.hurtTimer = window.setTimeout(() => { this.hurt.style.transition = 'opacity .6s'; this.hurt.style.opacity = '0'; }, 120);
+  }
+
   /** Hides the crosshair, hotbar and bars while a screen (inventory, chest) is open over the game. */
   showWorldHud(show: boolean): void {
-    for (const e of this.root.querySelectorAll<HTMLElement>('.hv-cross, .hv-ring, .hv-hotbar, .hv-label, .hv-breath')) e.style.visibility = show ? '' : 'hidden';
+    for (const e of this.root.querySelectorAll<HTMLElement>('.hv-cross, .hv-ring, .hv-hotbar, .hv-label, .hv-breath, .hv-vitals')) e.style.visibility = show ? '' : 'hidden';
   }
 
   setDebug(text: string): void {

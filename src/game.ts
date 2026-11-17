@@ -8,13 +8,15 @@ import { Renderer } from './render/renderer.ts';
 import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
+import { WATER, FALLING_WATER } from './world/blocks.ts';
 import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
+import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
 import { homeChestAt } from './gen/inheritance.ts';
-import { itemId } from './world/items.ts';
+import { itemId, foodOf } from './world/items.ts';
 import { BACKPACK_SLOTS } from './sim/inventory.ts';
 import { Sound, materialOf } from './audio/audio.ts';
 import { Look } from './platform/look.ts';
@@ -53,6 +55,10 @@ export class Game {
   private stepDist = 0;
   private digTimer = 0;
   private wasInWater = false;
+  vitals: Vitals = freshVitals();
+  /** Where the player wakes after a death or a night's sleep. */
+  spawn = { x: 0, y: 0, z: 0, yaw: 0 };
+  private coffeeUntil = 0;
   look: Look;
   store!: Store;
   hour = 16.5;
@@ -136,6 +142,7 @@ export class Game {
       if (data === pending && pending) this.editCount++; // still to be written to the main store
       else clearPending();
     }
+    if (!resumed) this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
     if (!resumed) {
       this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
       this.player.yaw = SPAWN.yaw;
@@ -204,6 +211,7 @@ export class Game {
 
     // HUD.
     this.hud.updateHotbar(this.hotbar);
+    this.hud.setVitals(this.vitals.hp, this.vitals.hunger, this.vitals.thirst, !this.hotbar.creative);
     this.hud.setMining(this.mining.active ? this.mining.progress : 0);
     const m = this.mining;
     this.renderer.showCrack(m.x, m.y, m.z, m.active && this.target ? m.progress : 0);
@@ -231,6 +239,7 @@ export class Game {
     }
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
+    this.tickSurvival(dt, input);
     // Arrow keys turn too (useful where the mouse can't be captured).
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
     const tilt = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
@@ -249,6 +258,36 @@ export class Game {
       sprint: k.has('ShiftLeft') || k.has('ShiftRight'),
       descend: k.has('ShiftLeft') || k.has('ShiftRight'),
     };
+  }
+
+  // ---- Survival ------------------------------------------------------------------------------
+
+  private tickSurvival(dt: number, input: Input): void {
+    const p = this.player, v = this.vitals;
+    p.speed = this.time < this.coffeeUntil ? 1.15 : 1;
+    const fall = p.landedFall;
+    p.landedFall = 0;
+    if (this.hotbar.creative || p.flying) return;
+    const moving = input.forward !== 0 || input.strafe !== 0;
+    const exertion = p.inWater ? 1.5 : input.sprint && moving ? 1.8 : 1;
+    const before = v.hp;
+    tickVitals(v, dt, exertion, p.headInWater && p.breath <= 0);
+    const hurt = fallDamage(fall);
+    if (hurt) { v.hp = Math.max(0, v.hp - hurt); this.sound.footstep('stone'); }
+    if (v.hp < before - 0.5 || hurt) this.hud.flashHurt();
+    if (v.hp <= 0) this.wakeAgain();
+  }
+
+  /** Death in the valley: you wake where you last slept (or on the balcony), with what you carried. */
+  private wakeAgain(): void {
+    const s = this.spawn;
+    this.player.setPosition(s.x, s.y, s.z);
+    this.player.yaw = s.yaw;
+    this.player.pitch = 0;
+    this.player.breath = 20;
+    this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, 50), thirst: Math.max(this.vitals.thirst, 50) };
+    this.hud.toast('You wake, aching, back at the cave. The valley keeps you.', 5000);
+    this.edited();
   }
 
   // ---- Sound -------------------------------------------------------------------------------
@@ -336,7 +375,7 @@ export class Game {
   }
 
   private placeBlock(): void {
-    if (!this.target) return;
+    if (!this.target) { this.useHeldItem(); return; }
     // Using what is in front comes first: a chest opens.
     const t = this.target;
     const chest = this.world.containerAt(t.x, t.y, t.z);
@@ -354,7 +393,34 @@ export class Game {
   /** Right-click with an item in hand: returns true if the item did something. */
   private useHeldItem(): boolean {
     const held = this.hotbar.current;
+    // Water within reach: drink from it with an empty hand, or fill an empty jug.
+    const p = this.player;
+    const [dx, dy, dz] = p.lookDir();
+    const wet = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, REACH, true);
+    const water = wet && (wet.id === WATER || wet.id === FALLING_WATER) && (!this.target || wet.dist <= this.target.dist);
+    if (water && !held) {
+      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); }
+      else this.hud.toast('You are not thirsty');
+      return true;
+    }
+    if (water && held && held.id === itemId('empty_jug')) {
+      this.hotbar.take();
+      if (this.hotbar.add(itemId('water_jug')) > 0) this.hotbar.add(itemId('empty_jug'));
+      this.sound.splash();
+      this.edited();
+      return true;
+    }
     if (!held) return false;
+    const food = foodOf(held.id);
+    const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : 0;
+    if (food || heal) {
+      if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
+      this.hotbar.take();
+      if (held.id === itemId('water_jug')) this.hotbar.add(itemId('empty_jug'));
+      if (held.id === itemId('coffee')) { this.coffeeUntil = this.time + 90; this.hud.toast('Coffee on the balcony: a spring in your step'); }
+      this.edited();
+      return true;
+    }
     if (held.id === itemId('backpack_upgrade')) {
       this.hotbar.take();
       this.hotbar.grow(BACKPACK_SLOTS);
@@ -464,6 +530,7 @@ export class Game {
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.hotbar.toSave(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
+      vitals: { ...this.vitals }, spawn: { ...this.spawn },
     };
   }
 
@@ -476,6 +543,8 @@ export class Game {
     this.player.flying = d.player.flying;
     this.hour = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
+    this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
+    this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
   }
 
   private get unsaved(): boolean { return this.editCount !== this.savedCount; }
@@ -579,6 +648,8 @@ export class Game {
     if (d) this.applySave(d);
     else {
       this.hotbar = Inventory.starter();
+      this.vitals = freshVitals();
+      this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
       this.hour = 16.5;
       this.player.flying = false;
       this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
