@@ -68,6 +68,7 @@ export interface MenuActions {
   setRenderDistance(chunks: number): void;
   setSensitivity(v: number): void;
   setInvertY(v: boolean): void;
+  setVolume(v: number): void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', parent?: HTMLElement): HTMLElementTagNameMap[K] {
@@ -154,7 +155,7 @@ export class Hud {
       ['Mouse', 'look'], ['W A S D', 'walk'], ['Space', 'jump · swim up'], ['Shift', 'sprint (flying: down)'],
       ['Left click (hold)', 'mine the block you look at'], ['Right click', 'place the selected block'],
       ['1–9 · wheel', 'choose a block'], ['F', 'fly on / off (for exploring)'], ['G', 'builder’s mode: blocks never run out'],
-      ['[ and ]', 'time of day back / forward an hour'], ['F3', 'debug panel'], ['Esc', 'this menu'],
+      ['[ and ]', 'time of day back / forward an hour'], ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
     ];
     for (const [key, what] of k) { el('b', '', keys).textContent = key; el('span', '', keys).textContent = what; }
 
@@ -219,13 +220,17 @@ export class Hud {
     const inv = el('input', '', set);
     inv.type = 'checkbox';
     inv.onchange = () => a.setInvertY(inv.checked);
-    this.settingsInputs = { rd, sens, inv };
+    el('label', '', set).textContent = 'Sound volume';
+    const vol = el('input', '', set);
+    vol.type = 'range'; vol.min = '0'; vol.max = '1'; vol.step = '0.05'; vol.value = '0.8';
+    vol.oninput = () => a.setVolume(Number(vol.value));
+    this.settingsInputs = { rd, sens, inv, vol };
   }
 
   private downloadBtn!: HTMLButtonElement;
   showDownload(show: boolean): void { this.downloadBtn.hidden = !show; }
 
-  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement };
+  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement };
 
   setLoading(done: number, total: number): void {
     this.loadBar.style.width = `${Math.round((done / Math.max(1, total)) * 100)}%`;

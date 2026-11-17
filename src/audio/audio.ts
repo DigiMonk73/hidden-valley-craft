@@ -1,0 +1,318 @@
+// All sound, made in code with Web Audio (no recordings to license): the waterfall's roar from where
+// it falls, the creek, wind, birds by day and insects and frogs by night, and the player's own
+// footsteps, digging and building. Starts on the first click, as browsers require.
+
+import { blockName } from '../world/blocks.ts';
+
+export type Material = 'stone' | 'soil' | 'grass' | 'sand' | 'wood' | 'leaves' | 'glass';
+
+export function materialOf(id: number): Material {
+  const n = blockName(id);
+  if (n === 'grass' || n === 'forest_floor' || n === 'moss' || n === 'tall_grass' || n === 'fern') return 'grass';
+  if (n === 'dirt' || n === 'clay' || n === 'mud') return 'soil';
+  if (n === 'sand' || n === 'gravel') return 'sand';
+  if (n === 'log' || n === 'planks' || n === 'tree_fern_trunk' || n === 'bamboo') return 'wood';
+  if (n === 'leaves' || n === 'fern_fronds' || n === 'bromeliad' || n === 'orchid') return 'leaves';
+  if (n === 'glass' || n === 'lantern') return 'glass';
+  return 'stone';
+}
+
+export interface Listener {
+  x: number; y: number; z: number;
+  fx: number; fy: number; fz: number; // facing
+  hour: number;
+  inValley: boolean;
+  open: number; // 0 (enclosed, a cave) … 1 (under open sky)
+  underwater: boolean;
+  creekDist: number; // metres to the creek or pool edge
+  fallPos: [number, number, number];
+}
+
+export class Sound {
+  private ctx: AudioContext | null = null;
+  private master!: GainNode;
+  private muffle!: BiquadFilterNode;
+  private ambience!: GainNode;
+  private sfx!: GainNode;
+  private noise!: AudioBuffer;
+  private brown!: AudioBuffer;
+  private fall!: { gain: GainNode; panner: PannerNode };
+  private creek!: GainNode;
+  private wind!: GainNode;
+  private crickets!: GainNode;
+  private cave!: GainNode;
+  private nextBird = 0;
+  private nextFrog = 0;
+  volume = 0.8;
+  muted = false;
+
+  get started(): boolean { return !!this.ctx; }
+
+  /** Call from a click: creates the audio graph and starts the ambient loops. */
+  start(): void {
+    if (this.ctx) { void this.ctx.resume(); return; }
+    let ctx: AudioContext;
+    try { ctx = new AudioContext(); } catch { return; }
+    this.ctx = ctx;
+    this.master = ctx.createGain();
+    this.muffle = ctx.createBiquadFilter();
+    this.muffle.type = 'lowpass';
+    this.muffle.frequency.value = 20000;
+    this.master.connect(this.muffle).connect(ctx.destination);
+    this.ambience = ctx.createGain();
+    this.sfx = ctx.createGain();
+    this.ambience.connect(this.master);
+    this.sfx.connect(this.master);
+    this.noise = this.makeNoise(false);
+    this.brown = this.makeNoise(true);
+
+    // The waterfall: deep rumbling noise, placed where the water falls.
+    const fallSrc = this.loop(this.brown);
+    const fallBand = ctx.createBiquadFilter();
+    fallBand.type = 'lowpass';
+    fallBand.frequency.value = 1400;
+    const fallHiss = this.loop(this.noise);
+    const hissBand = ctx.createBiquadFilter();
+    hissBand.type = 'bandpass'; hissBand.frequency.value = 2200; hissBand.Q.value = 0.6;
+    const hissGain = ctx.createGain(); hissGain.gain.value = 0.18;
+    const fallGain = ctx.createGain();
+    const panner = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 14, rolloffFactor: 1, maxDistance: 600 });
+    fallSrc.connect(fallBand).connect(fallGain);
+    fallHiss.connect(hissBand).connect(hissGain).connect(fallGain);
+    fallGain.connect(panner).connect(this.ambience);
+    this.fall = { gain: fallGain, panner };
+
+    // The creek: a bright babble whose filter wanders.
+    const creekSrc = this.loop(this.noise);
+    const creekBand = ctx.createBiquadFilter();
+    creekBand.type = 'bandpass'; creekBand.frequency.value = 1800; creekBand.Q.value = 1.2;
+    const wobble = ctx.createOscillator(); wobble.frequency.value = 3.1;
+    const wobbleDepth = ctx.createGain(); wobbleDepth.gain.value = 500;
+    wobble.connect(wobbleDepth).connect(creekBand.frequency);
+    wobble.start();
+    this.creek = ctx.createGain(); this.creek.gain.value = 0;
+    creekSrc.connect(creekBand).connect(this.creek).connect(this.ambience);
+
+    // Wind: low and slow, swelling now and then; stronger up high and outside the valley.
+    const windSrc = this.loop(this.brown);
+    const windLow = ctx.createBiquadFilter(); windLow.type = 'lowpass'; windLow.frequency.value = 380;
+    const gust = ctx.createOscillator(); gust.frequency.value = 0.07;
+    const gustDepth = ctx.createGain(); gustDepth.gain.value = 0.35;
+    this.wind = ctx.createGain(); this.wind.gain.value = 0;
+    const windSwell = ctx.createGain(); windSwell.gain.value = 0.65;
+    gust.connect(gustDepth).connect(windSwell.gain);
+    gust.start();
+    windSrc.connect(windLow).connect(windSwell).connect(this.wind).connect(this.ambience);
+
+    // Crickets at night: a high tone pulsed fast, in chirping groups.
+    const cricket = ctx.createOscillator(); cricket.frequency.value = 4700;
+    const pulse = ctx.createOscillator(); pulse.type = 'square'; pulse.frequency.value = 26;
+    const pulseDepth = ctx.createGain(); pulseDepth.gain.value = 0.5;
+    const pulsed = ctx.createGain(); pulsed.gain.value = 0.5;
+    pulse.connect(pulseDepth).connect(pulsed.gain);
+    const group = ctx.createOscillator(); group.type = 'square'; group.frequency.value = 1.3;
+    const groupDepth = ctx.createGain(); groupDepth.gain.value = 0.5;
+    const grouped = ctx.createGain(); grouped.gain.value = 0.5;
+    group.connect(groupDepth).connect(grouped.gain);
+    this.crickets = ctx.createGain(); this.crickets.gain.value = 0;
+    cricket.connect(pulsed).connect(grouped).connect(this.crickets).connect(this.ambience);
+    cricket.start(); pulse.start(); group.start();
+
+    // A cave's low room tone.
+    const caveSrc = this.loop(this.brown);
+    const caveLow = ctx.createBiquadFilter(); caveLow.type = 'lowpass'; caveLow.frequency.value = 120;
+    this.cave = ctx.createGain(); this.cave.gain.value = 0;
+    caveSrc.connect(caveLow).connect(this.cave).connect(this.master);
+  }
+
+  private makeNoise(brown: boolean): AudioBuffer {
+    const ctx = this.ctx!;
+    const len = ctx.sampleRate * 4;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w;
+    }
+    return buf;
+  }
+
+  private loop(buf: AudioBuffer): AudioBufferSourceNode {
+    const src = this.ctx!.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.start(0, Math.random() * buf.duration);
+    return src;
+  }
+
+  /** Every frame: where the player is and what is around them. */
+  update(l: Listener): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const set = (p: AudioParam, v: number, tc = 0.25) => p.setTargetAtTime(v, t, tc);
+    set(this.master.gain, this.muted ? 0 : this.volume, 0.05);
+    set(this.muffle.frequency, l.underwater ? 500 : 20000, 0.08);
+
+    const lis = ctx.listener;
+    if (lis.positionX) {
+      lis.positionX.setValueAtTime(l.x, t); lis.positionY.setValueAtTime(l.y, t); lis.positionZ.setValueAtTime(l.z, t);
+      lis.forwardX.setValueAtTime(l.fx, t); lis.forwardY.setValueAtTime(l.fy, t); lis.forwardZ.setValueAtTime(l.fz, t);
+      lis.upX.setValueAtTime(0, t); lis.upY.setValueAtTime(1, t); lis.upZ.setValueAtTime(0, t);
+    } else {
+      (lis as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(l.x, l.y, l.z);
+      (lis as unknown as { setOrientation(...a: number[]): void }).setOrientation(l.fx, l.fy, l.fz, 0, 1, 0);
+    }
+    const [fx, fy, fz] = l.fallPos;
+    if (this.fall.panner.positionX) {
+      this.fall.panner.positionX.value = fx; this.fall.panner.positionY.value = fy; this.fall.panner.positionZ.value = fz;
+    } else (this.fall.panner as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(fx, fy, fz);
+
+    // Outdoor sound fades inside a cave; the cave's own hum comes up instead.
+    const open = 0.15 + 0.85 * l.open;
+    set(this.ambience.gain, open);
+    set(this.cave.gain, (1 - l.open) * 0.05);
+    set(this.fall.gain.gain, 0.9);
+    set(this.creek.gain, l.inValley ? 0.06 / (1 + l.creekDist / 5) : 0);
+    const high = Math.min(1, Math.max(0, (l.y - 88) / 40));
+    set(this.wind.gain, 0.03 + 0.12 * high + (l.inValley ? 0 : 0.06), 1);
+    const night = l.hour > 19 || l.hour < 5 ? 1 : l.hour > 18.2 ? (l.hour - 18.2) / 0.8 : l.hour < 5.8 ? (5.8 - l.hour) / 0.8 : 0;
+    set(this.crickets.gain, 0.012 * night, 1);
+
+    // Birds by day (a dawn chorus first thing), tree frogs by night.
+    const dawn = l.hour > 5.3 && l.hour < 8.5;
+    const day = l.hour > 5.3 && l.hour < 18.4;
+    if (day && t > this.nextBird) {
+      this.bird(l);
+      this.nextBird = t + (dawn ? 0.6 + Math.random() * 1.6 : 1.8 + Math.random() * 5);
+    }
+    if (night > 0.5 && t > this.nextFrog) {
+      this.frog(l);
+      this.nextFrog = t + 0.8 + Math.random() * 3;
+    }
+  }
+
+  /** A short sound placed around the listener. */
+  private around(l: Listener, near: number, far: number, height: number): PannerNode {
+    const a = Math.random() * Math.PI * 2, r = near + Math.random() * (far - near);
+    const p = new PannerNode(this.ctx!, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 6, rolloffFactor: 1,
+      positionX: l.x + Math.cos(a) * r, positionY: l.y + height * Math.random(), positionZ: l.z + Math.sin(a) * r });
+    p.connect(this.ambience);
+    return p;
+  }
+
+  private chirp(dest: AudioNode, at: number, f0: number, f1: number, dur: number, gain: number, type: OscillatorType = 'sine'): void {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, at);
+    o.frequency.exponentialRampToValueAtTime(f1, at + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(gain, at + Math.min(0.015, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g).connect(dest);
+    o.start(at);
+    o.stop(at + dur + 0.02);
+  }
+
+  private bird(l: Listener): void {
+    const t = this.ctx!.currentTime + 0.05;
+    const p = this.around(l, 8, 45, 12);
+    const kind = Math.random();
+    if (kind < 0.3) { // tweet-tweet
+      const f = 2800 + Math.random() * 1600, n = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) this.chirp(p, t + i * 0.13, f, f * 1.35, 0.07, 0.05);
+    } else if (kind < 0.55) { // a falling whistle
+      let f = 3400 + Math.random() * 600;
+      for (let i = 0; i < 3; i++) { this.chirp(p, t + i * 0.2, f, f * 0.94, 0.17, 0.04); f *= 0.82; }
+    } else if (kind < 0.8) { // a trill
+      const f = 3600 + Math.random() * 900, n = 7 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < n; i++) this.chirp(p, t + i * 0.045, i % 2 ? f : f * 1.08, f * 0.9, 0.04, 0.03);
+    } else { // a dove: low, soft coo-coo-cooo
+      const f = 520 + Math.random() * 80;
+      [0, 0.45, 0.85].forEach((d, i) => this.chirp(p, t + d, f * (i === 2 ? 0.95 : 1.05), f * 0.92, i === 2 ? 0.7 : 0.32, 0.05, 'triangle'));
+    }
+  }
+
+  private frog(l: Listener): void {
+    const t = this.ctx!.currentTime + 0.05;
+    const p = this.around(l, 6, 30, 2);
+    const f = 2100 + Math.random() * 700, n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) this.chirp(p, t + i * 0.16, f * 0.85, f, 0.05, 0.035, 'triangle');
+  }
+
+  // ---- The player's own sounds ---------------------------------------------------------------
+
+  private burst(dur: number, type: BiquadFilterType, freq: number, q: number, gain: number, at = 0): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime + at;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(t, Math.random() * 3, dur + 0.05);
+  }
+
+  private thump(freq: number, dur: number, gain: number, at = 0): void {
+    if (!this.ctx) return;
+    this.chirp(this.sfx, this.ctx.currentTime + at, freq, freq * 0.6, dur, gain);
+  }
+
+  footstep(m: Material): void {
+    const v = 0.8 + Math.random() * 0.4;
+    switch (m) {
+      case 'stone': this.burst(0.05, 'highpass', 1800 * v, 0.7, 0.12); this.thump(140, 0.06, 0.12); break;
+      case 'wood': this.thump(190 * v, 0.07, 0.2); this.burst(0.03, 'bandpass', 900, 1, 0.06); break;
+      case 'sand': this.burst(0.11, 'bandpass', 2600 * v, 0.8, 0.09); break;
+      case 'soil': this.burst(0.08, 'lowpass', 700 * v, 0.7, 0.18); break;
+      case 'leaves': this.burst(0.1, 'bandpass', 3400 * v, 0.6, 0.08); break;
+      case 'glass': this.burst(0.04, 'highpass', 3500, 1, 0.08); this.thump(300, 0.04, 0.08); break;
+      default: this.burst(0.09, 'bandpass', 3000 * v, 0.6, 0.06); this.burst(0.07, 'lowpass', 500, 0.7, 0.12); // grass
+    }
+  }
+
+  dig(m: Material): void {
+    const v = 0.85 + Math.random() * 0.3;
+    if (m === 'stone' || m === 'glass') { this.burst(0.06, 'bandpass', 2400 * v, 1.2, 0.16); this.thump(220, 0.05, 0.08); }
+    else if (m === 'wood') { this.thump(240 * v, 0.06, 0.18); this.burst(0.04, 'bandpass', 1200, 1, 0.08); }
+    else this.burst(0.08, 'lowpass', 1000 * v, 0.8, 0.16);
+  }
+
+  breakBlock(m: Material): void {
+    if (m === 'stone') { this.burst(0.18, 'bandpass', 1500, 0.8, 0.22); this.burst(0.12, 'highpass', 3000, 0.7, 0.1, 0.03); this.thump(110, 0.12, 0.14); }
+    else if (m === 'glass') { this.burst(0.25, 'highpass', 4000, 0.8, 0.18); this.chirp(this.sfx, this.ctx!.currentTime, 5200, 3800, 0.15, 0.06); }
+    else if (m === 'wood') { this.thump(170, 0.12, 0.24); this.burst(0.1, 'bandpass', 900, 0.9, 0.12); }
+    else this.burst(0.16, 'lowpass', 900, 0.7, 0.24);
+  }
+
+  place(m: Material): void {
+    if (m === 'stone') { this.thump(170, 0.07, 0.2); this.burst(0.04, 'bandpass', 2000, 1, 0.08); }
+    else if (m === 'wood') this.thump(210, 0.08, 0.22);
+    else this.burst(0.07, 'lowpass', 800, 0.7, 0.18);
+  }
+
+  splash(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(3500, t);
+    f.frequency.exponentialRampToValueAtTime(300, t + 0.4);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(t, Math.random() * 3, 0.5);
+  }
+}

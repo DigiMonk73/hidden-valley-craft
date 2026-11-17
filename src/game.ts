@@ -11,13 +11,14 @@ import { raycast, type RayHit } from './sim/raycast.ts';
 import { Hotbar } from './sim/hotbar.ts';
 import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
 import { Hud } from './ui/hud.ts';
+import { Sound, materialOf } from './audio/audio.ts';
 import { Look } from './platform/look.ts';
 import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { B_HARDNESS } from './world/blocks.ts';
-import { HOME, WATERFALL, VALLEY, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight } from './gen/layout.ts';
+import { HOME, WATERFALL, VALLEY, POOL, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
 const SAVE_KEY = 'save:1';
@@ -43,6 +44,10 @@ export class Game {
   player = new Player();
   hotbar = Hotbar.starter();
   hud: Hud;
+  sound = new Sound();
+  private stepDist = 0;
+  private digTimer = 0;
+  private wasInWater = false;
   look: Look;
   store!: Store;
   hour = 16.5;
@@ -84,6 +89,7 @@ export class Game {
       setRenderDistance: (c) => this.setRenderDistance(c, true),
       setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
       setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
+      setVolume: (v) => { this.sound.volume = v; void this.saveSettings(); },
     });
     this.look.onDelta = (dx, dy) => {
       this.player.yaw -= dx;
@@ -185,6 +191,7 @@ export class Game {
     if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
     this.updateTarget();
+    this.updateSound();
     this.renderer.render();
 
     // HUD.
@@ -201,7 +208,19 @@ export class Game {
 
   private tick(dt: number): void {
     const input = this.readInput();
-    this.player.step(dt, input, (x, y, z) => this.world.blockAt(x, y, z));
+    const p = this.player;
+    const px = p.x, pz = p.z, vy = p.vy;
+    p.step(dt, input, (x, y, z) => this.world.blockAt(x, y, z));
+    // Footsteps by the ground underfoot, and a splash on falling into water.
+    if (p.onGround && !p.flying && !p.inWater) {
+      this.stepDist += Math.hypot(p.x - px, p.z - pz);
+      if (this.stepDist > 1.7) {
+        this.stepDist = 0;
+        this.sound.footstep(materialOf(this.world.blockAt(Math.floor(p.x), Math.floor(p.y - 0.05), Math.floor(p.z))));
+      }
+    }
+    if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
+    this.wasInWater = p.inWater;
     // Arrow keys turn too (useful where the mouse can't be captured).
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
     const tilt = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
@@ -219,6 +238,22 @@ export class Game {
       sprint: k.has('ShiftLeft') || k.has('ShiftRight'),
       descend: k.has('ShiftLeft') || k.has('ShiftRight'),
     };
+  }
+
+  // ---- Sound -------------------------------------------------------------------------------
+
+  private updateSound(): void {
+    if (!this.sound.started) return;
+    const p = this.player;
+    const [fx, fy, fz] = p.lookDir();
+    const head = this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z));
+    const valley = inSanctuary(p.x, p.z);
+    const creek = valley ? Math.min(creekDistance(p.x, p.z), Math.max(0, Math.hypot(p.x - POOL.cx, p.z - POOL.cz) - POOL.radius)) : 99;
+    this.sound.update({
+      x: p.x, y: p.eyeY, z: p.z, fx, fy, fz, hour: this.hour, inValley: valley,
+      open: Math.min(1, Math.max(0, ((head >> 4) - 4) / 10)), underwater: p.headInWater, creekDist: creek,
+      fallPos: [WATERFALL.x + 1, (VALLEY.water + WATERFALL.top) / 2, (WATERFALL.z0 + WATERFALL.z1) / 2],
+    });
   }
 
   // ---- Life in the air ----------------------------------------------------------------------
@@ -263,6 +298,8 @@ export class Game {
     const hardness = B_HARDNESS[t.id];
     if (hardness < 0) return; // bedrock and other unbreakables
     m.progress += hardness === 0 ? 1 : dt / hardness;
+    this.digTimer -= dt;
+    if (this.digTimer <= 0) { this.sound.dig(materialOf(t.id)); this.digTimer = 0.24; }
     if (m.progress >= 1) {
       this.breakBlock(t.x, t.y, t.z);
       m.progress = 0;
@@ -274,7 +311,10 @@ export class Game {
     const id = this.world.blockAt(x, y, z);
     const lv = this.world.lightAt(x, y + 1, z);
     const r = breakBlock(this.world, this.hotbar, x, y, z);
-    if (r.changed) this.renderer.particles.burst(id, x, y, z, Math.max(0.15, Math.max((lv >> 4) * this.sky.daylight, lv & 15) / 15));
+    if (r.changed) {
+      this.renderer.particles.burst(id, x, y, z, Math.max(0.15, Math.max((lv >> 4) * this.sky.daylight, lv & 15) / 15));
+      this.sound.breakBlock(materialOf(id));
+    }
     if (r.full) this.hud.toast('Your hotbar is full');
     if (r.changed) this.edited();
   }
@@ -283,7 +323,11 @@ export class Game {
     if (!this.target) return;
     const [x, y, z] = placeTarget(this.target);
     this.streamer.markUrgentAround(x, y, z);
-    if (placeBlock(this.world, this.hotbar, this.player, this.target)) this.edited();
+    const id = this.hotbar.current?.id ?? 0;
+    if (placeBlock(this.world, this.hotbar, this.player, this.target)) {
+      this.edited();
+      this.sound.place(materialOf(id));
+    }
   }
 
   // ---- Input ---------------------------------------------------------------------------------
@@ -301,6 +345,7 @@ export class Game {
       if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
       if (e.code === 'BracketLeft') this.hour = (this.hour + 23) % 24;
       if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible;
+      if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; });
@@ -324,6 +369,7 @@ export class Game {
 
   private resume(): void {
     if (!this.ready) return;
+    this.sound.start(); // browsers only allow sound to begin from a click
     this.playing = true;
     this.hud.showMenu(false);
     this.look.engage();
@@ -341,7 +387,8 @@ export class Game {
   }
 
   private setRenderDistance(chunks: number, persist: boolean): void {
-    chunks = Math.max(this.opts.test ? 2 : 7, Math.min(12, chunks || 8));
+    // At least 224 m from the menu; a test address may ask for less (?rd=…).
+    chunks = Math.max(this.opts.renderChunks !== undefined && !persist ? 2 : 7, Math.min(12, chunks || 8));
     this.streamer.radius = chunks;
     this.renderer.setRenderDistance(chunks * CS);
     this.hud.settingsInputs.rd.value = String(chunks);
@@ -484,7 +531,7 @@ export class Game {
   }
 
   private async saveSettings(): Promise<void> {
-    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY };
+    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume };
     await this.store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify(s)));
   }
 
@@ -496,6 +543,7 @@ export class Game {
       if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(s.rd);
       if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }
       if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
+      if (typeof s.vol === 'number') { this.sound.volume = s.vol; this.hud.settingsInputs.vol.value = String(s.vol); }
     } catch { /* bad settings are ignored */ }
   }
 

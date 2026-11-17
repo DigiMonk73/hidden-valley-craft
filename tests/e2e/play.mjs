@@ -31,7 +31,8 @@ check('play starts (mouse captured or free-look fallback)', mode === 'captured' 
 const x0 = await g(() => window.__hv.game.player.x);
 await g(() => { const p = window.__hv.game.player; p.yaw = -Math.PI / 2; p.pitch = 0; });
 await page.keyboard.down('KeyW');
-await page.waitForTimeout(1500);
+// Software rendering is slow, so game time runs behind the clock here: walk until moved or 30 s.
+await page.waitForFunction((x) => window.__hv.game.player.x - x > 2.5, x0, { timeout: 30_000, polling: 200 }).catch(() => {});
 await page.keyboard.up('KeyW');
 const x1 = await g(() => window.__hv.game.player.x);
 check('walks (W moves the player)', x1 - x0 > 2, `moved ${(x1 - x0).toFixed(2)} m east`);
@@ -51,7 +52,7 @@ await page.waitForFunction(() => {
 const target = await g(() => { const t = window.__hv.game.target; return t && { x: t.x, y: t.y, z: t.z, id: t.id }; });
 check('looks at a block', !!target, JSON.stringify(target));
 // Software rendering is slow, so game time runs behind the clock here: wait for the result.
-await page.waitForFunction((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z) === 0, target, { timeout: 10_000 }).catch(() => {});
+await page.waitForFunction((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z) === 0, target, { timeout: 30_000 }).catch(() => {});
 await page.mouse.up();
 const after = await g((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z), target);
 check('mining removes the block', after === 0, `block now ${after}`);
@@ -62,7 +63,7 @@ check('the mined block goes into the hotbar', gained);
 await g((id) => { const h = window.__hv.game.hotbar; h.selected = h.slots.findIndex((s) => s && s.id === id && s.count === 1); }, target.id);
 const editsBefore = await g(() => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v !== 0).length, 0));
 await page.mouse.click(400, 225, { button: 'right' });
-await page.waitForFunction((id) => !window.__hv.game.hotbar.slots.some((s) => s && s.id === id && s.count === 1), target.id, { timeout: 5_000 }).catch(() => {});
+await page.waitForFunction((id) => !window.__hv.game.hotbar.slots.some((s) => s && s.id === id && s.count === 1), target.id, { timeout: 20_000 }).catch(() => {});
 const editsAfter = await g(() => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v !== 0).length, 0));
 check('right click places the selected block', editsAfter === editsBefore + 1, `placed blocks ${editsBefore} → ${editsAfter}`);
 
