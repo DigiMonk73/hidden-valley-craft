@@ -7,6 +7,7 @@ import { buildTextureStack, TEX } from './textures.ts';
 import { createSkyDome, applySky, SKY_COLOR_GLSL, type SkyState } from './sky.ts';
 import type { ChunkMesh, MeshPart } from '../mesh/mesher.ts';
 import { CS } from '../world/constants.ts';
+import { Particles } from './particles.ts';
 
 const BLOCK_VERT = /* glsl */ `
 in vec4 aPack;
@@ -19,6 +20,9 @@ out vec2 vLight;
 out float vShade;
 out float vDist;
 out vec3 vWorld;
+out float vWaterTop;
+out float vSun;
+uniform vec3 uSunDirV;
 void main() {
   int flags = int(aPack.x + 0.5);
   int face = flags & 7;
@@ -27,7 +31,13 @@ void main() {
   bool liquid = (flags & 64) != 0;
   vec2 uv = vec2((corner == 1 || corner == 2) ? 1.0 : 0.0, corner >= 2 ? 1.0 : 0.0);
   vUv = vec2(uv.x, 1.0 - uv.y);
+  if ((flags & 128) != 0) vUv.y -= uTime * 1.6; // falling water pours downward (the texture repeats)
   vLayer = aLayer;
+  vWaterTop = liquid && face == 2 ? 1.0 : 0.0;
+  // How squarely this face looks at the sun (plants count as half-facing it).
+  vec3 n = face == 0 ? vec3(1, 0, 0) : face == 1 ? vec3(-1, 0, 0) : face == 2 ? vec3(0, 1, 0)
+         : face == 3 ? vec3(0, -1, 0) : face == 4 ? vec3(0, 0, 1) : face == 5 ? vec3(0, 0, -1) : vec3(0.0);
+  vSun = face == 6 ? 0.5 : max(dot(n, uSunDirV), 0.0);
   vAo = aPack.y / 3.0;
   vLight = aPack.zw / 240.0;
   // Fixed shading per face direction gives blocks their form: top brightest, bottom darkest.
@@ -54,7 +64,12 @@ in vec2 vLight;
 in float vShade;
 in float vDist;
 in vec3 vWorld;
+in float vWaterTop;
+in float vSun;
 uniform sampler2DArray uTex;
+uniform float uMist;
+uniform vec3 uMistColor;
+uniform vec3 uValley; // centre x, centre z, radius
 uniform float uDaylight;
 uniform vec3 uSkyLight;
 uniform vec3 uBlockLight;
@@ -75,14 +90,35 @@ void main() {
   }
   float sky = curve(vLight.x) * uDaylight;
   float blk = curve(vLight.y);
-  vec3 light = max(uSkyLight * sky, uBlockLight * blk);
+  // Faces in the open that look toward the sun take more of its light: warm cliffs at sunset.
+  float sunUp = smoothstep(-0.04, 0.12, uSunDir.y);
+  float direct = smoothstep(0.8, 1.0, vLight.x) * sunUp;
+  vec3 light = max(uSkyLight * sky * (0.8 + 0.55 * vSun * direct), uBlockLight * blk);
   light = max(light, vec3(0.035));
   float ao = mix(0.42, 1.0, vAo);
   vec3 col = tex.rgb * light * ao * vShade;
+  float alpha = tex.a * uOpacity;
+  if (vWaterTop > 0.5) {
+    // Still water mirrors the sky, more so at a glancing angle, and catches a glint of the sun.
+    vec3 v = normalize(cameraPosition - vWorld);
+    vec3 r = reflect(-v, vec3(0.0, 1.0, 0.0));
+    float fresnel = pow(1.0 - max(v.y, 0.0), 4.0);
+    vec3 sky = skyColor(r) * (0.35 + 0.65 * curve(vLight.x));
+    col = mix(col, sky, 0.25 + 0.6 * fresnel);
+    col += uSunGlow * pow(max(dot(r, uSunDir), 0.0), 220.0) * 1.5 * curve(vLight.x);
+    alpha = mix(alpha, 1.0, fresnel * 0.7);
+  }
+  // Morning mist lies low in the valley and thickens with distance.
+  if (uMist > 0.0) {
+    float inValley = 1.0 - smoothstep(uValley.z - 10.0, uValley.z + 6.0, length(vWorld.xz - uValley.xy));
+    float low = smoothstep(84.0, 70.0, vWorld.y);
+    float m = uMist * inValley * low * (1.0 - exp(-vDist * 0.03));
+    col = mix(col, uMistColor, m * 0.85);
+  }
   float fog = smoothstep(uFogNear, uFogFar, vDist);
   // Fog takes the colour of the sky behind the fragment, so the edge of the world melts into it.
   col = mix(col, skyColor(normalize(vWorld - cameraPosition)), fog);
-  outColor = vec4(col, tex.a * uOpacity);
+  outColor = vec4(col, alpha);
 }`;
 
 export class Renderer {
@@ -98,6 +134,7 @@ export class Renderer {
   private outline: THREE.LineSegments;
   private fogDist = 256;
   stats = { chunks: 0, quads: 0 };
+  readonly particles = new Particles();
 
   constructor(canvas: HTMLCanvasElement) {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -110,6 +147,7 @@ export class Renderer {
     tex.format = THREE.RGBAFormat;
     tex.type = THREE.UnsignedByteType;
     tex.magFilter = THREE.NearestFilter;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; // falling water scrolls its texture
     tex.minFilter = THREE.NearestMipmapLinearFilter;
     tex.generateMipmaps = true;
     tex.anisotropy = Math.min(8, this.gl.capabilities.getMaxAnisotropy());
@@ -129,6 +167,10 @@ export class Renderer {
       uFogNear: { value: 120 },
       uFogFar: { value: 250 },
       uOpacity: { value: 1 },
+      uSunDirV: { value: new THREE.Vector3(0, 1, 0) },
+      uMist: { value: 0 },
+      uMistColor: { value: new THREE.Color('#dfe8ec') },
+      uValley: { value: new THREE.Vector3(1700, 1024, 100) },
       uCutout: { value: true },
     });
     this.solidMat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: BLOCK_VERT, fragmentShader: BLOCK_FRAG, uniforms: uniforms() });
@@ -151,6 +193,7 @@ export class Renderer {
     this.outline = new THREE.LineSegments(box, new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.55 }));
     this.outline.visible = false;
     this.scene.add(this.outline);
+    this.particles.addTo(this.scene);
   }
 
   resize(w: number, h: number): void {
@@ -178,8 +221,13 @@ export class Renderer {
       u.uHorizon.value.copy(s.horizon);
       u.uSunGlow.value.copy(s.sunGlow);
       u.uSunDir.value.copy(s.sunDir);
+      u.uSunDirV.value.copy(s.sunDir);
+      u.uMist.value = s.mist;
+      u.uMistColor.value.copy(s.mistColor);
     }
     this.gl.setClearColor(s.fog);
+    const u = this.solidMat.uniforms;
+    this.particles.sync(this.gl.domElement.height, this.camera.fov, u.uFogNear.value, u.uFogFar.value, s);
   }
 
   private makePart(part: MeshPart, mat: THREE.Material, key: number, cx: number, cy: number, cz: number): THREE.Mesh | undefined {

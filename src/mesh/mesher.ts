@@ -3,7 +3,7 @@
 // and smooth light, which is why faces are not merged (merging would flatten both).
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
-import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, RENDER, LAYER } from '../world/blocks.ts';
+import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
 
 export interface MeshPart {
   quads: number;
@@ -36,6 +36,7 @@ const AXIS_STRIDE = [1, PS * PS, PS];
 const FLAG_CROSS = 6;
 const FLAG_WAVE = 1 << 5;
 const FLAG_LIQUID = 1 << 6;
+const FLAG_FLOW = 1 << 7; // falling water: its texture scrolls downward
 
 /** Blocks that darken the corners next to them. */
 const AO_OCCLUDER = new Uint8Array(B_OPAQUE.length);
@@ -139,7 +140,8 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
           // full-height water (something above it) beside lowered water (open air above) shows the
           // strip between the two surfaces, or a see-through slit would open under the block's edge.
           let fromY = 0;
-          if (nid === id && B_LAYER[id] !== LAYER.opaque) {
+          const sameKind = nid === id || (isWater && B_RENDER[nid] === RENDER.liquid);
+          if (sameKind && B_LAYER[id] !== LAYER.opaque) {
             const sideStep = isWater && f !== 2 && f !== 3 && !openAbove && B_RENDER[blocks[ni + PS * PS]] === RENDER.none;
             if (!sideStep) continue;
             fromY = 0.875;
@@ -184,7 +186,7 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
             const pz = z + cs[k * 3 + 2];
             if (cs[k * 3 + 1] === 1) py = y + top;
             else if (fromY > 0) py = y + fromY;
-            const flags = f | (k << 3) | waveFlag | (isWater ? FLAG_LIQUID : 0);
+            const flags = f | (k << 3) | waveFlag | (isWater ? FLAG_LIQUID : 0) | (id === FALLING_WATER && f !== 2 && f !== 3 ? FLAG_FLOW : 0);
             part.vertex(q, j, px, py, pz, flags, aos[k], skies[k], blks[k], layer);
           }
           part.quads++;

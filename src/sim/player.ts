@@ -1,7 +1,7 @@
 // The player's body: walking, sprinting, jumping, stepping up single blocks without a jump (so the
 // path down from the balcony is easy), swimming with a breath meter, and flying for exploring.
 
-import { B_SOLID, WATER } from '../world/blocks.ts';
+import { B_SOLID, isWaterId } from '../world/blocks.ts';
 
 export interface Input {
   forward: number; // -1 … 1
@@ -49,7 +49,7 @@ export class Player {
   }
 
   step(dt: number, input: Input, blockAt: BlockAt): void {
-    const isWater = (x: number, y: number, z: number) => blockAt(Math.floor(x), Math.floor(y), Math.floor(z)) === WATER;
+    const isWater = (x: number, y: number, z: number) => isWaterId(blockAt(Math.floor(x), Math.floor(y), Math.floor(z)));
     this.inWater = isWater(this.x, this.y + 0.4, this.z);
     this.headInWater = isWater(this.x, this.y + EYE, this.z);
     if (this.headInWater && !this.flying) this.breath = Math.max(0, this.breath - dt);

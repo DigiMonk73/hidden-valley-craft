@@ -3,7 +3,7 @@
 // the player's edits are saved. Runs in workers, in Node (tests, map tool) and on the main thread.
 
 import { CS, WORLD_Y } from '../world/constants.ts';
-import { blockId, AIR, BEDROCK, WATER } from '../world/blocks.ts';
+import { blockId, AIR, BEDROCK, WATER, FALLING_WATER as FALLING } from '../world/blocks.ts';
 import { Simplex, hash3, rand3 } from '../core/noise.ts';
 import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, WATERFALL, CANYON_POOL, TUNNEL, GARDEN,
@@ -292,7 +292,12 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
 
       // The waterfall: a sheet of water down the west cliff, fed by a spring in a notch at the rim.
       if (z >= WATERFALL.z0 && z < WATERFALL.z1) {
-        if (x === WATERFALL.x) for (let y = W; y <= WATERFALL.top; y++) col[ci(lx, y, lz)] = WATER;
+        // Two blocks thick, the front one a little shorter so the lip reads; falling water above the pool.
+        if (x === WATERFALL.x || x === WATERFALL.x + 1) {
+          const top = x === WATERFALL.x ? WATERFALL.top : WATERFALL.top - 1;
+          for (let y = W + 1; y <= top; y++) col[ci(lx, y, lz)] = FALLING;
+          col[ci(lx, W, lz)] = WATER;
+        }
         if (x > WATERFALL.x - 12 && x < WATERFALL.x) {
           for (let y = WATERFALL.top + 1; y < WORLD_Y; y++) col[ci(lx, y, lz)] = AIR;
           col[ci(lx, WATERFALL.top, lz)] = x > WATERFALL.x - 9 ? WATER : MOSSY;

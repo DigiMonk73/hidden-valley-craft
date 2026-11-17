@@ -9,6 +9,7 @@ const opts: BootOptions = {};
 if (q.has('hour')) opts.hour = Number(q.get('hour'));
 if (q.has('rd')) opts.renderChunks = Number(q.get('rd'));
 if (q.has('test')) opts.test = true;
+if (q.has('fx')) opts.effects = true; // particles even in test mode, for screenshots
 if (q.has('cam')) {
   const v = q.get('cam')!.split(',').map(Number);
   if (v.length === 5 && v.every(Number.isFinite)) opts.cam = v as BootOptions['cam'];

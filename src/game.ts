@@ -5,7 +5,7 @@ import { World } from './world/world.ts';
 import { Streamer } from './world/streamer.ts';
 import { createExecutor, type Executor } from './jobs/pool.ts';
 import { Renderer } from './render/renderer.ts';
-import { skyAt, DAY_SECONDS } from './render/sky.ts';
+import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { Hotbar } from './sim/hotbar.ts';
@@ -17,7 +17,7 @@ import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, cl
 import { shouldAutosave } from './save/schedule.ts';
 import { collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { B_HARDNESS } from './world/blocks.ts';
-import { HOME, zoneAt, ZONE_DANGER } from './gen/layout.ts';
+import { HOME, WATERFALL, VALLEY, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
 const SAVE_KEY = 'save:1';
@@ -32,6 +32,7 @@ export interface BootOptions {
   renderChunks?: number;
   test?: boolean; // deterministic: frozen time, no saving, no waving
   handover?: SaveData; // state passed from the previous version of an open page
+  effects?: boolean; // particles in test mode
 }
 
 export class Game {
@@ -65,6 +66,7 @@ export class Game {
   /** Bumped by every write; a slower save that finds it changed was overtaken and is dropped. */
   private writeSeq = 0;
   private cachedCode: string | null = null;
+  private sky: SkyState = skyAt(16.5);
   private downloads: Downloads | null = null;
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
@@ -177,7 +179,10 @@ export class Game {
     const cam = this.renderer.camera;
     cam.position.set(p.x, p.eyeY, p.z);
     cam.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
-    this.renderer.applySky(skyAt(this.hour), this.opts.test ? 0 : this.time);
+    this.sky = skyAt(this.hour);
+    this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
+    if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
+    this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
     this.updateTarget();
     this.renderer.render();
 
@@ -215,6 +220,30 @@ export class Game {
     };
   }
 
+  // ---- Life in the air ----------------------------------------------------------------------
+
+  private sprayDebt = 0;
+
+  private emitParticles(dt: number): void {
+    const p = this.player, parts = this.renderer.particles;
+    // Spray where the waterfall meets the pool, while the player is near enough to see it.
+    if (Math.hypot(p.x - WATERFALL.x, p.z - (WATERFALL.z0 + WATERFALL.z1) / 2) < 170) {
+      this.sprayDebt += dt * 45;
+      const n = Math.floor(this.sprayDebt);
+      this.sprayDebt -= n;
+      if (n) parts.spray(WATERFALL.x + 1.5, WATERFALL.x + 4, WATERFALL.z0, WATERFALL.z1, VALLEY.water + 0.9, n);
+    }
+    // Fireflies over the valley floor from dusk into the night.
+    const h = this.hour;
+    const dusk = Math.min(1, Math.max(0, (h - 18.3) / 0.8)) * (h < 23.5 ? 1 : 0) + (h < 4.5 ? 0.5 : 0);
+    const want = Math.round(70 * dusk);
+    if (inSanctuary(p.x, p.z) && parts.fireflies() < want) {
+      const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 30;
+      const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
+      if (inSanctuary(x, z)) parts.firefly(x, valleyFloorHeight(x, z) + 0.6 + Math.random() * 2.8, z);
+    }
+  }
+
   // ---- Looking, mining, placing -----------------------------------------------------------
 
   private updateTarget(): void {
@@ -241,7 +270,10 @@ export class Game {
 
   private breakBlock(x: number, y: number, z: number): void {
     this.streamer.markUrgentAround(x, y, z);
+    const id = this.world.blockAt(x, y, z);
+    const lv = this.world.lightAt(x, y + 1, z);
     const r = breakBlock(this.world, this.hotbar, x, y, z);
+    if (r.changed) this.renderer.particles.burst(id, x, y, z, Math.max(0.15, Math.max((lv >> 4) * this.sky.daylight, lv & 15) / 15));
     if (r.full) this.hud.toast('Your hotbar is full');
     if (r.changed) this.edited();
   }

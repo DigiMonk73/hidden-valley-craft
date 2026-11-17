@@ -14,13 +14,15 @@ export interface SkyState {
   sunGlow: THREE.Color;
   skyLight: THREE.Color; // colour of light from the open sky
   fog: THREE.Color;
+  mist: number; // 0–1: how thick the valley's morning mist is
+  mistColor: THREE.Color;
 }
 
 const C = (h: string) => new THREE.Color(h);
 const DAY = { zenith: C('#3f7fc4'), horizon: C('#a8cbe3'), light: C('#fffaf0') };
 const GOLD = { zenith: C('#3b5e93'), horizon: C('#f2a15c'), light: C('#ffcf9a') };
 const DUSK = { zenith: C('#1a2547'), horizon: C('#7a5a7a'), light: C('#a08cb8') };
-const NIGHT = { zenith: C('#050912'), horizon: C('#0f1a2b'), light: C('#5d6f9c') };
+const NIGHT = { zenith: C('#070c18'), horizon: C('#142236'), light: C('#8193c4') };
 
 function lerp3(a: THREE.Color, b: THREE.Color, t: number): THREE.Color {
   return a.clone().lerp(b, Math.min(1, Math.max(0, t)));
@@ -44,11 +46,14 @@ export function skyAt(hour: number): SkyState {
     const t = Math.min(1, (h + 0.35) / 0.23);
     pal = { zenith: lerp3(NIGHT.zenith, DUSK.zenith, t), horizon: lerp3(NIGHT.horizon, DUSK.horizon, t), light: lerp3(NIGHT.light, DUSK.light, t) };
   }
-  const daylight = 0.14 + 0.86 * THREE.MathUtils.smoothstep(h, -0.12, 0.3);
+  const daylight = 0.3 + 0.7 * THREE.MathUtils.smoothstep(h, -0.15, 0.3); // moonlit nights stay readable
   const sunGlow = h > -0.1 ? C('#ffd7a0').lerp(C('#fff6e0'), THREE.MathUtils.smoothstep(h, 0.05, 0.5)) : C('#000000');
+  // Mist gathers before dawn and burns off by mid-morning (DESIGN.md: misty mornings).
+  const mist = THREE.MathUtils.smoothstep(hour, 3.5, 5.5) * (1 - THREE.MathUtils.smoothstep(hour, 7.5, 9.8));
+  const mistColor = pal.horizon.clone().lerp(new THREE.Color('#eef3f4'), 0.6).multiplyScalar(0.35 + 0.65 * daylight);
   return {
     sunDir, daylight, zenith: pal.zenith, horizon: pal.horizon, sunGlow,
-    skyLight: pal.light, fog: pal.horizon.clone().lerp(pal.zenith, 0.25),
+    skyLight: pal.light, fog: pal.horizon.clone().lerp(pal.zenith, 0.25), mist, mistColor,
   };
 }
 
@@ -84,8 +89,11 @@ float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 4
 void main() {
   vec3 d = normalize(vDir);
   vec3 col = skyColor(d);
-  // The sun's disc.
+  // The sun's disc, and the moon opposite it with a faint halo at night.
   col += uSunGlow * smoothstep(0.9993, 0.9996, max(dot(d, uSunDir), 0.0)) * 2.0;
+  float m = max(dot(d, -uSunDir), 0.0);
+  float nightM = 1.0 - smoothstep(0.2, 0.5, uDaylight);
+  col += vec3(0.92, 0.94, 1.0) * (smoothstep(0.99955, 0.99975, m) * 0.9 + pow(m, 40.0) * 0.08) * nightM;
   // Stars, fading in as the day light goes.
   float night = 1.0 - smoothstep(0.15, 0.45, uDaylight);
   if (night > 0.0 && d.y > 0.0) {

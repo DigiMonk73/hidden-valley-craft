@@ -150,6 +150,18 @@ const DRAW: Record<string, (c: Canvas16) => void> = {
     }
     for (let i = 3; i < c.px.length; i += 4) c.px[i] = 190;
   },
+  falling_water(c) {
+    // Mostly white water with blue-grey streaks between the sheets; scrolled downward in the shader.
+    for (let x = 0; x < TEX; x++) {
+      const base = [hex('#e4f3f8'), hex('#cfe8f1'), hex('#bcdbe8')][Math.floor(c.rng() * 3)];
+      for (let y = 0; y < TEX; y++) c.set(x, y, base, 238);
+      if (c.rng() < 0.45) {
+        let y = Math.floor(c.rng() * 16);
+        const len = 4 + Math.floor(c.rng() * 8);
+        for (let k = 0; k < len; k++, y++) c.set(x, y, k % 5 === 0 ? hex('#ffffff') : hex('#7fb2c8'), 215);
+      }
+    }
+  },
   log_side(c) {
     c.noise(hex('#4f3d2c'), 8);
     for (let x = 0; x < TEX; x += 3) for (let y = 0; y < TEX; y++) if (c.rng() < 0.75) c.shade(x + (y % 5 === 0 ? 1 : 0), y, 0.72);

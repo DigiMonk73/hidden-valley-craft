@@ -56,8 +56,8 @@ export const PATH: [number, number, number][] = [
 export const PATH_HALF_WIDTH = 1.6;
 
 /** The pool under the waterfall on the west wall, and the creek that leaves it. */
-export const POOL = { cx: 1617, cz: 1024, radius: 14, depth: 5 };
-export const WATERFALL = { x: 1601, z0: 1022, z1: 1027, top: 113 };
+export const POOL = { cx: 1615, cz: 1024, radius: 14, depth: 5 };
+export const WATERFALL = { x: 1601, z0: 1021, z1: 1028, top: 113 };
 export const CREEK: [number, number][] = [
   [1628, 1033], [1646, 1046], [1668, 1051], [1692, 1060], [1714, 1071], [1734, 1084], [1752, 1094], [1766, 1098],
 ];

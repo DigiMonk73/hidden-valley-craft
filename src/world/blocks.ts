@@ -98,3 +98,7 @@ export function blockDrop(id: number): number {
 export const AIR = 0;
 export const BEDROCK = blockId('bedrock');
 export const WATER = blockId('water');
+export const FALLING_WATER = blockId('falling_water');
+
+/** Water of either kind: what the player swims in. */
+export function isWaterId(id: number): boolean { return id === WATER || id === FALLING_WATER; }

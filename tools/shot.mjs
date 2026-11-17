@@ -27,7 +27,7 @@ page.on('pageerror', (e) => console.log('[page error]', e.message));
 for (const [name, spec] of Object.entries(shots)) {
   const [x, y, z, yaw, pitch, hour] = spec.split(',').map(Number);
   const cam = [x, y, z, (yaw * Math.PI) / 180, (pitch * Math.PI) / 180].join(',');
-  const url = `${BASE}?test&rd=${RD}&hour=${hour}&cam=${cam}`;
+  const url = `${BASE}?test&rd=${RD}&hour=${hour}&cam=${cam}${process.env.FX ? "&fx" : ""}`;
   const t0 = Date.now();
   await page.goto(url);
   await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 600_000, polling: 500 });
