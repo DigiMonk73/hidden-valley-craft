@@ -8,7 +8,7 @@ _The page to resume from. Keep it short; history lives in git._
 - **Phase 1 ("The valley looks right") is published** as version 2 (commit 826f626), after a fresh review whose 8 findings are fixed. It waits for the owner's look.
 - **Phase 2 is under way:** see docs/PHASE2.md for the design and the build order.
 - **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
-- **Where the code lives:** this machine only, in `/home/user/hidden-valley-blocks`, with local git history and no remote yet. The owner will make the repo "when I get home": attach it and push everything.
+- **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (private), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
 
 ## What Phase 1 adds
 

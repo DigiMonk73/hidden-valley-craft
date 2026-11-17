@@ -27,6 +27,11 @@ project's `docs/DESIGN.md`, in the private repository `DigiMonk73/hidden-valley`
 - **Design data stays plain data** (`data/*.json`). Saves store block *names*, so ids may change between builds.
 - **A bug fix gets a test that fails on the old code.**
 
+## Where it lives
+
+- **The repository:** https://github.com/DigiMonk73/hidden-valley-craft, branch `main`. The owner made it for this game and asked for everything to be pushed there.
+- **Commits:** each finished step is committed and pushed.
+
 ## Publishing a build
 
 1. Run `npm run build` and `npm test`. With `npx vite preview --port 4173` running, also run `node tests/e2e/play.mjs`.
