@@ -12,12 +12,16 @@ import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
+import { InventoryScreen } from './ui/inventoryScreen.ts';
+import { homeChestAt } from './gen/inheritance.ts';
+import { itemId } from './world/items.ts';
+import { BACKPACK_SLOTS } from './sim/inventory.ts';
 import { Sound, materialOf } from './audio/audio.ts';
 import { Look } from './platform/look.ts';
 import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { HOME, WATERFALL, VALLEY, POOL, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
@@ -44,6 +48,7 @@ export class Game {
   player = new Player();
   hotbar = Inventory.starter();
   hud: Hud;
+  screen: InventoryScreen;
   sound = new Sound();
   private stepDist = 0;
   private digTimer = 0;
@@ -78,6 +83,8 @@ export class Game {
     this.opts = opts;
     this.renderer = new Renderer(canvas);
     this.look = new Look(canvas);
+    this.screen = new InventoryScreen(ui);
+    this.screen.onChange = () => this.edited();
     this.hud = new Hud(ui, {
       play: () => this.resume(),
       saveNow: () => void this.save(true),
@@ -97,7 +104,7 @@ export class Game {
     };
     this.look.onNotice = (t) => this.hud.toast(t);
     this.look.onModeChange = (m) => {
-      if (m === 'off' && this.playing) this.pause();
+      if (m === 'off' && this.playing && !this.screen.isOpen) this.pause();
       if (m === 'free') this.hud.toast('This page can’t capture the mouse here: move the mouse to look, or use the arrow keys.', 6000);
     };
     const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
@@ -233,6 +240,7 @@ export class Game {
   }
 
   private readInput(): Input {
+    if (this.screen.isOpen) return { forward: 0, strafe: 0, jump: false, sprint: false, descend: false };
     const k = this.keys;
     return {
       forward: (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0),
@@ -322,12 +330,18 @@ export class Game {
       this.renderer.particles.burst(id, x, y, z, Math.max(0.15, Math.max((lv >> 4) * this.sky.daylight, lv & 15) / 15));
       this.sound.breakBlock(materialOf(id));
     }
-    if (r.full) this.hud.toast('Your hotbar is full');
+    if (r.full) this.hud.toast('Your pack is full');
+    if (r.keepsItems) this.hud.toast('Empty the chest before taking it apart');
     if (r.changed) this.edited();
   }
 
   private placeBlock(): void {
     if (!this.target) return;
+    // Using what is in front comes first: a chest opens.
+    const t = this.target;
+    const chest = this.world.containerAt(t.x, t.y, t.z);
+    if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
+    if (this.useHeldItem()) return;
     const [x, y, z] = placeTarget(this.target);
     this.streamer.markUrgentAround(x, y, z);
     const id = this.hotbar.current?.id ?? 0;
@@ -337,6 +351,35 @@ export class Game {
     }
   }
 
+  /** Right-click with an item in hand: returns true if the item did something. */
+  private useHeldItem(): boolean {
+    const held = this.hotbar.current;
+    if (!held) return false;
+    if (held.id === itemId('backpack_upgrade')) {
+      this.hotbar.take();
+      this.hotbar.grow(BACKPACK_SLOTS);
+      this.hud.toast('The expedition backpack: nine more slots');
+      this.edited();
+      return true;
+    }
+    return false;
+  }
+
+  private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null): void {
+    this.mining.active = false;
+    this.keys.clear();
+    this.screen.open(this.hotbar, chest);
+    this.hud.showWorldHud(false);
+    this.look.release();
+  }
+
+  private closeScreen(): void {
+    this.screen.close();
+    this.hud.showWorldHud(true);
+    this.edited();
+    if (this.playing) this.look.engage();
+  }
+
   // ---- Input ---------------------------------------------------------------------------------
 
   private bindInput(canvas: HTMLCanvasElement): void {
@@ -344,7 +387,12 @@ export class Game {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code);
+      if (this.screen.isOpen) {
+        if (e.code === 'Escape' || e.code === 'KeyE') this.closeScreen();
+        return;
+      }
       if (e.code === 'Escape' && this.playing) this.pause();
+      if (e.code === 'KeyE' && this.playing) { this.openScreen(null); return; }
       if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
       if (!this.playing) return;
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
@@ -415,11 +463,13 @@ export class Game {
       format: SAVE_FORMAT, version: SAVE_VERSION, savedAt: new Date().toISOString(), hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.hotbar.toSave(), selected: this.hotbar.selected, palette, edits,
+      containers: collectContainers(this.world),
     };
   }
 
   applySave(d: SaveData): void {
     restoreEdits(this.world, d);
+    restoreContainers(this.world, d);
     this.player.setPosition(d.player.x, d.player.y, d.player.z);
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
@@ -524,6 +574,7 @@ export class Game {
     clearPending(); // a close-time copy of the old valley must not come back at the next start
     this.streamer.reset();
     this.world.edits.clear();
+    this.world.containers.clear();
     this.mining.active = false;
     if (d) this.applySave(d);
     else {

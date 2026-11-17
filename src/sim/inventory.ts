@@ -140,18 +140,20 @@ export function clickSlot(slots: (Stack | null)[], i: number, cursor: Stack | nu
   return here;
 }
 
-/** Shift-click: moves a whole stack from one set of slots into another, merging where it can. */
-export function quickMove(from: (Stack | null)[], i: number, to: (Stack | null)[]): void {
+/** Shift-click: moves a whole stack from one set of slots into a range of another, merging where it can. */
+export function quickMove(from: (Stack | null)[], i: number, to: (Stack | null)[], start = 0, end = to.length): void {
   const s = from[i];
   if (!s) return;
   const max = maxStack(s.id);
-  for (const t of to) {
-    if (t && t.id === s.id && t.wear === undefined && s.wear === undefined && t.count < max) {
+  for (let k = start; k < end; k++) {
+    const t = to[k];
+    if (t && t !== s && t.id === s.id && t.wear === undefined && s.wear === undefined && t.count < max) {
       const n = Math.min(s.count, max - t.count);
       t.count += n; s.count -= n;
       if (s.count === 0) { from[i] = null; return; }
     }
   }
-  const empty = to.findIndex((t) => !t);
-  if (empty >= 0) { to[empty] = s; from[i] = null; }
+  for (let k = start; k < end; k++) {
+    if (!to[k]) { to[k] = s; from[i] = null; return; }
+  }
 }

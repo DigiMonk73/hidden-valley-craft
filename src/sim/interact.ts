@@ -3,6 +3,7 @@
 
 import { AIR, WATER, B_RENDER, B_SOLID, RENDER, isWaterId } from '../world/blocks.ts';
 import { dropOf, isBlockItem } from '../world/items.ts';
+import { packPos } from '../world/light.ts';
 import type { World } from '../world/world.ts';
 import type { Inventory } from './inventory.ts';
 import type { RayHit } from './raycast.ts';
@@ -10,11 +11,15 @@ import type { RayHit } from './raycast.ts';
 export interface Body { intersectsBlock(x: number, y: number, z: number): boolean }
 
 /** Breaks a block. Returns false if nothing changed; `full` is set when a drop didn't fit. */
-export function breakBlock(world: World, hotbar: Inventory, x: number, y: number, z: number): { changed: boolean; full: boolean } {
+export function breakBlock(world: World, hotbar: Inventory, x: number, y: number, z: number): { changed: boolean; full: boolean; keepsItems?: boolean } {
   const id = world.blockAt(x, y, z);
+  // A chest that still holds things stays put: empty it first.
+  const held = world.containerAt(x, y, z);
+  if (held?.some(Boolean)) return { changed: false, full: false, keepsItems: true };
   // A broken block next to water lets the water in (still water, for now).
   const besideWater = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a, b, c]) => isWaterId(world.blockAt(x + a, y + b, z + c)));
   if (!world.setBlock(x, y, z, besideWater ? WATER : AIR)) return { changed: false, full: false };
+  if (held) world.containers.delete(packPos(x, y, z));
   let full = false;
   const drop = dropOf(id);
   if (drop && !hotbar.creative && hotbar.add(drop) > 0) full = true;

@@ -4,6 +4,8 @@
 
 import { blockId, blockName, BLOCK_DEFS } from '../world/blocks.ts';
 import type { World } from '../world/world.ts';
+import { packPos } from '../world/light.ts';
+import { itemId, itemName, hasItem } from '../world/items.ts';
 
 export const SAVE_FORMAT = 'hidden-valley-blocks-save';
 export const SAVE_VERSION = 1;
@@ -21,6 +23,27 @@ export interface SaveData {
   palette: string[];
   /** Per chunk: [chunkKey, [index, paletteIndex, index, paletteIndex, …]]. */
   edits: [number, number[]][];
+  /** Chests that have been opened: [x, y, z, slots]. */
+  containers?: [number, number, number, (Slot | null)[]][];
+}
+
+export function collectContainers(world: World): NonNullable<SaveData['containers']> {
+  const out: NonNullable<SaveData['containers']> = [];
+  for (const [key, slots] of world.containers) {
+    const x = key & 2047, z = (key >> 11) & 2047, y = key >>> 22;
+    out.push([x, y, z, slots.map((s) => (s ? { name: itemName(s.id), count: s.count, ...(s.wear ? { wear: s.wear } : {}) } : null))]);
+  }
+  return out;
+}
+
+export function restoreContainers(world: World, data: SaveData): void {
+  world.containers.clear();
+  for (const [x, y, z, slots] of data.containers ?? []) {
+    world.containers.set(packPos(x, y, z), slots.map((s) => {
+      if (!s || !hasItem(s.name)) return null;
+      return { id: itemId(s.name), count: s.count, ...(s.wear ? { wear: s.wear } : {}) };
+    }));
+  }
 }
 
 export function collectEdits(world: World): { palette: string[]; edits: [number, number[]][] } {

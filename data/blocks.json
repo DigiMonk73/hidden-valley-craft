@@ -59,6 +59,7 @@
     { "name": "orchid", "label": "Orchid", "tex": "orchid", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0 },
     { "name": "bamboo", "label": "Bamboo", "tex": "bamboo", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1 },
     { "name": "moss", "label": "Moss", "tex": "moss", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.2, "drop": "dirt" },
+    { "name": "chest", "label": "Chest", "tex": { "top": "chest_top", "side": "chest_side", "bottom": "chest_top" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
     { "name": "road", "label": "Broken asphalt", "tex": "road", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "drop": "gravel" }
   ]
 }

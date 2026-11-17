@@ -67,11 +67,34 @@ await page.waitForFunction((id) => !window.__hv.game.hotbar.slots.some((s) => s 
 const editsAfter = await g(() => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v !== 0).length, 0));
 check('right click places the selected block', editsAfter === editsBefore + 1, `placed blocks ${editsBefore} → ${editsAfter}`);
 
+// The inventory opens with E and closes with E.
+await page.keyboard.press('KeyE');
+await page.waitForTimeout(300);
+check('E opens the inventory', await page.locator('.iv-wrap').isVisible());
+await page.keyboard.press('KeyE');
+await page.waitForTimeout(300);
+check('E closes it again', !(await page.locator('.iv-wrap').isVisible()));
+
+// Walk to the vault's armory chest and open it: the builder's rifle is there.
+await g(() => { const p = window.__hv.game.player; p.setPosition(1830.5, 82, 1022.5); p.yaw = -Math.PI / 2; p.pitch = -0.6; });
+await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1832 && t.z === 1022; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForTimeout(500);
+const armory = await page.locator('.iv-title').first().textContent().catch(() => null);
+check('right-clicking a chest opens it', armory === 'Armory', `title: ${armory}`);
+await page.screenshot({ path: 'out/armory.png' });
+// Shift-click the rifle into the backpack.
+await page.locator('.iv-grid').first().locator('.iv-slot').first().click({ modifiers: ['Shift'] });
+const hasRifle = await g(() => window.__hv.game.hotbar.slots.some((s) => s && s.id === window.__hv.rifleId));
+await page.keyboard.press('Escape');
+check('Shift-click takes the rifle', hasRifle);
+
 // Mine a block next to it and leave the hole, then save and reload.
 const t2 = { x: target.x, y: target.y, z: target.z + 1 };
 await g((t) => window.__hv.game.world.setBlock(t.x, t.y, t.z, 0), t2);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(500);
+const savedAt = await g(() => window.__hv.game.player.x);
 const menuShown = await page.getByRole('button', { name: 'Save now' }).isVisible();
 check('Esc opens the menu', menuShown);
 await page.getByRole('button', { name: 'Save now' }).click();
@@ -82,7 +105,7 @@ await idle();
 const restored = await g((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z), t2);
 check('a saved edit survives a reload', restored === 0, `storage: ${store}, block now ${restored}`);
 const pos = await g(() => { const p = window.__hv.game.player; return [p.x, p.z]; });
-check('the player is where they saved', Math.abs(pos[0] - x1) < 3, `x ${pos[0].toFixed(1)}`);
+check('the player is where they saved', Math.abs(pos[0] - savedAt) < 1, `x ${pos[0].toFixed(1)} (saved at ${savedAt.toFixed(1)})`);
 
 // Close without saving: the page saves as it goes.
 const t3 = { x: t2.x, y: t2.y, z: t2.z - 2 };

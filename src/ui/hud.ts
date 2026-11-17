@@ -163,7 +163,7 @@ export class Hud {
     const k = [
       ['Mouse', 'look'], ['W A S D', 'walk'], ['Space', 'jump · swim up'], ['Shift', 'sprint (flying: down)'],
       ['Left click (hold)', 'mine the block you look at'], ['Right click', 'place the selected block'],
-      ['1–9 · wheel', 'choose a block'], ['F', 'fly on / off (for exploring)'], ['G', 'builder’s mode: blocks never run out'],
+      ['1–9 · wheel', 'choose what is in hand'], ['E', 'inventory (right-click a chest to open it)'], ['F', 'fly on / off (for exploring)'], ['G', 'builder’s mode: blocks never run out'],
       ['[ and ]', 'time of day back / forward an hour'], ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
     ];
     for (const [key, what] of k) { el('b', '', keys).textContent = key; el('span', '', keys).textContent = what; }
@@ -285,7 +285,7 @@ export class Hud {
       const n = el('i', '', d); n.textContent = String(i + 1);
       if (!s) return;
       const img = el('img', '', d); img.src = iconFor(s.id); img.alt = '';
-      if (!h.creative) el('span', '', d).textContent = String(s.count);
+      if (!h.creative && s.count > 1) el('span', '', d).textContent = String(s.count);
     });
     if (selChanged) this.flashLabel(h.current ? itemLabel(h.current.id) : 'Empty hand');
   }
@@ -305,6 +305,11 @@ export class Hud {
   }
 
   setMode(text: string): void { this.modeEl.textContent = text; }
+
+  /** Hides the crosshair, hotbar and bars while a screen (inventory, chest) is open over the game. */
+  showWorldHud(show: boolean): void {
+    for (const e of this.root.querySelectorAll<HTMLElement>('.hv-cross, .hv-ring, .hv-hotbar, .hv-label, .hv-breath')) e.style.visibility = show ? '' : 'hidden';
+  }
 
   setDebug(text: string): void {
     this.debugEl.style.display = this.debugVisible ? '' : 'none';

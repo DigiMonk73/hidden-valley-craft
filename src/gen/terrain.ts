@@ -9,6 +9,7 @@ import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, WATERFALL, CANYON_POOL, TUNNEL, GARDEN,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
 } from './layout.ts';
+import { HOME_CHESTS } from './inheritance.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -40,6 +41,7 @@ const BROMELIAD = blockId('bromeliad');
 const ORCHID = blockId('orchid');
 const BAMBOO = blockId('bamboo');
 const MOSS = blockId('moss');
+const CHEST = blockId('chest');
 
 const wallNoise = new Simplex(SEED + 7);
 const caveA = new Simplex(SEED + 21);
@@ -361,6 +363,10 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
     }
   for (const [x, y, z] of HOME.lanterns) {
     if (x >= x0 && x < x0 + CS && z >= z0 && z < z0 + CS) col[ci(x - x0, y, z - z0)] = LANTERN;
+  }
+  // The builder's chests: what he left (src/gen/inheritance.ts).
+  for (const c of HOME_CHESTS) {
+    if (c.x >= x0 && c.x < x0 + CS && c.z >= z0 && c.z < z0 + CS) col[ci(c.x - x0, c.y, c.z - z0)] = CHEST;
   }
 }
 

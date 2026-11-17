@@ -1,8 +1,18 @@
 # Phase 2 — Living in the valley, and the billionaire's inheritance
 
-The aim: the full peaceful sandbox. You walk into a furnished home, take the builder's things and live: mine, smelt, craft, farm, fish, cook, eat, drink and sleep. Built in the order below; each step is committed with tests before the next.
+The aim: the full peaceful sandbox. You walk into a furnished home, take the builder's things and live: mine, smelt, craft, farm, fish, cook, eat, drink and sleep. Built in the order below; each step is committed with tests before the next. Progress is marked DONE on each heading.
 
-## 1. Items, inventory, chests
+Step 1 also put the builder's chests in the home (`src/gen/inheritance.ts`), since the inventory needed something to open:
+- linen chest with the journal
+- tool wall
+- stores
+- three pantry chests: tins and dry goods, water and coffee, seeds
+- armory
+- expedition kit
+
+The safe and the furniture follow in steps 2–3.
+
+## 1. Items, inventory, chests — DONE (2026-11-17)
 
 - `data/items.json` holds every item that isn't a placeable block:
   - tools: pickaxe, axe, shovel, hoe, machete, knife, hammer, saw, shears, fishing rod

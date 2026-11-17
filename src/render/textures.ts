@@ -217,6 +217,19 @@ const DRAW: Record<string, (c: Canvas16) => void> = {
         else if (y % 4 === 0 || (x + off) % 8 === 0) c.shade(x, y, 1.06);
       }
   },
+  chest_side(c) {
+    // Planked box with dark iron bands and a brass lock.
+    c.noise(hex('#8a5e36'), 6, [hex('#7a5130'), hex('#9a6b40')], 0.15);
+    for (const y of [0, 5, 10, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#4a3220'));
+    for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#3a3a3a')); c.set(15, y, hex('#3a3a3a')); }
+    for (let y = 5; y < 9; y++) for (let x = 7; x < 9; x++) c.set(x, y, hex('#c9a227'));
+    c.set(7, 7, hex('#3a2a10'));
+  },
+  chest_top(c) {
+    c.noise(hex('#8a5e36'), 6, [hex('#7a5130'), hex('#9a6b40')], 0.15);
+    for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#3a3a3a')); c.set(k, 15, hex('#3a3a3a')); c.set(0, k, hex('#3a3a3a')); c.set(15, k, hex('#3a3a3a')); }
+    for (const x of [5, 10]) for (let y = 1; y < 15; y++) c.set(x, y, hex('#4a3220'));
+  },
   glass(c) {
     c.clearAlpha();
     for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#d9eef0'), 220); c.set(k, 15, hex('#d9eef0'), 220); c.set(0, k, hex('#d9eef0'), 220); c.set(15, k, hex('#d9eef0'), 220); }

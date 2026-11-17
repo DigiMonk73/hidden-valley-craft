@@ -3,6 +3,7 @@
 
 import { Game, type BootOptions } from './game.ts';
 import { SAVE_FORMAT, type SaveData } from './save/save.ts';
+import { itemId } from './world/items.ts';
 
 const q = new URLSearchParams(location.search);
 const opts: BootOptions = {};
@@ -42,6 +43,7 @@ function start(data: unknown): void {
       idle: () => game.isIdle(),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
+      rifleId: itemId('hunting_rifle'),
     };
     try { hot?.snapshot?.(() => game.snapshot()); } catch { /* an older viewer without hand-over */ }
     game.boot().catch(fail);
