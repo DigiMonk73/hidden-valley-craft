@@ -2,7 +2,8 @@
 // down a stack, right-click splits, Shift-click moves a stack across to the other side.
 
 import { iconFor } from './icons.ts';
-import { itemLabel, toolOf } from '../world/items.ts';
+import { itemLabel, toolOf, maxStack } from '../world/items.ts';
+import { BLOCK_DEFS, B_RENDER, RENDER } from '../world/blocks.ts';
 import { clickSlot, quickMove, HOTBAR, type Inventory, type Stack } from '../sim/inventory.ts';
 import { recipesAt, canMake, make, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
 
@@ -114,8 +115,10 @@ export class InventoryScreen {
       const left = document.createElement('div');
       const t = document.createElement('div');
       t.className = 'iv-title';
-      t.textContent = this.station === 'hand' ? 'Make by hand' : STATION_LABEL[this.station];
-      left.append(t, this.recipeList(inv));
+      // In builder's mode the inventory offers every block instead of recipes.
+      const palette = inv.creative && this.station === 'hand';
+      t.textContent = palette ? 'Builder’s palette: click a block, then a slot' : this.station === 'hand' ? 'Make by hand' : STATION_LABEL[this.station];
+      left.append(t, palette ? this.palette() : this.recipeList(inv));
       cols.append(left);
     }
     cols.append(right);
@@ -128,6 +131,31 @@ export class InventoryScreen {
     help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · E or Esc: close';
     this.panel.appendChild(help);
     this.renderCursor();
+  }
+
+  /** Every block that can be built with (one form of each, no crops or water), as a pick-up grid. */
+  private palette(): HTMLDivElement {
+    const grid = document.createElement('div');
+    grid.className = 'iv-grid';
+    grid.style.gridTemplateColumns = 'repeat(7, var(--slot))';
+    grid.style.maxHeight = '70vh';
+    grid.style.overflow = 'auto';
+    BLOCK_DEFS.forEach((d, id) => {
+      if (id === 0 || d.base && d.base !== d.name || d.crop || B_RENDER[id] === RENDER.liquid || d.hardness < 0) return;
+      const cell = document.createElement('div');
+      cell.className = 'iv-slot';
+      const img = document.createElement('img');
+      img.src = iconFor(id);
+      cell.appendChild(img);
+      cell.title = d.label;
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.cursor = { id, count: maxStack(id) };
+        this.render();
+      });
+      grid.appendChild(cell);
+    });
+    return grid;
   }
 
   private recipeList(inv: Inventory): HTMLDivElement {
