@@ -116,10 +116,23 @@ check('the code from the journal opens the safe', opened);
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
 await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
-await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1813 && t.z === 1019; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
 const gardenBefore = await g(() => window.__hv.gardenStages());
-await page.mouse.click(400, 225, { button: 'right' });
-await page.waitForTimeout(500);
+// Headless pointer lock can drop between steps; a click that only re-captures the mouse is not a
+// right-click on the bed. So: make sure the mouse is held, aim, click, and try again if night stays.
+let sleepTry = '';
+for (let attempt = 0; attempt < 3; attempt++) {
+  if (await g(() => window.__hv.game.look.mode === 'off')) {
+    await page.mouse.click(400, 225);
+    await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+  }
+  await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
+  await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1813 && t.z === 1019; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+  sleepTry = await g(() => JSON.stringify({ target: window.__hv.game.target && [window.__hv.game.target.x, window.__hv.game.target.y, window.__hv.game.target.z], look: window.__hv.game.look.mode }));
+  await page.mouse.click(400, 225, { button: 'right' });
+  const slept = await page.waitForFunction(() => window.__hv.game.hour < 7, null, { timeout: 3_000 }).then(() => true, () => false);
+  if (slept) break;
+  console.log(`  (sleep attempt ${attempt + 1} did not take: ${sleepTry})`);
+}
 const morning = await g(() => ({ hour: window.__hv.game.hour, stages: window.__hv.gardenStages() }));
 check('sleeping in the bed brings morning', Math.abs(morning.hour - 6) < 0.2, `hour ${morning.hour.toFixed(2)}`);
 check('the garden grows overnight', morning.stages > gardenBefore, `crop stages ${gardenBefore} → ${morning.stages}`);
@@ -129,8 +142,9 @@ check('the garden grows overnight', morning.stages > gardenBefore, `crop stages 
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
 await g(() => { const gm = window.__hv.game; gm.vitals.hunger = 50; gm.hotbar.selected = 4; gm.player.setPosition(1808.5, 82, 1024.5); gm.player.pitch = 1.2; });
-// Wait until what is in front is plain rock (nothing that opens), so the click eats.
-await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.pitch = 1.2; return !t || !gm.world.containerAt(t.x, t.y, t.z); }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+// Wait until what is in front is the rock overhead (nothing that opens: not the bed still targeted
+// from sleeping, not a chest), so the click eats.
+await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.pitch = 1.2; return !!t && t.y >= 86 && !gm.world.containerAt(t.x, t.y, t.z); }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
 await page.mouse.click(400, 225, { button: 'right' });
 await page.waitForFunction(() => window.__hv.game.vitals.hunger > 70, null, { timeout: 10_000 }).catch(() => {});
 const hunger = await g(() => window.__hv.game.vitals.hunger);

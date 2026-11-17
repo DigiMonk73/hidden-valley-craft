@@ -2,10 +2,11 @@
 // down a stack, right-click splits, Shift-click moves a stack across to the other side.
 
 import { iconFor } from './icons.ts';
-import { itemLabel, toolOf, maxStack } from '../world/items.ts';
+import { itemLabel, toolOf } from '../world/items.ts';
 import { BLOCK_DEFS, B_RENDER, RENDER } from '../world/blocks.ts';
 import { clickSlot, quickMove, HOTBAR, type Inventory, type Stack } from '../sim/inventory.ts';
 import { recipesAt, canMake, make, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
+import { putAway, pickFromPalette } from '../sim/cursor.ts';
 
 const CSS = `
 .iv-wrap[hidden], .iv-tip[hidden] { display: none; }
@@ -49,6 +50,8 @@ export class InventoryScreen {
   private inv: Inventory | null = null;
   private chest: { title: string; slots: (Stack | null)[] } | null = null;
   private cursor: Stack | null = null;
+  /** Whether the cursor's stack came from the builder's palette (free, so it may be let go). */
+  private fromPalette = false;
   private station: Station = 'hand';
   onChange: () => void = () => {};
   /** Called when something is made, with what it was (for a sound). */
@@ -89,12 +92,13 @@ export class InventoryScreen {
     this.chest = chest;
     this.station = station;
     this.cursor = null;
+    this.fromPalette = false;
     this.wrap.hidden = false;
     this.render();
   }
 
   /** What is on the cursor right now (it belongs in a save too). */
-  get held(): Stack | null { return this.cursor; }
+  get held(): Stack | null { return this.fromPalette ? null : this.cursor; }
 
   /**
    * Closes the screen; anything held on the cursor goes back into the pack or the open chest, wear
@@ -102,14 +106,11 @@ export class InventoryScreen {
    */
   close(): boolean {
     if (this.cursor && this.inv) {
-      let left: Stack | null = this.inv.stow(this.cursor);
-      if (left && this.chest) {
-        const spare = this.chest.slots.findIndex((s) => !s);
-        if (spare >= 0) { this.chest.slots[spare] = left; left = null; }
-      }
+      const left = putAway(this.inv, { stack: this.cursor, fromPalette: this.fromPalette }, this.chest?.slots ?? null);
       if (left) { this.cursor = left; this.render(); return false; }
     }
     this.cursor = null;
+    this.fromPalette = false;
     this.wrap.hidden = true;
     this.tip.hidden = true;
     this.inv = null;
@@ -163,10 +164,13 @@ export class InventoryScreen {
       cell.title = d.label;
       cell.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        // Put down whatever was held first, so picking a block never loses it.
-        if (this.cursor && this.inv) { const left = this.inv.stow(this.cursor); if (left) return; }
-        this.cursor = { id, count: maxStack(id) };
+        // Real things held go into the pack first (all of them, or the pick waits); palette blocks go back.
+        const next = pickFromPalette(this.inv!, { stack: this.cursor, fromPalette: this.fromPalette }, id);
+        if (!next) return;
+        this.cursor = next.stack;
+        this.fromPalette = next.fromPalette;
         this.render();
+        this.onChange();
       });
       grid.appendChild(cell);
     });
@@ -211,7 +215,7 @@ export class InventoryScreen {
       btn.textContent = 'Make';
       btn.disabled = !ok;
       btn.onclick = () => {
-        const result = make(inv, r);
+        const result = make(inv, r, this.cursor && !this.fromPalette ? this.cursor : null);
         if (result === 'made') { this.onMake(r); this.onChange(); }
         if (result === 'full') this.onFull();
         this.render();
@@ -261,7 +265,12 @@ export class InventoryScreen {
     d.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (e.shiftKey && !this.cursor) quickMove(slots, i, target[0], target[1], target[2]);
-      else this.cursor = clickSlot(slots, i, this.cursor, e.button === 2);
+      else {
+        const before = this.cursor;
+        this.cursor = clickSlot(slots, i, this.cursor, e.button === 2);
+        // Still the palette's only while what is held is (what is left of) the same palette stack.
+        this.fromPalette = this.fromPalette && !!this.cursor && !!before && this.cursor.id === before.id && this.cursor.count <= before.count;
+      }
       this.tip.hidden = true;
       this.render();
       this.onChange();
