@@ -91,6 +91,21 @@ describe('mesher', () => {
     expect(tops(8)).toBeCloseTo(4.875);
   });
 
+  it('leaves no slit under a block set over the middle of a pond', () => {
+    const blocks = new Uint16Array(PADDED_VOLUME);
+    const light = new Uint8Array(PADDED_VOLUME).fill(0xf0);
+    for (let dz = 0; dz < 3; dz++) for (let dx = 0; dx < 3; dx++) blocks[paddedIndex(5 + dx, 5, 5 + dz)] = WATER;
+    blocks[paddedIndex(6, 6, 6)] = blockId('limestone'); // over the middle cell (chunk cell 5, 4, 5)
+    const m = meshChunk(blocks, light);
+    // Strips from 4.875 to 5 on the middle cell's four sides.
+    let strips = 0;
+    for (let q = 0; q < m.water.quads; q++) {
+      const ys = [0, 1, 2, 3].map((k) => m.water.positions[(q * 4 + k) * 3 + 1]);
+      if (Math.min(...ys) === 4.875 && Math.max(...ys) === 5) strips++;
+    }
+    expect(strips).toBe(4);
+  });
+
   it('meshes a real chunk of the valley', () => {
     const world = new World();
     for (let cz = 31; cz <= 33; cz++)

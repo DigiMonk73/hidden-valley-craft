@@ -135,7 +135,15 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
           const ni = paddedIndex(x + 1 + n[0], y + 1 + n[1], z + 1 + n[2]);
           const nid = blocks[ni];
           if (B_OPAQUE[nid]) continue;
-          if (nid === id && B_LAYER[id] !== LAYER.opaque) continue; // leaves against leaves, water against water
+          // Leaves against leaves and water against water draw no face between them, except one case:
+          // full-height water (something above it) beside lowered water (open air above) shows the
+          // strip between the two surfaces, or a see-through slit would open under the block's edge.
+          let fromY = 0;
+          if (nid === id && B_LAYER[id] !== LAYER.opaque) {
+            const sideStep = isWater && f !== 2 && f !== 3 && !openAbove && B_RENDER[blocks[ni + PS * PS]] === RENDER.none;
+            if (!sideStep) continue;
+            fromY = 0.875;
+          }
           part.ensure();
           const q = part.quads;
           const [a1, a2] = FACE_AXES[f];
@@ -175,6 +183,7 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
             let py = y + cs[k * 3 + 1];
             const pz = z + cs[k * 3 + 2];
             if (cs[k * 3 + 1] === 1) py = y + top;
+            else if (fromY > 0) py = y + fromY;
             const flags = f | (k << 3) | waveFlag | (isWater ? FLAG_LIQUID : 0);
             part.vertex(q, j, px, py, pz, flags, aos[k], skies[k], blks[k], layer);
           }

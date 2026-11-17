@@ -14,6 +14,7 @@ import { Hud } from './ui/hud.ts';
 import { Look } from './platform/look.ts';
 import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
+import { shouldAutosave } from './save/schedule.ts';
 import { collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { B_HARDNESS } from './world/blocks.ts';
 import { HOME, zoneAt, ZONE_DANGER } from './gen/layout.ts';
@@ -60,6 +61,9 @@ export class Game {
   private savedCount = 0;
   private lastEdit = 0;
   private saving = false;
+  private lastFailure = -Infinity;
+  /** Bumped by every write; a slower save that finds it changed was overtaken and is dropped. */
+  private writeSeq = 0;
   private cachedCode: string | null = null;
   private downloads: Downloads | null = null;
 
@@ -186,7 +190,7 @@ export class Game {
     if (this.hud.debugVisible) this.hud.setDebug(this.debugText());
 
     // Save a couple of seconds after the player stops changing things, and at least once a minute.
-    if (this.playing && this.unsaved && !this.saving && (this.time - this.lastEdit > 2.5 || this.time - this.lastSave > 60)) void this.save(false);
+    if (this.playing && shouldAutosave({ unsaved: this.unsaved, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
   }
 
   private tick(dt: number): void {
@@ -339,14 +343,18 @@ export class Game {
   private async save(announce: boolean): Promise<void> {
     if (this.opts.test) return;
     const holds = this.editCount;
+    const seq = ++this.writeSeq;
     this.saving = true;
     const bytes = await encodeSave(this.snapshot());
+    if (seq !== this.writeSeq) { this.saving = false; return; } // a close-time save wrote newer state meanwhile
     const ok = await this.store.set(SAVE_KEY, bytes);
     this.saving = false;
     this.lastSave = this.time;
     if (ok) {
       this.savedCount = Math.max(this.savedCount, holds);
-      if (!this.unsaved) clearPending();
+      if (!this.unsaved && seq === this.writeSeq) clearPending();
+    } else {
+      this.lastFailure = this.time;
     }
     if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
     if (!this.playing) void this.refreshCode();
@@ -357,6 +365,7 @@ export class Game {
   private saveNow(): void {
     if (this.opts.test || !this.unsaved || !this.store) return;
     const holds = this.editCount;
+    this.writeSeq++;
     const bytes = encodeSaveNow(this.snapshot());
     writePending(bytes); // finishes before this returns, whatever happens to the page next
     void this.store.set(SAVE_KEY, bytes).then((ok) => {
@@ -399,7 +408,9 @@ export class Game {
   private async loadBytes(bytes: Uint8Array | null): Promise<void> {
     const d = bytes ? await decodeSave(bytes) : null;
     if (!d) { this.hud.toast('That isn’t a Hidden Valley save'); return; }
-    await this.store.set(SAVE_KEY, bytes!);
+    // Stamp it with this computer's clock, so it compares fairly with saves made here afterwards.
+    d.savedAt = new Date().toISOString();
+    await this.store.set(SAVE_KEY, await encodeSave(d));
     this.restart(d);
     this.hud.toast('Save loaded');
   }
