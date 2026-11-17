@@ -230,6 +230,102 @@ const DRAW: Record<string, (c: Canvas16) => void> = {
     for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#3a3a3a')); c.set(k, 15, hex('#3a3a3a')); c.set(0, k, hex('#3a3a3a')); c.set(15, k, hex('#3a3a3a')); }
     for (const x of [5, 10]) for (let y = 1; y < 15; y++) c.set(x, y, hex('#4a3220'));
   },
+  // ---- Furniture and the builder's things ----
+  steel(c) { c.noise(hex('#8d949a'), 6, [hex('#7d848a'), hex('#9da4aa')], 0.2); for (const y of [0, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#6d747a')); },
+  steel_door(c) {
+    c.noise(hex('#6f777e'), 5, [hex('#646b72')], 0.15);
+    for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#4a5056')); c.set(k, 15, hex('#4a5056')); c.set(0, k, hex('#4a5056')); c.set(15, k, hex('#4a5056')); }
+    for (const [x, y] of [[2, 2], [13, 2], [2, 13], [13, 13], [2, 7], [13, 7]]) c.set(x, y, hex('#b9c0c6'));
+    for (let y = 6; y < 10; y++) c.set(12, y, hex('#c9a227'));
+  },
+  safe_front(c) {
+    c.noise(hex('#5c636a'), 4);
+    for (let k = 1; k < 15; k++) { c.set(k, 1, hex('#3e444a')); c.set(k, 14, hex('#3e444a')); c.set(1, k, hex('#3e444a')); c.set(14, k, hex('#3e444a')); }
+    for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y <= 5) c.set(8 + x, 8 + y, hex('#c9a227'));
+    c.set(8, 8, hex('#3a2a10')); c.set(4, 4, hex('#7fd36f'));
+  },
+  bed_top(c) {
+    c.noise(hex('#a8332b'), 6, [hex('#962c25'), hex('#b8403a')], 0.2);
+    for (let y = 11; y < 16; y++) for (let x = 1; x < 15; x++) c.set(x, y, hex('#efe8d8'));
+    for (let x = 0; x < TEX; x += 4) for (let y = 0; y < 10; y++) if ((x + y) % 8 === 0) c.set(x, y, hex('#e0b94a'));
+  },
+  bed_side(c) { c.noise(hex('#a8332b'), 5); for (let y = 10; y < TEX; y++) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#7a5130')); },
+  rug(c) {
+    // A woven rug: bands of red, ochre and teal.
+    for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+      const band = Math.floor(Math.abs(y - 7.5) / 2.5);
+      const col = [hex('#b5452f'), hex('#d39b3a'), hex('#2f7f7a'), hex('#efe2c4')][band % 4];
+      c.set(x, y, (x + y) % 4 === 0 ? [col[0] * 0.85, col[1] * 0.85, col[2] * 0.85] : col);
+    }
+  },
+  anvil(c) { c.noise(hex('#3e4348'), 5, [hex('#33373b'), hex('#4a5056')], 0.25); },
+  hide(c) { c.noise(hex('#b08a5e'), 8, [hex('#9a744a'), hex('#c49e70')], 0.25); },
+  solar_panel(c) {
+    c.noise(hex('#1d2f55'), 4);
+    for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (x % 4 === 0 || y % 4 === 0) c.set(x, y, hex('#9aa6b8'));
+    c.set(2, 2, hex('#6c88c4')); c.set(10, 6, hex('#6c88c4'));
+  },
+  computer_screen(c) {
+    c.noise(hex('#2b2b2b'), 3);
+    for (let y = 2; y < 12; y++) for (let x = 2; x < 14; x++) c.set(x, y, hex('#0e2238'));
+    for (const [y, w] of [[4, 8], [6, 5], [8, 9]]) for (let x = 3; x < 3 + w; x++) c.set(x, y, hex('#5fd38a'));
+    c.set(12, 4, hex('#f7931a'));
+  },
+  phone(c) { c.noise(hex('#222222'), 3); for (let y = 2; y < 8; y++) for (let x = 2; x < 14; x++) c.set(x, y, hex('#3d6b8f')); for (const x of [3, 6, 9, 12]) c.set(x, 11, hex('#888888')); },
+  pipe(c) { c.noise(hex('#3a3a3c'), 5, [hex('#2e2e30')], 0.2); for (const y of [0, 8]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#555558')); },
+  map_top(c) {
+    c.noise(hex('#e2d6b4'), 5);
+    for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+      const d = Math.hypot(x - 9, y - 8);
+      if (d < 4.5 && d > 3.2) c.set(x, y, hex('#7a5130'));
+      else if (d < 3.2) c.set(x, y, hex('#7fae5a'));
+    }
+    c.set(7, 8, hex('#3b6ea5')); c.set(12, 7, hex('#c0392b'));
+    for (let x = 0; x < 6; x++) c.set(x, 8 + (x % 2), hex('#9a8a6a'));
+  },
+  bookshelf(c) {
+    c.noise(hex('#7a5130'), 4);
+    const spines = [hex('#8e2b25'), hex('#2d5a7a'), hex('#4f7a2c'), hex('#c9a227'), hex('#5a3a6a'), hex('#d8cfbe')];
+    for (const y0 of [1, 9]) {
+      for (let x = 1; x < 15; x++) {
+        const col = spines[Math.floor(c.rng() * spines.length)];
+        const h = 5 + Math.floor(c.rng() * 2);
+        for (let y = y0 + (6 - h); y < y0 + 6; y++) c.set(x, y, col);
+      }
+      for (let x = 0; x < TEX; x++) c.set(x, y0 + 6, hex('#5e3c20'));
+    }
+  },
+  fireplace_front(c) {
+    c.noise(LIME, 6, [LIME_DARK], 0.15);
+    for (let y = 5; y < 16; y++) for (let x = 3; x < 13; x++) c.set(x, y, hex('#1c1410'));
+    for (let x = 4; x < 12; x++) { const h = 3 + Math.floor(c.rng() * 5); for (let y = 15 - h; y < 15; y++) c.set(x, y, y > 12 - (x % 3) ? hex('#ffb347') : hex('#ff7a2e')); }
+    for (let x = 4; x < 12; x++) c.set(x, 15, hex('#5a3a20'));
+  },
+  stove_front(c) {
+    c.noise(hex('#2e2e30'), 4);
+    for (let y = 6; y < 13; y++) for (let x = 3; x < 13; x++) c.set(x, y, hex('#141414'));
+    for (let x = 4; x < 12; x++) for (let y = 9; y < 12; y++) c.set(x, y, (x + y) % 3 ? hex('#ff7a2e') : hex('#ffb347'));
+    for (let x = 2; x < 14; x++) c.set(x, 3, hex('#c9a227'));
+  },
+  stove_top(c) { c.noise(hex('#2e2e30'), 4); for (const [cx, cy] of [[5, 5], [11, 11]]) for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (Math.abs(x * x + y * y - 4) < 2) c.set(cx + x, cy + y, hex('#555558')); },
+  stove_side(c) { c.noise(hex('#2e2e30'), 4); for (let y = 0; y < TEX; y += 5) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#3e3e40')); },
+  workbench_top(c) {
+    c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2);
+    for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#5e3c20')); c.set(k, 15, hex('#5e3c20')); c.set(0, k, hex('#5e3c20')); c.set(15, k, hex('#5e3c20')); }
+    for (let k = 3; k < 10; k++) c.set(k, 4, hex('#7d8790'));
+    for (let k = 9; k < 14; k++) c.set(11, k, hex('#7d8790'));
+  },
+  workbench_side(c) { c.noise(hex('#8a5e36'), 5); for (const y of [0, 4]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#5e3c20')); for (const x of [1, 14]) for (let y = 4; y < TEX; y++) c.set(x, y, hex('#5e3c20')); },
+  smelter_front(c) {
+    c.noise(hex('#6f6a60'), 6);
+    for (let y = 7; y < 14; y++) for (let x = 4; x < 12; x++) c.set(x, y, hex('#1c1410'));
+    for (let x = 5; x < 11; x++) for (let y = 11; y < 14; y++) c.set(x, y, (x + y) % 2 ? hex('#ff7a2e') : hex('#ffd36a'));
+  },
+  kiln_front(c) {
+    c.noise(LIME, 5);
+    for (let y = 4; y < 14; y++) for (let x = 5; x < 11; x++) if ((x - 8) ** 2 / 9 + (y - 10) ** 2 / 25 < 1) c.set(x, y, hex('#1c1410'));
+    for (let x = 6; x < 10; x++) c.set(x, 13, hex('#ff7a2e'));
+  },
   glass(c) {
     c.clearAlpha();
     for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#d9eef0'), 220); c.set(k, 15, hex('#d9eef0'), 220); c.set(0, k, hex('#d9eef0'), 220); c.set(15, k, hex('#d9eef0'), 220); }

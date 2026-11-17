@@ -19,6 +19,7 @@ const FOG_FAR = 1350;
 const BLOCK_VERT = /* glsl */ `
 in vec4 aPack;
 in float aLayer;
+in vec2 aUv;
 uniform float uTime;
 out vec2 vUv;
 flat out float vLayer;
@@ -36,7 +37,7 @@ void main() {
   int corner = (flags >> 3) & 3;
   bool wave = (flags & 32) != 0;
   bool liquid = (flags & 64) != 0;
-  vec2 uv = vec2((corner == 1 || corner == 2) ? 1.0 : 0.0, corner >= 2 ? 1.0 : 0.0);
+  vec2 uv = aUv / 16.0; // position on the texture, in sixteenths (v counts up)
   vUv = vec2(uv.x, 1.0 - uv.y);
   if ((flags & 128) != 0) vUv.y -= uTime * 1.6; // falling water pours downward (the texture repeats)
   vLayer = aLayer;
@@ -285,6 +286,7 @@ export class Renderer {
     g.setAttribute('position', new THREE.BufferAttribute(part.positions, 3));
     g.setAttribute('aPack', new THREE.BufferAttribute(part.pack, 4));
     g.setAttribute('aLayer', new THREE.BufferAttribute(part.layers, 1));
+    g.setAttribute('aUv', new THREE.BufferAttribute(part.uvs, 2));
     g.setIndex(this.index);
     g.setDrawRange(0, part.quads * 6);
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(CS / 2, CS / 2, CS / 2), CS * 0.87);

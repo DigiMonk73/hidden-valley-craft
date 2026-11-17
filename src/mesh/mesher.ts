@@ -3,13 +3,14 @@
 // and smooth light, which is why faces are not merged (merging would flatten both).
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
-import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
+import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
 
 export interface MeshPart {
   quads: number;
   positions: Float32Array; // 3 per vertex, chunk-local
   pack: Uint8Array; // 4 per vertex: flags, ao, sky×16, block×16
   layers: Uint16Array; // 1 per vertex: texture-array layer
+  uvs: Uint8Array; // 2 per vertex: texture u, v in sixteenths (0–16; v counts up from the bottom)
 }
 
 export interface ChunkMesh {
@@ -49,6 +50,7 @@ class PartBuilder {
   positions = new Float32Array(4096 * 12);
   pack = new Uint8Array(4096 * 16);
   layers = new Uint16Array(4096 * 4);
+  uvs = new Uint8Array(4096 * 8);
 
   ensure(): void {
     if ((this.quads + 1) * 12 <= this.positions.length) return;
@@ -60,10 +62,15 @@ class PartBuilder {
     this.positions = grow(this.positions, this.positions.length * 2);
     this.pack = grow(this.pack, this.pack.length * 2);
     this.layers = grow(this.layers, this.layers.length * 2);
+    this.uvs = grow(this.uvs, this.uvs.length * 2);
   }
 
-  vertex(q: number, k: number, x: number, y: number, z: number, flags: number, ao: number, sky: number, blk: number, layer: number): void {
+  vertex(q: number, k: number, x: number, y: number, z: number, flags: number, ao: number, sky: number, blk: number, layer: number, u = -1, w = -1): void {
     const v = q * 4 + k;
+    // Texture position: given in sixteenths for model boxes, else the quad's corner (0 or 16).
+    const c = (flags >> 3) & 3;
+    this.uvs[v * 2] = u >= 0 ? u : c === 1 || c === 2 ? 16 : 0;
+    this.uvs[v * 2 + 1] = w >= 0 ? w : c >= 2 ? 16 : 0;
     this.positions[v * 3] = x;
     this.positions[v * 3 + 1] = y;
     this.positions[v * 3 + 2] = z;
@@ -81,6 +88,7 @@ class PartBuilder {
       positions: this.positions.slice(0, n * 12),
       pack: this.pack.slice(0, n * 16),
       layers: this.layers.slice(0, n * 4),
+      uvs: this.uvs.slice(0, n * 8),
     };
   }
 }
@@ -122,6 +130,11 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
               }
             }
           }
+          continue;
+        }
+
+        if (render === RENDER.model) {
+          meshModel(solid, blocks, light, id, x, y, z, pi);
           continue;
         }
 
@@ -194,4 +207,38 @@ export function meshChunk(blocks: Uint16Array, light: Uint8Array): ChunkMesh {
       }
 
   return { solid: solid.finish(), water: water.finish() };
+}
+
+/**
+ * A block made of boxes (furniture, slabs, stairs, railings): every face of every box, textured by
+ * where it sits in the block, lit by the light of the cell it faces. Faces on the block's edge are
+ * dropped when an opaque block covers them.
+ */
+function meshModel(part: PartBuilder, blocks: Uint16Array, light: Uint8Array, id: number, x: number, y: number, z: number, pi: number): void {
+  const boxes = B_BOXES[id]!;
+  for (const [x0, y0, z0, x1, y1, z1] of boxes) {
+    const lo = [x0 / 16, y0 / 16, z0 / 16], hi = [x1 / 16, y1 / 16, z1 / 16];
+    for (let f = 0; f < 6; f++) {
+      const n = FACE_NORMALS[f];
+      const axis = n[0] !== 0 ? 0 : n[1] !== 0 ? 1 : 2;
+      const onEdge = n[axis] > 0 ? hi[axis] === 1 : lo[axis] === 0;
+      const ni = pi + n[0] * AXIS_STRIDE[0] + n[1] * AXIS_STRIDE[1] + n[2] * AXIS_STRIDE[2];
+      if (onEdge && B_OPAQUE[blocks[ni]]) continue;
+      // Light from the cell the face looks into, if it is open; otherwise the block's own cell.
+      const lv = onEdge && !B_OPAQUE[blocks[ni]] ? light[ni] : light[pi];
+      const sky = (lv >> 4) * 16, blk = (lv & 15) * 16;
+      const layer = B_FACE_TEX[id * 6 + f];
+      const cs = FACE_CORNERS[f];
+      part.ensure();
+      const q = part.quads++;
+      for (let k = 0; k < 4; k++) {
+        const p = [0, 1, 2].map((ax) => (cs[k * 3 + ax] ? hi[ax] : lo[ax]));
+        // Texture coordinates from where the corner sits in the block, matching how whole cubes are textured.
+        const [px, py, pz] = p;
+        const [uu, vv] = f === 0 ? [1 - pz, py] : f === 1 ? [pz, py] : f === 2 ? [px, 1 - pz] : f === 3 ? [1 - px, 1 - pz] : f === 4 ? [px, py] : [1 - px, py];
+        const u = Math.round(uu * 16), v = Math.round(vv * 16);
+        part.vertex(q, k, x + p[0], y + p[1], z + p[2], f | (k << 3), 3, sky, blk, layer, u, v);
+      }
+    }
+  }
 }

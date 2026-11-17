@@ -1,7 +1,7 @@
 // The player's body: walking, sprinting, jumping, stepping up single blocks without a jump (so the
 // path down from the balcony is easy), swimming with a breath meter, and flying for exploring.
 
-import { B_SOLID, isWaterId } from '../world/blocks.ts';
+import { B_SOLID, B_TOP, isWaterId } from '../world/blocks.ts';
 
 export interface Input {
   forward: number; // -1 … 1
@@ -107,14 +107,26 @@ export class Player {
     if (Math.abs(target - this.eyeY) > 1.5) this.eyeY = target;
   }
 
-  private collides(x: number, y: number, z: number, blockAt: BlockAt): boolean {
+  /** The highest top of any solid block the body would overlap at (x, y, z); −Infinity if none. */
+  private obstacleTop(x: number, y: number, z: number, blockAt: BlockAt): number {
     const x0 = Math.floor(x - WIDTH / 2), x1 = Math.floor(x + WIDTH / 2 - 1e-6);
     const y0 = Math.floor(y), y1 = Math.floor(y + HEIGHT - 1e-6);
     const z0 = Math.floor(z - WIDTH / 2), z1 = Math.floor(z + WIDTH / 2 - 1e-6);
+    let top = -Infinity;
     for (let by = y0; by <= y1; by++)
       for (let bz = z0; bz <= z1; bz++)
-        for (let bx = x0; bx <= x1; bx++) if (B_SOLID[blockAt(bx, by, bz)]) return true;
-    return false;
+        for (let bx = x0; bx <= x1; bx++) {
+          const id = blockAt(bx, by, bz);
+          if (!B_SOLID[id]) continue;
+          // Slabs, stairs and railings stop the body at their own height, not the block's.
+          const t = by + B_TOP[id] / 16;
+          if (t > y + 1e-6) top = Math.max(top, t);
+        }
+    return top;
+  }
+
+  private collides(x: number, y: number, z: number, blockAt: BlockAt): boolean {
+    return this.obstacleTop(x, y, z, blockAt) > -Infinity;
   }
 
   /** True if a block at (bx, by, bz) would overlap the player's body. */
@@ -137,7 +149,7 @@ export class Player {
     const ny = this.y + this.vy * dt;
     this.onGround = false;
     if (this.collides(this.x, ny, this.z, blockAt)) {
-      if (this.vy < 0) { this.y = Math.floor(ny) + 1; this.onGround = true; }
+      if (this.vy < 0) { this.y = this.obstacleTop(this.x, ny, this.z, blockAt); this.onGround = true; }
       else this.y = Math.floor(ny + HEIGHT) - HEIGHT - 1e-4; // head stops just under the ceiling
       this.vy = 0;
     } else this.y = ny;
@@ -149,7 +161,7 @@ export class Player {
       const nz = axis === 1 ? this.z + v * dt : this.z;
       if (!this.collides(nx, this.y, nz, blockAt)) { this.x = nx; this.z = nz; continue; }
       const canStep = (this.onGround || this.inWater) && !this.flying;
-      const up = Math.floor(this.y) + 1;
+      const up = this.obstacleTop(nx, this.y, nz, blockAt); // the top of what is in the way
       if (canStep && up - this.y <= 1.01 && !this.collides(this.x, up, this.z, blockAt) && !this.collides(nx, up, nz, blockAt)) {
         this.y = up; this.x = nx; this.z = nz;
         continue;

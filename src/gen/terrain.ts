@@ -336,9 +336,7 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
       // The balcony: a ledge of rock, thicker where it meets the cliff, paved on top.
       const b = HOME.balcony;
       if (x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1) {
-        const edge = Math.min(x - b.x0, z - b.z0, b.z1 - 1 - z);
-        const ragged = edge === 0 && rand3(x, 3, z, SEED) < 0.35;
-        if (!ragged) {
+        {
           const thick = 2 + Math.round((x - b.x0) * 0.7) + (rand3(x, 4, z, SEED) < 0.3 ? 1 : 0);
           for (let y = F - 1 - thick; y < F - 1; y++) col[ci(lx, y, lz)] = LIMESTONE;
           col[ci(lx, F - 1, lz)] = BRICKS;
@@ -368,6 +366,61 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
   for (const c of HOME_CHESTS) {
     if (c.x >= x0 && c.x < x0 + CS && c.z >= z0 && c.z < z0 + CS) col[ci(c.x - x0, c.y, c.z - z0)] = CHEST;
   }
+  furnish(col, x0, z0);
+}
+
+// ---- The builder's furniture ------------------------------------------------------------
+
+/** Places the home's furniture (docs/PHASE2.md, step 3). Facing names say which way a front looks. */
+function furnish(col: Uint16Array, x0: number, z0: number): void {
+  const put = (x: number, y: number, z: number, name: string) => {
+    if (x >= x0 && x < x0 + CS && z >= z0 && z < z0 + CS && y >= 0 && y < WORLD_Y) col[ci(x - x0, y, z - z0)] = blockId(name);
+  };
+  const F = HOME.floor;
+  const b = HOME.balcony;
+
+  // Balcony: a solid stone railing all round, with one opening on the north side where the path
+  // leaves (DESIGN.md: no broken stretches, no posts). Along the west edge it runs north–south.
+  for (let z = b.z0; z < b.z1; z++) put(b.x0, F, z, 'stone_railing@east');
+  for (let x = b.x0 + 1; x < b.x1; x++) {
+    put(x, F, b.z1 - 1, 'stone_railing');
+    if (x < 1795 || x > 1797) put(x, F, b.z0, 'stone_railing');
+  }
+  // The big stove on the left (south) with its back to the rock, and a pipe up the cliff carrying the smoke clear.
+  put(1799, F, b.z1 - 3, 'stove@west');
+  for (let y = F + 1; y <= F + 12; y++) put(1799, y, b.z1 - 3, 'stove_pipe');
+  put(1793, F, 1024, 'bench@west');
+  put(1793, F, 1016, 'solar_panel');
+
+  // Living room.
+  put(1807, F, 1015, 'fireplace@south');
+  for (let y = F + 1; y <= F + 5; y++) put(1807, y, 1015, 'stove_pipe');
+  // The chimney carries on up through the rock to the plateau.
+  const top = outsideHeight(1807, 1015);
+  for (let y = F + 6; y <= top + 1; y++) put(1807, y, 1015, 'stove_pipe');
+  put(1813, F, 1019, 'bed@west');
+  for (let z = 1027; z <= 1031; z++) for (let y = F; y < F + 3; y++) put(1814, y, z, 'bookshelf');
+  put(1809, F, 1020, 'map_table');
+  put(1803, F, 1030, 'table');
+  put(1803, F + 1, 1030, 'computer@east');
+  put(1806, F, 1027, 'table');
+  put(1806, F + 1, 1027, 'phone');
+  put(1806, F, 1026, 'chair@south');
+  put(1806, F, 1028, 'chair');
+  for (let z = 1018; z <= 1023; z++) for (let x = 1803; x <= 1811; x++) if (!(x === 1809 && z === 1020)) put(x, F, z, 'rug');
+
+  // Workshop.
+  put(1820, F, 1007, 'workbench');
+  put(1823, F, 1006, 'smelter@south');
+  put(1826, F, 1006, 'kiln@south');
+  for (let y = F + 1; y <= outsideHeight(1826, 1006) + 1; y++) put(1826, y, 1006, 'stove_pipe'); // the kiln's flue
+  put(1820, F, 1012, 'anvil');
+  put(1817, F, 1012, 'tannery_rack@east');
+
+  // Vault: a steel door across the passage, and the wall safe.
+  for (const z of [1023, 1024]) for (const y of [F, F + 1]) put(1826, y, z, 'steel_door@east');
+  for (const z of [1023, 1024]) put(1826, F + 2, z, 'stone_bricks');
+  put(1829, F + 1, 1027, 'wall_safe');
 }
 
 // ---- Trees -----------------------------------------------------------------------------

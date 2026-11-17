@@ -11,7 +11,7 @@ import { raycast, type RayHit } from './sim/raycast.ts';
 import { WATER, FALLING_WATER } from './world/blocks.ts';
 import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
-import { breakBlock, placeBlock, placeTarget } from './sim/interact.ts';
+import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
@@ -380,6 +380,7 @@ export class Game {
     const t = this.target;
     const chest = this.world.containerAt(t.x, t.y, t.z);
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
+    if (toggleDoor(this.world, t.x, t.y, t.z)) { this.sound.place('stone'); this.edited(); return; }
     if (this.useHeldItem()) return;
     const [x, y, z] = placeTarget(this.target);
     this.streamer.markUrgentAround(x, y, z);

@@ -1,14 +1,14 @@
 // Mining and placing: what happens to the world and the hotbar when the player breaks or places a
 // block. Kept apart from the game loop so it can be tested on its own.
 
-import { AIR, WATER, B_RENDER, B_SOLID, RENDER, isWaterId } from '../world/blocks.ts';
+import { AIR, WATER, B_RENDER, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
 import { dropOf, isBlockItem } from '../world/items.ts';
 import { packPos } from '../world/light.ts';
 import type { World } from '../world/world.ts';
 import type { Inventory } from './inventory.ts';
 import type { RayHit } from './raycast.ts';
 
-export interface Body { intersectsBlock(x: number, y: number, z: number): boolean }
+export interface Body { intersectsBlock(x: number, y: number, z: number): boolean; yaw?: number }
 
 /** Breaks a block. Returns false if nothing changed; `full` is set when a drop didn't fit. */
 export function breakBlock(world: World, hotbar: Inventory, x: number, y: number, z: number): { changed: boolean; full: boolean; keepsItems?: boolean } {
@@ -42,10 +42,26 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
   const [x, y, z] = placeTarget(t);
   const there = world.blockAt(x, y, z);
   if (there !== AIR && !isWaterId(there) && B_RENDER[there] !== RENDER.cross) return null;
-  const id = stack.id;
+  // Furniture with a front (chairs, stoves, stairs…) turns to face whoever places it.
+  const id = facingVariant(stack.id, body.yaw ?? 0);
   if (B_SOLID[id] && body.intersectsBlock(x, y, z)) return null;
   if (B_RENDER[id] === RENDER.cross && !B_SOLID[world.blockAt(x, y - 1, z)]) return null; // plants need ground
   if (!world.setBlock(x, y, z, id)) return null; // outside the world, or not loaded
   hotbar.take();
   return [x, y, z];
+}
+
+/** Opens or shuts a door: the block and the door blocks stacked with it. Returns false if it isn't a door. */
+export function toggleDoor(world: World, x: number, y: number, z: number): boolean {
+  const name = blockName(world.blockAt(x, y, z));
+  const m = name.match(/^(steel_door)(_open)?(@\w+)?$/);
+  if (!m) return false;
+  const next = m[1] + (m[2] ? '' : '_open') + (m[3] ?? '');
+  const from = world.blockAt(x, y, z);
+  // Find the whole stack of this door, then swap every part.
+  let y0 = y, y1 = y;
+  while (world.blockAt(x, y0 - 1, z) === from) y0--;
+  while (world.blockAt(x, y1 + 1, z) === from) y1++;
+  for (let k = y0; k <= y1; k++) world.setBlock(x, k, z, blockId(next));
+  return true;
 }

@@ -27,7 +27,7 @@ The safe and the furniture follow in steps 2–3.
 - **Chests** are blocks that keep their contents. The game drops the "builder's books" idea for chests: their contents are just data. The opening screen shows two panels.
 - **Tools set mining speed:** pickaxe for stone and ore, axe for wood, shovel for soil. Hand mining is slow. Tools wear out.
 
-## 2. Furniture and shaped blocks
+## 2. Furniture and shaped blocks — DONE (2026-11-17)
 
 - The mesher gains a **box-model** render type. A block can be made of up to 6 axis-aligned boxes, in 1/16 units, with textures mapped from the box coordinates.
 - Furniture is built from these: table, chair, bed, bookshelf, fireplace with chimney, stove, workbench, smelter, kiln, anvil, tannery rack, computer desk, phone, map table, chest, wall safe, steel door, stone railing, slab, stairs.
@@ -35,7 +35,7 @@ The safe and the furniture follow in steps 2–3.
 - **Collision** uses the boxes for slabs, stairs and railings. Furniture is a full block to stand against.
 - **Doors** toggle between open (not solid) and closed.
 
-## 3. The home, furnished
+## 3. The home, furnished — DONE except the garden (step 5)
 
 `buildHome` places the builder's things from DESIGN.md and docs/PLAN.md ("The billionaire's inheritance"):
 
