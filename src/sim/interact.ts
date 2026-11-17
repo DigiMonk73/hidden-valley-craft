@@ -4,6 +4,7 @@
 import { AIR, WATER, B_RENDER, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
 import { dropOf, isBlockItem } from '../world/items.ts';
 import { packPos } from '../world/light.ts';
+import { cropDrops } from './farming.ts';
 import type { World } from '../world/world.ts';
 import type { Inventory } from './inventory.ts';
 import type { RayHit } from './raycast.ts';
@@ -21,8 +22,9 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   if (!world.setBlock(x, y, z, besideWater ? WATER : AIR)) return { changed: false, full: false };
   if (held) world.containers.delete(packPos(x, y, z));
   let full = false;
-  const drop = dropOf(id);
-  if (drop && !hotbar.creative && hotbar.add(drop) > 0) full = true;
+  // Crops give their harvest; everything else its one drop.
+  const drops = cropDrops(id) ?? [[dropOf(id), 1]];
+  for (const [item, n] of drops) if (item && n > 0 && !hotbar.creative && hotbar.add(item, n) > 0) full = true;
   // Plants on top lose their footing.
   const above = world.blockAt(x, y + 1, z);
   if (B_RENDER[above] === RENDER.cross && world.setBlock(x, y + 1, z, AIR) && !hotbar.creative) { const d = dropOf(above); if (d) hotbar.add(d); }

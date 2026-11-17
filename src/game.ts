@@ -12,6 +12,8 @@ import { WATER, FALLING_WATER } from './world/blocks.ts';
 import { Inventory } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
+import { stationOf, type Station } from './sim/crafting.ts';
+import { randomTicks, till, sow, pickCoffee, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud, nearestViewChunks } from './ui/hud.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
@@ -55,6 +57,10 @@ export class Game {
   private stepDist = 0;
   private digTimer = 0;
   private wasInWater = false;
+  private tickCount = 0;
+  private frameDt = 0;
+  /** A line in the water: where the bobber floats, when a fish bites and how long it stays on. */
+  private fishing: { at: [number, number, number]; biteAt: number; biteEnd: number } | null = null;
   vitals: Vitals = freshVitals();
   /** Where the player wakes after a death or a night's sleep. */
   spawn = { x: 0, y: 0, z: 0, yaw: 0 };
@@ -91,6 +97,7 @@ export class Game {
     this.look = new Look(canvas);
     this.screen = new InventoryScreen(ui);
     this.screen.onChange = () => this.edited();
+    this.screen.onMake = () => this.sound.place('wood');
     this.hud = new Hud(ui, {
       play: () => this.resume(),
       saveNow: () => void this.save(true),
@@ -168,6 +175,7 @@ export class Game {
   private frame(now: number): void {
     requestAnimationFrame((t) => this.frame(t));
     const dt = Math.min(0.1, (now - this.last) / 1000);
+    this.frameDt = dt;
     this.last = now;
     this.time += dt;
     const p = this.player;
@@ -215,6 +223,7 @@ export class Game {
     this.hud.setMining(this.mining.active ? this.mining.progress : 0);
     const m = this.mining;
     this.renderer.showCrack(m.x, m.y, m.z, m.active && this.target ? m.progress : 0);
+    this.updateFishing();
     this.hud.setBreath(p.breath / BREATH_MAX, p.headInWater || p.breath < BREATH_MAX - 0.01);
     this.fps.frames++;
     if (now - this.fps.t > 500) { this.fps.value = Math.round((this.fps.frames * 1000) / (now - this.fps.t)); this.fps.frames = 0; this.fps.t = now; }
@@ -240,6 +249,8 @@ export class Game {
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
     this.tickSurvival(dt, input);
+    // Crops grow on random ticks near the player (20 a second).
+    if ((this.tickCount = (this.tickCount + 1) % 3) === 0) randomTicks(this.world, p.x, p.z, Math.random);
     // Arrow keys turn too (useful where the mouse can't be captured).
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
     const tilt = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
@@ -258,6 +269,18 @@ export class Game {
       sprint: k.has('ShiftLeft') || k.has('ShiftRight'),
       descend: k.has('ShiftLeft') || k.has('ShiftRight'),
     };
+  }
+
+  private updateFishing(): void {
+    const f = this.fishing;
+    const p = this.player;
+    // Putting the rod away or walking off ends it.
+    if (f && (this.hotbar.current?.id !== itemId('fishing_rod') || Math.hypot(p.x - f.at[0], p.z - f.at[2]) > 14)) this.fishing = null;
+    const g = this.fishing;
+    if (g && this.time >= g.biteAt && this.time - this.frameDt < g.biteAt) { this.sound.splash(); this.hud.toast('A bite! Right-click!', 1500); }
+    if (g && this.time > g.biteEnd + 4) this.fishing = null;
+    const biting = g && this.time >= g.biteAt && this.time <= g.biteEnd ? 1 : 0;
+    this.renderer.showBobber(g ? g.at : null, biting, this.time);
   }
 
   // ---- Survival ------------------------------------------------------------------------------
@@ -381,6 +404,13 @@ export class Game {
     const chest = this.world.containerAt(t.x, t.y, t.z);
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
     if (toggleDoor(this.world, t.x, t.y, t.z)) { this.sound.place('stone'); this.edited(); return; }
+    const station = stationOf(t.id);
+    if (station) { this.openScreen(null, station); return; }
+    // The garden: pick ripe coffee, till with a hoe, sow seeds on farmland.
+    if (pickCoffee(this.world, this.hotbar, t.x, t.y, t.z)) { this.sound.place('leaves'); this.edited(); return; }
+    const held = this.hotbar.current;
+    if (held && held.id === itemId('steel_hoe') && till(this.world, t.x, t.y, t.z)) { this.hotbar.wearTool(); this.sound.dig('soil'); this.edited(); return; }
+    if (t.id === FARMLAND && t.ny === 1 && sow(this.world, this.hotbar, t.x, t.y, t.z)) { this.sound.place('soil'); this.edited(); return; }
     if (this.useHeldItem()) return;
     const [x, y, z] = placeTarget(this.target);
     this.streamer.markUrgentAround(x, y, z);
@@ -411,6 +441,26 @@ export class Game {
       this.edited();
       return true;
     }
+    // Fishing: cast into water; when a fish bites, right-click again to land it.
+    if (held && held.id === itemId('fishing_rod')) {
+      if (this.fishing) {
+        const f = this.fishing;
+        if (this.time >= f.biteAt && this.time <= f.biteEnd) {
+          this.hotbar.add(itemId('trout_raw'));
+          this.hud.toast('A rainbow trout!');
+          this.sound.splash();
+          this.edited();
+        } else this.hud.toast(this.time < f.biteAt ? 'You reel in. Nothing yet.' : 'It got away.');
+        this.fishing = null;
+        return true;
+      }
+      if (wet && (wet.id === WATER)) {
+        const wait = 4 + Math.random() * 6;
+        this.fishing = { at: [wet.x + 0.5, wet.y + 0.9, wet.z + 0.5], biteAt: this.time + wait, biteEnd: this.time + wait + 2.5 };
+        this.sound.splash();
+        return true;
+      }
+    }
     if (!held) return false;
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : 0;
@@ -432,10 +482,10 @@ export class Game {
     return false;
   }
 
-  private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null): void {
+  private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null, station: Station = 'hand'): void {
     this.mining.active = false;
     this.keys.clear();
-    this.screen.open(this.hotbar, chest);
+    this.screen.open(this.hotbar, chest, station);
     this.hud.showWorldHud(false);
     this.look.release();
   }

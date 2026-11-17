@@ -134,6 +134,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
+  plantGarden(col, x0, z0);
 
   // 7. Trees and ground plants.
   placeTrees(col, x0, z0);
@@ -421,6 +422,30 @@ function furnish(col: Uint16Array, x0: number, z0: number): void {
   for (const z of [1023, 1024]) for (const y of [F, F + 1]) put(1826, y, z, 'steel_door@east');
   for (const z of [1023, 1024]) put(1826, F + 2, z, 'stone_bricks');
   put(1829, F + 1, 1027, 'wall_safe');
+}
+
+/** The builder's garden at the foot of the path: rows of crops at mixed stages, and the coffee grove. */
+function plantGarden(col: Uint16Array, x0: number, z0: number): void {
+  const G = GARDEN;
+  if (x0 + CS <= G.x0 || x0 >= G.x1 || z0 + CS <= G.z0 || z0 >= G.z1) return;
+  const kinds = ['corn', 'beans', 'squash', 'tomato', 'pepper', 'potato', 'herbs'];
+  const ground = VALLEY.floor; // the garden is levelled to the floor height
+  for (let z = Math.max(G.z0, z0); z < Math.min(G.z1, z0 + CS); z++)
+    for (let x = Math.max(G.x0 + 2, x0); x < Math.min(G.x1 - 2, x0 + CS); x++) {
+      const lx = x - x0, lz = z - z0;
+      const r = rand3(x, 7, z, SEED + 41);
+      if (z >= G.z1 - 7) {
+        // The coffee grove along the garden's south side: bushes in a loose row.
+        if ((x + z) % 3 === 0 && r < 0.8) col[ci(lx, ground, lz)] = blockId(`coffee_bush_${r < 0.45 ? 2 : 1}`);
+        continue;
+      }
+      const row = Math.floor((z - G.z0) / 3), inRow = (z - G.z0) % 3;
+      if (inRow === 2 || z < G.z0 + 2) continue; // a path between each pair of rows
+      col[ci(lx, ground - 1, lz)] = blockId('farmland');
+      const kind = kinds[row % kinds.length];
+      const stage = r < 0.4 ? 3 : r < 0.7 ? 2 : 1;
+      col[ci(lx, ground, lz)] = blockId(`crop_${kind}_${stage}`);
+    }
 }
 
 // ---- Trees -----------------------------------------------------------------------------

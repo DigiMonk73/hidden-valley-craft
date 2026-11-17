@@ -4,6 +4,7 @@
 import { iconFor } from './icons.ts';
 import { itemLabel, toolOf } from '../world/items.ts';
 import { clickSlot, quickMove, HOTBAR, type Inventory, type Stack } from '../sim/inventory.ts';
+import { recipesAt, canMake, make, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
 
 const CSS = `
 .iv-wrap[hidden], .iv-tip[hidden] { display: none; }
@@ -25,6 +26,18 @@ const CSS = `
 .iv-cursor span { position: absolute; right: 0; bottom: -2px; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000; }
 .iv-tip { position: fixed; padding: 4px 8px; border-radius: 6px; background: rgba(10,14,11,.95); font-size: 13px; pointer-events: none; z-index: 11; white-space: nowrap; }
 .iv-help { margin-top: 10px; font-size: 12px; opacity: .6; }
+.iv-cols { display: flex; gap: 18px; align-items: flex-start; }
+.iv-recipes { width: 300px; max-height: 70vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.iv-recipe { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 6px; border-radius: 8px; background: rgba(255,255,255,.04); }
+.iv-recipe.off { opacity: .45; }
+.iv-recipe img { width: 32px; height: 32px; image-rendering: pixelated; }
+.iv-recipe .name { font-size: 13px; font-weight: 600; }
+.iv-recipe .needs { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; opacity: .85; margin-top: 2px; }
+.iv-recipe .needs span { display: inline-flex; align-items: center; gap: 2px; }
+.iv-recipe .needs img { width: 16px; height: 16px; }
+.iv-recipe .needs .short { color: #ff9b8a; }
+.iv-make { cursor: pointer; border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; font-weight: 700; background: #c98f3e; color: #1b130a; }
+.iv-make:disabled { background: #444; color: #999; cursor: default; }
 `;
 
 export class InventoryScreen {
@@ -35,7 +48,10 @@ export class InventoryScreen {
   private inv: Inventory | null = null;
   private chest: { title: string; slots: (Stack | null)[] } | null = null;
   private cursor: Stack | null = null;
+  private station: Station = 'hand';
   onChange: () => void = () => {};
+  /** Called when something is made, with what it was (for a sound). */
+  onMake: (r: Recipe) => void = () => {};
 
   constructor(root: HTMLElement) {
     const style = document.createElement('style');
@@ -65,9 +81,10 @@ export class InventoryScreen {
 
   get isOpen(): boolean { return !this.wrap.hidden; }
 
-  open(inv: Inventory, chest: { title: string; slots: (Stack | null)[] } | null): void {
+  open(inv: Inventory, chest: { title: string; slots: (Stack | null)[] } | null, station: Station = 'hand'): void {
     this.inv = inv;
     this.chest = chest;
+    this.station = station;
     this.cursor = null;
     this.wrap.hidden = false;
     this.render();
@@ -89,6 +106,75 @@ export class InventoryScreen {
   private render(): void {
     const inv = this.inv!;
     this.panel.innerHTML = '';
+    // Recipes on the left (a station's, or what can be made by hand), the slots on the right.
+    const cols = document.createElement('div');
+    cols.className = 'iv-cols';
+    const right = document.createElement('div');
+    if (!this.chest) {
+      const left = document.createElement('div');
+      const t = document.createElement('div');
+      t.className = 'iv-title';
+      t.textContent = this.station === 'hand' ? 'Make by hand' : STATION_LABEL[this.station];
+      left.append(t, this.recipeList(inv));
+      cols.append(left);
+    }
+    cols.append(right);
+    this.panel.append(cols);
+    const panel = this.panel;
+    this.panel = right as HTMLDivElement;
+    try { this.renderSlots(inv); } finally { this.panel = panel; }
+    const help = document.createElement('div');
+    help.className = 'iv-help';
+    help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · E or Esc: close';
+    this.panel.appendChild(help);
+    this.renderCursor();
+  }
+
+  private recipeList(inv: Inventory): HTMLDivElement {
+    const list = document.createElement('div');
+    list.className = 'iv-recipes';
+    const recipes = recipesAt(this.station);
+    if (!recipes.length) {
+      const p = document.createElement('div');
+      p.className = 'iv-help';
+      p.textContent = this.station === 'tannery' ? 'Hides come from hunting outside the valley.' : 'Nothing to make here yet.';
+      list.append(p);
+    }
+    for (const r of recipes) {
+      const ok = canMake(inv, r);
+      const row = document.createElement('div');
+      row.className = 'iv-recipe' + (ok ? '' : ' off');
+      const img = document.createElement('img');
+      img.src = iconFor(r.out[0]);
+      const mid = document.createElement('div');
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = `${itemLabel(r.out[0])}${r.out[1] > 1 ? ` ×${r.out[1]}` : ''}`;
+      const needs = document.createElement('div');
+      needs.className = 'needs';
+      for (const [id, n] of r.in) {
+        const have = inv.count(id);
+        const sp = document.createElement('span');
+        if (have < Math.max(1, n)) sp.className = 'short';
+        const ic = document.createElement('img');
+        ic.src = iconFor(id);
+        sp.append(ic, document.createTextNode(n === 0 ? `${itemLabel(id)} (kept)` : `${have}/${n}`));
+        sp.title = itemLabel(id);
+        needs.append(sp);
+      }
+      mid.append(name, needs);
+      const btn = document.createElement('button');
+      btn.className = 'iv-make';
+      btn.textContent = 'Make';
+      btn.disabled = !ok;
+      btn.onclick = () => { if (make(inv, r)) { this.onMake(r); this.onChange(); this.render(); } };
+      row.append(img, mid, btn);
+      list.append(row);
+    }
+    return list;
+  }
+
+  private renderSlots(inv: Inventory): void {
     // Where Shift-click sends a stack from each section: [slots, first, end].
     type Target = [(Stack | null)[], number, number];
     const section = (title: string, slots: (Stack | null)[], from: number, to: number, target: Target) => {
@@ -104,11 +190,6 @@ export class InventoryScreen {
     if (chest) section(chest.title, chest.slots, 0, chest.slots.length, [inv.slots, 0, inv.size]);
     section(inv.size > 36 ? 'Backpack (expedition)' : 'Backpack', inv.slots, HOTBAR, inv.size, chest ? [chest.slots, 0, chest.slots.length] : [inv.slots, 0, HOTBAR]);
     section('Hotbar', inv.slots, 0, HOTBAR, chest ? [chest.slots, 0, chest.slots.length] : [inv.slots, HOTBAR, inv.size]);
-    const help = document.createElement('div');
-    help.className = 'iv-help';
-    help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · E or Esc: close';
-    this.panel.appendChild(help);
-    this.renderCursor();
   }
 
   private slotEl(slots: (Stack | null)[], i: number, target: [(Stack | null)[], number, number], selected: boolean): HTMLDivElement {

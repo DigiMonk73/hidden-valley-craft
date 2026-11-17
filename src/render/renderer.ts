@@ -141,6 +141,16 @@ export class Renderer {
   private indexQuads: number;
   private outline: THREE.LineSegments;
   private crack: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
+  /** The fishing bobber: red over white, bobbing on the water. */
+  private bobber = (() => {
+    const g = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.16), new THREE.MeshBasicMaterial({ color: 0xd63031 }));
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.16), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
+    top.position.y = 0.1;
+    g.add(top, bottom);
+    g.visible = false;
+    return g;
+  })();
   private fogDist = 256;
   stats = { chunks: 0, quads: 0 };
   readonly particles = new Particles();
@@ -228,6 +238,7 @@ export class Renderer {
     this.crack.visible = false;
     this.crack.renderOrder = 15;
     this.scene.add(this.crack);
+    this.scene.add(this.bobber);
     this.scene.add(this.clouds.mesh);
   }
 
@@ -323,6 +334,12 @@ export class Renderer {
     this.outline.visible = true;
   }
   hideOutline(): void { this.outline.visible = false; }
+
+  /** Shows the bobber floating at a point; `dip` pulls it under when a fish bites. null hides it. */
+  showBobber(at: [number, number, number] | null, dip: number, time: number): void {
+    this.bobber.visible = !!at;
+    if (at) this.bobber.position.set(at[0], at[1] + Math.sin(time * 2.4) * 0.03 - dip * 0.12, at[2]);
+  }
 
   /** Shows mining progress (0–1) as cracks on a block; 0 hides them. */
   showCrack(x: number, y: number, z: number, progress: number): void {

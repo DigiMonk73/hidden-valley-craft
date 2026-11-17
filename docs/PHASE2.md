@@ -35,7 +35,7 @@ The safe and the furniture follow in steps 2–3.
 - **Collision** uses the boxes for slabs, stairs and railings. Furniture is a full block to stand against.
 - **Doors** toggle between open (not solid) and closed.
 
-## 3. The home, furnished — DONE except the garden (step 5)
+## 3. The home, furnished — DONE
 
 `buildHome` places the builder's things from DESIGN.md and docs/PLAN.md ("The billionaire's inheritance"):
 
@@ -60,7 +60,7 @@ The safe and the furniture follow in steps 2–3.
 - **Death in the valley** (falling, starving, drowning) respawns you at the bed and keeps your inventory. Losing what you carry starts outside, in Phase 3.
 - **The HUD** gets three bars over the hotbar.
 
-## 5. Farming, fishing, cooking, crafting
+## 5. Farming, fishing, cooking, crafting — DONE (2026-11-17; stations craft instantly for now, not over time)
 
 **Farming**
 - A hoe turns grass or dirt into farmland; seeds go on it.

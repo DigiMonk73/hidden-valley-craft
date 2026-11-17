@@ -406,16 +406,80 @@ const DRAW: Record<string, (c: Canvas16) => void> = {
   },
 };
 
+// ---- Crops: one drawing routine, grown stage by stage ----
+
+const CROP_LOOK: Record<string, { fruit: RGB; leaf: RGB; tall: number; style: 'stalk' | 'bush' | 'low' }> = {
+  corn: { fruit: hex('#f2c94c'), leaf: hex('#5e9b3c'), tall: 15, style: 'stalk' },
+  beans: { fruit: hex('#6aa843'), leaf: hex('#4f8f2f'), tall: 13, style: 'stalk' },
+  squash: { fruit: hex('#e67e22'), leaf: hex('#4e8f34'), tall: 8, style: 'low' },
+  tomato: { fruit: hex('#d63031'), leaf: hex('#3f7f2c'), tall: 12, style: 'bush' },
+  pepper: { fruit: hex('#e55039'), leaf: hex('#3f7f2c'), tall: 10, style: 'bush' },
+  potato: { fruit: hex('#b9874f'), leaf: hex('#5a9a3a'), tall: 8, style: 'low' },
+  herbs: { fruit: hex('#9fd36a'), leaf: hex('#5daa42'), tall: 7, style: 'low' },
+};
+
+function cropTexture(c: Canvas16, kind: string, stage: number): void {
+  c.clearAlpha();
+  const look = CROP_LOOK[kind];
+  const h = Math.round(look.tall * [0.25, 0.5, 0.8, 1][stage]);
+  const leafDark: RGB = [look.leaf[0] * 0.75, look.leaf[1] * 0.75, look.leaf[2] * 0.75];
+  if (look.style === 'stalk') {
+    for (const sx of [4, 11]) {
+      for (let y = 15; y > 15 - h; y--) c.set(sx, y, look.leaf);
+      for (let y = 15 - h + 2; y < 15; y += 3) { c.set(sx - 1, y, leafDark); c.set(sx + 1, y + 1, look.leaf); c.set(sx - 2, y + 1, leafDark); }
+      if (stage === 3) for (let y = 15 - h + 3; y < 15 - h + 7; y++) { c.set(sx + 1, y, look.fruit); c.set(sx + 2, y, look.fruit); }
+      if (stage === 3 && kind === 'corn') c.set(sx, 15 - h, hex('#d9b26a'));
+    }
+  } else {
+    // A bush or a low spread of leaves.
+    const w = look.style === 'low' ? 6 : 4;
+    for (let y = 15; y > 15 - h; y--) {
+      const spread = Math.round(w * Math.sin(((15 - y) / Math.max(1, h)) * Math.PI) + 1);
+      for (let x = 8 - spread; x <= 7 + spread; x++) if (c.rng() < 0.75) c.set(x, y, c.rng() < 0.5 ? look.leaf : leafDark);
+    }
+    if (stage === 3) {
+      const n = look.style === 'low' ? 3 : 5;
+      for (let k = 0; k < n; k++) {
+        const x = 4 + Math.floor(c.rng() * 8), y = 15 - Math.floor(c.rng() * Math.max(2, h - 1));
+        c.set(x, y, look.fruit); c.set(x + 1, y, look.fruit); if (look.style !== 'low') c.set(x, y - 1, look.fruit);
+      }
+    }
+  }
+}
+
+function coffeeTexture(c: Canvas16, stage: number): void {
+  // A glossy dark-leaved shrub; green cherries, then red when ripe.
+  c.clearAlpha();
+  const h = [8, 13, 14][stage];
+  for (let y = 15; y > 15 - h; y--) {
+    const spread = Math.round(5 * Math.sin(((15 - y) / h) * Math.PI) + 1);
+    for (let x = 8 - spread; x <= 7 + spread; x++) if (c.rng() < 0.8) c.set(x, y, c.rng() < 0.5 ? hex('#2f6b2a') : hex('#24561f'));
+  }
+  if (stage > 0) for (let k = 0; k < 9; k++) {
+    const x = 3 + Math.floor(c.rng() * 10), y = 15 - Math.floor(2 + c.rng() * (h - 3));
+    c.set(x, y, stage === 2 ? hex('#c0392b') : hex('#7fae3a'));
+  }
+}
+
+DRAW.farmland = (c) => {
+  c.noise(hex('#4a3322'), 6, [hex('#3e2a1b'), hex('#5a3e28')], 0.2);
+  for (const y of [1, 5, 9, 13]) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#2f2015')); c.set(x, y + 1, hex('#5e4430')); }
+};
+
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */
 export function drawTexture(name: string): Uint8ClampedArray {
   const c = new Canvas16(name);
   const fn = DRAW[name];
-  if (fn) fn(c);
+  const crop = name.match(/^crop_(\w+)_(\d)$/);
+  const coffee = name.match(/^coffee_bush_(\d)$/);
+  if (crop && CROP_LOOK[crop[1]]) cropTexture(c, crop[1], Number(crop[2]));
+  else if (coffee) coffeeTexture(c, Number(coffee[1]));
+  else if (fn) fn(c);
   else for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) c.set(x, y, (x >> 2) % 2 === (y >> 2) % 2 ? [255, 0, 255] : [0, 0, 0]);
   return c.px;
 }
 
-export function hasTexture(name: string): boolean { return name in DRAW; }
+export function hasTexture(name: string): boolean { return name in DRAW || /^crop_\w+_\d$|^coffee_bush_\d$/.test(name); }
 
 /** All textures stacked into one RGBA array, layer after layer, for a texture array. */
 export function buildTextureStack(names: string[]): Uint8Array {

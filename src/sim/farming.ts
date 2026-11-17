@@ -1,0 +1,103 @@
+// The garden: tilling with a hoe, sowing seeds, crops growing on random ticks, harvests, and the
+// coffee bushes that ripen and can be picked again.
+
+import { BLOCK_DEFS, blockId, blockName, AIR } from '../world/blocks.ts';
+import { itemId } from '../world/items.ts';
+import type { World } from '../world/world.ts';
+import type { Inventory } from './inventory.ts';
+
+/** What each crop gives when ripe, and what it is sown from. */
+const CROPS: Record<string, { produce: string; seed: string; ripe: number; seeds: number }> = {
+  corn: { produce: 'corn', seed: 'seeds_corn', ripe: 3, seeds: 2 },
+  beans: { produce: 'bean_pod', seed: 'seeds_beans', ripe: 3, seeds: 2 },
+  squash: { produce: 'squash', seed: 'seeds_squash', ripe: 2, seeds: 2 },
+  tomato: { produce: 'tomato', seed: 'seeds_tomato', ripe: 3, seeds: 2 },
+  pepper: { produce: 'pepper', seed: 'seeds_pepper', ripe: 3, seeds: 2 },
+  potato: { produce: 'potato', seed: 'potato', ripe: 4, seeds: 0 }, // potatoes grow from cut tubers
+  herbs: { produce: 'herbs', seed: 'seeds_herbs', ripe: 3, seeds: 1 },
+};
+const LAST_STAGE = 3;
+
+export const FARMLAND = blockId('farmland');
+const TILLABLE = new Set([blockId('grass'), blockId('dirt'), blockId('forest_floor')]);
+
+export function cropOf(block: number): { kind: string; stage: number } | undefined { return BLOCK_DEFS[block]?.crop; }
+
+/** What breaking a crop gives: produce and seed when ripe, the seed back when not. Undefined for non-crops. */
+export function cropDrops(block: number): [number, number][] | undefined {
+  const c = cropOf(block);
+  if (!c) return undefined;
+  if (c.kind === 'coffee') return [[itemId('coffee_beans'), c.stage === 2 ? 3 : 0]];
+  const info = CROPS[c.kind];
+  if (c.stage < LAST_STAGE) return [[itemId(info.seed), 1]];
+  const out: [number, number][] = [[itemId(info.produce), info.ripe]];
+  if (info.seeds) out.push([itemId(info.seed), info.seeds]);
+  return out;
+}
+
+/** Which crop a held item sows, if it is a seed (or a potato). */
+export function sows(item: number): string | undefined {
+  for (const [kind, info] of Object.entries(CROPS)) if (itemId(info.seed) === item) return kind;
+  return undefined;
+}
+
+/** A hoe turns grass or soil into farmland, if nothing stands on it. */
+export function till(world: World, x: number, y: number, z: number): boolean {
+  if (!TILLABLE.has(world.blockAt(x, y, z)) || world.blockAt(x, y + 1, z) !== AIR) return false;
+  return world.setBlock(x, y, z, FARMLAND);
+}
+
+/** Sows the held seed on farmland at (x, y, z). The seed is used only if it was sown. */
+export function sow(world: World, inv: Inventory, x: number, y: number, z: number): boolean {
+  const held = inv.current;
+  const kind = held && sows(held.id);
+  if (!kind || world.blockAt(x, y, z) !== FARMLAND || world.blockAt(x, y + 1, z) !== AIR) return false;
+  if (!world.setBlock(x, y + 1, z, blockId(`crop_${kind}_0`))) return false;
+  inv.take();
+  return true;
+}
+
+/** Picks a ripe coffee bush: beans, and the bush goes back to green cherries. */
+export function pickCoffee(world: World, inv: Inventory, x: number, y: number, z: number): boolean {
+  if (blockName(world.blockAt(x, y, z)) !== 'coffee_bush_2') return false;
+  world.setBlock(x, y, z, blockId('coffee_bush_1'));
+  inv.add(itemId('coffee_beans'), 3);
+  return true;
+}
+
+/** One growth step for the block at (x, y, z), if it is a crop that can grow there now. */
+export function grow(world: World, x: number, y: number, z: number): boolean {
+  const c = cropOf(world.blockAt(x, y, z));
+  if (!c) return false;
+  const last = c.kind === 'coffee' ? 2 : LAST_STAGE;
+  if (c.stage >= last) return false;
+  if (c.kind !== 'coffee' && world.blockAt(x, y - 1, z) !== FARMLAND) return false;
+  const lv = world.lightAt(x, y, z);
+  if ((lv >> 4) < 9 && (lv & 15) < 9) return false; // crops need light
+  const next = c.kind === 'coffee' ? `coffee_bush_${c.stage + 1}` : `crop_${c.kind}_${c.stage + 1}`;
+  return world.setBlock(x, y, z, blockId(next));
+}
+
+/**
+ * Random ticks: a few random blocks in each loaded chunk near the player get a chance to grow, as
+ * in block games. About 14 minutes from seed to harvest while the player is near.
+ */
+export function randomTicks(world: World, px: number, pz: number, rand: () => number, perChunk = 6): number {
+  let grown = 0;
+  const pcx = Math.floor(px / 32), pcz = Math.floor(pz / 32);
+  for (let dz = -3; dz <= 3; dz++)
+    for (let dx = -3; dx <= 3; dx++) {
+      const col = world.column(pcx + dx, pcz + dz);
+      if (!col) continue;
+      for (const ch of col.chunks) {
+        if (ch.empty || !ch.blocks) continue;
+        for (let k = 0; k < perChunk; k++) {
+          const i = Math.floor(rand() * 32768);
+          if (!cropOf(ch.blocks[i])) continue;
+          const x = ch.cx * 32 + (i & 31), y = ch.cy * 32 + (i >> 10), z = ch.cz * 32 + ((i >> 5) & 31);
+          if (grow(world, x, y, z)) grown++;
+        }
+      }
+    }
+  return grown;
+}
