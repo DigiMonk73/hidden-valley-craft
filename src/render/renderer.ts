@@ -1,0 +1,229 @@
+// Draws the world: the sky, every chunk's mesh with the block shader, the water, and the outline
+// of the block the player is looking at.
+
+import * as THREE from 'three';
+import { TEXTURE_NAMES } from '../world/blocks.ts';
+import { buildTextureStack, TEX } from './textures.ts';
+import { createSkyDome, applySky, type SkyState } from './sky.ts';
+import type { ChunkMesh, MeshPart } from '../mesh/mesher.ts';
+import { CS } from '../world/constants.ts';
+
+const BLOCK_VERT = /* glsl */ `
+in vec4 aPack;
+in float aLayer;
+uniform float uTime;
+out vec2 vUv;
+flat out float vLayer;
+out float vAo;
+out vec2 vLight;
+out float vShade;
+out float vDist;
+void main() {
+  int flags = int(aPack.x + 0.5);
+  int face = flags & 7;
+  int corner = (flags >> 3) & 3;
+  bool wave = (flags & 32) != 0;
+  bool liquid = (flags & 64) != 0;
+  vec2 uv = vec2((corner == 1 || corner == 2) ? 1.0 : 0.0, corner >= 2 ? 1.0 : 0.0);
+  vUv = vec2(uv.x, 1.0 - uv.y);
+  vLayer = aLayer;
+  vAo = aPack.y / 3.0;
+  vLight = aPack.zw / 240.0;
+  // Fixed shading per face direction gives blocks their form: top brightest, bottom darkest.
+  vShade = face == 2 ? 1.0 : face == 3 ? 0.55 : (face == 0 || face == 1) ? 0.72 : face == 6 ? 0.92 : 0.84;
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  if (wave) {
+    world.x += sin(uTime * 1.6 + world.z * 0.45 + world.y * 0.3) * 0.045;
+    world.z += cos(uTime * 1.25 + world.x * 0.45) * 0.045;
+  }
+  if (liquid && face == 2) world.y += sin(uTime * 1.1 + world.x * 0.6 + world.z * 0.45) * 0.035 - 0.035;
+  vec4 view = viewMatrix * world;
+  vDist = length(view.xyz);
+  gl_Position = projectionMatrix * view;
+}`;
+
+const BLOCK_FRAG = /* glsl */ `
+precision highp float;
+precision highp sampler2DArray;
+in vec2 vUv;
+flat in float vLayer;
+in float vAo;
+in vec2 vLight;
+in float vShade;
+in float vDist;
+uniform sampler2DArray uTex;
+uniform float uDaylight;
+uniform vec3 uSkyLight;
+uniform vec3 uBlockLight;
+uniform vec3 uFog;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform float uOpacity;
+uniform bool uCutout;
+out vec4 outColor;
+float curve(float l) { return l / (3.0 - 2.0 * l); } // light level → brightness, like a lightmap
+void main() {
+  vec3 tc = vec3(vUv, vLayer);
+  vec4 tex = texture(uTex, tc);
+  if (uCutout) {
+    // Test alpha on the sharpest level so leaves don't thin out with distance.
+    if (textureLod(uTex, tc, 0.0).a < 0.5) discard;
+    tex.a = 1.0;
+  }
+  float sky = curve(vLight.x) * uDaylight;
+  float blk = curve(vLight.y);
+  vec3 light = max(uSkyLight * sky, uBlockLight * blk);
+  light = max(light, vec3(0.025));
+  float ao = mix(0.42, 1.0, vAo);
+  vec3 col = tex.rgb * light * ao * vShade;
+  float fog = smoothstep(uFogNear, uFogFar, vDist);
+  col = mix(col, uFog, fog);
+  outColor = vec4(col, tex.a * uOpacity);
+}`;
+
+export class Renderer {
+  readonly gl: THREE.WebGLRenderer;
+  readonly scene = new THREE.Scene();
+  readonly camera: THREE.PerspectiveCamera;
+  readonly solidMat: THREE.ShaderMaterial;
+  readonly waterMat: THREE.ShaderMaterial;
+  private sky = createSkyDome();
+  private meshes = new Map<number, { solid?: THREE.Mesh; water?: THREE.Mesh }>();
+  private index: THREE.BufferAttribute;
+  private indexQuads: number;
+  private outline: THREE.LineSegments;
+  private fogDist = 256;
+  stats = { chunks: 0, quads: 0 };
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.gl.outputColorSpace = THREE.LinearSRGBColorSpace; // colours are authored for the screen as-is
+    this.camera = new THREE.PerspectiveCamera(72, 1, 0.08, 2000);
+    this.scene.add(this.sky);
+
+    const tex = new THREE.DataArrayTexture(buildTextureStack(TEXTURE_NAMES), TEX, TEX, TEXTURE_NAMES.length);
+    tex.format = THREE.RGBAFormat;
+    tex.type = THREE.UnsignedByteType;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestMipmapLinearFilter;
+    tex.generateMipmaps = true;
+    tex.anisotropy = Math.min(8, this.gl.capabilities.getMaxAnisotropy());
+    tex.colorSpace = THREE.NoColorSpace;
+    tex.needsUpdate = true;
+
+    const uniforms = () => ({
+      uTex: { value: tex },
+      uTime: { value: 0 },
+      uDaylight: { value: 1 },
+      uSkyLight: { value: new THREE.Color(1, 1, 1) },
+      uBlockLight: { value: new THREE.Color('#ffd08c') },
+      uFog: { value: new THREE.Color('#a8cbe3') },
+      uFogNear: { value: 120 },
+      uFogFar: { value: 250 },
+      uOpacity: { value: 1 },
+      uCutout: { value: true },
+    });
+    this.solidMat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: BLOCK_VERT, fragmentShader: BLOCK_FRAG, uniforms: uniforms() });
+    this.waterMat = new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3, vertexShader: BLOCK_VERT, fragmentShader: BLOCK_FRAG, uniforms: uniforms(),
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    });
+    this.waterMat.uniforms.uCutout.value = false;
+
+    // One index buffer shared by every chunk: quad k uses vertices 4k…4k+3.
+    this.indexQuads = 1 << 17;
+    const idx = new Uint32Array(this.indexQuads * 6);
+    for (let q = 0, v = 0, i = 0; q < this.indexQuads; q++, v += 4) {
+      idx[i++] = v; idx[i++] = v + 1; idx[i++] = v + 2;
+      idx[i++] = v; idx[i++] = v + 2; idx[i++] = v + 3;
+    }
+    this.index = new THREE.BufferAttribute(idx, 1);
+
+    const box = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004));
+    this.outline = new THREE.LineSegments(box, new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.55 }));
+    this.outline.visible = false;
+    this.scene.add(this.outline);
+  }
+
+  resize(w: number, h: number): void {
+    this.gl.setSize(w, h, false);
+    this.camera.aspect = w / Math.max(1, h);
+    this.camera.updateProjectionMatrix();
+  }
+
+  setRenderDistance(blocks: number): void {
+    this.fogDist = blocks;
+    for (const m of [this.solidMat, this.waterMat]) {
+      m.uniforms.uFogNear.value = blocks * 0.7;
+      m.uniforms.uFogFar.value = blocks * 0.98;
+    }
+  }
+
+  applySky(s: SkyState, time: number): void {
+    applySky(this.sky, s);
+    for (const m of [this.solidMat, this.waterMat]) {
+      const u = m.uniforms;
+      u.uTime.value = time;
+      u.uDaylight.value = s.daylight;
+      u.uSkyLight.value.copy(s.skyLight);
+      u.uFog.value.copy(s.fog);
+    }
+    this.gl.setClearColor(s.fog);
+  }
+
+  private makePart(part: MeshPart, mat: THREE.Material, key: number, cx: number, cy: number, cz: number): THREE.Mesh | undefined {
+    if (part.quads === 0) return undefined;
+    if (part.quads > this.indexQuads) throw new Error(`chunk ${key} has ${part.quads} quads, over the index buffer`);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(part.positions, 3));
+    g.setAttribute('aPack', new THREE.BufferAttribute(part.pack, 4));
+    g.setAttribute('aLayer', new THREE.BufferAttribute(part.layers, 1));
+    g.setIndex(this.index);
+    g.setDrawRange(0, part.quads * 6);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(CS / 2, CS / 2, CS / 2), CS * 0.87);
+    g.boundingBox = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(CS, CS, CS));
+    const m = new THREE.Mesh(g, mat);
+    m.position.set(cx * CS, cy * CS, cz * CS);
+    m.matrixAutoUpdate = false;
+    m.updateMatrix();
+    this.scene.add(m);
+    return m;
+  }
+
+  setChunkMesh(key: number, cx: number, cy: number, cz: number, mesh: ChunkMesh): void {
+    this.removeChunk(key);
+    const solid = this.makePart(mesh.solid, this.solidMat, key, cx, cy, cz);
+    const water = this.makePart(mesh.water, this.waterMat, key, cx, cy, cz);
+    if (water) water.renderOrder = 10;
+    if (solid || water) this.meshes.set(key, { solid, water });
+  }
+
+  removeChunk(key: number): void {
+    const old = this.meshes.get(key);
+    if (!old) return;
+    for (const m of [old.solid, old.water]) {
+      if (!m) continue;
+      this.scene.remove(m);
+      m.geometry.dispose();
+    }
+    this.meshes.delete(key);
+  }
+
+  showOutline(x: number, y: number, z: number): void {
+    this.outline.position.set(x + 0.5, y + 0.5, z + 0.5);
+    this.outline.visible = true;
+  }
+  hideOutline(): void { this.outline.visible = false; }
+
+  render(): void {
+    this.sky.position.copy(this.camera.position);
+    let quads = 0;
+    for (const v of this.meshes.values()) quads += (v.solid?.geometry.drawRange.count ?? 0) / 6 + (v.water?.geometry.drawRange.count ?? 0) / 6;
+    this.stats.chunks = this.meshes.size;
+    this.stats.quads = quads;
+    this.gl.render(this.scene, this.camera);
+  }
+
+  get renderDistance(): number { return this.fogDist; }
+}

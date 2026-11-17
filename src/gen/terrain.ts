@@ -1,0 +1,510 @@
+// Generates one column (32 × 192 × 32 blocks) of the designed world. Pure and deterministic:
+// the same column always comes out the same, so the world is rebuilt from the layout and only
+// the player's edits are saved. Runs in workers, in Node (tests, map tool) and on the main thread.
+
+import { CS, WORLD_Y } from '../world/constants.ts';
+import { blockId, AIR, BEDROCK, WATER } from '../world/blocks.ts';
+import { Simplex, hash3, rand3 } from '../core/noise.ts';
+import {
+  SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, WATERFALL, CANYON_POOL, TUNNEL, GARDEN,
+  distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
+} from './layout.ts';
+
+export const COLUMN_VOLUME = CS * CS * WORLD_Y;
+const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
+
+const LIMESTONE = blockId('limestone');
+const MOSSY = blockId('limestone_mossy');
+const DIRT = blockId('dirt');
+const GRASS = blockId('grass');
+const FOREST = blockId('forest_floor');
+const CLAY = blockId('clay');
+const SAND = blockId('sand');
+const GRAVEL = blockId('gravel');
+const MUD = blockId('mud');
+const IRON = blockId('iron_ore');
+const FLINT = blockId('flint_ore');
+const COAL = blockId('coal_ore');
+const COPPER = blockId('copper_ore');
+const LOG = blockId('log');
+const LEAVES = blockId('leaves');
+const FERN_TRUNK = blockId('tree_fern_trunk');
+const FRONDS = blockId('fern_fronds');
+const PLANKS = blockId('planks');
+const COBBLE = blockId('cobble');
+const BRICKS = blockId('stone_bricks');
+const LANTERN = blockId('lantern');
+const FERN = blockId('fern');
+const TALL_GRASS = blockId('tall_grass');
+const BROMELIAD = blockId('bromeliad');
+const ORCHID = blockId('orchid');
+const BAMBOO = blockId('bamboo');
+const MOSS = blockId('moss');
+
+const wallNoise = new Simplex(SEED + 7);
+const caveA = new Simplex(SEED + 21);
+const caveB = new Simplex(SEED + 22);
+const detail = new Simplex(SEED + 31);
+
+const R_IN = VALLEY.radius - 14;
+const R_OUT = VALLEY.radius + 18;
+
+/** Radius of the valley's cliff face at a point and height: the sinkhole's 3D shape. */
+function wallRadius(x: number, y: number, z: number, floorH: number, topH: number): number {
+  const dx = x - VALLEY.cx, dz = z - VALLEY.cz;
+  const len = Math.hypot(dx, dz) || 1;
+  const ux = dx / len, uz = dz / len;
+  let r = VALLEY.radius;
+  // Large bays and buttresses around the rim, then ledges and overhangs that vary with height.
+  r += 5 * wallNoise.noise2(ux * 2.2, uz * 2.2);
+  r += 2.6 * wallNoise.noise3(x / 11, y / 7, z / 11);
+  r += 1.2 * wallNoise.noise3(x / 4, y / 3, z / 4);
+  // Scree at the foot: the cliff meets the floor in a short slope.
+  if (y < floorH + 5) r -= (floorH + 5 - y) * 1.1;
+  // The rim's edge is worn back.
+  if (y > topH - 4) r += (y - (topH - 4)) * 1.4;
+  // Keep the cliff clean behind the waterfall and at the builder's cave.
+  const nearHome = ux > 0.9 && Math.abs(dz) < 26 && y > HOME.floor - 8 && y < HOME.floor + 14;
+  const nearFall = ux < -0.95 && Math.abs(dz) < 9;
+  if (nearHome) r = Math.max(r, VALLEY.radius - 1);
+  if (nearFall) r = Math.max(r, VALLEY.radius);
+  return r;
+}
+
+function inBox(x: number, y: number, z: number, b: { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }): boolean {
+  return x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1 && z >= b.z0 && z < b.z1;
+}
+
+const HOME_BOUNDS = { x0: 1786, x1: 1842, y0: 70, y1: 100, z0: 998, z1: 1050 };
+
+/** Places where caves and ore must not cut: the home, the water passages, the path. */
+function caveExcluded(x: number, y: number, z: number): boolean {
+  if (inBox(x, y, z, HOME_BOUNDS)) return true;
+  if (z > TUNNEL.z - 8 && z < TUNNEL.z + 8 && x > TUNNEL.x0 - 10 && x < TUNNEL.x1 + 14 && y > 50) return true;
+  return false;
+}
+
+export function generateColumn(cx: number, cz: number): Uint16Array {
+  const col = new Uint16Array(COLUMN_VOLUME);
+  const x0 = cx * CS, z0 = cz * CS;
+  const tops = new Int16Array(CS * CS); // walking height after shaping, per (x, z)
+
+  // 1. Rock: the valley floor, the cliff and the land beyond.
+  for (let lz = 0; lz < CS; lz++) {
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const d = distToValley(x, z);
+      const floorH = valleyFloorHeight(x, z);
+      const outH = outsideHeight(x, z);
+      let top = 0;
+      if (d < R_IN) {
+        for (let y = 0; y < floorH; y++) col[ci(lx, y, lz)] = LIMESTONE;
+        top = floorH;
+      } else if (d > R_OUT) {
+        for (let y = 0; y < outH; y++) col[ci(lx, y, lz)] = LIMESTONE;
+        top = outH;
+      } else {
+        const maxH = Math.max(floorH, outH);
+        for (let y = 0; y < maxH; y++) {
+          const solid = y < floorH || (y < outH && d > wallRadius(x, y, z, floorH, outH));
+          if (solid) { col[ci(lx, y, lz)] = LIMESTONE; top = y + 1; }
+        }
+      }
+      tops[lz * CS + lx] = top;
+      // Basalt bedrock at the bottom.
+      col[ci(lx, 0, lz)] = BEDROCK;
+      if (rand3(x, 1, z, SEED) < 0.6) col[ci(lx, 1, lz)] = BEDROCK;
+      if (rand3(x, 2, z, SEED) < 0.25) col[ci(lx, 2, lz)] = BEDROCK;
+    }
+  }
+
+  // 2. Karst caves: two noise fields, carved where both are near zero (long tubes).
+  carveCaves(col, x0, z0, tops);
+
+  // 3. Ore, in pockets, by zone: tier-1 (iron, flint) inside the valley, more outside.
+  placeOre(col, x0, z0, tops);
+
+  // 4. Surface: soil, grass, forest floor, moss on wet cliffs.
+  dressSurface(col, x0, z0, tops);
+
+  // 5. Water: the pool, the creek, the waterfall, the canyon pool and the drowned tunnel.
+  placeWater(col, x0, z0, tops);
+
+  // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
+  buildHome(col, x0, z0);
+
+  // 7. Trees and ground plants.
+  placeTrees(col, x0, z0);
+  placeGroundPlants(col, x0, z0);
+
+  return col;
+}
+
+function carveCaves(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
+  // Sample the two noise fields on a coarse 4-block grid and interpolate: same shapes, 1/64 the cost.
+  const G = 4, NX = CS / G + 1, NY = WORLD_Y / G + 1;
+  const a = new Float32Array(NX * NX * NY), b = new Float32Array(NX * NX * NY);
+  for (let gy = 0; gy < NY; gy++)
+    for (let gz = 0; gz < NX; gz++)
+      for (let gx = 0; gx < NX; gx++) {
+        const x = x0 + gx * G, y = gy * G, z = z0 + gz * G;
+        const i = (gy * NX + gz) * NX + gx;
+        a[i] = caveA.noise3(x / 46, y / 22, z / 46);
+        b[i] = caveB.noise3(x / 46, y / 22, z / 46);
+      }
+  const sample = (f: Float32Array, lx: number, y: number, lz: number) => {
+    const fx = lx / G, fy = y / G, fz = lz / G;
+    const ix = Math.min(NX - 2, fx | 0), iy = Math.min(NY - 2, fy | 0), iz = Math.min(NX - 2, fz | 0);
+    const tx = fx - ix, ty = fy - iy, tz = fz - iz;
+    const at = (dx: number, dy: number, dz: number) => f[((iy + dy) * NX + (iz + dz)) * NX + ix + dx];
+    const c00 = at(0, 0, 0) * (1 - tx) + at(1, 0, 0) * tx;
+    const c10 = at(0, 0, 1) * (1 - tx) + at(1, 0, 1) * tx;
+    const c01 = at(0, 1, 0) * (1 - tx) + at(1, 1, 0) * tx;
+    const c11 = at(0, 1, 1) * (1 - tx) + at(1, 1, 1) * tx;
+    return (c00 * (1 - tz) + c10 * tz) * (1 - ty) + (c01 * (1 - tz) + c11 * tz) * ty;
+  };
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const top = tops[lz * CS + lx];
+      const roofKeep = inSanctuary(x, z) ? 9 : 6; // caves under the valley floor stay well below it
+      for (let y = 8; y < top - roofKeep; y++) {
+        const va = sample(a, lx, y, lz), vb = sample(b, lx, y, lz);
+        if (va * va + vb * vb < 0.0065 && !caveExcluded(x, y, z)) col[ci(lx, y, lz)] = AIR;
+      }
+    }
+}
+
+function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
+  // One candidate pocket per 4×4×4 cell; a block becomes ore if it is near its cell's pocket centre.
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const top = tops[lz * CS + lx];
+      const valley = inSanctuary(x, z);
+      for (let y = 3; y < top - 2; y++) {
+        const i = ci(lx, y, lz);
+        if (col[i] !== LIMESTONE || caveExcluded(x, y, z)) continue;
+        const gx = x >> 2, gy = y >> 2, gz = z >> 2;
+        const h = hash3(gx, gy, gz, SEED + 5);
+        const roll = (h & 1023) / 1024;
+        let ore = 0;
+        if (valley) {
+          if (roll < 0.035) ore = IRON;
+          else if (roll < 0.06) ore = FLINT;
+          else if (roll < 0.075 && y < 66) ore = CLAY;
+        } else {
+          if (roll < 0.05 && y < 112) ore = COAL;
+          else if (roll < 0.08 && y < 92) ore = IRON;
+          else if (roll < 0.105 && y < 84) ore = COPPER;
+          else if (roll < 0.12) ore = FLINT;
+          else if (roll < 0.14) ore = GRAVEL;
+        }
+        if (!ore) continue;
+        const ox = (gx << 2) + ((h >>> 10) & 3), oy = (gy << 2) + ((h >>> 12) & 3), oz = (gz << 2) + ((h >>> 14) & 3);
+        const dd = (x - ox) ** 2 + (y - oy) ** 2 + (z - oz) ** 2;
+        if (dd <= 1.6 + ((h >>> 16) & 3) * 0.6) col[i] = ore;
+      }
+    }
+}
+
+function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const d = distToValley(x, z);
+      // Slope from neighbouring heights (outside the column, use the layout's height).
+      const h = (dx: number, dz: number) => {
+        const nx = lx + dx, nz = lz + dz;
+        if (nx >= 0 && nz >= 0 && nx < CS && nz < CS) return tops[nz * CS + nx];
+        return d < R_IN ? valleyFloorHeight(x + dx, z + dz) : outsideHeight(x + dx, z + dz);
+      };
+      const top = tops[lz * CS + lx];
+      const slope = Math.max(Math.abs(h(1, 0) - top), Math.abs(h(-1, 0) - top), Math.abs(h(0, 1) - top), Math.abs(h(0, -1) - top));
+      const wet = detail.noise2(x / 14, z / 14);
+
+      // Every exposed rock face: moss where it is damp (more of it near the waterfall).
+      const nearFall = Math.hypot(x - WATERFALL.x, z - (WATERFALL.z0 + WATERFALL.z1) / 2) < 30;
+      for (let y = 3; y < top; y++) {
+        const i = ci(lx, y, lz);
+        if (col[i] !== LIMESTONE) continue;
+        const open = y + 1 >= WORLD_Y || col[ci(lx, y + 1, lz)] === AIR || (lx > 0 && col[ci(lx - 1, y, lz)] === AIR) ||
+          (lx < CS - 1 && col[ci(lx + 1, y, lz)] === AIR) || (lz > 0 && col[ci(lx, y, lz - 1)] === AIR) || (lz < CS - 1 && col[ci(lx, y, lz + 1)] === AIR);
+        if (open && (wet + detail.noise3(x / 6, y / 6, z / 6) * 0.6 > (nearFall ? -0.4 : 0.35))) col[i] = MOSSY;
+      }
+
+      if (top < 4) continue;
+      const ti = ci(lx, top - 1, lz);
+      if (col[ti] !== LIMESTONE && col[ti] !== MOSSY) continue;
+      if (slope >= 3) continue; // steep ground stays bare rock
+      const valley = d < VALLEY.radius - 4;
+      const canyonFloor = !valley && Math.abs(x - canyonCenterX(z)) < 20 && top <= VALLEY.floor + 3;
+      let topBlock = valley ? GRASS : FOREST;
+      let fill = DIRT;
+      let depth = valley ? 4 : 3;
+      if (canyonFloor) { topBlock = rand3(x, top, z, SEED) < 0.5 ? GRAVEL : SAND; fill = GRAVEL; depth = 2; }
+      else if (!valley && slope >= 2 && wet > 0.2) topBlock = MOSS;
+      col[ti] = topBlock;
+      for (let k = 2; k <= depth; k++) {
+        const j = ci(lx, top - k, lz);
+        if (col[j] === LIMESTONE) col[j] = fill;
+      }
+    }
+}
+
+function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
+  const W = VALLEY.water;
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const top = tops[lz * CS + lx];
+
+      // A round pool with a sloping bed, fringed with sand.
+      const pool = (p: { cx: number; cz: number; radius: number; depth: number }, floorTop: number) => {
+        const dp = Math.hypot(x - p.cx, z - p.cz) + 1.2 * detail.noise2(x / 6, z / 6);
+        if (dp < p.radius) {
+          const depth = Math.max(1, Math.round(p.depth * (1 - (dp / p.radius) ** 2)));
+          const bed = W - depth;
+          for (let y = bed - 1; y <= bed; y++) col[ci(lx, y, lz)] = dp < p.radius * 0.6 ? GRAVEL : SAND;
+          for (let y = bed + 1; y <= W; y++) col[ci(lx, y, lz)] = WATER;
+          for (let y = W + 1; y < floorTop + 2; y++) col[ci(lx, y, lz)] = AIR;
+          return true;
+        }
+        if (dp < p.radius + 2.5 && top <= floorTop + 1) col[ci(lx, top - 1, lz)] = SAND;
+        return false;
+      };
+
+      if (inSanctuary(x, z)) {
+        pool(POOL, VALLEY.floor);
+        // The creek: a narrow channel of water, with mud and clay banks.
+        const cd = creekDistance(x, z) + 0.6 * detail.noise2(x / 5, z / 5);
+        if (cd < 1.9 && Math.hypot(x - POOL.cx, z - POOL.cz) > POOL.radius - 2) {
+          col[ci(lx, W - 2, lz)] = cd < 1 ? GRAVEL : MUD;
+          col[ci(lx, W - 1, lz)] = cd < 1.2 ? WATER : MUD;
+          col[ci(lx, W, lz)] = WATER;
+          for (let y = W + 1; y < top + 2; y++) col[ci(lx, y, lz)] = AIR;
+        } else if (cd < 3.6 && top <= VALLEY.floor + 1) {
+          col[ci(lx, top - 1, lz)] = cd < 2.7 ? MUD : (rand3(x, 9, z, SEED) < 0.5 ? CLAY : SAND);
+        }
+      } else if (Math.abs(x - CANYON_POOL.cx) < 20 && Math.abs(z - CANYON_POOL.cz) < 20) {
+        pool(CANYON_POOL, Math.max(top, VALLEY.floor));
+      }
+
+      // The waterfall: a sheet of water down the west cliff, fed by a spring in a notch at the rim.
+      if (z >= WATERFALL.z0 && z < WATERFALL.z1) {
+        if (x === WATERFALL.x) for (let y = W; y <= WATERFALL.top; y++) col[ci(lx, y, lz)] = WATER;
+        if (x > WATERFALL.x - 12 && x < WATERFALL.x) {
+          for (let y = WATERFALL.top + 1; y < WORLD_Y; y++) col[ci(lx, y, lz)] = AIR;
+          col[ci(lx, WATERFALL.top, lz)] = x > WATERFALL.x - 9 ? WATER : MOSSY;
+          col[ci(lx, WATERFALL.top - 1, lz)] = MOSSY;
+        }
+      }
+
+      // The drowned tunnel between the canyon pool and the valley pool, with a shaft at each end.
+      if (Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth) {
+        if (x >= TUNNEL.x0 && x < TUNNEL.x1) for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) col[ci(lx, y, lz)] = WATER;
+        const shaft = (x >= TUNNEL.x0 - 2 && x < TUNNEL.x0 + 2) || (x >= POOL.cx - 4 && x < POOL.cx);
+        if (shaft) for (let y = TUNNEL.y0; y <= W; y++) col[ci(lx, y, lz)] = WATER;
+        if (x >= TUNNEL.x1 && x < POOL.cx) for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) col[ci(lx, y, lz)] = WATER;
+      }
+    }
+}
+
+function buildHome(col: Uint16Array, x0: number, z0: number): void {
+  if (x0 + CS <= HOME_BOUNDS.x0 - 20 || x0 >= HOME_BOUNDS.x1 || z0 + CS <= HOME_BOUNDS.z0 - 20 || z0 >= HOME_BOUNDS.z1) return;
+  const F = HOME.floor;
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+
+      // The path: one gentle S-curve of steps, dressed stone near the top and packed dirt below.
+      const p = pathAt(x, z);
+      if (p.dist < PATH_HALF_WIDTH) {
+        const h = Math.round(p.height);
+        const ground = valleyFloorHeight(x, z);
+        for (let y = ground - 1; y < h; y++) col[ci(lx, y, lz)] = y === h - 1 ? (h > 76 ? BRICKS : DIRT) : COBBLE;
+        for (let y = h; y < h + 4; y++) col[ci(lx, y, lz)] = AIR;
+      }
+
+      // The balcony: a ledge of rock, thicker where it meets the cliff, paved on top.
+      const b = HOME.balcony;
+      if (x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1) {
+        const edge = Math.min(x - b.x0, z - b.z0, b.z1 - 1 - z);
+        const ragged = edge === 0 && rand3(x, 3, z, SEED) < 0.35;
+        if (!ragged) {
+          const thick = 2 + Math.round((x - b.x0) * 0.7) + (rand3(x, 4, z, SEED) < 0.3 ? 1 : 0);
+          for (let y = F - 1 - thick; y < F - 1; y++) col[ci(lx, y, lz)] = LIMESTONE;
+          col[ci(lx, F - 1, lz)] = BRICKS;
+        }
+        for (let y = F; y < F + 12; y++) col[ci(lx, y, lz)] = AIR;
+      }
+
+      // The rooms, with the builder's floors.
+      for (const r of HOME.rooms) {
+        if (x < r.x0 || x >= r.x1 || z < r.z0 || z >= r.z1) continue;
+        const inner = Math.min(x - r.x0, r.x1 - 1 - x, z - r.z0, r.z1 - 1 - z);
+        const ceil = r.y1 + (inner >= 3 && detail.noise2(x / 4, z / 4) > 0 ? 1 : 0) - (inner === 0 && r.name !== 'mouth' ? 1 : 0);
+        for (let y = r.y0; y < ceil; y++) col[ci(lx, y, lz)] = AIR;
+        const floor = r.name === 'living' || r.name === 'vault' || r.name === 'hall' ? PLANKS
+          : r.name === 'workshop' ? COBBLE : r.name === 'mouth' ? BRICKS : LIMESTONE;
+        col[ci(lx, r.y0 - 1, lz)] = floor;
+      }
+
+      const v = HOME.ironVein;
+      for (let y = v.y0; y < v.y1; y++)
+        if (inBox(x, y, z, v) && col[ci(lx, y, lz)] !== AIR && rand3(x, y, z, SEED + 2) < 0.7) col[ci(lx, y, lz)] = IRON;
+    }
+  for (const [x, y, z] of HOME.lanterns) {
+    if (x >= x0 && x < x0 + CS && z >= z0 && z < z0 + CS) col[ci(x - x0, y, z - z0)] = LANTERN;
+  }
+}
+
+// ---- Trees -----------------------------------------------------------------------------
+
+const TREE_CELL = 9;
+
+interface TreeSpot { x: number; z: number; ground: number; kind: 'broadleaf' | 'fern' | 'bamboo'; seed: number }
+
+function treeSpot(gx: number, gz: number): TreeSpot | null {
+  const h = hash3(gx, 7, gz, SEED + 9);
+  const x = gx * TREE_CELL + (h & 7);
+  const z = gz * TREE_CELL + ((h >>> 3) & 7);
+  const roll = ((h >>> 6) & 1023) / 1024;
+  const d = distToValley(x, z);
+  const zone = zoneAt(x, z);
+  if (d > VALLEY.radius - 12 && d < VALLEY.radius + 22) return null; // the cliff band
+  if (x > HOME_BOUNDS.x0 - 50 && Math.abs(z - VALLEY.cz) < 40 && d < VALLEY.radius) return null; // the view from the balcony
+  if (x >= GARDEN.x0 - 3 && x < GARDEN.x1 + 3 && z >= GARDEN.z0 - 3 && z < GARDEN.z1 + 3) return null;
+  if (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius + 4) return null;
+  if (Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius + 4) return null;
+  if (pathAt(x, z).dist < 4) return null;
+  let kind: TreeSpot['kind'] | null = null;
+  if (zone === 'valley') {
+    const cd = creekDistance(x, z);
+    if (cd < 3.5) return null;
+    if (cd < 9 && roll < 0.55) kind = 'bamboo';
+    else if (roll < 0.1) kind = 'broadleaf';
+    else if (roll < 0.17) kind = 'fern';
+  } else if (zone === 'canyon') {
+    if (roll < 0.12) kind = 'fern';
+    else if (roll < 0.2) kind = 'bamboo';
+  } else {
+    if (roll < 0.5) kind = 'broadleaf';
+    else if (roll < 0.72) kind = 'fern';
+  }
+  if (!kind) return null;
+  const ground = d < VALLEY.radius ? valleyFloorHeight(x, z) : outsideHeight(x, z);
+  // No trees on steep ground.
+  const slope = Math.max(Math.abs(outsideHeight(x + 2, z) - outsideHeight(x - 2, z)), Math.abs(outsideHeight(x, z + 2) - outsideHeight(x, z - 2)));
+  if (d >= VALLEY.radius && slope > 4) return null;
+  return { x, z, ground, kind, seed: h };
+}
+
+function placeTrees(col: Uint16Array, x0: number, z0: number): void {
+  const M = 8; // the widest canopy reach
+  const set = (x: number, y: number, z: number, id: number, replaceSoft: boolean) => {
+    const lx = x - x0, lz = z - z0;
+    if (lx < 0 || lz < 0 || lx >= CS || lz >= CS || y < 0 || y >= WORLD_Y) return;
+    const i = ci(lx, y, lz);
+    const cur = col[i];
+    if (cur === AIR || (replaceSoft && (cur === FERN || cur === TALL_GRASS || cur === LEAVES || cur === FRONDS))) col[i] = id;
+  };
+  const gx0 = Math.floor((x0 - M) / TREE_CELL), gx1 = Math.floor((x0 + CS + M) / TREE_CELL);
+  const gz0 = Math.floor((z0 - M) / TREE_CELL), gz1 = Math.floor((z0 + CS + M) / TREE_CELL);
+  for (let gz = gz0; gz <= gz1; gz++)
+    for (let gx = gx0; gx <= gx1; gx++) {
+      const t = treeSpot(gx, gz);
+      if (!t) continue;
+      const r = (k: number) => ((t.seed >>> k) & 255) / 256;
+      const g = t.ground;
+      if (t.kind === 'broadleaf') {
+        // A cloud-forest canopy tree: tall trunk, broad flat crown, epiphytes on top.
+        const valley = zoneAt(t.x, t.z) === 'valley';
+        const height = (valley ? 7 : 9) + Math.floor(r(8) * (valley ? 5 : 7));
+        const crown = 3.2 + r(16) * 2.6;
+        const thick = crown > 5;
+        for (let y = g; y < g + height; y++) {
+          set(t.x, y, t.z, LOG, true);
+          if (thick) { set(t.x + 1, y, t.z, LOG, true); set(t.x, y, t.z + 1, LOG, true); set(t.x + 1, y, t.z + 1, LOG, true); }
+        }
+        const blobs: [number, number, number, number][] = [[0, 0, 0, crown]];
+        for (let k = 0; k < 3; k++) {
+          const a = r(k * 5 + 1) * Math.PI * 2;
+          blobs.push([Math.cos(a) * crown * 0.7, -1 - r(k + 20) * 2, Math.sin(a) * crown * 0.7, crown * 0.6]);
+        }
+        const cy = g + height;
+        for (const [bx, by, bz, br] of blobs) {
+          const R = Math.ceil(br);
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dz = -R; dz <= R; dz++)
+              for (let dx = -R; dx <= R; dx++) {
+                const e = (dx - bx) ** 2 / (br * br) + (dz - bz) ** 2 / (br * br) + ((dy - by) / 1.6) ** 2 / 1.4;
+                if (e > 1) continue;
+                const x = t.x + dx, y = Math.round(cy + dy), z = t.z + dz;
+                if (rand3(x, y, z, SEED + 13) < 0.06) continue;
+                set(x, y, z, LEAVES, false);
+                // Bromeliads and orchids perched along the top of the crown.
+                if (dy >= 1 && rand3(x, y, z, SEED + 14) < 0.05) set(x, y + 1, z, rand3(x, y, z, SEED + 15) < 0.6 ? BROMELIAD : ORCHID, false);
+              }
+        }
+      } else if (t.kind === 'fern') {
+        // A tree fern: a fibrous trunk and a spray of fronds that droop at the tips.
+        const height = 4 + Math.floor(r(8) * 4);
+        for (let y = g; y < g + height; y++) set(t.x, y, t.z, FERN_TRUNK, true);
+        const top = g + height;
+        set(t.x, top, t.z, FRONDS, false);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+          const diag = dx !== 0 && dz !== 0;
+          const len = diag ? 2 : 3;
+          for (let k = 1; k <= len; k++) set(t.x + dx * k, top - (k === len ? 1 : 0), t.z + dz * k, FRONDS, false);
+        }
+      } else {
+        // A bamboo clump.
+        const stalks = 3 + Math.floor(r(8) * 5);
+        for (let s = 0; s < stalks; s++) {
+          const sx = t.x + Math.floor(r(s * 3 + 4) * 4) - 1, sz = t.z + Math.floor(r(s * 3 + 5) * 4) - 1;
+          const ground = zoneAt(sx, sz) === 'valley' ? valleyFloorHeight(sx, sz) : outsideHeight(sx, sz);
+          const h = 4 + Math.floor(r(s * 3 + 6) * 6);
+          for (let y = ground; y < ground + h; y++) set(sx, y, sz, BAMBOO, false);
+        }
+      }
+    }
+}
+
+function placeGroundPlants(col: Uint16Array, x0: number, z0: number): void {
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      if (x >= GARDEN.x0 && x < GARDEN.x1 && z >= GARDEN.z0 && z < GARDEN.z1) continue;
+      for (let y = WORLD_Y - 2; y > 2; y--) {
+        const below = col[ci(lx, y, lz)];
+        if (below === AIR) continue;
+        if (below !== GRASS && below !== FOREST && below !== MOSS) break;
+        if (col[ci(lx, y + 1, lz)] !== AIR) break;
+        if (pathAt(x, z).dist < 2.2) break;
+        const roll = rand3(x, y, z, SEED + 17);
+        const forest = below !== GRASS;
+        let plant = 0;
+        if (roll < (forest ? 0.16 : 0.07)) plant = FERN;
+        else if (roll < (forest ? 0.2 : 0.2)) plant = TALL_GRASS;
+        else if (roll < (forest ? 0.205 : 0.212)) plant = BROMELIAD;
+        else if (roll < 0.218) plant = ORCHID;
+        if (plant) col[ci(lx, y + 1, lz)] = plant;
+        break;
+      }
+    }
+}
+
+/** Splits a column into its six chunks; a chunk that is one block throughout becomes that number. */
+export function splitColumn(col: Uint16Array): (Uint16Array | number)[] {
+  const out: (Uint16Array | number)[] = [];
+  const V = CS * CS * CS;
+  for (let cy = 0; cy < WORLD_Y / CS; cy++) {
+    const view = col.subarray(cy * V, (cy + 1) * V);
+    const first = view[0];
+    let uniform = true;
+    for (let i = 1; i < V; i++) if (view[i] !== first) { uniform = false; break; }
+    out.push(uniform ? first : view.slice());
+  }
+  return out;
+}

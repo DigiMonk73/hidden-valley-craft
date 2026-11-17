@@ -1,0 +1,426 @@
+// The game: boots the world around the player, runs the loop (fixed-step physics, a render each
+// frame), turns input into movement, mining and building, and keeps the save.
+
+import { World } from './world/world.ts';
+import { Streamer } from './world/streamer.ts';
+import { createExecutor, type Executor } from './jobs/pool.ts';
+import { Renderer } from './render/renderer.ts';
+import { skyAt, DAY_SECONDS } from './render/sky.ts';
+import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
+import { raycast, type RayHit } from './sim/raycast.ts';
+import { Hotbar } from './sim/hotbar.ts';
+import { Hud } from './ui/hud.ts';
+import { Look } from './platform/look.ts';
+import { openStore, type Store } from './platform/storage.ts';
+import { downloadFile, copyText, saveToCode, codeToSave, pickFile } from './platform/fileio.ts';
+import { collectEdits, restoreEdits, encodeSave, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
+import { AIR, WATER, B_HARDNESS, B_RENDER, B_SOLID, RENDER, blockDrop } from './world/blocks.ts';
+import { HOME, zoneAt, ZONE_DANGER } from './gen/layout.ts';
+import { CS } from './world/constants.ts';
+
+const SAVE_KEY = 'save:1';
+const SETTINGS_KEY = 'settings';
+const REACH = 5;
+const STEP = 1 / 60;
+const SPAWN = { x: HOME.wallX - 3.5, y: HOME.floor, z: 1024.5, yaw: Math.PI / 2, pitch: -0.06 };
+
+export interface BootOptions {
+  hour?: number;
+  cam?: [number, number, number, number, number];
+  renderChunks?: number;
+  test?: boolean; // deterministic: frozen time, no saving, no waving
+}
+
+export class Game {
+  world = new World();
+  renderer: Renderer;
+  streamer!: Streamer;
+  exec!: Executor;
+  player = new Player();
+  hotbar = Hotbar.starter();
+  hud: Hud;
+  look: Look;
+  store!: Store;
+  hour = 16.5;
+  private opts: BootOptions;
+  private keys = new Set<string>();
+  private mining = { active: false, x: 0, y: 0, z: 0, progress: 0 };
+  private target: RayHit | null = null;
+  private playing = false;
+  private ready = false;
+  private accumulator = 0;
+  private last = 0;
+  private time = 0;
+  private lastSave = 0;
+  private fps = { frames: 0, t: 0, value: 0 };
+  private dirtySave = false;
+
+  constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
+    this.opts = opts;
+    this.renderer = new Renderer(canvas);
+    this.look = new Look(canvas);
+    this.hud = new Hud(ui, {
+      play: () => this.resume(),
+      saveNow: () => void this.save(true),
+      downloadSave: () => void this.downloadSave(),
+      copyCode: () => void this.copySaveCode(),
+      loadFile: () => void this.loadFromFile(),
+      loadCode: (c) => void this.loadFromCode(c),
+      newGame: () => void this.newGame(),
+      setRenderDistance: (c) => this.setRenderDistance(c, true),
+      setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
+      setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
+    });
+    this.look.onDelta = (dx, dy) => {
+      this.player.yaw -= dx;
+      this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch - dy));
+    };
+    this.look.onModeChange = (m) => {
+      if (m === 'off' && this.playing) this.pause();
+      if (m === 'free') this.hud.toast('This page can’t capture the mouse here: move the mouse to look, or use the arrow keys.', 6000);
+    };
+    const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
+    window.addEventListener('resize', resize);
+    resize();
+    this.bindInput(canvas);
+  }
+
+  async boot(): Promise<void> {
+    this.store = await openStore();
+    await this.loadSettings();
+    const workers = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
+    this.exec = await createExecutor((j) => this.streamer.priority(j), workers);
+    this.streamer = new Streamer(this.world, this.exec, this.renderer);
+    this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
+
+    let resumed = false;
+    if (!this.opts.test) {
+      const bytes = await this.store.get(SAVE_KEY);
+      const data = bytes ? await decodeSave(bytes) : null;
+      if (data) { this.applySave(data); resumed = true; }
+    }
+    if (!resumed) {
+      this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
+      this.player.yaw = SPAWN.yaw;
+      this.player.pitch = SPAWN.pitch;
+    }
+    if (this.opts.hour !== undefined) this.hour = this.opts.hour;
+    if (this.opts.cam) {
+      const [x, y, z, yaw, pitch] = this.opts.cam;
+      this.player.setPosition(x, y - EYE, z);
+      this.player.yaw = yaw; this.player.pitch = pitch;
+      this.player.flying = true;
+    }
+    this.updateSaveStatus();
+    this.last = performance.now();
+    requestAnimationFrame((t) => this.frame(t));
+  }
+
+  // ---- The loop ---------------------------------------------------------------------------
+
+  private frame(now: number): void {
+    requestAnimationFrame((t) => this.frame(t));
+    const dt = Math.min(0.1, (now - this.last) / 1000);
+    this.last = now;
+    this.time += dt;
+    const p = this.player;
+
+    this.exec.pump(this.ready ? 6 : 14);
+    this.streamer.update(p.x, p.z, this.ready ? 4 : 12);
+
+    if (!this.ready) {
+      const r = 2;
+      let done = 0, total = 0;
+      const pcx = Math.floor(p.x / CS), pcz = Math.floor(p.z / CS);
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) { total++; if (this.world.column(pcx + dx, pcz + dz)) done++; }
+      this.hud.setLoading(done, total);
+      if (this.streamer.settledAround(p.x, p.z, r)) {
+        this.ready = true;
+        this.hud.setReady(false);
+        if (this.opts.test) this.hud.showMenu(false);
+      }
+    }
+
+    if (this.playing) {
+      this.accumulator += dt;
+      while (this.accumulator >= STEP) {
+        this.tick(STEP);
+        this.accumulator -= STEP;
+      }
+      if (!this.opts.test) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
+    }
+
+    // Camera and sky.
+    const cam = this.renderer.camera;
+    cam.position.set(p.x, p.eyeY, p.z);
+    cam.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
+    this.renderer.applySky(skyAt(this.hour), this.opts.test ? 0 : this.time);
+    this.updateTarget();
+    this.renderer.render();
+
+    // HUD.
+    this.hud.updateHotbar(this.hotbar);
+    this.hud.setMining(this.mining.active ? this.mining.progress : 0);
+    this.hud.setBreath(p.breath / BREATH_MAX, p.headInWater || p.breath < BREATH_MAX - 0.01);
+    this.fps.frames++;
+    if (now - this.fps.t > 500) { this.fps.value = Math.round((this.fps.frames * 1000) / (now - this.fps.t)); this.fps.frames = 0; this.fps.t = now; }
+    if (this.hud.debugVisible) this.hud.setDebug(this.debugText());
+
+    if (this.playing && this.dirtySave && this.time - this.lastSave > 60) void this.save(false);
+  }
+
+  private tick(dt: number): void {
+    const input = this.readInput();
+    this.player.step(dt, input, (x, y, z) => this.world.blockAt(x, y, z));
+    // Arrow keys turn too (useful where the mouse can't be captured).
+    const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
+    const tilt = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
+    this.player.yaw += turn * dt * 2.2;
+    this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch + tilt * dt * 1.6));
+    this.tickMining(dt);
+  }
+
+  private readInput(): Input {
+    const k = this.keys;
+    return {
+      forward: (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0),
+      strafe: (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0),
+      jump: k.has('Space'),
+      sprint: k.has('ShiftLeft') || k.has('ShiftRight'),
+      descend: k.has('ShiftLeft') || k.has('ShiftRight'),
+    };
+  }
+
+  // ---- Looking, mining, placing -----------------------------------------------------------
+
+  private updateTarget(): void {
+    const p = this.player;
+    const [dx, dy, dz] = p.lookDir();
+    this.target = this.playing ? raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, REACH) : null;
+    if (this.target) this.renderer.showOutline(this.target.x, this.target.y, this.target.z);
+    else this.renderer.hideOutline();
+  }
+
+  private tickMining(dt: number): void {
+    const m = this.mining;
+    const t = this.target;
+    if (!m.active || !t) { m.progress = 0; return; }
+    if (t.x !== m.x || t.y !== m.y || t.z !== m.z) { m.x = t.x; m.y = t.y; m.z = t.z; m.progress = 0; }
+    const hardness = B_HARDNESS[t.id];
+    if (hardness < 0) return; // bedrock and other unbreakables
+    m.progress += hardness === 0 ? 1 : dt / hardness;
+    if (m.progress >= 1) {
+      this.breakBlock(t.x, t.y, t.z);
+      m.progress = 0;
+    }
+  }
+
+  private breakBlock(x: number, y: number, z: number): void {
+    const id = this.world.blockAt(x, y, z);
+    this.streamer.markUrgentAround(x, y, z);
+    // A broken block next to water lets the water in (still water, for now).
+    const besideWater = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a, b, c]) => this.world.blockAt(x + a, y + b, z + c) === WATER);
+    this.world.setBlock(x, y, z, besideWater ? WATER : AIR);
+    const drop = blockDrop(id);
+    if (drop && !this.hotbar.creative && !this.hotbar.add(drop)) this.hud.toast('Your hotbar is full');
+    // Plants on top lose their footing.
+    const above = this.world.blockAt(x, y + 1, z);
+    if (B_RENDER[above] === RENDER.cross) {
+      this.world.setBlock(x, y + 1, z, AIR);
+      if (!this.hotbar.creative) this.hotbar.add(above);
+    }
+    this.dirtySave = true;
+  }
+
+  private placeBlock(): void {
+    const t = this.target;
+    if (!t || !this.hotbar.current) return;
+    // Plants are replaced in place; otherwise the block goes against the face looked at.
+    const intoPlant = B_RENDER[t.id] === RENDER.cross;
+    const x = intoPlant ? t.x : t.x + t.nx, y = intoPlant ? t.y : t.y + t.ny, z = intoPlant ? t.z : t.z + t.nz;
+    const there = this.world.blockAt(x, y, z);
+    if (there !== AIR && there !== WATER && B_RENDER[there] !== RENDER.cross) return;
+    const id = this.hotbar.current.id;
+    if (B_SOLID[id] && this.player.intersectsBlock(x, y, z)) return;
+    if (B_RENDER[id] === RENDER.cross && !B_SOLID[this.world.blockAt(x, y - 1, z)]) return; // plants need ground
+    this.hotbar.take();
+    this.streamer.markUrgentAround(x, y, z);
+    this.world.setBlock(x, y, z, id);
+    this.dirtySave = true;
+  }
+
+  // ---- Input ---------------------------------------------------------------------------------
+
+  private bindInput(canvas: HTMLCanvasElement): void {
+    window.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3'].includes(e.code)) e.preventDefault();
+      this.keys.add(e.code);
+      if (e.code === 'Escape' && this.playing) this.pause();
+      if (!this.playing) return;
+      if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
+      if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
+      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.hud.toast(this.hotbar.creative ? 'Builder’s mode: blocks never run out' : 'Builder’s mode off'); }
+      if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
+      if (e.code === 'BracketLeft') this.hour = (this.hour + 23) % 24;
+      if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible;
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; });
+    canvas.addEventListener('mousedown', (e) => {
+      if (!this.playing) return;
+      if (this.look.mode === 'off') { this.look.engage(); return; }
+      if (e.button === 0) { this.mining.active = true; this.mining.progress = 0; }
+      if (e.button === 2) this.placeBlock();
+    });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mining.active = false; });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('wheel', (e) => {
+      if (!this.playing) return;
+      e.preventDefault();
+      this.hotbar.select(this.hotbar.selected + (e.deltaY > 0 ? 1 : -1));
+    }, { passive: false });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && this.dirtySave) void this.save(false); });
+    window.addEventListener('pagehide', () => { if (this.dirtySave) void this.save(false); });
+  }
+
+  private resume(): void {
+    if (!this.ready) return;
+    this.playing = true;
+    this.hud.showMenu(false);
+    this.look.engage();
+  }
+
+  private pause(): void {
+    this.playing = false;
+    this.mining.active = false;
+    this.keys.clear();
+    this.look.release();
+    this.hud.setReady(true);
+    this.hud.showMenu(true);
+    this.updateSaveStatus();
+  }
+
+  private setRenderDistance(chunks: number, persist: boolean): void {
+    this.streamer.radius = chunks;
+    this.renderer.setRenderDistance(chunks * CS);
+    this.hud.settingsInputs.rd.value = String(chunks);
+    if (persist) void this.saveSettings();
+  }
+
+  // ---- Saving ------------------------------------------------------------------------------
+
+  private snapshot(): SaveData {
+    const p = this.player;
+    const { palette, edits } = collectEdits(this.world);
+    return {
+      format: SAVE_FORMAT, version: SAVE_VERSION, savedAt: new Date().toISOString(), hour: this.hour,
+      player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
+      hotbar: this.hotbar.toSave(), selected: this.hotbar.selected, palette, edits,
+    };
+  }
+
+  private applySave(d: SaveData): void {
+    restoreEdits(this.world, d);
+    this.player.setPosition(d.player.x, d.player.y, d.player.z);
+    this.player.yaw = d.player.yaw;
+    this.player.pitch = d.player.pitch;
+    this.player.flying = d.player.flying;
+    this.hour = d.hour;
+    this.hotbar = Hotbar.fromSave(d.hotbar, d.selected);
+  }
+
+  private async save(announce: boolean): Promise<void> {
+    if (this.opts.test) return;
+    const bytes = await encodeSave(this.snapshot());
+    const ok = await this.store.set(SAVE_KEY, bytes);
+    this.lastSave = this.time;
+    if (ok) this.dirtySave = false;
+    if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Download save file”');
+    this.updateSaveStatus();
+  }
+
+  private updateSaveStatus(): void {
+    const n = [...this.world.edits.values()].reduce((s, m) => s + m.size, 0);
+    if (this.store.kind === 'memory') {
+      this.hud.setSaveStatus(`This page isn’t allowed to keep saves. Before you close it, use “Download save file” or “Copy save code”. (${n} blocks changed)`, true);
+    } else {
+      this.hud.setSaveStatus(`Saves automatically in this browser every minute and when you leave. A save file is a backup you keep yourself. (${n} blocks changed)`, false);
+    }
+  }
+
+  private async downloadSave(): Promise<void> {
+    const bytes = await encodeSave(this.snapshot());
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    if (!downloadFile(`hidden-valley-${stamp}.hvbsave`, bytes)) this.hud.toast('Downloads are blocked here: use “Copy save code” instead');
+    else this.hud.toast('Save file downloaded (if nothing appeared, use “Copy save code”)', 4000);
+  }
+
+  private async copySaveCode(): Promise<void> {
+    const code = saveToCode(await encodeSave(this.snapshot()));
+    if (await copyText(code)) this.hud.toast('Save code copied: paste it somewhere safe');
+    else {
+      window.prompt('Copy this save code and keep it somewhere safe:', code);
+    }
+  }
+
+  private async loadBytes(bytes: Uint8Array | null): Promise<void> {
+    const d = bytes ? await decodeSave(bytes) : null;
+    if (!d) { this.hud.toast('That isn’t a Hidden Valley save'); return; }
+    await this.store.set(SAVE_KEY, bytes!);
+    location.reload();
+  }
+
+  private async loadFromFile(): Promise<void> { await this.loadBytes(await pickFile()); }
+  private async loadFromCode(code: string): Promise<void> { await this.loadBytes(codeToSave(code)); }
+
+  private async newGame(): Promise<void> {
+    await this.store.set(SAVE_KEY, new Uint8Array(0));
+    location.reload();
+  }
+
+  private async saveSettings(): Promise<void> {
+    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY };
+    await this.store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify(s)));
+  }
+
+  private async loadSettings(): Promise<void> {
+    try {
+      const b = await this.store.get(SETTINGS_KEY);
+      if (!b) return;
+      const s = JSON.parse(new TextDecoder().decode(b));
+      if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(s.rd);
+      if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }
+      if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
+    } catch { /* bad settings are ignored */ }
+  }
+
+  // ---- Debug and test hooks --------------------------------------------------------------------
+
+  private debugText(): string {
+    const p = this.player;
+    const r = this.renderer.stats, s = this.streamer.stats;
+    const zone = zoneAt(Math.floor(p.x), Math.floor(p.z));
+    const light = this.world.lightAt(Math.floor(p.x), Math.floor(p.y + 1), Math.floor(p.z));
+    return [
+      `${this.fps.value} fps · ${this.exec.kind} ×${this.exec.threads} · store ${this.store.kind} · look ${this.look.mode}`,
+      `pos ${p.x.toFixed(1)} ${p.y.toFixed(1)} ${p.z.toFixed(1)} · yaw ${(p.yaw * 57.3).toFixed(0)}° · zone ${zone} (danger ${ZONE_DANGER[zone]})`,
+      `time ${Math.floor(this.hour)}:${String(Math.floor((this.hour % 1) * 60)).padStart(2, '0')} · light sky ${light >> 4} block ${light & 15}`,
+      `columns ${s.columns} · gen queue ${s.genQueued} · mesh queue ${s.meshQueued}`,
+      `chunk meshes ${r.chunks} · quads ${Math.round(r.quads / 1000)}k · draw calls ${this.renderer.gl.info.render.calls}`,
+      this.target ? `target ${this.target.x} ${this.target.y} ${this.target.z} (${this.target.id})` : 'target —',
+    ].join('\n');
+  }
+
+  /** For automated checks: is everything near the player loaded and drawn? */
+  isIdle(): boolean {
+    return this.ready && this.streamer.settledAround(this.player.x, this.player.z, Math.min(3, this.streamer.radius - 1));
+  }
+
+  setCamera(x: number, y: number, z: number, yaw: number, pitch: number): void {
+    this.player.setPosition(x, y - EYE, z);
+    this.player.yaw = yaw;
+    this.player.pitch = pitch;
+    this.player.flying = true;
+  }
+}
