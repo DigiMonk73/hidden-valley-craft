@@ -25,7 +25,8 @@ function sizeGate(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [viteSingleFile(), sizeGate()],
-  worker: { format: 'es' },
+  // Classic (non-module) workers start in more sandboxed frames than module workers do.
+  worker: { format: 'iife' },
   build: {
     target: 'es2022',
     assetsInlineLimit: 100_000_000,

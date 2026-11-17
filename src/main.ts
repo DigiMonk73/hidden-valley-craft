@@ -2,6 +2,7 @@
 // for automated checks (window.__hv).
 
 import { Game, type BootOptions } from './game.ts';
+import { SAVE_FORMAT, type SaveData } from './save/save.ts';
 
 const q = new URLSearchParams(location.search);
 const opts: BootOptions = {};
@@ -25,15 +26,28 @@ function fail(err: unknown): void {
   ui.appendChild(box);
 }
 
-try {
-  const game = new Game(canvas, ui, opts);
-  (window as unknown as { __hv: unknown }).__hv = {
-    game,
-    idle: () => game.isIdle(),
-    setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
-    setHour: (h: number) => { game.hour = h; },
-  };
-  game.boot().catch(fail);
-} catch (e) {
-  fail(e);
+// When a new version is published while the page is open, claude.ai hands the old page's state
+// to the new one (window.claude.hot). The state handed over is an ordinary save.
+type Hot = { ready?: (start: (data: unknown) => void) => void; data?: unknown; snapshot?: (fn: () => unknown) => void };
+const hot = (window as unknown as { claude?: { hot?: Hot } }).claude?.hot;
+
+function start(data: unknown): void {
+  try {
+    const d = data as SaveData | undefined;
+    if (d && d.format === SAVE_FORMAT) opts.handover = d;
+    const game = new Game(canvas, ui, opts);
+    (window as unknown as { __hv: unknown }).__hv = {
+      game,
+      idle: () => game.isIdle(),
+      setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
+      setHour: (h: number) => { game.hour = h; },
+    };
+    try { hot?.snapshot?.(() => game.snapshot()); } catch { /* an older viewer without hand-over */ }
+    game.boot().catch(fail);
+  } catch (e) {
+    fail(e);
+  }
 }
+
+if (hot?.ready) hot.ready(start);
+else start(hot?.data ?? {});

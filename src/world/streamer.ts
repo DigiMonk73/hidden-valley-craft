@@ -16,6 +16,8 @@ export class Streamer {
   private meshing = new Map<number, number>(); // chunk key → version being meshed
   private urgent = new Set<number>(); // chunk keys changed by the player: mesh first
   private uploads: { key: number; result: MeshResult }[] = [];
+  /** Bumped by reset(): results of jobs sent before it are dropped. */
+  private epoch = 0;
   private px = 0;
   private pz = 0;
   radius = 8; // columns
@@ -70,7 +72,9 @@ export class Streamer {
       if (this.world.column(cx, cz) || this.pendingCols.has(key)) continue;
       this.pendingCols.add(key);
       const job: Job = { kind: 'gen', cx, cz, edits: this.world.columnEdits(cx, cz) };
-      this.exec.submit(job).then((r) => this.onColumn(r as GenResult), (e) => {
+      const epoch = this.epoch;
+      this.exec.submit(job).then((r) => { if (epoch === this.epoch) this.onColumn(r as GenResult); }, (e) => {
+        if (epoch !== this.epoch) return;
         this.pendingCols.delete(key);
         console.error('column generation failed', cx, cz, e);
       });
@@ -96,10 +100,13 @@ export class Streamer {
       const { blocks, light } = this.world.padded(ch);
       const key = ch.key, version = ch.version;
       this.meshing.set(key, version);
+      const epoch = this.epoch;
       this.exec.submit({ kind: 'mesh', key, version, blocks, light }).then((r) => {
+        if (epoch !== this.epoch) return;
         this.meshing.delete(key);
         this.uploads.push({ key, result: r as MeshResult });
       }, (e) => {
+        if (epoch !== this.epoch) return;
         this.meshing.delete(key);
         console.error('meshing failed', key, e);
       });
@@ -122,6 +129,21 @@ export class Streamer {
     this.stats.columns = this.world.columns.reduce((n, c) => n + (c ? 1 : 0), 0);
     this.stats.genQueued = this.pendingCols.size;
     this.stats.meshQueued = this.meshing.size + this.dirty.size;
+  }
+
+  /** Drops the whole loaded world (for loading a save or starting over); it streams back in. */
+  reset(): void {
+    this.epoch++;
+    for (const col of this.world.columns) {
+      if (!col) continue;
+      for (const ch of col.chunks) this.renderer.removeChunk(ch.key);
+      this.world.removeColumn(col.cx, col.cz);
+    }
+    this.pendingCols.clear();
+    this.dirty.clear();
+    this.meshing.clear();
+    this.urgent.clear();
+    this.uploads = [];
   }
 
   private onColumn(r: GenResult): void {

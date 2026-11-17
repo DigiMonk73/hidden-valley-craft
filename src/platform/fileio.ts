@@ -7,6 +7,28 @@ const CODE_PREFIX = 'HVB1:';
 
 export function saveToCode(bytes: Uint8Array): string { return CODE_PREFIX + toB64(bytes); }
 
+export function inFrame(): boolean {
+  try { return window.self !== window.top; } catch { return true; }
+}
+
+/** The claude.ai "downloads" capability, when the page runs there and declares it; null otherwise. */
+export type Downloads = { save(r: { filename: string; data: string | Blob }): Promise<{ status: string }> };
+export async function claudeDownloads(): Promise<Downloads | null> {
+  try {
+    const api = (window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude;
+    return api?.use ? ((await api.use('downloads')) as Downloads | null) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A save file is plain text holding the save code, so it travels and loads like a pasted code. */
+export function fileToSave(bytes: Uint8Array): Uint8Array | null {
+  const head = new TextDecoder().decode(bytes.subarray(0, 8));
+  if (head.startsWith(CODE_PREFIX)) return codeToSave(new TextDecoder().decode(bytes));
+  return bytes; // an older binary save
+}
+
 export function codeToSave(code: string): Uint8Array | null {
   const t = code.trim();
   if (!t.startsWith(CODE_PREFIX)) return null;
@@ -30,17 +52,13 @@ export function downloadFile(name: string, bytes: Uint8Array): boolean {
   }
 }
 
-export async function copyText(text: string): Promise<boolean> {
-  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
-}
-
 /** Opens a file picker and reads the chosen file. */
 export function pickFile(): Promise<Uint8Array | null> {
   return new Promise((resolve) => {
     try {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.hvbsave,application/octet-stream';
+      input.accept = '.txt,.hvbsave,text/plain,application/octet-stream';
       input.onchange = async () => {
         const f = input.files?.[0];
         resolve(f ? new Uint8Array(await f.arrayBuffer()) : null);

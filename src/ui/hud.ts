@@ -49,6 +49,7 @@ const CSS = `
 .hv-set select, .hv-set input { pointer-events: auto; }
 .hv-status { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.05); margin-top: 6px; }
 .hv-status.warn { background: rgba(201, 143, 62, .18); }
+.hv-code[hidden], .hv-btn[hidden] { display: none; }
 .hv-code { width: 100%; height: 90px; margin-top: 6px; font: 11px ui-monospace, monospace; pointer-events: auto; }
 .hv-load { font-size: 15px; opacity: .85; }
 .hv-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 10px; }
@@ -59,7 +60,8 @@ export interface MenuActions {
   play(): void;
   saveNow(): void;
   downloadSave(): void;
-  copyCode(): void;
+  /** The current save as a code, prepared when the menu opened; null while it is being made. */
+  saveCode(): string | null;
   loadFile(): void;
   loadCode(code: string): void;
   newGame(): void;
@@ -161,18 +163,45 @@ export class Hud {
     const srow = el('div', 'hv-row', p);
     const btn = (label: string, fn: () => void, cls = 'hv-btn') => { const b = el('button', cls, srow); b.textContent = label; b.onclick = fn; return b; };
     btn('Save now', () => a.saveNow());
-    btn('Download save file', () => a.downloadSave());
-    btn('Copy save code', () => a.copyCode());
-    btn('Load save file', () => a.loadFile());
-    const codeBox = el('textarea', 'hv-code', p);
-    codeBox.placeholder = 'Paste a save code here (starts with HVB1:) to load it…';
-    codeBox.style.display = 'none';
-    btn('Paste save code', () => {
-      if (codeBox.style.display === 'none') { codeBox.style.display = ''; codeBox.focus(); return; }
-      a.loadCode(codeBox.value);
+    // Shown once the game knows a download can work here (claude.ai blocks plain downloads).
+    this.downloadBtn = btn('Download save file', () => a.downloadSave());
+    this.downloadBtn.hidden = true;
+    const codeOut = el('textarea', 'hv-code', p);
+    codeOut.readOnly = true;
+    codeOut.hidden = true;
+    btn('Copy save code', () => {
+      // The clipboard only accepts a write made straight from the click, so the code is ready beforehand.
+      const code = a.saveCode();
+      if (!code) { this.toast('The save code is being prepared: try again in a moment'); return; }
+      codeOut.value = code;
+      codeOut.hidden = false;
+      codeOut.select();
+      try {
+        navigator.clipboard.writeText(code).then(
+          () => this.toast('Save code copied. Keep it somewhere safe, such as a note.'),
+          () => this.toast('Copy the selected code below (Cmd+C or Ctrl+C)', 4000),
+        );
+      } catch {
+        this.toast('Copy the selected code below (Cmd+C or Ctrl+C)', 4000);
+      }
     });
-    codeBox.addEventListener('keydown', (e) => e.stopPropagation());
-    btn('New game', () => { if (confirm('Start over? Everything you built and mined in this save is lost.')) a.newGame(); }, 'hv-btn quiet');
+    btn('Load save file', () => a.loadFile());
+    const codeIn = el('textarea', 'hv-code', p);
+    codeIn.placeholder = 'Paste a save code here (it starts with HVB1:), then press “Load pasted code”';
+    codeIn.hidden = true;
+    codeIn.addEventListener('keydown', (e) => e.stopPropagation());
+    const pasteBtn = btn('Paste save code', () => {
+      if (codeIn.hidden) { codeIn.hidden = false; codeIn.focus(); pasteBtn.textContent = 'Load pasted code'; return; }
+      a.loadCode(codeIn.value);
+    });
+    // Starting over erases the save, so it takes a second click (browser confirm boxes don't show here).
+    let armed = 0;
+    const newBtn = btn('New game', () => {
+      if (Date.now() - armed < 4000) { a.newGame(); return; }
+      armed = Date.now();
+      newBtn.textContent = 'Click again to erase this save';
+      setTimeout(() => (newBtn.textContent = 'New game'), 4000);
+    }, 'hv-btn quiet');
 
     el('h2', '', p).textContent = 'Settings';
     const set = el('div', 'hv-set', p);
@@ -192,10 +221,18 @@ export class Hud {
     this.settingsInputs = { rd, sens, inv };
   }
 
+  private downloadBtn!: HTMLButtonElement;
+  showDownload(show: boolean): void { this.downloadBtn.hidden = !show; }
+
   settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement };
 
   setLoading(done: number, total: number): void {
     this.loadBar.style.width = `${Math.round((done / Math.max(1, total)) * 100)}%`;
+  }
+
+  setLoadingVisible(): void {
+    this.loadBox.style.display = '';
+    this.playBtn.style.display = 'none';
   }
 
   setReady(resume: boolean): void {

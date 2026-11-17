@@ -12,7 +12,7 @@ import { Hotbar } from './sim/hotbar.ts';
 import { Hud } from './ui/hud.ts';
 import { Look } from './platform/look.ts';
 import { openStore, type Store } from './platform/storage.ts';
-import { downloadFile, copyText, saveToCode, codeToSave, pickFile } from './platform/fileio.ts';
+import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { collectEdits, restoreEdits, encodeSave, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { AIR, WATER, B_HARDNESS, B_RENDER, B_SOLID, RENDER, blockDrop } from './world/blocks.ts';
 import { HOME, zoneAt, ZONE_DANGER } from './gen/layout.ts';
@@ -29,6 +29,7 @@ export interface BootOptions {
   cam?: [number, number, number, number, number];
   renderChunks?: number;
   test?: boolean; // deterministic: frozen time, no saving, no waving
+  handover?: SaveData; // state passed from the previous version of an open page
 }
 
 export class Game {
@@ -54,6 +55,8 @@ export class Game {
   private lastSave = 0;
   private fps = { frames: 0, t: 0, value: 0 };
   private dirtySave = false;
+  private cachedCode: string | null = null;
+  private downloads: Downloads | null = null;
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
@@ -63,7 +66,7 @@ export class Game {
       play: () => this.resume(),
       saveNow: () => void this.save(true),
       downloadSave: () => void this.downloadSave(),
-      copyCode: () => void this.copySaveCode(),
+      saveCode: () => this.cachedCode,
       loadFile: () => void this.loadFromFile(),
       loadCode: (c) => void this.loadFromCode(c),
       newGame: () => void this.newGame(),
@@ -94,7 +97,8 @@ export class Game {
     this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
 
     let resumed = false;
-    if (!this.opts.test) {
+    if (this.opts.handover) { this.applySave(this.opts.handover); resumed = true; this.dirtySave = true; }
+    else if (!this.opts.test) {
       const bytes = await this.store.get(SAVE_KEY);
       const data = bytes ? await decodeSave(bytes) : null;
       if (data) { this.applySave(data); resumed = true; }
@@ -112,6 +116,9 @@ export class Game {
       this.player.flying = true;
     }
     this.updateSaveStatus();
+    // Inside claude.ai a download goes through its "downloads" capability; elsewhere a plain download works.
+    if (!inFrame()) this.hud.showDownload(true);
+    else void claudeDownloads().then((d) => { this.downloads = d; this.hud.showDownload(!!d); });
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -299,6 +306,7 @@ export class Game {
     this.hud.setReady(true);
     this.hud.showMenu(true);
     this.updateSaveStatus();
+    void this.refreshCode();
   }
 
   private setRenderDistance(chunks: number, persist: boolean): void {
@@ -310,7 +318,7 @@ export class Game {
 
   // ---- Saving ------------------------------------------------------------------------------
 
-  private snapshot(): SaveData {
+  snapshot(): SaveData {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
@@ -320,7 +328,7 @@ export class Game {
     };
   }
 
-  private applySave(d: SaveData): void {
+  applySave(d: SaveData): void {
     restoreEdits(this.world, d);
     this.player.setPosition(d.player.x, d.player.y, d.player.z);
     this.player.yaw = d.player.yaw;
@@ -336,47 +344,82 @@ export class Game {
     const ok = await this.store.set(SAVE_KEY, bytes);
     this.lastSave = this.time;
     if (ok) this.dirtySave = false;
-    if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Download save file”');
+    if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
+    if (!this.playing) void this.refreshCode();
     this.updateSaveStatus();
   }
 
   private updateSaveStatus(): void {
     const n = [...this.world.edits.values()].reduce((s, m) => s + m.size, 0);
     if (this.store.kind === 'memory') {
-      this.hud.setSaveStatus(`This page isn’t allowed to keep saves. Before you close it, use “Download save file” or “Copy save code”. (${n} blocks changed)`, true);
+      this.hud.setSaveStatus(`This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe. (${n} blocks changed)`, true);
     } else {
-      this.hud.setSaveStatus(`Saves automatically in this browser every minute and when you leave. A save file is a backup you keep yourself. (${n} blocks changed)`, false);
+      this.hud.setSaveStatus(`Saves automatically in this browser every minute and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer. (${n} blocks changed)`, false);
     }
   }
 
   private async downloadSave(): Promise<void> {
-    const bytes = await encodeSave(this.snapshot());
+    const code = this.cachedCode ?? saveToCode(await encodeSave(this.snapshot()));
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-    if (!downloadFile(`hidden-valley-${stamp}.hvbsave`, bytes)) this.hud.toast('Downloads are blocked here: use “Copy save code” instead');
-    else this.hud.toast('Save file downloaded (if nothing appeared, use “Copy save code”)', 4000);
+    const filename = `hidden-valley-save-${stamp}.txt`;
+    if (this.downloads) {
+      try {
+        await this.downloads.save({ filename, data: code });
+        this.hud.toast('Save file downloaded');
+      } catch (e) {
+        if ((e as { code?: string }).code !== 'declined') this.hud.toast('Downloads aren’t available here: use “Copy save code”');
+      }
+      return;
+    }
+    if (!downloadFile(filename, new TextEncoder().encode(code))) this.hud.toast('Downloads are blocked here: use “Copy save code”');
+    else this.hud.toast('Save file downloaded');
   }
 
-  private async copySaveCode(): Promise<void> {
-    const code = saveToCode(await encodeSave(this.snapshot()));
-    if (await copyText(code)) this.hud.toast('Save code copied: paste it somewhere safe');
-    else {
-      window.prompt('Copy this save code and keep it somewhere safe:', code);
-    }
+  /** Makes the save code ahead of time, so "Copy save code" can write it straight from the click. */
+  private async refreshCode(): Promise<void> {
+    this.cachedCode = null;
+    this.cachedCode = saveToCode(await encodeSave(this.snapshot()));
   }
 
   private async loadBytes(bytes: Uint8Array | null): Promise<void> {
     const d = bytes ? await decodeSave(bytes) : null;
     if (!d) { this.hud.toast('That isn’t a Hidden Valley save'); return; }
     await this.store.set(SAVE_KEY, bytes!);
-    location.reload();
+    this.restart(d);
+    this.hud.toast('Save loaded');
   }
 
-  private async loadFromFile(): Promise<void> { await this.loadBytes(await pickFile()); }
+  private async loadFromFile(): Promise<void> {
+    const bytes = await pickFile();
+    await this.loadBytes(bytes ? fileToSave(bytes) : null);
+  }
   private async loadFromCode(code: string): Promise<void> { await this.loadBytes(codeToSave(code)); }
 
   private async newGame(): Promise<void> {
     await this.store.set(SAVE_KEY, new Uint8Array(0));
-    location.reload();
+    this.restart(null);
+    this.hud.toast('A fresh valley');
+  }
+
+  /** Rebuilds the world from a save (or from nothing) in place: no page reload, so it works without storage. */
+  private restart(d: SaveData | null): void {
+    this.streamer.reset();
+    this.world.edits.clear();
+    this.mining.active = false;
+    if (d) this.applySave(d);
+    else {
+      this.hotbar = Hotbar.starter();
+      this.hour = 16.5;
+      this.player.flying = false;
+      this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
+      this.player.yaw = SPAWN.yaw;
+      this.player.pitch = SPAWN.pitch;
+    }
+    this.dirtySave = false;
+    this.ready = false;
+    this.hud.setLoading(0, 1);
+    this.hud.setLoadingVisible();
+    this.updateSaveStatus();
   }
 
   private async saveSettings(): Promise<void> {
