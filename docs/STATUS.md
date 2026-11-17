@@ -6,7 +6,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 - **The owner passed Phase 0** after a walkabout ("It looks great… we should finish it out"). Mining was not tried.
 - **Phase 1 ("The valley looks right") is published** as version 2 (commit 826f626), after a fresh review whose 8 findings are fixed. It waits for the owner's look.
-- **Phase 2 is under way:** see docs/PHASE2.md for the design and the build order.
+- **Phase 2 is built** (steps 1–6 of docs/PHASE2.md) and is in review before publishing. Step 7, structure export, is deferred.
+  - **The inheritance:** inventory, chests holding the builder's things (armory, expedition kit, pantry, seeds, tools, stores) and the safe.
+  - **The home:** furnished, with the railing, stove and pipe, fireplace and chimney, bed, bookshelves, computer, phone, map table, workshop stations and the vault door.
+  - **Living:** survival (health, hunger, thirst), crafting at five stations and by hand, farming and the builder's garden, coffee, fishing.
+  - **The builder's things:** sleep; the journal, computer, phone, map table and safe.
+  - **Builder's mode:** a block palette.
 - **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
 - **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (private), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
 
