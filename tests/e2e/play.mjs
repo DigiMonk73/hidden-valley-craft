@@ -184,7 +184,12 @@ const swimThrough = async (startX, yaw, pastMouth) => {
     }, 30);
   });
   await page.keyboard.down('KeyW');
-  await page.waitForFunction((past) => { const x = window.__hv.game.player.x; return past < 1590 ? x < past : x > past; }, pastMouth, { timeout: 120_000, polling: 50 }).catch(() => {});
+  const through = await page.waitForFunction((past) => { const x = window.__hv.game.player.x; return past < 1590 ? x < past : x > past; }, pastMouth, { timeout: 120_000, polling: 50 }).then(() => true, () => false);
+  if (!through) console.log('  (swim stalled:', await g(() => {
+    const gm = window.__hv.game, p = gm.player, w = gm.world;
+    const cells = []; for (let y = 65; y <= 70; y++) cells.push(y + ':' + window.__hv.blockName(w.blockAt(Math.floor(p.x) - 1, y, Math.floor(p.z))));
+    return JSON.stringify({ x: p.x, y: p.y, z: p.z, vy: p.vy, yaw: p.yaw, fly: p.flying, keys: [...gm.keys], playing: gm.playing, look: gm.look.mode, screens: [gm.screen.isOpen, gm.paper.isOpen], ahead: cells });
+  }), ')');
   await page.keyboard.down('Space');
   await page.waitForFunction(() => !window.__hv.game.player.headInWater, null, { timeout: 60_000, polling: 50 }).catch(() => {});
   await page.keyboard.up('Space');
