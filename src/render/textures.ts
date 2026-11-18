@@ -461,6 +461,65 @@ function coffeeTexture(c: Canvas16, stage: number): void {
   }
 }
 
+// ---- Phase 3: the gate, the road's places, traps and the lost pack ----
+
+/** Mossy limestone with a small iron ring set in it: the gate's lever, easy to miss. */
+DRAW.gate_lever = (c) => {
+  DRAW.limestone_mossy(c);
+  const ring = hex('#4a4440'), shine = hex('#8d8378');
+  for (let a = 0; a < 16; a++) {
+    const t = (a / 16) * Math.PI * 2;
+    c.set(Math.round(8 + Math.cos(t) * 2.6), Math.round(10 + Math.sin(t) * 2.6), a < 5 ? shine : ring);
+  }
+  for (const [x, y] of [[7, 6], [8, 6], [7, 7], [8, 7]]) c.set(x, y, hex('#3a3430'));
+  // A faint carved mark above it: the builder's sign.
+  for (const [x, y] of [[5, 3], [6, 2], [7, 3], [9, 3], [10, 2], [11, 3]]) c.shade(x, y, 0.6);
+};
+/** A thick glass lens in a bronze rim, glowing warm. */
+DRAW.sealed_lamp = (c) => {
+  limestone(c);
+  for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if (d < 5) c.set(x, y, d > 4 ? hex('#8a6a35') : d < 2 ? hex('#fff1c4') : hex('#ffd27a'));
+  }
+};
+/** The painted face of a park ranger's sign, faded: green board, cream border, blocky letters. */
+DRAW.ranger_sign = (c) => {
+  c.noise(hex('#3f5b3a'), 6, [hex('#35503a'), hex('#4c6a45')], 0.25);
+  for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#d8cfa8')); c.set(k, 15, hex('#d8cfa8')); c.set(0, k, hex('#d8cfa8')); c.set(15, k, hex('#d8cfa8')); }
+  const letters = [hex('#e3d9b0'), hex('#cfc49a')];
+  for (const row of [3, 7, 11]) for (let x = 2; x < 14; x++) if (c.rng() < (row === 3 ? 0.75 : 0.5)) { c.set(x, row, letters[x % 2]); if (row === 3) c.set(x, row + 1, letters[(x + 1) % 2]); }
+  for (let k = 0; k < 14; k++) c.shade(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), 0.7); // weathering
+};
+/** Two stakes and a noose of cordage: the snare as it stands in the grass. */
+DRAW.snare = (c) => {
+  c.clearAlpha();
+  for (const sx of [3, 12]) for (let y = 8; y < 16; y++) c.set(sx, y, hex('#6b4a2b'));
+  for (let a = 0; a < 24; a++) { const t = (a / 24) * Math.PI * 2; c.set(Math.round(7.5 + Math.cos(t) * 3.5), Math.round(12 + Math.sin(t) * 2.2), hex('#c9b27a')); }
+  for (let x = 4; x < 12; x++) c.set(x, 9, hex('#b39c66'));
+};
+DRAW.snare_caught = (c) => {
+  DRAW.snare(c);
+  const fur = [hex('#8a7560'), hex('#9c8670'), hex('#76624f')];
+  for (let y = 9; y < 15; y++) for (let x = 4; x < 12; x++) if ((x - 7.5) ** 2 / 14 + (y - 12) ** 2 / 7 < 1) c.set(x, y, fur[(x + y) % 3]);
+  for (const [x, y] of [[5, 6], [5, 7], [5, 8], [7, 6], [7, 7], [7, 8]]) c.set(x, y, fur[0]); // ears
+  c.set(5, 11, hex('#1d1d1d'));
+  c.set(11, 12, hex('#efe8dc'));
+};
+/** The hutch's front: a plank frame with wire mesh and straw. */
+DRAW.hutch_side = (c) => {
+  c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2);
+  for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) c.set(x, y, y > 10 ? hex('#d9c27a') : hex('#3a2a1c'));
+  for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) if ((x + y) % 3 === 0 || (x - y + 30) % 3 === 0) c.set(x, y, hex('#9aa3a8'));
+};
+/** A canvas pack, dropped: khaki with straps. */
+DRAW.lost_pack = (c) => {
+  c.noise(hex('#7d7451'), 7, [hex('#6c6445'), hex('#8c8460')], 0.2);
+  for (const x of [4, 11]) for (let y = 0; y < TEX; y++) c.set(x, y, hex('#4d4530'));
+  for (let x = 5; x < 11; x++) c.set(x, 6, hex('#4d4530'));
+  c.set(7, 7, hex('#b8a76a')); c.set(8, 7, hex('#b8a76a'));
+};
+
 DRAW.farmland = (c) => {
   c.noise(hex('#4a3322'), 6, [hex('#3e2a1b'), hex('#5a3e28')], 0.2);
   for (const y of [1, 5, 9, 13]) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#2f2015')); c.set(x, y + 1, hex('#5e4430')); }

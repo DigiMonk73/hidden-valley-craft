@@ -48,8 +48,8 @@ export function homeChestAt(x: number, y: number, z: number): HomeChest | undefi
 }
 
 /** The starting contents of a chest at a position: the builder's things, or nothing. */
-export function initialContents(x: number, y: number, z: number): (Stack | null)[] {
-  const slots: (Stack | null)[] = new Array(CHEST_SLOTS).fill(null);
+export function initialContents(x: number, y: number, z: number, size = CHEST_SLOTS): (Stack | null)[] {
+  const slots: (Stack | null)[] = new Array(size).fill(null);
   homeChestAt(x, y, z)?.items.forEach(([name, count], i) => (slots[i] = { id: itemId(name), count }));
   return slots;
 }

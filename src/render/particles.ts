@@ -6,7 +6,7 @@ import { SKY_COLOR_GLSL, type SkyState } from './sky.ts';
 import { B_FACE_TEX, BLOCK_COUNT, B_SOLID, TEXTURE_NAMES } from '../world/blocks.ts';
 import { drawTexture } from './textures.ts';
 
-export const KIND = { chip: 0, mist: 1, firefly: 2 } as const;
+export const KIND = { chip: 0, mist: 1, firefly: 2, morpho: 3 } as const;
 
 const VERT = /* glsl */ `
 in vec4 aColor;
@@ -39,11 +39,16 @@ ${SKY_COLOR_GLSL}
 void main() {
   vec2 p = gl_PointCoord - 0.5;
   float a = vColor.a;
-  if (vKind > 0.5) a *= 1.0 - smoothstep(0.05, 0.5, length(p)); // mist and fireflies are soft and round
+  bool glow = vKind > 1.5 && vKind < 2.5;
+  if (vKind > 2.5) {
+    // A butterfly: two rounded wings either side of a thin body.
+    vec2 w = vec2(abs(p.x) - 0.2, p.y * 1.25 + 0.04 * sign(p.y));
+    if (length(w) > 0.24 && abs(p.x) > 0.03) discard;
+  } else if (vKind > 0.5) a *= 1.0 - smoothstep(0.05, 0.5, length(p)); // mist and fireflies are soft and round
   if (a < 0.01) discard;
   float fog = smoothstep(uFogNear, uFogFar, vDist);
-  vec3 col = vKind > 1.5 ? vColor.rgb : mix(vColor.rgb, skyColor(normalize(vWorld - cameraPosition)), fog);
-  if (vKind > 1.5) a *= 1.0 - fog;
+  vec3 col = glow ? vColor.rgb : mix(vColor.rgb, skyColor(normalize(vWorld - cameraPosition)), fog);
+  if (glow) a *= 1.0 - fog;
   outColor = vec4(col, a);
 }`;
 
@@ -140,6 +145,26 @@ class Pool {
         this.pos[p] += this.vel[p] * dt; this.pos[p + 1] += this.vel[p + 1] * dt; this.pos[p + 2] += this.vel[p + 2] * dt;
         this.size[i] += dt * 1.2;
         this.col[i * 4 + 3] = this.baseAlpha[i] * Math.sin(Math.PI * t) * light;
+      } else if (k === KIND.morpho) {
+        // Blue morphos drift around their tree (the anchor is kept in vel), flashing blue on the
+        // upstroke and dull brown on the downstroke as they flap.
+        const s = this.seed[i];
+        const ax = this.vel[p], ay = this.vel[p + 1], az = this.vel[p + 2];
+        const ang = time * (0.35 + (s % 1) * 0.25) + s;
+        const r = 2.5 + 5 * ((s * 7.3) % 1);
+        const tx = ax + Math.cos(ang) * r, tz = az + Math.sin(ang * 0.8) * r;
+        const ty = ay + 2 + 3 * ((s * 3.1) % 1) + Math.sin(time * 1.3 + s) * 1.2;
+        this.pos[p] += (tx - this.pos[p]) * Math.min(1, dt * 0.9);
+        this.pos[p + 1] += (ty - this.pos[p + 1]) * Math.min(1, dt * 0.9) + Math.sin(time * 9 + s * 5) * 0.6 * dt;
+        this.pos[p + 2] += (tz - this.pos[p + 2]) * Math.min(1, dt * 0.9);
+        const flap = Math.sin(time * 11 + s * 13);
+        const blue = flap > 0 ? 1 : 0.25;
+        const c = i * 4;
+        this.col[c] = (0.08 + 0.32 * (1 - blue)) * light;
+        this.col[c + 1] = (0.42 * blue + 0.22 * (1 - blue)) * light;
+        this.col[c + 2] = (1.0 * blue + 0.12 * (1 - blue)) * light;
+        this.col[c + 3] = this.baseAlpha[i] * Math.min(1, t * 8, this.life[i] / 1.5);
+        this.size[i] = 0.3 + 0.16 * Math.abs(flap);
       } else {
         // Fireflies wander and blink.
         const s = this.seed[i];
@@ -198,6 +223,13 @@ export class Particles {
   }
 
   fireflies(): number { return this.glow.countOf(KIND.firefly); }
+
+  /** A blue morpho butterfly, fluttering round a tree whose crown is about (x, y, z). */
+  morpho(x: number, y: number, z: number): void {
+    this.normal.spawn(KIND.morpho, x + (Math.random() - 0.5) * 6, y + Math.random() * 4, z + (Math.random() - 0.5) * 6, x, y, z, 0.1, 0.4, 1, 1, 0.22, 20 + Math.random() * 25);
+  }
+
+  morphos(): number { return this.normal.countOf(KIND.morpho); }
 
   update(dt: number, time: number, blockAt: (x: number, y: number, z: number) => number, daylight: number): void {
     this.normal.update(dt, time, blockAt, Math.max(0.25, daylight));

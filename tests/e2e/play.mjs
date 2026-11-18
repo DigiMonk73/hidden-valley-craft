@@ -63,10 +63,11 @@ check('the mined block goes into the hotbar', gained);
 
 // Place it back: right click uses the selected block (the one just mined) somewhere in front.
 await g((id) => { const h = window.__hv.game.hotbar; h.selected = h.slots.findIndex((s) => s && s.id === id && s.count === 1); }, target.id);
-const editsBefore = await g(() => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v !== 0).length, 0));
+// Count only edits to this block: the garden's crops grow (and so change blocks) meanwhile.
+const editsBefore = await g((id) => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v === id).length, 0), target.id);
 await page.mouse.click(400, 225, { button: 'right' });
 await page.waitForFunction((id) => !window.__hv.game.hotbar.slots.some((s) => s && s.id === id && s.count === 1), target.id, { timeout: 20_000 }).catch(() => {});
-const editsAfter = await g(() => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v !== 0).length, 0));
+const editsAfter = await g((id) => [...window.__hv.game.world.edits.values()].reduce((n, m) => n + [...m.values()].filter((v) => v === id).length, 0), target.id);
 check('right click places the selected block', editsAfter === editsBefore + 1, `placed blocks ${editsBefore} → ${editsAfter}`);
 
 // The inventory opens with E and closes with E.
@@ -149,6 +150,132 @@ await page.mouse.click(400, 225, { button: 'right' });
 await page.waitForFunction(() => window.__hv.game.vitals.hunger > 70, null, { timeout: 10_000 }).catch(() => {});
 const hunger = await g(() => window.__hv.game.vitals.hunger);
 check('eating fills hunger', hunger > 70, `hunger ${hunger.toFixed(0)}`);
+
+// ---- Phase 3: the way out ----------------------------------------------------------------------
+// Keeps the mouse captured: a click that only re-captures it is not a click on anything.
+const ensureLook = async () => {
+  if (await g(() => window.__hv.game.look.mode === 'off')) {
+    await page.mouse.click(400, 225);
+    await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+  }
+};
+// Holds breath and health up while the scene is set by hand (software rendering is slow).
+const keepAlive = () => g(() => { const gm = window.__hv.game; gm.player.breath = 20; gm.vitals.hp = 100; });
+
+// Swim from the valley pool's tunnel mouth west to the gate.
+await ensureLook();
+await g(() => { const gm = window.__hv.game; gm.hour = 12; gm.player.flying = false; gm.player.setPosition(1603.5, 62, 1024.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = 0; });
+await page.waitForFunction(() => window.__hv.idle(), null, { timeout: 120_000, polling: 300 }).catch(() => {});
+await page.keyboard.down('KeyW');
+await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.x < 1595.6; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
+await page.keyboard.up('KeyW');
+const atGate = await g(() => ({ x: window.__hv.game.player.x, wet: window.__hv.game.player.headInWater }));
+check('swims along the drowned tunnel to the gate', atGate.x < 1596 && atGate.wet, `x ${atGate.x.toFixed(1)}, under water ${atGate.wet}`);
+
+// Pull the marked stone on the north wall: the gate grinds open.
+let gateState = 'shut';
+for (let attempt = 0; attempt < 3 && gateState === 'shut'; attempt++) {
+  await ensureLook();
+  // Face the north wall from just in front of the stone, so no corner of rock is in the way.
+  await g(() => { const p = window.__hv.game.player; p.setPosition(1594.5, 62, 1023.4); p.yaw = 0; p.pitch = -0.15; });
+  await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.breath = 20; return t && t.x === 1594 && t.y === 63 && t.z === 1022; }, null, { timeout: 30_000, polling: 100 }).catch(() => {});
+  await page.mouse.click(400, 225, { button: 'right' });
+  await page.waitForTimeout(400);
+  gateState = await g(() => window.__hv.game.gate.state);
+}
+check('the marked stone opens the gate', gateState !== 'shut', `gate ${gateState}`);
+await page.waitForFunction(() => { window.__hv.game.player.breath = 20; return window.__hv.game.gate.state === 'open'; }, null, { timeout: 60_000, polling: 200 }).catch(() => {});
+// Swim through into the air pocket.
+await g(() => { const p = window.__hv.game.player; p.setPosition(1595.5, 62, 1024.5); p.yaw = Math.PI / 2; p.pitch = 0; });
+await page.keyboard.down('KeyW');
+await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.x < 1589; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
+await page.keyboard.up('KeyW');
+const through = await g(() => window.__hv.game.player.x);
+check('swims through the gate into the air pocket', through < 1590, `x ${through.toFixed(1)}`);
+const shut = await page.waitForFunction(() => { window.__hv.game.player.breath = 20; return window.__hv.game.gate.state === 'shut'; }, null, { timeout: 90_000, polling: 300 }).then(() => true, () => false);
+check('the gate closes itself behind', shut);
+
+// Climb the last leg of the canyon ramp onto the old road.
+await g(() => { const gm = window.__hv.game; gm.player.setPosition(1537.5, 101, 1034.5); gm.player.yaw = Math.atan2(4, -21); gm.player.pitch = 0; });
+await page.waitForFunction(() => window.__hv.idle(), null, { timeout: 120_000, polling: 300 }).catch(() => {});
+await keepAlive();
+await page.keyboard.down('KeyW');
+await page.waitForFunction(() => window.__hv.game.player.z > 1049, null, { timeout: 60_000, polling: 200 }).catch(() => {});
+await page.keyboard.up('KeyW');
+const road = await g(() => { const p = window.__hv.game.player; return { y: p.y, z: p.z, below: window.__hv.game.world.blockAt(Math.floor(p.x), Math.floor(p.y) - 1, Math.floor(p.z)) }; });
+check('climbs the ramp to the road', road.z > 1049 && road.y >= 106, `z ${road.z.toFixed(1)}, height ${road.y.toFixed(1)}`);
+
+// Shoot a deer with the bow, on a level stretch of the road further west. The deer is set grazing
+// 18 m down the road (beyond the 14 m at which it bolts).
+await g(() => {
+  const gm = window.__hv.game, h = gm.hotbar;
+  h.slots[6] = { id: window.__hv.itemId('compound_bow'), count: 1 };
+  h.slots[7] = { id: window.__hv.itemId('arrow'), count: 6 };
+  h.selected = 6;
+  gm.player.setPosition(1392.5, 99.5, 1028.5); // a level stretch of road past the warren
+});
+await page.waitForFunction(() => window.__hv.idle() && window.__hv.game.player.onGround, null, { timeout: 120_000, polling: 300 }).catch(() => {});
+const shootDeer = async () => {
+  await ensureLook();
+  await keepAlive();
+  // Stand the deer still at 18 m and aim for the middle of its body, allowing for the arrow's drop.
+  await g(() => {
+    const gm = window.__hv.game, p = gm.player;
+    // Our deer: the one set here before, if it is still about; others wandering by are sent away.
+    let d = gm.wild.creatures.find((c) => c === window.__deer);
+    gm.wild.creatures = gm.wild.creatures.filter((c) => c.kind !== 'deer' || c === d);
+    if (!d) d = window.__deer = window.__hv.spawn('deer', p.x - 18, 1026.5);
+    else { d.x = p.x - 18; d.z = 1026.5; d.vx = d.vz = 0; }
+    d.mind = 'wander'; d.timer = 99; d.goalX = d.x; d.goalZ = d.z;
+    // A badly hurt deer bolts (as it should); for the play-through it is held where it stands.
+    const hx = d.x, hz = d.z;
+    clearInterval(window.__pin);
+    window.__pin = setInterval(() => { d.x = hx; d.z = hz; d.vx = d.vz = 0; }, 1);
+    const dx = d.x - p.x, dz = d.z - p.z, dist = Math.hypot(dx, dz), h = d.y + 0.9 - p.eyeY;
+    const v = 48, gr = 18;
+    const pitch = Math.atan((v * v - Math.sqrt(v ** 4 - gr * (gr * dist * dist + 2 * h * v * v))) / (gr * dist));
+    p.yaw = Math.atan2(-dx, -dz); p.pitch = pitch;
+  });
+  const hp0 = await g(() => window.__deer?.hp ?? 0);
+  // Synthetic mouse presses arrive with a little movement that would turn the view: hold the aim still.
+  await g(() => {
+    window.__aimLock = true;
+    if (!window.__aimHook) { window.__aimHook = true; window.addEventListener('mousemove', (e) => { if (window.__aimLock) e.stopImmediatePropagation(); }, true); }
+  });
+  await page.mouse.down({ button: 'right' });
+  await page.waitForFunction(() => { const gm = window.__hv.game; return gm.drawing !== null && gm.playTime - gm.drawing >= 1.05; }, null, { timeout: 30_000, polling: 100 }).catch(() => {});
+  await page.mouse.up({ button: 'right' });
+  await g(() => { window.__aimLock = false; });
+  await page.waitForFunction((h) => { const d = window.__deer; return !window.__hv.game.wild.creatures.includes(d) || d.hp < h; }, hp0, { timeout: 30_000, polling: 100 }).catch(() => {});
+  await g(() => clearInterval(window.__pin));
+};
+await shootDeer();
+const deerHp = await g(() => window.__deer?.hp ?? 0);
+const deerAt = await g(() => { const d = window.__deer; return d ? [d.x, d.y, d.z].map((v) => v.toFixed(1)).join(',') : 'gone'; });
+check('a full-drawn arrow hits the deer', deerHp === 8, `deer at ${deerHp} of 30, standing at ${deerAt}`);
+await shootDeer();
+const venison = await g(() => window.__hv.game.hotbar.count(window.__hv.itemId('venison_raw')));
+check('a second arrow brings it down: venison in the pack', venison === 3, `venison ×${venison}`);
+// Walk to where it fell to pick the arrows up again.
+const arrowsLeft = await g(() => window.__hv.game.hotbar.count(window.__hv.itemId('arrow')));
+await g(() => { const gm = window.__hv.game, a = gm.wild.arrows.find((o) => o.stuck); if (a) gm.player.setPosition(a.x, a.y, a.z); });
+await page.waitForFunction((n) => window.__hv.game.hotbar.count(window.__hv.itemId('arrow')) > n, arrowsLeft, { timeout: 20_000, polling: 200 }).catch(() => {});
+const arrowsNow = await g(() => window.__hv.game.hotbar.count(window.__hv.itemId('arrow')));
+check('arrows can be picked up again', arrowsNow > arrowsLeft, `arrows ${arrowsLeft} → ${arrowsNow}`);
+
+// Home to the balcony stove, and cook the venison.
+await ensureLook();
+await g(() => { const gm = window.__hv.game; gm.player.setPosition(1797.5, 82, 1032.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.7; });
+// The stove itself, not its pipe above.
+await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.pitch = -0.7; gm.player.yaw = -Math.PI / 2; return t && t.x === 1799 && t.y === 82 && t.z === 1032; }, null, { timeout: 60_000, polling: 200 }).catch(() => {});
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForTimeout(500);
+await page.locator('.iv-recipe', { hasText: 'Venison steak' }).locator('.iv-make').click().catch(() => {});
+const steaks = await g(() => window.__hv.game.hotbar.count(window.__hv.itemId('venison_cooked')));
+check('venison cooks at the stove', steaks === 1, `steaks ×${steaks}`);
+await page.keyboard.press('Escape');
+await page.mouse.click(400, 225);
+await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
 
 // Mine a block next to it and leave the hole, then save and reload.
 const t2 = { x: target.x, y: target.y, z: target.z + 1 };

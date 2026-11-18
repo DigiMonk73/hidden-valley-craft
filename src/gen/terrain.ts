@@ -7,7 +7,9 @@ import { blockId, AIR, BEDROCK, WATER, FALLING_WATER as FALLING } from '../world
 import { Simplex, hash3, rand3 } from '../core/noise.ts';
 import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, WATERFALL, CANYON_POOL, TUNNEL, GARDEN,
+  POCKET, GATE, GATE_LEVERS, TUNNEL_LAMPS, POCKET_LANTERN, ROAD, PLACES, RAMP_HALF_WIDTH,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
+  roadZ, rampAt, onRoad,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
 
@@ -42,6 +44,10 @@ const ORCHID = blockId('orchid');
 const BAMBOO = blockId('bamboo');
 const MOSS = blockId('moss');
 const CHEST = blockId('chest');
+const ROAD_BLOCK = blockId('road');
+const GATE_STONE = blockId('gate_stone');
+const GATE_LEVER = blockId('gate_lever');
+const SEALED_LAMP = blockId('sealed_lamp');
 
 const wallNoise = new Simplex(SEED + 7);
 const caveA = new Simplex(SEED + 21);
@@ -131,6 +137,11 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
 
   // 5. Water: the pool, the creek, the waterfall, the canyon pool and the drowned tunnel.
   placeWater(col, x0, z0, tops);
+  buildGate(col, x0, z0);
+
+  // 5b. The way out: the switchback up the canyon wall and the old road, and the places beside it.
+  paveRoad(col, x0, z0, tops);
+  placeBufferPlaces(col, x0, z0);
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
@@ -318,6 +329,68 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
     }
 }
 
+/** The air pocket halfway along the tunnel, the builder's gate beside it, its two levers and the lamps. */
+function buildGate(col: Uint16Array, x0: number, z0: number): void {
+  if (x0 + CS <= POCKET.x0 - 2 || x0 > GATE.x1 + 10 || z0 + CS <= POCKET.z0 - 2 || z0 > POCKET.z1 + 2) return;
+  const put = (x: number, y: number, z: number, id: number) => {
+    const lx = x - x0, lz = z - z0;
+    if (lx >= 0 && lz >= 0 && lx < CS && lz < CS) col[ci(lx, y, lz)] = id;
+  };
+  for (let z = POCKET.z0; z < POCKET.z1; z++)
+    for (let x = POCKET.x0; x < POCKET.x1; x++)
+      for (let y = POCKET.y0; y < POCKET.y1; y++) put(x, y, z, y <= POCKET.water ? WATER : AIR);
+  for (let z = GATE.z0; z < GATE.z1; z++)
+    for (let x = GATE.x0; x < GATE.x1; x++)
+      for (let y = GATE.y0; y < GATE.y1; y++) put(x, y, z, GATE_STONE);
+  for (const [x, y, z] of GATE_LEVERS) put(x, y, z, GATE_LEVER);
+  for (const [x, y, z] of TUNNEL_LAMPS) put(x, y, z, SEALED_LAMP);
+  put(POCKET_LANTERN[0], POCKET_LANTERN[1], POCKET_LANTERN[2], LANTERN);
+}
+
+/** The road's broken asphalt, weeds in its cracks, and the gravel and old stone of the ramp. */
+function paveRoad(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
+  if (x0 > ROAD.east + 40 || x0 + CS < ROAD.west - 8) return;
+  for (let lz = 0; lz < CS; lz++)
+    for (let lx = 0; lx < CS; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const top = tops[lz * CS + lx];
+      const roll = rand3(x, 5, z, SEED + 40);
+      if (rampAt(x, z).dist < RAMP_HALF_WIDTH) {
+        col[ci(lx, top - 1, lz)] = roll < 0.3 ? COBBLE : GRAVEL;
+        col[ci(lx, top - 2, lz)] = GRAVEL;
+        continue;
+      }
+      if (!onRoad(x, z)) continue;
+      const edge = Math.abs(z + 0.5 - roadZ(x)) > ROAD.halfWidth - 0.8;
+      col[ci(lx, top - 1, lz)] = roll < 0.07 || (edge && roll < 0.22) ? FOREST : roll < 0.14 || (edge && roll < 0.32) ? GRAVEL : ROAD_BLOCK;
+      col[ci(lx, top - 2, lz)] = GRAVEL;
+      for (let y = top; y < top + 4; y++) if (col[ci(lx, y, lz)] !== AIR && col[ci(lx, y, lz)] !== WATER) col[ci(lx, y, lz)] = AIR;
+    }
+}
+
+/** The toppled ranger sign and its broken post, and the burrows in the warren's bank. */
+function placeBufferPlaces(col: Uint16Array, x0: number, z0: number): void {
+  const put = (x: number, y: number, z: number, id: number) => {
+    const lx = x - x0, lz = z - z0;
+    if (lx >= 0 && lz >= 0 && lx < CS && lz < CS && y > 0 && y < WORLD_Y) col[ci(lx, y, lz)] = id;
+  };
+  const s = PLACES.rangerSign;
+  put(s.x, outsideHeight(s.x, s.z), s.z, blockId('ranger_sign@east'));
+  put(s.x + 1, outsideHeight(s.x + 1, s.z), s.z, blockId('ranger_sign@east'));
+  put(s.x - 1, outsideHeight(s.x - 1, s.z - 1), s.z - 1, blockId('sign_post'));
+  const w = PLACES.warren;
+  if (Math.abs(x0 + CS / 2 - w.x) < CS && Math.abs(z0 + CS / 2 - w.z) < CS) {
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + 0.4;
+      const outside = outsideHeight(Math.round(w.x + Math.cos(a) * (w.radius + 2)), Math.round(w.z + Math.sin(a) * (w.radius + 2)));
+      for (let r = w.radius; r >= w.radius - 4; r--) {
+        const x = Math.round(w.x + Math.cos(a) * r), z = Math.round(w.z + Math.sin(a) * r);
+        if (outsideHeight(x, z) > outside) put(x, outside, z, AIR);
+      }
+    }
+  }
+}
+
 function buildHome(col: Uint16Array, x0: number, z0: number): void {
   if (x0 + CS <= HOME_BOUNDS.x0 - 20 || x0 >= HOME_BOUNDS.x1 || z0 + CS <= HOME_BOUNDS.z0 - 20 || z0 >= HOME_BOUNDS.z1) return;
   const F = HOME.floor;
@@ -468,6 +541,9 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius + 4) return null;
   if (Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius + 4) return null;
   if (pathAt(x, z).dist < 4) return null;
+  if (onRoad(x, z, 4)) return null;
+  const m = PLACES.morphoTree, w = PLACES.warren, sign = PLACES.rangerSign;
+  if (Math.hypot(x - m.x, z - m.z) < m.clearing + 4 || Math.hypot(x - w.x, z - w.z) < w.radius + 4 || Math.hypot(x - sign.x, z - sign.z) < 5) return null;
   let kind: TreeSpot['kind'] | null = null;
   if (zone === 'valley') {
     const cd = creekDistance(x, z);
@@ -559,6 +635,28 @@ function placeTrees(col: Uint16Array, x0: number, z0: number): void {
         }
       }
     }
+  // The morpho tree: one great broadleaf in its own clearing, where the blue butterflies gather.
+  const m = PLACES.morphoTree;
+  if (x0 + CS + 12 > m.x && x0 - 12 < m.x && z0 + CS + 12 > m.z && z0 - 12 < m.z) {
+    const g = outsideHeight(m.x, m.z) - 1; // sunk a block, so the buttress roots grip the slope
+    const height = 17;
+    for (let y = g; y < g + height; y++)
+      for (const [dx, dz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) set(m.x + dx, y, m.z + dz, LOG, true);
+    // Buttress roots flaring out at the foot.
+    for (const [dx, dz] of [[-1, 0], [2, 1], [0, -1], [1, 2], [-1, 1], [2, 0], [1, -1], [0, 2]])
+      for (let y = g; y < g + 3 - (Math.abs(dx - 0.5) + Math.abs(dz - 0.5) > 2 ? 1 : 0); y++) set(m.x + dx, y, m.z + dz, LOG, true);
+    // Two great limbs, and a wide, layered crown.
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) for (let k = 1; k <= 4; k++) set(m.x + (dx > 0 ? 1 : 0) + dx * k, g + height - 3 + Math.floor(k / 2), m.z + (dz > 0 ? 1 : 0) + dz * k, LOG, true);
+    const cy = g + height;
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dz = -9; dz <= 10; dz++)
+        for (let dx = -9; dx <= 10; dx++) {
+          const e = ((dx - 0.5) ** 2 + (dz - 0.5) ** 2) / 81 + (dy * dy) / 9;
+          if (e > 1 || rand3(m.x + dx, cy + dy, m.z + dz, SEED + 13) < 0.08) continue;
+          set(m.x + dx, cy + dy, m.z + dz, LEAVES, false);
+          if (dy >= 2 && rand3(m.x + dx, cy + dy, m.z + dz, SEED + 14) < 0.07) set(m.x + dx, cy + dy + 1, m.z + dz, rand3(dx, dy, dz, SEED + 15) < 0.5 ? BROMELIAD : ORCHID, false);
+        }
+  }
 }
 
 function placeGroundPlants(col: Uint16Array, x0: number, z0: number): void {

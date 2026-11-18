@@ -10,6 +10,8 @@ import { CS } from '../world/constants.ts';
 import { Particles } from './particles.ts';
 import { FarLand } from './farland.ts';
 import { Clouds } from './clouds.ts';
+import { RidgeTower } from './tower.ts';
+import { CreatureRenderer } from './creatures.ts';
 import type { FarMesh } from '../gen/farland.ts';
 
 /** One atmosphere for everything: blocks, distant land and particles fade into the sky alike. */
@@ -156,6 +158,9 @@ export class Renderer {
   readonly particles = new Particles();
   private farland: FarLand | null = null;
   private clouds = new Clouds();
+  private tower = new RidgeTower();
+  /** The wild's creatures and arrows. */
+  readonly creatures: CreatureRenderer;
   /** Which columns have real blocks drawn: the distant land stays out of them. */
   private drawnTex = (() => {
     const t = new THREE.DataTexture(new Uint8Array(64 * 64), 64, 64, THREE.RedFormat, THREE.UnsignedByteType);
@@ -207,6 +212,7 @@ export class Renderer {
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
     });
     this.waterMat.uniforms.uCutout.value = false;
+    this.creatures = new CreatureRenderer(this.scene, this.solidMat);
 
     // One index buffer shared by every chunk: quad k uses vertices 4k…4k+3.
     this.indexQuads = 1 << 17;
@@ -240,6 +246,7 @@ export class Renderer {
     this.scene.add(this.crack);
     this.scene.add(this.bobber);
     this.scene.add(this.clouds.mesh);
+    this.scene.add(this.tower.mesh);
   }
 
   resize(w: number, h: number): void {
@@ -287,6 +294,7 @@ export class Renderer {
     this.gl.setClearColor(s.fog);
     this.particles.sync(this.gl.domElement.height, this.camera.fov, FOG_NEAR, FOG_FAR, s);
     this.farland?.sync(s, FOG_NEAR, FOG_FAR);
+    this.tower.sync(s, FOG_NEAR, FOG_FAR);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
   }
 

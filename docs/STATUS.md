@@ -12,7 +12,7 @@ _The page to resume from. Keep it short; history lives in git._
   - **Living:** survival (health, hunger, thirst), crafting at five stations and by hand, farming and the builder's garden, coffee, fishing.
   - **The builder's things:** sleep; the journal, computer, phone, map table and safe.
   - **Builder's mode:** a block palette.
-- **Phase 3 ("The way out")** is being built by a phase session on branch `phase3` (AGENTS.md, "Sessions"). What is built and what is left is in docs/PHASE3.md, "Handoff".
+- **Phase 3 ("The way out")**: all nine handoff steps are built on branch `phase3`, reviewed by a fresh reviewer and fixed (docs/PHASE3.md, "Handoff"). Waiting for the lead to merge, publish and show the owner. Left open on purpose: the puma has no "from cover" stalking yet, and a hutch only breeds while its chunk is loaded.
 - **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
 - **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (private), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
 

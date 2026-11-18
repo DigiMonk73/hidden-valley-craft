@@ -45,7 +45,9 @@ function start(data: unknown): void {
       idle: () => game.isIdle(),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
+      spawn: (kind: 'rabbit' | 'deer' | 'boar' | 'puma', x: number, z: number) => game.spawnCreature(kind, x, z),
       rifleId: itemId('hunting_rifle'),
+      itemId,
       /** The hotbar slot holding the right tool for a block, or -1. */
       bestTool: (block: number) => game.hotbar.slots.findIndex((st) => st && toolOf(st.id)?.kind === toolFor(block)),
       gardenStages: () => {

@@ -45,10 +45,11 @@ export function foodOf(id: number): FoodDef | undefined { return itemDef(id)?.fo
 
 export { blockId };
 
-/** What mining a block gives: its "drop" (a block or an item), else the block itself; nothing for unbreakables. */
+/** What mining a block gives: its "drop" (a block or an item, or "none"), else the block itself; nothing for unbreakables. */
 export function dropOf(block: number): number {
   const d = BLOCK_DEFS[block];
   if (!d || d.hardness < 0 || d.render === 'none') return 0;
+  if (d.drop === 'none') return 0; // gives nothing (an emptied lost pack)
   return d.drop ? itemId(d.drop) : block;
 }
 
