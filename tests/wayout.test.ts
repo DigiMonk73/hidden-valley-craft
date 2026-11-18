@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { World } from '../src/world/world.ts';
 import { runJob, type GenResult } from '../src/jobs/tasks.ts';
 import { blockId, AIR, WATER, B_SOLID, isWaterId, blockName } from '../src/world/blocks.ts';
-import { Gate, GATE_STONE, GATE_LEVER } from '../src/sim/gate.ts';
+import { Gate, GATE_STONE, GATE_LEVER, APPROACH } from '../src/sim/gate.ts';
 import {
-  GATE, GATE_LEVERS, POCKET, TUNNEL, TUNNEL_MOUTHS, RIVER_CURRENT, POOL, CANYON_POOL, RAMP, ROAD, roadZ, roadHeight, outsideHeight, rampAt, PLACES, VALLEY,
+  GATE, TUNNEL, POOL, CANYON_POOL, RAMP, ROAD, roadZ, roadHeight, outsideHeight, rampAt, PLACES, VALLEY,
 } from '../src/gen/layout.ts';
 import { CS } from '../src/world/constants.ts';
 
@@ -17,40 +17,48 @@ function load(x0: number, z0: number, x1: number, z1: number): World {
 }
 
 const swimmer = (x: number, y = GATE.y0, z = TUNNEL.z + 0.5) => ({
-  x, intersectsBlock: (bx: number, by: number, bz: number) => bx + 1 > x - 0.3 && bx < x + 0.3 && by + 1 > y && by < y + 1.8 && bz + 1 > z - 0.3 && bz < z + 0.3,
+  x, y, z, intersectsBlock: (bx: number, by: number, bz: number) => bx + 1 > x - 0.3 && bx < x + 0.3 && by + 1 > y && by < y + 1.8 && bz + 1 > z - 0.3 && bz < z + 0.3,
 });
 
 describe('the tunnel and the builder’s gate', () => {
   const w = load(TUNNEL.x0 - 4, TUNNEL.z - 4, POOL.cx, TUNNEL.z + 4);
 
-  it('is shut at the start, looks like rock, and has a lever on each side', () => {
+  it('is shut at the start, looks like rock, and has no levers', () => {
     for (let y = GATE.y0; y < GATE.y1; y++) for (let z = GATE.z0; z < GATE.z1; z++) for (let x = GATE.x0; x < GATE.x1; x++) expect(w.blockAt(x, y, z)).toBe(GATE_STONE);
     expect(blockName(GATE_STONE)).toBe('gate_stone');
-    for (const [x, y, z] of GATE_LEVERS) expect(w.blockAt(x, y, z)).toBe(GATE_LEVER);
-    // The valley-side lever is beside the tunnel, east of the gate; the pocket's is above the water.
-    expect(GATE_LEVERS[0][0]).toBeGreaterThanOrEqual(GATE.x1);
-    expect(GATE_LEVERS[1][1]).toBeGreaterThan(POCKET.water);
+    for (let x = TUNNEL.x0 - 4; x < TUNNEL.x1 + 4; x++)
+      for (let z = TUNNEL.z - 4; z <= TUNNEL.z + 4; z++) for (let y = TUNNEL.y0 - 3; y < TUNNEL.y1 + 3; y++) expect(w.blockAt(x, y, z)).not.toBe(GATE_LEVER);
+    // Halfway along the tunnel.
+    expect(Math.abs((GATE.x0 + GATE.x1) / 2 - (TUNNEL.x0 + TUNNEL.x1) / 2)).toBeLessThanOrEqual(1);
   });
 
-  it('has an air pocket to breathe in, so the swim is two breaths and not one', () => {
-    const z = TUNNEL.z;
-    for (let x = POCKET.x0; x < POCKET.x1; x++) {
-      expect(isWaterId(w.blockAt(x, POCKET.water, z))).toBe(true);
-      expect(w.blockAt(x, POCKET.water + 1, z)).toBe(AIR);
-      expect(w.blockAt(x, POCKET.water + 2, z)).toBe(AIR);
-    }
-    // Each leg of the swim (shaft to pocket, pocket to shaft) is well inside one breath, even against
-    // the current (tests/river.test.ts swims both ways for real).
-    const legA = POCKET.x0 - TUNNEL_MOUTHS.canyon[1], legB = TUNNEL_MOUTHS.valley[0] - POCKET.x1;
-    for (const leg of [legA, legB]) expect(leg / (2.6 - RIVER_CURRENT) + (VALLEY.water - TUNNEL.y0) / 2).toBeLessThan(16);
-    // Water all the way from the canyon pool to the valley pool, but for the gate.
+  it('runs under water from mouth to mouth, but for the gate', () => {
     for (let x = TUNNEL.x0; x < TUNNEL.x1; x++) {
       if (x >= GATE.x0 && x < GATE.x1) continue;
-      expect(isWaterId(w.blockAt(x, TUNNEL.y0, z)), `x ${x}`).toBe(true);
+      for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) expect(isWaterId(w.blockAt(x, y, TUNNEL.z)), `x ${x}, y ${y}`).toBe(true);
     }
   });
 
-  it('opens row by row from the bottom when a lever is pulled, then closes behind the swimmer', () => {
+  it('opens by itself as a swimmer comes near, from either side, and stays shut otherwise', () => {
+    const mid = (GATE.x0 + GATE.x1) / 2;
+    const run = (who: ReturnType<typeof swimmer>, secs = 3) => { const g = new Gate(); for (let t = 0; t < secs; t += 0.05) g.update(0.05, w, who); return g; };
+    // Shut for anyone further off, or not in the tunnel.
+    expect(run(swimmer(mid + 1 + APPROACH + 0.5)).state).toBe('shut');
+    expect(run(swimmer(mid - 1 - APPROACH - 0.5)).state).toBe('shut');
+    expect(run(swimmer(mid, VALLEY.rim)).state).toBe('shut'); // walking over the ridge above it
+    expect(run(swimmer(mid + 1.5, GATE.y0, TUNNEL.z + 6)).state).toBe('shut');
+    // Opening for a swimmer just short of it, from the valley side and from the canyon side.
+    for (const x of [mid + 1 + APPROACH - 0.3, mid - 1 - APPROACH + 0.3]) {
+      const g = run(swimmer(x));
+      expect(g.state).toBe('open');
+      for (let y = GATE.y0; y < GATE.y1; y++) expect(w.blockAt(GATE.x0, y, TUNNEL.z)).toBe(WATER);
+      // Then it closes again once nobody is near (and the world is shut for the next case).
+      for (let t = 0; t < 12; t += 0.05) g.update(0.05, w, swimmer(TUNNEL.x0 + 0.5));
+      expect(g.state).toBe('shut');
+    }
+  });
+
+  it('opens row by row from the bottom, then closes behind the swimmer', () => {
     const g = new Gate();
     expect(g.pull()).toBe('grind');
     let opened = false;
@@ -62,7 +70,7 @@ describe('the tunnel and the builder’s gate', () => {
     expect(g.state).toBe('open');
     // Once they are through and clear, it lowers itself.
     let shut = false;
-    for (let t = 0; t < 10; t += 0.05) if (g.update(0.05, w, swimmer(POCKET.x0 + 1)) === 'shut') shut = true;
+    for (let t = 0; t < 10; t += 0.05) if (g.update(0.05, w, swimmer(TUNNEL.x0 + 1)) === 'shut') shut = true;
     expect(shut).toBe(true);
     for (let y = GATE.y0; y < GATE.y1; y++) expect(w.blockAt(GATE.x0, y, TUNNEL.z)).toBe(GATE_STONE);
   });
@@ -70,13 +78,13 @@ describe('the tunnel and the builder’s gate', () => {
   it('never closes on a swimmer in the doorway', () => {
     const g = new Gate();
     g.pull();
-    for (let t = 0; t < 10 && g.state !== 'closing'; t += 0.05) g.update(0.05, w, swimmer(POCKET.x0));
+    for (let t = 0; t < 10 && g.state !== 'closing'; t += 0.05) g.update(0.05, w, swimmer(TUNNEL.x0 + 0.5));
     expect(g.state).toBe('closing');
     // The swimmer drifts back into the gate as it starts down: it waits for them.
     for (let t = 0; t < 10; t += 0.05) g.update(0.05, w, swimmer(GATE.x0 + 1, GATE.y0));
     expect(B_SOLID[w.blockAt(GATE.x0 + 1, GATE.y0, TUNNEL.z)]).toBe(0);
     expect(B_SOLID[w.blockAt(GATE.x0 + 1, GATE.y0 + 1, TUNNEL.z)]).toBe(0);
-    for (let t = 0; t < 10; t += 0.05) g.update(0.05, w, swimmer(POCKET.x0));
+    for (let t = 0; t < 10; t += 0.05) g.update(0.05, w, swimmer(TUNNEL.x0 + 0.5));
     expect(g.state).toBe('shut');
   });
 

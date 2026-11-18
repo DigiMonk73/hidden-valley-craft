@@ -5,12 +5,12 @@
 import { describe, it, expect } from 'vitest';
 import { World } from '../src/world/world.ts';
 import { runJob, type GenResult } from '../src/jobs/tasks.ts';
-import { AIR, WATER, FALLING_WATER, B_SOLID, isWaterId, blockId } from '../src/world/blocks.ts';
-import { Gate, GATE_LEVER } from '../src/sim/gate.ts';
+import { AIR, WATER, FALLING_WATER, B_SOLID, B_OPAQUE, isWaterId, blockId } from '../src/world/blocks.ts';
+import { Gate } from '../src/sim/gate.ts';
 import { Player, BREATH_MAX, EYE, type Input } from '../src/sim/player.ts';
 import {
-  WATERFALL, CANYON_FALLS, SPRINGS, SPRING_OPENING, CANYON_POOL, TUNNEL, TUNNEL_MOUTHS, GATE, GATE_LEVERS, POCKET, LEVER_LAMP,
-  RIVER_CURRENT, CANYON_STREAM, RAMP, VALLEY, riverCurrent, outsideHeight, inSanctuary, canyonStreamAt, rampAt, RAMP_HALF_WIDTH,
+  WATERFALL, CANYON_FALLS, SPRINGS, SPRING_OPENING, CANYON_POOL, TUNNEL, MOUTH_BASINS, MOUTH_LAMPS, TUNNEL_LAMPS, GATE,
+  RIVER_CURRENT, CANYON_STREAM, RAMP, VALLEY, riverCurrent, fallsLoudness, inCanyonStream, outsideHeight, inSanctuary, canyonStreamAt, rampAt, RAMP_HALF_WIDTH,
 } from '../src/gen/layout.ts';
 import { CS } from '../src/world/constants.ts';
 
@@ -71,27 +71,120 @@ describe('the hidden river: two falls from the two faces of one ridge', () => {
   });
 });
 
-describe('the drowned tunnel’s mouths, hidden under the curtains', () => {
-  it('drops straight down from under each curtain to the tunnel', () => {
-    const mouths: [readonly [number, number], typeof WATERFALL][] = [[TUNNEL_MOUTHS.canyon, CANYON_FALLS], [TUNNEL_MOUTHS.valley, WATERFALL]];
-    for (const [[m0, m1], f] of mouths) {
-      for (let x = m0; x < m1; x++)
-        for (let z = TUNNEL.z - TUNNEL.halfWidth; z <= TUNNEL.z + TUNNEL.halfWidth; z++) {
+const LAMP = blockId('sealed_lamp');
+const MOSSY = blockId('limestone_mossy');
+
+describe('the review’s findings (river branch)', () => {
+  it('has whole rock behind both curtains, with no gap to dive into', () => {
+    for (const f of SPRINGS)
+      for (let z = f.z0; z < f.z1; z++)
+        for (let y = W + 1; y < f.top - 1; y++)
+          for (let k = 1; k <= 3; k++) expect(B_SOLID[world.blockAt(f.x - f.dir * k, y, z)], `${f.x - f.dir * k},${y},${z}`).toBe(1);
+  });
+
+  it('opens no cave in the canyon’s sheer cliff beside the falls', () => {
+    const w = load(CANYON_FALLS.x - 2, 976, CANYON_FALLS.x + 12, 1073);
+    for (let z = 976; z < 1073; z++)
+      for (let x = CANYON_FALLS.x + 1; x < CANYON_FALLS.x + 12; x++) {
+        const top = outsideHeight(x, z);
+        for (let y = W + 1; y < top - 1; y++) {
+          const inOpening = z >= CANYON_FALLS.z0 && z < CANYON_FALLS.z1 && y > CANYON_FALLS.top && y <= CANYON_FALLS.top + SPRING_OPENING.height + 1;
+          if (!inOpening) expect(w.blockAt(x, y, z), `${x},${y},${z}`).not.toBe(AIR);
+        }
+      }
+  });
+
+  it('muffles each waterfall’s roar heard from the other side of the ridge', () => {
+    expect(fallsLoudness(WATERFALL, true)).toBeGreaterThan(fallsLoudness(CANYON_FALLS, true) * 2);
+    expect(fallsLoudness(CANYON_FALLS, false)).toBeGreaterThan(fallsLoudness(WATERFALL, false) * 2);
+  });
+
+  it('draws the canyon stream unbroken on the map table’s 8 m grid', () => {
+    const step = 8;
+    const s0 = CANYON_STREAM[0][1], s1 = CANYON_STREAM[CANYON_STREAM.length - 1][1];
+    for (let j = Math.ceil(s0 / step); (j + 0.5) * step < s0 + (s1 - s0) * 0.85; j++) {
+      const zz = j * step + step / 2;
+      let wet = false;
+      for (let i = 190; i < 200; i++) if (inCanyonStream(i * step + step / 2, zz, step / 2)) wet = true;
+      expect(wet, `z ${zz}`).toBe(true);
+    }
+  });
+});
+
+describe('the drowned tunnel’s mouths, right under the falls', () => {
+  const mouths = [
+    { f: CANYON_FALLS, face: TUNNEL.x0, basin: MOUTH_BASINS.canyon },
+    { f: WATERFALL, face: TUNNEL.x1 - 1, basin: MOUTH_BASINS.valley },
+  ];
+
+  it('opens in the cliff foot straight under each curtain, in deep water', () => {
+    for (const { f, face, basin } of mouths) {
+      // The opening: water through the face, across the tunnel's width and height.
+      for (let z = TUNNEL.z - TUNNEL.halfWidth; z <= TUNNEL.z + TUNNEL.halfWidth; z++)
+        for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) expect(isWaterId(world.blockAt(face, y, z)), `${face},${y},${z}`).toBe(true);
+      // Framed by solid rock above and to either side.
+      expect(B_SOLID[world.blockAt(face, TUNNEL.y1, TUNNEL.z)]).toBe(1);
+      expect(B_SOLID[world.blockAt(face, TUNNEL.y0 + 1, TUNNEL.z - TUNNEL.halfWidth - 1)]).toBe(1);
+      // The curtain falls right in front of it: the falls' columns are the basin's nearest ones.
+      expect(f.x).toBe(face + f.dir);
+      // Deep water under the curtain, down to the tunnel's floor.
+      for (let x = basin.x0; x < basin.x1; x++)
+        for (let z = basin.z0; z < basin.z1; z++)
           for (let y = TUNNEL.y0; y <= W; y++) expect(isWaterId(world.blockAt(x, y, z)), `${x},${y},${z}`).toBe(true);
-          // White water right over every cell of the mouth: you dive through the curtain to find it.
-          expect(world.blockAt(x, W + 1, z), `${x},${z}`).toBe(FALLING_WATER);
-          expect(z >= f.z0 && z < f.z1).toBe(true);
+    }
+  });
+
+  it('has a warm lamp in each mouth’s frame, in sight from the water just inside the falls', () => {
+    for (const { f, face } of mouths) {
+      const lamps = MOUTH_LAMPS.filter(([x]) => x === face);
+      expect(lamps.length).toBeGreaterThanOrEqual(1);
+      for (const l of lamps) expect(world.blockAt(...l)).toBe(LAMP);
+      // From anywhere across the curtain's width, just under the surface behind it, a lamp is in sight.
+      for (let z = f.z0; z < f.z1; z++)
+        for (const ey of [W - 0.4, W - 1.2]) {
+          const eye: [number, number, number] = [f.x + 0.5, ey, z + 0.5];
+          const seen = lamps.some((l) => inSight(eye, [l[0] + 0.5 + f.dir * 0.51, l[1] + 0.5, l[2] + 0.5]));
+          expect(seen, `from ${eye.join(',')}`).toBe(true);
         }
     }
   });
 
-  it('runs under water from mouth to mouth, but for the gate', () => {
-    for (let x = TUNNEL.x0; x < TUNNEL.x1; x++) {
-      if (x >= GATE.x0 && x < GATE.x1) continue;
-      expect(isWaterId(world.blockAt(x, TUNNEL.y0, TUNNEL.z)), `x ${x}`).toBe(true);
-    }
-    // The air pocket keeps a wall of rock between it and the canyon mouth's shaft.
-    for (let y = POCKET.water + 1; y < POCKET.y1; y++) expect(B_SOLID[world.blockAt(POCKET.x0 - 1, y, TUNNEL.z)]).toBe(1);
+  it('keeps moss off the rock round the mouths and in the tunnel', () => {
+    for (let x = TUNNEL.x0 - 6; x < TUNNEL.x1 + 6; x++)
+      for (let z = TUNNEL.z - 6; z <= TUNNEL.z + 6; z++)
+        for (let y = TUNNEL.y0 - 2; y <= W + 2; y++) expect(world.blockAt(x, y, z), `${x},${y},${z}`).not.toBe(MOSSY);
+  });
+});
+
+/** Is the straight line from a to b clear of opaque blocks (b's own block excepted)? */
+function inSight(a: [number, number, number], b: [number, number, number]): boolean {
+  const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) * 20);
+  for (let k = 0; k < n; k++) {
+    const t = k / n;
+    const x = Math.floor(a[0] + (b[0] - a[0]) * t), y = Math.floor(a[1] + (b[1] - a[1]) * t), z = Math.floor(a[2] + (b[2] - a[2]) * t);
+    if (B_OPAQUE[world.blockAt(x, y, z)]) return false;
+  }
+  return true;
+}
+
+describe('the tunnel is lit all the way', () => {
+  const LEVEL = 7;
+  const centre = (w: World) => {
+    const out: number[] = [];
+    for (let x = TUNNEL.x0; x < TUNNEL.x1; x++) if (isWaterId(w.blockAt(x, TUNNEL.y0 + 1, TUNNEL.z))) out.push(w.lightAt(x, TUNNEL.y0 + 1, TUNNEL.z) & 15);
+    return out;
+  };
+
+  it('never drops below a set level along its centre line, with the gate shut or open', () => {
+    expect(TUNNEL_LAMPS.length).toBeGreaterThanOrEqual(TUNNEL.x1 - TUNNEL.x0 - 3);
+    const shut = centre(world);
+    expect(shut.length).toBe(TUNNEL.x1 - TUNNEL.x0 - (GATE.x1 - GATE.x0));
+    for (const l of shut) expect(l).toBeGreaterThanOrEqual(LEVEL);
+    const w2 = load(TUNNEL.x0 - 2, TUNNEL.z - 4, TUNNEL.x1 + 2, TUNNEL.z + 4);
+    for (let y = GATE.y0; y < GATE.y1; y++) for (let z = GATE.z0; z < GATE.z1; z++) for (let x = GATE.x0; x < GATE.x1; x++) w2.setBlock(x, y, z, WATER);
+    const open = centre(w2);
+    expect(open.length).toBe(TUNNEL.x1 - TUNNEL.x0);
+    for (const l of open) expect(l).toBeGreaterThanOrEqual(LEVEL);
   });
 });
 
@@ -102,11 +195,10 @@ describe('the current in the tunnel', () => {
     expect(c).toBeLessThanOrEqual(0.8);
     expect(c).toBe(RIVER_CURRENT);
     expect(riverCurrent(TUNNEL.x0 + 0.5, TUNNEL.y0 + 0.5, TUNNEL.z + 0.5)).toBe(RIVER_CURRENT);
-    // None out in the pools, above the tunnel, or in the air pocket where the water rests.
-    expect(riverCurrent(POCKET.x0 + 2, TUNNEL.y0 + 1, TUNNEL.z + 0.5)).toBe(0);
+    // None out in the pools, or above the tunnel.
     expect(riverCurrent(CANYON_POOL.cx, W, CANYON_POOL.cz)).toBe(0);
-    expect(riverCurrent(GATE.x1 + 3, W, TUNNEL.z + 0.5)).toBe(0);
-    expect(riverCurrent(TUNNEL.x1 + 2, TUNNEL.y0 + 0.5, TUNNEL.z + 0.5)).toBe(0);
+    expect(riverCurrent(GATE.x1 + 3, TUNNEL.y1 + 0.5, TUNNEL.z + 0.5)).toBe(0);
+    expect(riverCurrent(TUNNEL.x1 + 1, TUNNEL.y0 + 0.5, TUNNEL.z + 0.5)).toBe(0);
   });
 
   it('carries a swimmer who lets go toward the valley', () => {
@@ -118,11 +210,11 @@ describe('the current in the tunnel', () => {
   });
 });
 
-// ---- Swimming the whole way, both directions, on one breath per leg ----------------------------
+// ---- Swimming the whole way, both directions -----------------------------------------------------
 
 const still: Input = { forward: 0, strafe: 0, jump: false, sprint: false, descend: false };
 
-/** A swimmer in the real world, with the gate and the current, recording the breath each leg costs. */
+/** A swimmer in the real world, with the gate and the current. */
 class Swim {
   p = new Player();
   w: World;
@@ -144,93 +236,45 @@ class Swim {
       this.t += 1 / 60;
       this.low = Math.min(this.low, this.p.breath);
     }
-    if (process.env.DBG) console.log("stage", this.p.x.toFixed(2), this.p.y.toFixed(2), this.p.breath.toFixed(1), this.t.toFixed(1));
     expect(done(this.p), `stuck at ${this.p.x.toFixed(2)}, ${this.p.y.toFixed(2)}`).toBe(true);
-  }
-  /** Starts a leg with a full breath; returns the breath it used and how long it took. */
-  leg(run: () => void): { used: number; time: number } {
-    this.p.breath = BREATH_MAX;
-    this.low = BREATH_MAX;
-    const t0 = this.t;
-    run();
-    return { used: BREATH_MAX - this.low, time: this.t - t0 };
   }
   get headOut(): boolean { return !isWaterId(this.w.blockAt(Math.floor(this.p.x), Math.floor(this.p.y + EYE), Math.floor(this.p.z))); }
 }
 
 const WEST = Math.PI / 2, EAST = -Math.PI / 2;
-const swimW: Input = { ...still, forward: 1 };
-const up: Input = { ...still, jump: true };
+const fwd: Input = { ...still, forward: 1 };
 const z = TUNNEL.z + 0.5;
-const [valley0, valley1] = TUNNEL_MOUTHS.valley, [canyon0, canyon1] = TUNNEL_MOUTHS.canyon;
 
-function wayOut() {
-  const s = new Swim((valley0 + valley1) / 2, z);
-  // Leg 1: through the falls and down the shaft, west to the gate, pull the stone, through to the pocket.
-  const leg1 = s.leg(() => {
-    s.until(still, WEST, (p) => p.y < TUNNEL.y0 + 0.2);
-    s.until(swimW, WEST, (p) => p.x < GATE_LEVERS[0][0] + 1);
-    s.g.pull();
-    s.until(swimW, WEST, (p) => p.x < POCKET.x1 - 1.5);
-    s.until(up, WEST, () => s.headOut);
-  });
-  // Leg 2: breathe, then dive and swim west to the canyon mouth, and up through its curtain into the pool.
-  s.until(up, WEST, (p) => p.breath >= BREATH_MAX); // treading water in the pocket
-  const leg2 = s.leg(() => {
-    s.until(still, WEST, (p) => p.y < TUNNEL.y0 + 0.2);
-    s.until(swimW, WEST, (p) => p.x < canyon1 - 0.6);
-    s.until(up, WEST, (p) => p.y > W - 1.5);
-    s.until({ ...swimW, jump: true }, WEST, () => s.headOut && s.p.x < CANYON_FALLS.x - 1.5);
-  });
-  return [leg1, leg2];
-}
-
-function wayIn() {
-  const s = new Swim((canyon0 + canyon1) / 2, z);
-  // Leg 1: down through the canyon curtain, east into the pocket, up to breathe.
-  const leg1 = s.leg(() => {
-    s.until(still, EAST, (p) => p.y < TUNNEL.y0 + 0.2);
-    s.until(swimW, EAST, (p) => p.x > POCKET.x0 + 1.5);
-    s.until(up, EAST, () => s.headOut);
-  });
-  s.until(up, EAST, (p) => p.breath >= BREATH_MAX);
-  // Leg 2: pull the pocket's stone, dive, through the gate and on east, up through the valley curtain.
-  const leg2 = s.leg(() => {
-    s.g.pull();
-    s.until(still, EAST, (p) => p.y < TUNNEL.y0 + 0.2);
-    s.until(swimW, EAST, (p) => p.x > valley0 + 0.6);
-    s.until(up, EAST, (p) => p.y > W - 1.5);
-    s.until({ ...swimW, jump: true }, EAST, () => s.headOut && s.p.x > WATERFALL.x + 2.5);
-  });
-  return [leg1, leg2];
+/** Afloat just outside one curtain: swim straight at it, through the tunnel, and up beyond the other. */
+function swim(from: 'valley' | 'canyon') {
+  const out = from === 'valley';
+  const s = new Swim(out ? MOUTH_BASINS.valley.x1 - 0.5 : MOUTH_BASINS.canyon.x0 + 0.5, z);
+  expect(s.headOut).toBe(true);
+  const yaw = out ? WEST : EAST;
+  // Holding forward: through the white water, down into the mouth, along the tunnel (the gate opens
+  // as you come) and out of the far mouth; then up through the falling water and out beyond it.
+  const pastMouth = out ? (p: Player) => p.x < TUNNEL.x0 - 0.35 : (p: Player) => p.x > TUNNEL.x1 + 0.35;
+  s.until(fwd, yaw, pastMouth);
+  s.until({ ...fwd, jump: true }, yaw, () => s.headOut);
+  expect(out ? s.p.x < CANYON_FALLS.x + CANYON_FALLS.dir : s.p.x > WATERFALL.x + WATERFALL.dir).toBe(true); // clear of the curtain
+  return { time: s.t, breath: BREATH_MAX - s.low };
 }
 
 describe('swimming the river both ways', () => {
-  const out = wayOut(), into = wayIn();
+  const out = swim('valley'), home = swim('canyon');
 
-  it('takes each leg of the way out well inside one breath, against the current', () => {
-    for (const leg of out) expect(leg.used).toBeLessThan(BREATH_MAX * 0.75);
+  it('takes well under one breath going out, against the current', () => {
+    expect(out.time).toBeLessThan(12);
+    expect(out.breath).toBeLessThan(12);
   });
 
-  it('takes each leg of the way in well inside one breath, with the current', () => {
-    for (const leg of into) expect(leg.used).toBeLessThan(BREATH_MAX * 0.6);
+  it('takes well under one breath coming home, with the current', () => {
+    expect(home.time).toBeLessThan(12);
+    expect(home.breath).toBeLessThan(12);
   });
 
-  it('is easier coming in than going out', () => {
-    // The long legs, between the pocket and the valley: the current helps one way and holds back the other.
-    expect(into[1].time).toBeLessThan(out[0].time);
-  });
-});
-
-describe('the lamp by the valley-side lever', () => {
-  it('lights the marked stone’s tunnel-facing side under water', () => {
-    const [x, y, zl] = GATE_LEVERS[0];
-    expect(world.blockAt(x, y, zl)).toBe(GATE_LEVER);
-    expect(world.blockAt(...LEVER_LAMP)).toBe(blockId('sealed_lamp'));
-    expect(Math.abs(LEVER_LAMP[0] - x) + Math.abs(LEVER_LAMP[1] - y) + Math.abs(LEVER_LAMP[2] - zl)).toBe(1);
-    // The water in front of the stone, which lights its face.
-    expect(isWaterId(world.blockAt(x, y, zl + 1))).toBe(true);
-    expect(world.lightAt(x, y, zl + 1) & 15).toBeGreaterThanOrEqual(7);
+  it('is easier coming home than going out', () => {
+    expect(home.time).toBeLessThan(out.time);
   });
 });
 

@@ -76,19 +76,33 @@ export const SPRINGS: Falls[] = [WATERFALL, CANYON_FALLS];
 /** How deep each opening runs back into the rock, and how tall it is above the water. */
 export const SPRING_OPENING = { depth: 5, height: 4 };
 
+/**
+ * How loud a waterfall's roar is to someone in the valley (or outside it): full on its own side of
+ * the ridge, muffled by the rock when heard from the other side.
+ */
+export function fallsLoudness(f: Falls, inValley: boolean): number {
+  const ownSide = (f.dir === 1) === inValley;
+  return ownSide ? (f.dir === 1 ? 0.9 : 1) : 0.3;
+}
+
 /** Outside the west wall: the canyon and its pool, joined to the valley pool by the drowned tunnel. */
 export const CANYON = { x: 1560, halfFloor: 14, wallRun: 16, z0: 620, z1: 1460 };
 /** The canyon pool lies at the foot of the ridge, so the canyon falls land in it. */
 export const CANYON_POOL = { cx: 1573, cz: 1024, radius: 9, depth: 5 };
 /**
- * The drowned tunnel, from under one curtain to under the other: each mouth is a shaft straight down
- * through the white water (`x0`–`x0 + 1` in the canyon, `x1 − 2`–`x1 − 1` in the valley).
+ * The drowned tunnel: straight through the ridge from the foot of one face to the foot of the other,
+ * just under the pools' surface. Each mouth is a dark opening in the cliff right under its curtain,
+ * with a warm lamp set in its frame, so whoever dives through the white water sees the way at once.
+ * `x0` is the canyon face's column, `x1 − 1` the valley face's. Rows y0 … y1 − 1 are water.
  */
-export const TUNNEL = { x0: CANYON_FALLS.x - 1, x1: WATERFALL.x + 2, z: 1024, y0: 62, y1: 65, halfWidth: 1 };
-/** The x range [x0, x1) of each mouth's shaft: the curtain's two columns. */
-export const TUNNEL_MOUTHS = { canyon: [TUNNEL.x0, TUNNEL.x0 + 2], valley: [TUNNEL.x1 - 2, TUNNEL.x1] } as const;
+export const TUNNEL = { x0: CANYON_FALLS.x + 1, x1: WATERFALL.x, z: 1024, y0: 66, y1: 69, halfWidth: 1 };
+/** The deep water under each curtain, in front of its mouth: x range [x0, x1), down to the tunnel's floor. */
+export const MOUTH_BASINS = {
+  canyon: { x0: TUNNEL.x0 - 4, x1: TUNNEL.x0, z0: CANYON_FALLS.z0, z1: CANYON_FALLS.z1 },
+  valley: { x0: TUNNEL.x1, x1: TUNNEL.x1 + 4, z0: WATERFALL.z0, z1: WATERFALL.z1 },
+};
 /** The current in the tunnel: the canyon spring pushes harder, so the water runs toward the valley (m/s, +x). */
-export const RIVER_CURRENT = 0.7;
+export const RIVER_CURRENT = 0.5;
 
 /** The stream the canyon pool spills into: south along the canyon floor until it sinks into the gravel. */
 export const CANYON_STREAM: [number, number][] = [
@@ -96,19 +110,22 @@ export const CANYON_STREAM: [number, number][] = [
 ];
 
 /**
- * The builder's gate in the drowned tunnel, and the air pocket beside it (docs/PHASE3.md, step 1).
- * Swimming from the valley: dive at the pool, swim west to the gate, pull the marked stone on the
- * north wall, swim through into the pocket and breathe, then on to the canyon pool. Both levers are
- * on the north wall: the valley one under water just before the gate, the pocket one above the water.
+ * The builder's gate, halfway along the tunnel. It knows you: it opens by itself as a swimmer comes
+ * within a couple of blocks of it, from either side, and closes behind them (src/sim/gate.ts).
  */
-export const POCKET = { x0: 1583, x1: 1591, z0: 1022, z1: 1027, y0: 62, water: 64, y1: 68 }; // [x0,x1) × [z0,z1), air above `water` up to y1
-export const GATE = { x0: 1591, x1: 1593, z0: TUNNEL.z - TUNNEL.halfWidth, z1: TUNNEL.z + TUNNEL.halfWidth + 1, y0: TUNNEL.y0, y1: TUNNEL.y1 };
-export const GATE_LEVERS: [number, number, number][] = [[1594, 63, 1022], [1589, 66, 1021]];
-/** Lamps the builder set in the rock: either side of the gate, and the lantern in the pocket. */
-export const TUNNEL_LAMPS: [number, number, number][] = [[1595, 63, 1026], [1600, 65, 1024], [1584, 63, 1021], [1594, 64, 1022]];
-/** The lamp the builder set just above the valley-side lever, so the marked stone can be found under water. */
-export const LEVER_LAMP = TUNNEL_LAMPS[3];
-export const POCKET_LANTERN: [number, number, number] = [1587, 67, 1024];
+const GATE_X = Math.floor((TUNNEL.x0 + TUNNEL.x1) / 2);
+export const GATE = { x0: GATE_X, x1: GATE_X + 2, z0: TUNNEL.z - TUNNEL.halfWidth, z1: TUNNEL.z + TUNNEL.halfWidth + 1, y0: TUNNEL.y0, y1: TUNNEL.y1 };
+
+/** The lamps in each mouth's frame: one over the opening at the waterline, one either side. */
+export const MOUTH_LAMPS: [number, number, number][] = [TUNNEL.x0, TUNNEL.x1 - 1].flatMap((x) => [
+  [x, TUNNEL.y1, TUNNEL.z], [x, TUNNEL.y0 + 1, TUNNEL.z - TUNNEL.halfWidth - 1], [x, TUNNEL.y0 + 1, TUNNEL.z + TUNNEL.halfWidth + 1],
+] as [number, number, number][]);
+/** The tunnel is lit all the way: a lamp in the roof or a wall beside every block of it. */
+export const TUNNEL_LAMPS: [number, number, number][] = [];
+for (let x = TUNNEL.x0 + 1; x < TUNNEL.x1 - 1; x++) {
+  if (x % 2 === 0) TUNNEL_LAMPS.push([x, TUNNEL.y1, TUNNEL.z]);
+  else TUNNEL_LAMPS.push([x, TUNNEL.y0 + 1, (x >> 1) % 2 ? TUNNEL.z - TUNNEL.halfWidth - 1 : TUNNEL.z + TUNNEL.halfWidth + 1]);
+}
 
 /**
  * The switchback up the canyon's west wall, from the canyon floor beside the pool to the rim where
@@ -238,12 +255,10 @@ export function inCanyonStream(x: number, z: number, extra = 0): boolean {
 }
 
 /**
- * The tunnel's current at a point (m/s along +x, toward the valley), or 0 outside it. None in the air
- * pocket, where the passage widens and the water rests, or in the shafts above the passage.
+ * The tunnel's current at a point (m/s along +x, toward the valley), or 0 outside it.
  */
 export function riverCurrent(x: number, y: number, z: number): number {
   if (y < TUNNEL.y0 || y >= TUNNEL.y1 || x < TUNNEL.x0 || x >= TUNNEL.x1) return 0;
-  if (x >= POCKET.x0 && x < POCKET.x1 && z >= POCKET.z0 && z < POCKET.z1) return 0;
   return Math.abs(Math.floor(z) - TUNNEL.z) <= TUNNEL.halfWidth ? RIVER_CURRENT : 0;
 }
 

@@ -162,42 +162,45 @@ const ensureLook = async () => {
 // Holds breath and health up while the scene is set by hand (software rendering is slow).
 const keepAlive = () => g(() => { const gm = window.__hv.game; gm.player.breath = 20; gm.vitals.hp = 100; });
 
-// Dive through the valley falls into the tunnel's mouth beneath them, and swim west to the gate.
-await ensureLook();
-await g(() => { const gm = window.__hv.game; gm.hour = 12; gm.player.flying = false; gm.player.setPosition(1602, 68.6, 1024.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = 0; });
-await page.waitForFunction(() => window.__hv.idle(), null, { timeout: 120_000, polling: 300 }).catch(() => {});
-const curtain = await g(() => { const p = window.__hv.game.player, w = window.__hv.game.world; return window.__hv.blockName(w.blockAt(Math.floor(p.x), 70, Math.floor(p.z))) === 'falling_water'; });
-await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.y < 62.5; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
-const dived = await g(() => window.__hv.game.player.y);
-check('dives through the falls down the tunnel mouth', curtain && dived < 62.5, `under the curtain ${curtain}, height ${dived.toFixed(1)}`);
-await page.keyboard.down('KeyW');
-await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.x < 1595.6; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
-await page.keyboard.up('KeyW');
-const atGate = await g(() => ({ x: window.__hv.game.player.x, wet: window.__hv.game.player.headInWater }));
-check('swims along the drowned tunnel to the gate', atGate.x < 1596 && atGate.wet, `x ${atGate.x.toFixed(1)}, under water ${atGate.wet}`);
-
-// Pull the marked stone on the north wall: the gate grinds open.
-let gateState = 'shut';
-for (let attempt = 0; attempt < 3 && gateState === 'shut'; attempt++) {
+// The way out and home again: from the surface, straight through the white water into the lit mouth
+// under each waterfall, along the tunnel (the gate opens by itself as you come) and up under the far
+// falls. No lever, and breath is not topped up: each way must take well under one breath.
+const swimThrough = async (startX, yaw, pastMouth) => {
   await ensureLook();
-  // Face the north wall from just in front of the stone, so no corner of rock is in the way.
-  await g(() => { const p = window.__hv.game.player; p.setPosition(1594.5, 62, 1023.4); p.yaw = 0; p.pitch = -0.15; });
-  await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.breath = 20; return t && t.x === 1594 && t.y === 63 && t.z === 1022; }, null, { timeout: 30_000, polling: 100 }).catch(() => {});
-  await page.mouse.click(400, 225, { button: 'right' });
-  await page.waitForTimeout(400);
-  gateState = await g(() => window.__hv.game.gate.state);
-}
-check('the marked stone opens the gate', gateState !== 'shut', `gate ${gateState}`);
-await page.waitForFunction(() => { window.__hv.game.player.breath = 20; return window.__hv.game.gate.state === 'open'; }, null, { timeout: 60_000, polling: 200 }).catch(() => {});
-// Swim through into the air pocket.
-await g(() => { const p = window.__hv.game.player; p.setPosition(1595.5, 62, 1024.5); p.yaw = Math.PI / 2; p.pitch = 0; });
-await page.keyboard.down('KeyW');
-await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.x < 1589; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
-await page.keyboard.up('KeyW');
-const through = await g(() => window.__hv.game.player.x);
-check('swims through the gate into the air pocket', through < 1590, `x ${through.toFixed(1)}`);
-const shut = await page.waitForFunction(() => { window.__hv.game.player.breath = 20; return window.__hv.game.gate.state === 'shut'; }, null, { timeout: 90_000, polling: 300 }).then(() => true, () => false);
+  await g(([x, yaw]) => {
+    const gm = window.__hv.game; gm.hour = 12; gm.player.flying = false; gm.vitals.hp = 100;
+    gm.player.setPosition(x, 68.6, 1024.5); gm.player.yaw = yaw; gm.player.pitch = 0;
+  }, [startX, yaw]);
+  await page.waitForFunction(() => window.__hv.idle(), null, { timeout: 120_000, polling: 300 }).catch(() => {});
+  await g(() => {
+    const gm = window.__hv.game; gm.player.breath = 20;
+    window.__swim = { low: 20, gate: 'shut', curtain: false };
+    clearInterval(window.__swimTimer);
+    window.__swimTimer = setInterval(() => {
+      const p = gm.player, s = window.__swim;
+      s.low = Math.min(s.low, p.breath);
+      if (gm.gate.state !== 'shut') s.gate = gm.gate.state;
+      if (window.__hv.blockName(gm.world.blockAt(Math.floor(p.x), 70, Math.floor(p.z))) === 'falling_water') s.curtain = true; // under the curtain
+    }, 30);
+  });
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction((past) => { const x = window.__hv.game.player.x; return past < 1590 ? x < past : x > past; }, pastMouth, { timeout: 120_000, polling: 50 }).catch(() => {});
+  await page.keyboard.down('Space');
+  await page.waitForFunction(() => !window.__hv.game.player.headInWater, null, { timeout: 60_000, polling: 50 }).catch(() => {});
+  await page.keyboard.up('Space');
+  await page.keyboard.up('KeyW');
+  return g(() => { clearInterval(window.__swimTimer); const p = window.__hv.game.player; return { ...window.__swim, x: p.x, out: !p.headInWater }; });
+};
+const out = await swimThrough(1604.5, Math.PI / 2, 1581.6);
+check('swims out: through the valley falls, the tunnel and up under the canyon falls', out.out && out.x < 1582 && out.curtain, `x ${out.x.toFixed(1)}, under the falls ${out.curtain}`);
+check('the gate opens by itself on the way', out.gate !== 'shut', `gate ${out.gate}`);
+check('the way out takes well under one breath', out.low > 8, `breath left ${out.low.toFixed(1)} of 20`);
+const shut = await page.waitForFunction(() => window.__hv.game.gate.state === 'shut', null, { timeout: 90_000, polling: 300 }).then(() => true, () => false);
 check('the gate closes itself behind', shut);
+const home = await swimThrough(1577.5, -Math.PI / 2, 1601.4);
+check('swims home: through the canyon falls and up under the valley falls', home.out && home.x > 1601 && home.curtain, `x ${home.x.toFixed(1)}, under the falls ${home.curtain}`);
+check('the gate opens by itself coming home', home.gate !== 'shut', `gate ${home.gate}`);
+check('coming home takes well under one breath', home.low > 8, `breath left ${home.low.toFixed(1)} of 20`);
 
 // Climb the last leg of the canyon ramp onto the old road.
 await g(() => { const gm = window.__hv.game; gm.player.setPosition(1537.5, 101, 1034.5); gm.player.yaw = Math.atan2(4, -21); gm.player.pitch = 0; });
