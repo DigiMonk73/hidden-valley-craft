@@ -6,10 +6,10 @@ import { CS, WORLD_Y } from '../world/constants.ts';
 import { blockId, AIR, BEDROCK, WATER, FALLING_WATER as FALLING } from '../world/blocks.ts';
 import { Simplex, hash3, rand3 } from '../core/noise.ts';
 import {
-  SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, WATERFALL, CANYON_POOL, TUNNEL, GARDEN,
-  POCKET, GATE, GATE_LEVERS, TUNNEL_LAMPS, POCKET_LANTERN, ROAD, PLACES, RAMP_HALF_WIDTH,
+  SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, CANYON_POOL, TUNNEL, MOUTH_BASINS, GARDEN, SPRINGS, SPRING_OPENING, type Falls,
+  GATE, TUNNEL_LAMPS, MOUTH_LAMPS, ROAD, PLACES, RAMP_HALF_WIDTH,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
-  roadZ, rampAt, onRoad,
+  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
 
@@ -46,7 +46,6 @@ const MOSS = blockId('moss');
 const CHEST = blockId('chest');
 const ROAD_BLOCK = blockId('road');
 const GATE_STONE = blockId('gate_stone');
-const GATE_LEVER = blockId('gate_lever');
 const SEALED_LAMP = blockId('sealed_lamp');
 
 const wallNoise = new Simplex(SEED + 7);
@@ -88,7 +87,11 @@ const HOME_BOUNDS = { x0: 1786, x1: 1842, y0: 70, y1: 100, z0: 998, z1: 1050 };
 /** Places where caves and ore must not cut: the home, the water passages, the path. */
 function caveExcluded(x: number, y: number, z: number): boolean {
   if (inBox(x, y, z, HOME_BOUNDS)) return true;
-  if (z > TUNNEL.z - 8 && z < TUNNEL.z + 8 && x > TUNNEL.x0 - 10 && x < TUNNEL.x1 + 14 && y > 50) return true;
+  // The ridge with the tunnel and both springs, the canyon's sheer headwall and its pool: no cave may
+  // open a second dark hole in the cliff beside the falls.
+  if (y > 50 && x > CANYON_POOL.cx - 16 && x < TUNNEL.x1 + 14 && z > 966 && z < 1084) return true;
+  // Nor drain the canyon stream.
+  if (y > 55 && inCanyonStream(x, z, 4)) return true;
   return false;
 }
 
@@ -222,6 +225,11 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
     }
 }
 
+/** Near the tunnel's mouths, under and just above the water: no moss, only plain rock. */
+function nearMouth(x: number, y: number, z: number): boolean {
+  return y < VALLEY.water + 6 && Math.abs(z - TUNNEL.z) < 9 && x > TUNNEL.x0 - 9 && x < TUNNEL.x1 + 8;
+}
+
 function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
   for (let lz = 0; lz < CS; lz++)
     for (let lx = 0; lx < CS; lx++) {
@@ -238,13 +246,13 @@ function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array
       const wet = detail.noise2(x / 14, z / 14);
 
       // Every exposed rock face: moss where it is damp (more of it near the waterfall).
-      const nearFall = Math.hypot(x - WATERFALL.x, z - (WATERFALL.z0 + WATERFALL.z1) / 2) < 30;
+      const nearFall = SPRINGS.some((f) => Math.hypot(x - f.x, z - (f.z0 + f.z1) / 2) < 30);
       for (let y = 3; y < top; y++) {
         const i = ci(lx, y, lz);
         if (col[i] !== LIMESTONE) continue;
         const open = y + 1 >= WORLD_Y || col[ci(lx, y + 1, lz)] === AIR || (lx > 0 && col[ci(lx - 1, y, lz)] === AIR) ||
           (lx < CS - 1 && col[ci(lx + 1, y, lz)] === AIR) || (lz > 0 && col[ci(lx, y, lz - 1)] === AIR) || (lz < CS - 1 && col[ci(lx, y, lz + 1)] === AIR);
-        if (open && (wet + detail.noise3(x / 6, y / 6, z / 6) * 0.6 > (nearFall ? -0.4 : 0.35))) col[i] = MOSSY;
+        if (open && !nearMouth(x, y, z) && (wet + detail.noise3(x / 6, y / 6, z / 6) * 0.6 > (nearFall ? -0.4 : 0.35))) col[i] = MOSSY;
       }
 
       if (top < 4) continue;
@@ -300,51 +308,113 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
         } else if (cd < 3.6 && top <= VALLEY.floor + 1) {
           col[ci(lx, top - 1, lz)] = cd < 2.7 ? MUD : (rand3(x, 9, z, SEED) < 0.5 ? CLAY : SAND);
         }
-      } else if (Math.abs(x - CANYON_POOL.cx) < 20 && Math.abs(z - CANYON_POOL.cz) < 20) {
+      } else if (Math.abs(x - CANYON_POOL.cx) < 20 && Math.abs(z - CANYON_POOL.cz) < 20 && top <= VALLEY.floor + 3) {
+        // (Only on the canyon floor: never cut into the headwall behind it.)
         pool(CANYON_POOL, Math.max(top, VALLEY.floor));
       }
 
-      // The waterfall: a sheet of water down the west cliff, fed by a spring in a notch at the rim.
-      if (z >= WATERFALL.z0 && z < WATERFALL.z1) {
-        // Two blocks thick, the front one a little shorter so the lip reads; falling water above the pool.
-        if (x === WATERFALL.x || x === WATERFALL.x + 1) {
-          const top = x === WATERFALL.x ? WATERFALL.top : WATERFALL.top - 1;
+      // The canyon pool's overflow: a shallow stream along the floor that thins and sinks into the gravel.
+      if (!inSanctuary(x, z) && top <= VALLEY.floor + 3 && Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) > CANYON_POOL.radius - 2) {
+        const st = canyonStreamAt(x, z);
+        const sd = st.dist + 0.5 * detail.noise2(x / 5, z / 5);
+        const half = 1.9 - 1.2 * st.t;
+        if (st.t < 0.93 && sd < half) {
+          col[ci(lx, W - 1, lz)] = GRAVEL;
+          col[ci(lx, W, lz)] = WATER;
+          for (let y = W + 1; y < top + 2; y++) col[ci(lx, y, lz)] = AIR;
+        } else if (sd < half + 0.6) {
+          // Its last stretch is a dry bed of wet gravel and mud: the water has gone down into the rock.
+          col[ci(lx, Math.min(top, W + 1) - 1, lz)] = rand3(x, 5, z, SEED) < 0.6 ? GRAVEL : MUD;
+          for (let y = Math.min(top, W + 1); y < top + 2; y++) col[ci(lx, y, lz)] = AIR;
+        }
+      }
+
+      // The falls: a curtain two blocks thick down each face of the ridge, the front one a little
+      // shorter so the lip reads, with falling water all the way down to the pool.
+      for (const f of SPRINGS) {
+        if (z < f.z0 || z >= f.z1) continue;
+        if (x === f.x || x === f.x + f.dir) {
+          const top = x === f.x ? f.top : f.top - 1;
           for (let y = W + 1; y <= top; y++) col[ci(lx, y, lz)] = FALLING;
           col[ci(lx, W, lz)] = WATER;
         }
-        if (x > WATERFALL.x - 12 && x < WATERFALL.x) {
-          for (let y = WATERFALL.top + 1; y < WORLD_Y; y++) col[ci(lx, y, lz)] = AIR;
-          col[ci(lx, WATERFALL.top, lz)] = x > WATERFALL.x - 9 ? WATER : MOSSY;
-          col[ci(lx, WATERFALL.top - 1, lz)] = MOSSY;
+      }
+
+      // The deep water under each curtain, down to the tunnel's floor, on a gravel bed.
+      for (const b of [MOUTH_BASINS.canyon, MOUTH_BASINS.valley])
+        if (x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1) {
+          col[ci(lx, TUNNEL.y0 - 1, lz)] = GRAVEL;
+          for (let y = TUNNEL.y0; y <= W; y++) col[ci(lx, y, lz)] = WATER;
+        }
+
+      // The drowned tunnel, straight through the ridge from one mouth to the other.
+      if (x >= TUNNEL.x0 && x < TUNNEL.x1 && Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth) {
+        for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) col[ci(lx, y, lz)] = WATER;
+      }
+      // Plain rock round the tunnel and its mouths, so nothing there looks like something to use.
+      if (x >= TUNNEL.x0 && x < TUNNEL.x1 && Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth + 1) {
+        const face = x === TUNNEL.x0 || x === TUNNEL.x1 - 1;
+        for (let y = TUNNEL.y0 - 1; y <= TUNNEL.y1; y++) {
+          const i = ci(lx, y, lz);
+          const inside = y >= TUNNEL.y0 && y < TUNNEL.y1 && Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth;
+          if (!inside && (face || col[i] !== WATER)) col[i] = LIMESTONE;
         }
       }
-
-      // The drowned tunnel between the canyon pool and the valley pool, with a shaft at each end.
-      if (Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth) {
-        if (x >= TUNNEL.x0 && x < TUNNEL.x1) for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) col[ci(lx, y, lz)] = WATER;
-        const shaft = (x >= TUNNEL.x0 - 2 && x < TUNNEL.x0 + 2) || (x >= POOL.cx - 4 && x < POOL.cx);
-        if (shaft) for (let y = TUNNEL.y0; y <= W; y++) col[ci(lx, y, lz)] = WATER;
-        if (x >= TUNNEL.x1 && x < POOL.cx) for (let y = TUNNEL.y0; y < TUNNEL.y1; y++) col[ci(lx, y, lz)] = WATER;
-      }
     }
+  for (const f of SPRINGS) carveSpring(col, x0, z0, f);
 }
 
-/** The air pocket halfway along the tunnel, the builder's gate beside it, its two levers and the lamps. */
-function buildGate(col: Uint16Array, x0: number, z0: number): void {
-  if (x0 + CS <= POCKET.x0 - 2 || x0 > GATE.x1 + 10 || z0 + CS <= POCKET.z0 - 2 || z0 > POCKET.z1 + 2) return;
+/**
+ * The dark opening a spring pours from, a few blocks below the top of the ridge: the river runs out
+ * along its floor, under a low arched roof, framed by solid rock so the face above it stays dry.
+ */
+function carveSpring(col: Uint16Array, x0: number, z0: number, f: Falls): void {
+  const face = f.x - f.dir; // the rock column the curtain falls against
+  const back = face - f.dir * (SPRING_OPENING.depth - 1);
+  const xa = Math.min(face, back), xb = Math.max(face, back);
+  if (x0 + CS <= xa || x0 > xb || z0 + CS <= f.z0 - 1 || z0 > f.z1) return;
   const put = (x: number, y: number, z: number, id: number) => {
     const lx = x - x0, lz = z - z0;
     if (lx >= 0 && lz >= 0 && lx < CS && lz < CS) col[ci(lx, y, lz)] = id;
   };
-  for (let z = POCKET.z0; z < POCKET.z1; z++)
-    for (let x = POCKET.x0; x < POCKET.x1; x++)
-      for (let y = POCKET.y0; y < POCKET.y1; y++) put(x, y, z, y <= POCKET.water ? WATER : AIR);
+  const H = SPRING_OPENING.height;
+  for (let z = f.z0 - 1; z <= f.z1; z++)
+    for (let x = xa; x <= xb; x++) {
+      const lx = x - x0, lz = z - z0;
+      if (lx < 0 || lz < 0 || lx >= CS || lz >= CS) continue;
+      const side = z < f.z0 || z >= f.z1;
+      const rim = outsideHeight(x, z);
+      // Rock all round, up to the ridge's top (or a few blocks over the roof, whichever is lower).
+      for (let y = f.top - 2; y <= Math.min(rim - 1, f.top + H + 4); y++) {
+        const i = ci(lx, y, lz);
+        if (col[i] === AIR || col[i] === WATER) col[i] = y === f.top - 1 || y > f.top + H ? MOSSY : LIMESTONE;
+      }
+      // Behind the curtain the cliff is whole down to the pool: the water falls against rock, with no
+      // gap between them to dive into.
+      if (Math.abs(x - face) <= 2) for (let y = VALLEY.water + 1; y < f.top - 1; y++) {
+        const i = ci(lx, y, lz);
+        if (col[i] === AIR) col[i] = y < VALLEY.water + 6 ? LIMESTONE : MOSSY;
+      }
+      if (side) continue;
+      // The opening: the river's water on its floor, dark air above, the top row narrower (an arch).
+      const edge = z === f.z0 || z === f.z1 - 1;
+      put(x, f.top, z, WATER);
+      for (let y = f.top + 1; y <= f.top + H; y++) put(x, y, z, edge && y === f.top + H ? MOSSY : AIR);
+    }
+}
+
+/** The builder's gate halfway along the tunnel, and the lamps that line it and frame its mouths. */
+function buildGate(col: Uint16Array, x0: number, z0: number): void {
+  if (x0 + CS <= TUNNEL.x0 - 1 || x0 > TUNNEL.x1 || z0 + CS <= TUNNEL.z - 3 || z0 > TUNNEL.z + 3) return;
+  const put = (x: number, y: number, z: number, id: number) => {
+    const lx = x - x0, lz = z - z0;
+    if (lx >= 0 && lz >= 0 && lx < CS && lz < CS) col[ci(lx, y, lz)] = id;
+  };
   for (let z = GATE.z0; z < GATE.z1; z++)
     for (let x = GATE.x0; x < GATE.x1; x++)
       for (let y = GATE.y0; y < GATE.y1; y++) put(x, y, z, GATE_STONE);
-  for (const [x, y, z] of GATE_LEVERS) put(x, y, z, GATE_LEVER);
   for (const [x, y, z] of TUNNEL_LAMPS) put(x, y, z, SEALED_LAMP);
-  put(POCKET_LANTERN[0], POCKET_LANTERN[1], POCKET_LANTERN[2], LANTERN);
+  for (const [x, y, z] of MOUTH_LAMPS) put(x, y, z, SEALED_LAMP);
 }
 
 /** The road's broken asphalt, weeds in its cracks, and the gravel and old stone of the ramp. */
@@ -540,6 +610,7 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (x >= GARDEN.x0 - 3 && x < GARDEN.x1 + 3 && z >= GARDEN.z0 - 3 && z < GARDEN.z1 + 3) return null;
   if (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius + 4) return null;
   if (Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius + 4) return null;
+  if (canyonStreamAt(x, z).dist < 4) return null;
   if (pathAt(x, z).dist < 4) return null;
   if (onRoad(x, z, 4)) return null;
   const m = PLACES.morphoTree, w = PLACES.warren, sign = PLACES.rangerSign;

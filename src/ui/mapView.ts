@@ -1,7 +1,7 @@
 // The map on the builder's table: the land from the layout, shown only where the player has been
 // (one cell per 32 m column), with the cave and the player marked.
 
-import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, VALLEY, HOME, creekDistance } from '../gen/layout.ts';
+import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance } from '../gen/layout.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
 
 const N = 256; // 8 m per pixel
@@ -20,7 +20,7 @@ function landColours(): Uint8ClampedArray {
       let c = zone === 'valley' ? [126, 160, 92] : zone === 'zone4' ? [168, 156, 128] : zone === 'zone3' ? [120, 138, 104] : [104, 138, 88];
       if (Math.abs(h - hx) > 6 || h > 160) c = [176, 166, 140];
       const wet = (distToValley(x, z) < VALLEY.radius && (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius || creekDistance(x, z) < 3)) ||
-        Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius;
+        Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius || inCanyonStream(x, z, step / 2);
       if (wet) c = [86, 132, 164];
       const shade = Math.max(0.6, Math.min(1.25, 0.8 + (h - 90) / 260 + (h - hx) * 0.03));
       px.set([c[0] * shade, c[1] * shade, c[2] * shade, 255], (j * N + i) * 4);

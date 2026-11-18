@@ -30,7 +30,7 @@ import { openStore, writePending, readPending, clearPending, type Store } from '
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
-import { HOME, WATERFALL, VALLEY, POOL, GATE, PLACES, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
+import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
@@ -128,6 +128,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
+    this.player.flow = riverCurrent;
     this.wild.spawning = !opts.test;
     this.renderer = new Renderer(canvas);
     this.look = new Look(canvas);
@@ -545,22 +546,28 @@ export class Game {
     this.sound.update({
       x: p.x, y: p.eyeY, z: p.z, fx, fy, fz, hour: this.hour, inValley: valley,
       open: Math.min(1, Math.max(0, ((head >> 4) - 4) / 10)), underwater: p.headInWater, creekDist: creek,
-      fallPos: [WATERFALL.x + 1, (VALLEY.water + WATERFALL.top) / 2, (WATERFALL.z0 + WATERFALL.z1) / 2],
+      // The valley's falls, and the canyon's (the stronger spring, a little louder); each is muffled
+      // by the ridge when heard from the other side of it.
+      falls: SPRINGS.map((f) => ({ pos: [f.x + f.dir, (VALLEY.water + f.top) / 2, (f.z0 + f.z1) / 2] as [number, number, number], loudness: fallsLoudness(f, p.x, p.z, valley) })),
     });
   }
 
   // ---- Life in the air ----------------------------------------------------------------------
 
-  private sprayDebt = 0;
+  private sprayDebt = SPRINGS.map(() => 0);
 
   private emitParticles(dt: number): void {
     const p = this.player, parts = this.renderer.particles;
-    // Spray where the waterfall meets the pool, while the player is near enough to see it.
-    if (Math.hypot(p.x - WATERFALL.x, p.z - (WATERFALL.z0 + WATERFALL.z1) / 2) < 170) {
-      this.sprayDebt += dt * 45;
-      const n = Math.floor(this.sprayDebt);
-      this.sprayDebt -= n;
-      if (n) parts.spray(WATERFALL.x + 1.5, WATERFALL.x + 4, WATERFALL.z0, WATERFALL.z1, VALLEY.water + 0.9, n);
+    // Spray where each waterfall meets its pool, while the player is near enough to see it.
+    for (let k = 0; k < SPRINGS.length; k++) {
+      const f = SPRINGS[k];
+      if (Math.hypot(p.x - f.x, p.z - (f.z0 + f.z1) / 2) > 170) continue;
+      this.sprayDebt[k] += dt * (f === CANYON_FALLS ? 55 : 45);
+      const n = Math.floor(this.sprayDebt[k]);
+      this.sprayDebt[k] -= n;
+      // From just in front of the rock out past the curtain, on the side the water falls into.
+      const a = f.x + f.dir * 0.5, b = f.x + f.dir * 3;
+      if (n) parts.spray(Math.min(a, b), Math.max(a, b), f.z0, f.z1, VALLEY.water + 0.9, n);
     }
     // Fireflies over the valley floor from dusk into the night.
     const h = this.hour;
@@ -921,7 +928,9 @@ export class Game {
   applySave(d: SaveData): void {
     restoreEdits(this.world, d);
     restoreContainers(this.world, d);
-    this.player.setPosition(d.player.x, d.player.y, d.player.z);
+    // A save made in the old tunnel or air pocket (now rock) wakes afloat by the valley mouth instead.
+    const at = rescueFromOldTunnel(d.player.x, d.player.y, d.player.z) ?? [d.player.x, d.player.y, d.player.z];
+    this.player.setPosition(at[0], at[1], at[2]);
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
     this.player.flying = d.player.flying;

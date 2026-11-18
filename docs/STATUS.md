@@ -87,7 +87,7 @@ _The page to resume from. Keep it short; history lives in git._
 ## Next
 
 1. The owner looks at Phase 3.
-   - **Seen at publishing:** under water, the valley-side lever stone (north wall, just before the gate) is nearly black. Light dies within a few blocks in water. A player who doesn't know where it is will struggle to find it. Light it as part of the next step: the builder would have set a lamp by it.
+   - **Seen at publishing:** under water, the valley-side lever stone (north wall, just before the gate) is nearly black. Light dies within a few blocks in water. A player who doesn't know where it is will struggle to find it. Light it as part of the next step: the builder would have set a lamp by it. *Superseded on branch `river`:* the levers are gone (see below).
 2. **Next: one hidden river, bursting out of the ridge both ways** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the higher mountains soaks into the limestone, runs underground, and bursts out of both faces of the ridge between the canyon and the valley.
    - **Two waterfalls, mirrored:** one pours from a dark opening in the ridge's canyon face into the canyon pool, the other from its valley face into the valley pool. The rim above both stays dry rock.
    - **The canyon pool moves east** to the ridge's foot, so the outside falls land in it.
@@ -97,6 +97,24 @@ _The page to resume from. Keep it short; history lives in git._
    - **Why not a river over the rim:** a river on the plateau would lead anyone straight to the hidden valley.
    - **When:** now that Phase 3 is merged, before Phase 4. Move the ramp's foot with the pool.
    - Changing the Unity game's script is the owner's call; this note is for the block edition.
+   - **Built on branch `river`** (waiting for the lead's review; tests in `tests/river.test.ts`):
+     - Both falls pour from a dark opening 4 high and 5 deep at y 105, about 8 below the ridge top; the old notch and spring pool on the rim are gone. The canyon curtain is 9 wide, the valley's 7.
+     - The rock behind each curtain is whole down to the pool, so there is no gap to dive into: the dead end the owner found is gone.
+     - The canyon's east wall is a sheer cliff band for about 60 m around the falls (`canyonHeadwall` in `src/gen/layout.ts`). A short sheer stretch looked like a spillway standing out of the slope. No caves may open in that band, the canyon pool or the stream.
+     - `CANYON_POOL` moved to x 1573. `RAMP` gained a short flat lead-in from beside the pool to the old foot.
+   - **Simplified way in and out** (the owner, after playing Phase 3: "make it simple and short and well lit"):
+     - Each tunnel mouth is an opening in the cliff foot straight under its curtain, one block under the surface, in a basin of deep water. A sealed lamp sits over it at the waterline, and one more on either side.
+     - The tunnel runs straight through the ridge, x 1582–1600, at y 66–68. Every block of it has a lamp in the roof or a wall, and the light on its centre line never drops below 7.
+     - No levers and no air pocket. The gate, halfway along, opens by itself when a swimmer comes within 3 blocks of either face (`approaching` in `src/sim/gate.ts`). It closes behind them as before. The `gate_lever` block stays in the data so old saves load.
+     - **Why no pocket:** the whole swim takes about 11 s of the 20 s breath going out and about 8 s coming home, so a second stop would only add a place to get lost.
+     - No moss on the rock round the mouths or in the tunnel, so nothing there looks like something to click.
+     - The current is 0.5 m/s toward the valley (`riverCurrent`, `Player.flow`).
+     - Old saves: a player saved in the old tunnel, pocket or shafts (now rock) wakes afloat by the valley mouth (`rescueFromOldTunnel`). An open gate saved by version 4 leaves a few water cells sealed inside the rock below the new tunnel: unseen and harmless.
+     - The gate stays open while a swimmer waits near it, and never lifts a row above the slab. Before this fix, waiting 3–4 blocks away made it reopen over and over and bore a water shaft up into the ridge.
+     - The two falls' roars blend along the tunnel instead of flipping at the valley mouth.
+     - Not done: the swim test starts on the tunnel's centre line only. A diver at the edge of a curtain has to steer toward the lamps.
+   - The canyon stream runs about 90 m south along the floor and ends in a dry bed of gravel and mud.
+   - Spray and a positioned roar at both falls; each falls is muffled when heard across the ridge. The journal's gate entry says: dive through the falls, see the lamp, swim to the gate: "it knows you".
 3. Still open from before:
    - Water doesn't flow; breaking a block next to water fills it with still water.
    - Cross-device saves through the page's `db` capability.

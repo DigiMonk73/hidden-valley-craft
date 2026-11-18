@@ -1,24 +1,27 @@
-// The builder's gate in the drowned tunnel. It looks like the rock around it. Pulling the marked stone
-// on either side starts the ritual: a grinding, a rumble, and the slab lifting row by row into the
-// roof until the light from the far side comes through. It lowers itself again once you have passed,
-// and never onto a swimmer.
+// The builder's gate in the drowned tunnel. It looks like the rock around it, and it knows you: as a
+// swimmer comes within a couple of blocks of it, from either side, the ritual starts by itself: a
+// grinding, a rumble, and the slab lifting row by row into the roof until the way through is open.
+// It lowers itself again once you have passed, and never onto a swimmer.
 
 import { blockId, WATER } from '../world/blocks.ts';
-import { GATE } from '../gen/layout.ts';
+import { GATE, TUNNEL } from '../gen/layout.ts';
 import type { World } from '../world/world.ts';
 
 export const GATE_STONE = blockId('gate_stone');
+/** The marked stone older builds had beside the gate. No longer placed; kept so a save holding one loads. */
 export const GATE_LEVER = blockId('gate_lever');
 
 const ROWS = GATE.y1 - GATE.y0;
-const ROW_SECONDS = 0.55;
+const ROW_SECONDS = 0.3;
 /** How long it stays open at least, and how far the swimmer must be from it before it closes. */
 const HOLD = 5;
 const CLEAR = 3;
+/** How near (blocks from either face, along the tunnel) a swimmer comes before it opens for them. */
+export const APPROACH = 3;
 
 export type GateEvent = 'grind' | 'open' | 'shut' | 'held';
 
-interface Swimmer { x: number; intersectsBlock(x: number, y: number, z: number): boolean }
+interface Swimmer { x: number; y: number; z: number; intersectsBlock(x: number, y: number, z: number): boolean }
 
 export class Gate {
   /** Rows lifted, from the bottom: 0 shut … ROWS open. */
@@ -26,10 +29,12 @@ export class Gate {
   state: 'shut' | 'opening' | 'open' | 'closing' = 'shut';
   private timer = 0;
 
-  /** Someone pulled a lever: open (or keep open, or stop closing and open again). */
+  /** Open (or keep open, or stop closing and open again): a swimmer has come up to it. */
   pull(): GateEvent | null {
     if (this.state === 'open') { this.timer = HOLD; return null; }
     if (this.state === 'opening') return null;
+    // Asked to close but no row has come down yet: simply stay open.
+    if (this.state === 'closing' && this.rows >= ROWS) { this.state = 'open'; this.timer = HOLD; return null; }
     this.state = 'opening';
     this.timer = ROW_SECONDS;
     return 'grind';
@@ -42,18 +47,26 @@ export class Gate {
       this.state = 'open';
       this.timer = HOLD;
     }
+    // A swimmer coming up to it, in the tunnel on either side: it opens (or stops closing and opens again).
+    if ((this.state === 'shut' || this.state === 'closing') && approaching(who)) {
+      const e = this.pull();
+      if (e) return e;
+    }
     if (this.state === 'shut') return null;
     this.timer -= dt;
     if (this.timer > 0) return null;
     switch (this.state) {
       case 'opening':
+        // Never lift a row that is not part of the slab (the roof above it stays rock).
+        if (this.rows >= ROWS) { this.state = 'open'; this.timer = HOLD; return null; }
         this.setRow(world, this.rows, WATER);
         this.rows++;
         this.timer = ROW_SECONDS;
         if (this.rows >= ROWS) { this.state = 'open'; this.timer = HOLD; return 'open'; }
         return null;
       case 'open': {
-        const near = Math.abs(who.x - (GATE.x0 + GATE.x1) / 2) < CLEAR;
+        // Anyone it would open for keeps it open, so it never closes and reopens on a waiting swimmer.
+        const near = Math.abs(who.x - (GATE.x0 + GATE.x1) / 2) < CLEAR || approaching(who);
         if (near || this.rowOccupied(this.rows - 1, who)) { this.timer = 0.5; return null; }
         this.state = 'closing';
         this.timer = 0;
@@ -85,4 +98,12 @@ export class Gate {
       for (let z = GATE.z0; z < GATE.z1; z++) for (let x = GATE.x0; x < GATE.x1; x++) if (who.intersectsBlock(x, y, z)) return true;
     return false;
   }
+}
+
+/** Is the swimmer in the tunnel within APPROACH blocks of either face of the gate? */
+export function approaching(who: Swimmer): boolean {
+  const mid = (GATE.x0 + GATE.x1) / 2, half = (GATE.x1 - GATE.x0) / 2;
+  if (Math.abs(who.x - mid) >= half + APPROACH) return false;
+  if (Math.abs(who.z - (TUNNEL.z + 0.5)) > TUNNEL.halfWidth + 1) return false;
+  return who.y > TUNNEL.y0 - 2 && who.y < TUNNEL.y1;
 }

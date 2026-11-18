@@ -5,7 +5,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { encodePng } from './png.ts';
 import {
-  surfaceHeight, zoneAt, distToValley, creekDistance, pathAt, VALLEY, POOL, CANYON_POOL, HOME, ZONES, type ZoneId,
+  surfaceHeight, zoneAt, distToValley, creekDistance, pathAt, VALLEY, POOL, CANYON_POOL, inCanyonStream, HOME, ZONES, type ZoneId,
 } from '../src/gen/layout.ts';
 import { WORLD_X, WORLD_Z } from '../src/world/constants.ts';
 
@@ -34,7 +34,7 @@ for (let j = 0; j < H; j++)
     let c: [number, number, number] = [t[0] * shade, t[1] * shade, t[2] * shade];
     const inValley = distToValley(x, z) < VALLEY.radius;
     const water = (inValley && (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius || creekDistance(x, z) < 2)) ||
-      Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius;
+      Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius || inCanyonStream(x, z, 0.5);
     if (water) c = [60, 120, 220];
     if (pathAt(x, z).dist < 2) c = [230, 220, 200];
     put(i, j, c.map((v) => Math.max(0, Math.min(255, Math.round(v)))) as [number, number, number]);
