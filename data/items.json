@@ -85,7 +85,7 @@
     { "name": "hardware_wallet", "label": "Hardware wallet", "icon": "wallet", "stack": 1 },
     { "name": "builders_journal", "label": "The builder's journal", "icon": "journal", "stack": 1 },
 
-    { "name": "pistol", "label": "Pistol (the scout's)", "icon": "pistol", "stack": 1 },
+    { "name": "pistol", "label": "Pistol", "icon": "pistol", "stack": 1 },
     { "name": "pistol_rounds", "label": "Pistol rounds", "icon": "rounds_pistol", "stack": 24 },
     { "name": "map_scrap", "label": "Map scrap (the scout's)", "icon": "map_scrap", "stack": 1 },
     { "name": "armband", "label": "Red armband", "icon": "armband", "stack": 1 },
@@ -98,6 +98,18 @@
     { "name": "egg_cooked", "label": "Fried eggs", "icon": "egg_cooked", "stack": 16, "food": { "hunger": 22 } },
     { "name": "feather", "label": "Feather", "icon": "feather", "stack": 64 },
     { "name": "chicken_raw", "label": "Raw chicken", "icon": "poultry", "stack": 16, "food": { "hunger": 3 } },
-    { "name": "chicken_cooked", "label": "Roast chicken", "icon": "poultry_cooked", "stack": 16, "food": { "hunger": 26 } }
+    { "name": "chicken_cooked", "label": "Roast chicken", "icon": "poultry_cooked", "stack": 16, "food": { "hunger": 26 } },
+
+    { "name": "raider_rifle", "label": "Rifle (the lookout's, worn, no scope)", "icon": "rifle_worn", "stack": 1 },
+    { "name": "bowstring", "label": "Bowstring", "icon": "bowstring", "stack": 16 },
+    { "name": "forge_parts", "label": "Forge-upgrade parts (blower, firebricks, crucible)", "icon": "forge_parts", "stack": 4 },
+    { "name": "hunting_bow", "label": "Hunting bow", "icon": "bow_wood", "stack": 1 },
+    { "name": "jaguar_pelt", "label": "Jaguar pelt", "icon": "jaguar_pelt", "stack": 4 },
+    { "name": "smoked_meat", "label": "Smoked meat", "icon": "smoked_meat", "stack": 32, "food": { "hunger": 34 } },
+    { "name": "jerky", "label": "Jerky", "icon": "jerky", "stack": 32, "food": { "hunger": 28, "thirst": -4 } },
+    { "name": "seeds_quinoa", "label": "Quinoa seed", "icon": "seeds", "stack": 64 },
+    { "name": "quinoa", "label": "Quinoa", "icon": "quinoa", "stack": 64, "food": { "hunger": 7 } },
+    { "name": "apple_slip", "label": "Apple grafting slip", "icon": "slip", "stack": 16 },
+    { "name": "apple", "label": "Apple", "icon": "apple", "stack": 64, "food": { "hunger": 9, "thirst": 4 } }
   ]
 }

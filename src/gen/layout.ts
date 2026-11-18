@@ -175,8 +175,11 @@ export const RAMP: [number, number, number][] = [
 ];
 export const RAMP_HALF_WIDTH = 1.9;
 
-/** The old road: cracked asphalt, four wide, from the top of the ramp west through the buffer to the saddle and on. */
-export const ROAD = { east: 1534, west: 940, halfWidth: 2 };
+/**
+ * The old road: cracked asphalt, four wide, from the top of the ramp west through the buffer, over the
+ * saddle and through Zone-1, to the broken bridge at the ravine, where it dies (docs/PHASE5.md).
+ */
+export const ROAD = { east: 1534, west: 659, halfWidth: 2 };
 
 /** The buffer's places, off the road (DESIGN.md: wilderness buffer). */
 export const PLACES = {
@@ -222,9 +225,65 @@ export const ZONE1 = {
   coop: { x0: 1064, x1: 1069, z0: 1072, z1: 1076 },
   /** The rusted pickup on the road's north shoulder. */
   truck: { x0: 1034, x1: 1039, z0: 0 },
-  /** The mid band's outpost (Phase 5): only its smoke, seen from the saddle. */
+  /** The mid band's outpost: the smoke of its oil-drum cookfire, seen from the saddle. */
   smoke: { x: 860, z: 0 },
 };
+
+/** The ravine's centre line (north–south, wavering). */
+export function ravineX(z: number): number {
+  return ZONES.ravineX + 6 * Math.sin(z / 45);
+}
+/** Half the ravine's width where it is sheer, round the road: 42 m from rim to rim. */
+export const RAVINE_HALF = 20.5;
+
+/**
+ * Zone-1's mid and deep bands (docs/PHASE5.md). Boxes are [x0, x1) × [z0, z1); z values and floors are
+ * filled in at the end of this file from the road.
+ */
+export const ZONE1FAR = {
+  /** The raiders' outpost: a cinder-block tienda south of the road, its front (north) to the road. */
+  outpost: { x0: 852, x1: 868, z0: 0, z1: 0, floor: 0, split: 0 },
+  /** The yard in front, the sandbags, the cookfire under the smoke, and the stripped pickup across the road. */
+  fire: { x: 860, z: 0 },
+  hulk: { x0: 870, x1: 875, z0: 0 },
+  /** The game trail through the brush: off the road at x 905, south, then west to the outpost's back. */
+  brushTrail: [[905, 0], [905, 0], [868, 0], [858, 0]] as [number, number][],
+  /** The old mine: a timbered decline south of the road, down to a chamber lined with iron and coal. */
+  mine: { x: 830, z: 0, floor: 0, depth: 16, chamber: { x0: 822, x1: 839, z0: 0, z1: 0, y0: 0, y1: 0 } },
+  /** The hunting camp: the trail head's marker on the road's north side, the trail north, the clearing. */
+  campHead: { x: 800, z: 0 },
+  camp: { x0: 780, x1: 817, z0: 958, z1: 988, floor: 0 },
+  lodge: { x0: 783, x1: 792, z0: 961, z1: 968 },
+  shed: { x0: 803, x1: 811, z0: 963, z1: 968 },
+  /** Where the jaguar crosses: from the clearing's west edge to its east, along its far (north) side. */
+  jaguarPath: [[778, 960], [798, 960.5], [818, 959]] as [number, number][],
+  /** The broken bridge: the road's end (near abutment) and the far abutment across the ravine. */
+  bridge: { near: 0, deckEnd: 0, far: 0, farDeck: 0, z: 0, y: 0 },
+  /** The body on the far bank, in the line of sight from the deck's end. */
+  body: { x: 0, z: 0, y: 0 },
+  /** The two-legged tracks on the near bank, north of the road's end, never near the body. */
+  tracks: [[0, 0], [0, 0]] as [number, number][],
+};
+
+/** Is (x, z) on the camp's trail, from the road north to the clearing (two wide)? */
+export function onCampTrail(x: number, z: number): boolean {
+  const h = ZONE1FAR.campHead;
+  return x >= h.x - 1 && x <= h.x && z <= h.z && z >= ZONE1FAR.camp.z1 - 1;
+}
+
+/** Distance from (x, z) to the brush trail's centre line. */
+export function brushTrailDist(x: number, z: number): number {
+  const t = ZONE1FAR.brushTrail;
+  let best = Infinity;
+  for (let i = 0; i < t.length - 1; i++) best = Math.min(best, distToSegment(x + 0.5, z + 0.5, t[i][0], t[i][1], t[i + 1][0], t[i + 1][1])[0]);
+  return best;
+}
+
+/** The brush: a band of thick bushes either side of the trail, from the road round to the outpost's back. */
+export function inBrush(x: number, z: number): boolean {
+  const d = brushTrailDist(x, z);
+  return d > 1.4 && d < 5.5;
+}
 
 /** Is (x, z) on the dirt track from the farm's gate straight south to the yard (two blocks wide)? */
 export function onFarmTrack(x: number, z: number): boolean {
@@ -372,6 +431,12 @@ export function outsideHeight(x: number, z: number): number {
     const dx = Math.max(f.x0 - x, x - (f.x1 - 1), 0), dz = Math.max(f.z0 - z, z - (f.z1 - 1), 0), d = Math.hypot(dx, dz);
     if (d < 7) return Math.round(mix(f.floor, natural, smoothstep(0, 7, d)));
   }
+  // Zone-1's mid and deep places stand on level ground too: the outpost's yard, the mine's head, the
+  // camp's trail and clearing, and the bridge's approach.
+  if (x > 760 && x < 920 && z > 940 && z < 1070) {
+    const flat = farPad(x, z, natural);
+    if (flat !== null) return flat;
+  }
   if (onRoadX) {
     const d = roadD;
     // Shoulders: the land eases down (or up) to the road over a few blocks.
@@ -382,6 +447,19 @@ export function outsideHeight(x: number, z: number): number {
   const wd = Math.hypot(x - w.x, z - w.z);
   if (wd < w.radius + 3) return Math.round(natural + 3 * (1 - smoothstep(w.radius - 3, w.radius + 3, wd)));
   return Math.round(natural);
+}
+
+/** The level pads round Zone-1's mid-band places, blended into the land over a few blocks; null elsewhere. */
+function farPad(x: number, z: number, natural: number): number | null {
+  const F = ZONE1FAR, o = F.outpost, c = F.camp, m = F.mine;
+  const box = (x0: number, x1: number, z0: number, z1: number, floor: number, blend: number) => {
+    const dx = Math.max(x0 - x, x - (x1 - 1), 0), dz = Math.max(z0 - z, z - (z1 - 1), 0), d = Math.hypot(dx, dz);
+    return d < blend ? Math.round(mix(floor, natural, smoothstep(0, blend, d))) : null;
+  };
+  if (onCampTrail(x, z)) return Math.round(mix(roadHeight(F.campHead.x), c.floor, smoothstep(F.campHead.z - 2, c.z1, z)));
+  return box(o.x0 - 8, o.x1 + 9, roadZ(o.x0) + ROAD.halfWidth, o.z1 + 8, o.floor, 6)
+    ?? box(m.x - 4, m.x + 5, roadZ(m.x) + ROAD.halfWidth, m.z + 4, m.floor, 5)
+    ?? box(c.x0, c.x1, c.z0, c.z1, c.floor, 7);
 }
 
 /**
@@ -408,7 +486,7 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
   if (x >= ZONES.saddleX) {
     // Wilderness buffer: cloud-forest upland climbing toward the saddle.
     base = 96 + 14 * smoothstep(1460, ZONES.saddleX, x);
-  } else if (x >= ZONES.ravineX + 40) {
+  } else if (x >= ravineX(z)) {
     // Zone-1 basin: sloping gently down from the saddle toward the ravine.
     base = mix(84, 110, smoothstep(ZONES.midX - 40, ZONES.saddleX, x)); // meets the buffer's 110 at the saddle
   } else {
@@ -456,9 +534,14 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
     base = mix(base, Math.min(base, canyon), endFade);
   }
 
-  // The ravine at the end of Zone-1's road: a deep north-south cut.
-  const rd = Math.abs(x - (ZONES.ravineX + 6 * Math.sin(z / 45)));
-  if (rd < 26) base = mix(42, base, smoothstep(10, 26, rd));
+  // The ravine at the end of Zone-1's road: a deep north-south cut. Round the road it is a sheer gorge
+  // 42 m wide (docs/PHASE5.md: no climbable descent), easing back into a steep slope further off.
+  const rd = Math.abs(x - ravineX(z));
+  if (rd < 26) {
+    const slope = mix(42, base, smoothstep(10, 26, rd));
+    const gorge = rd < RAVINE_HALF ? 42 + 2 * noiseB.noise2(x / 7, z / 7) : base;
+    base = mix(slope, gorge, 1 - smoothstep(50, 90, Math.abs(z - VALLEY.cz)));
+  }
 
   // The world's edge rises into a range of forested mountains, so no edge is ever seen.
   const edge = Math.min(x, z, WORLD_X - 1 - x, WORLD_Z - 1 - z);
@@ -530,4 +613,34 @@ PLACES.warren.z = Math.round(roadZ(PLACES.warren.x)) + 15;
   Z.farm.floor = roadHeight(Z.farmGate.x) - 1;
   Z.truck.z0 = rz(Z.truck.x0) - ROAD.halfWidth - 3;
   Z.smoke.z = rz(Z.smoke.x) + 6;
+  const F = ZONE1FAR, o = F.outpost;
+  o.z0 = rz((o.x0 + o.x1) >> 1) + 8;
+  o.z1 = o.z0 + 11;
+  o.split = o.z0 + 6; // the wall between the front room and the back room
+  o.floor = roadHeight((o.x0 + o.x1) >> 1);
+  F.fire.z = Z.smoke.z;
+  F.fire.x = Z.smoke.x;
+  F.hulk.z0 = rz(F.hulk.x0) - ROAD.halfWidth - 3;
+  const back = o.z1 + 5; // the trail runs behind the outpost
+  F.brushTrail = [[905, rz(905) + ROAD.halfWidth], [905, back], [o.x1 + 1, back], [o.x1 - 6, o.z1 + 1]];
+  const m = F.mine;
+  m.z = rz(m.x) + ROAD.halfWidth + 4; // the head of the decline
+  m.floor = roadHeight(m.x);
+  m.chamber.z0 = m.z + m.depth;
+  m.chamber.z1 = m.chamber.z0 + 12;
+  m.chamber.y0 = m.floor - m.depth;
+  m.chamber.y1 = m.chamber.y0 + 5;
+  F.campHead.z = rz(F.campHead.x) - ROAD.halfWidth - 1;
+  F.camp.floor = Math.round(naturalHeight((F.camp.x0 + F.camp.x1) >> 1, (F.camp.z0 + F.camp.z1) >> 1, false));
+  const b = F.bridge;
+  b.z = rz(ROAD.west);
+  b.near = Math.ceil(ravineX(b.z) + RAVINE_HALF); // the near rim, where the road ends
+  b.deckEnd = b.near - 9; // two deck sections stick out over the drop
+  b.far = Math.floor(ravineX(b.z) - RAVINE_HALF); // the far rim
+  b.farDeck = b.far + 4;
+  b.y = roadHeight(ROAD.west);
+  F.body.x = b.far - 18;
+  F.body.z = b.z + 3;
+  F.body.y = Math.round(naturalHeight(F.body.x, F.body.z, false)) + 2; // on a low rise
+  F.tracks = [[b.near + 14, b.z - 11], [b.near + 4, b.z - 22]];
 }

@@ -33,7 +33,7 @@ export function consume(v: Vitals, food: { hunger?: number; thirst?: number }, h
   const useful = (food.hunger && v.hunger < 99) || (food.thirst && v.thirst < 99) || (heal && v.hp < 99);
   if (!useful) return false;
   v.hunger = Math.min(100, v.hunger + (food.hunger ?? 0));
-  v.thirst = Math.min(100, v.thirst + (food.thirst ?? 0));
+  v.thirst = Math.max(0, Math.min(100, v.thirst + (food.thirst ?? 0)));
   v.hp = Math.min(100, v.hp + heal);
   return true;
 }

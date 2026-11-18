@@ -121,6 +121,17 @@ const DRAW: Record<string, (i: Icon) => void> = {
   feather: (i) => { i.line(4, 13, 12, 3, '#8a6a3a'); for (let k = 0; k < 8; k++) { i.line(5 + k, 11 - k, 3 + k, 8 - k, '#d9c9a8'); i.line(5 + k, 11 - k, 8 + k, 12 - k, '#c9b58e'); } },
   poultry: (i) => { i.disc(7, 9, 4, '#e8b4a0'); i.disc(7, 9, 2, '#f2c8b6'); i.line(10, 7, 14, 3, '#ece6d6', 1); i.disc(14, 3, 1, '#ece6d6'); },
   poultry_cooked: (i) => { i.disc(7, 9, 4, '#b8743e'); i.disc(7, 9, 2, '#d08c4e'); i.line(10, 7, 14, 3, '#ece6d6', 1); i.disc(14, 3, 1, '#ece6d6'); },
+  // Zone-1's mid and deep bands, and M2 (docs/PHASE5.md).
+  rifle_worn: (i) => { i.rect(1, 9, 5, 3, '#5a4632'); i.rect(5, 8, 10, 2, '#4a4642'); i.set(9, 8, '#7a3a24'); i.set(12, 9, '#7a3a24'); i.rect(6, 10, 1, 2, '#3a3632'); },
+  bowstring: (i) => { for (let a = 0; a < 28; a++) { const t = (a / 28) * Math.PI * 2; i.set(8 + Math.cos(t) * 5, 8 + Math.sin(t) * 3, '#e8e2cc'); } i.rect(3, 7, 2, 2, '#c8b98f'); i.rect(11, 7, 2, 2, '#c8b98f'); },
+  forge_parts: (i) => { i.rect(2, 8, 6, 5, '#a8483a'); i.rect(2, 8, 6, 1, '#c86a4a'); i.disc(11, 7, 3, '#5d5f62'); i.disc(11, 7, 1, '#2a2a2a'); i.rect(9, 11, 5, 3, '#7d8790'); i.line(13, 4, 15, 2, '#5e3c20'); },
+  bow_wood: (i) => { for (let y = 2; y < 15; y++) i.set(5 + Math.round(4 * Math.sin(((y - 2) / 12) * Math.PI)), y, '#8a5a32'); i.line(5, 2, 5, 14, '#e8e2cc'); i.rect(8, 7, 2, 3, '#3a2a1c'); },
+  jaguar_pelt: (i) => { i.rect(2, 4, 12, 9, '#c9973c'); for (const [x, y] of [[4, 6], [8, 5], [11, 7], [5, 10], [9, 10], [12, 11]]) { i.disc(x, y, 1, '#3a2a18'); i.set(x, y, '#a8782a'); } },
+  smoked_meat: (i) => { i.disc(8, 9, 5, '#6a3a24'); i.disc(8, 9, 3, '#8a4a2e'); i.line(4, 12, 12, 6, '#4a2414'); },
+  jerky: (i) => { for (const x of [3, 7, 11]) { i.line(x, 13, x + 2, 3, '#6e3a22', 2); i.set(x + 1, 8, '#9a5a34'); } },
+  quinoa: (i) => { for (let k = 0; k < 18; k++) i.disc(4 + ((k * 5) % 9), 5 + ((k * 7) % 8), 0, k % 3 ? '#e2c48a' : '#c9a86a'); },
+  slip: (i) => { i.line(3, 13, 12, 4, '#6e4a2a', 1); i.line(9, 7, 12, 6, '#5e9b3c'); i.disc(12, 4, 1, '#76b24c'); i.rect(3, 12, 3, 2, '#c8a96a'); },
+  apple: (i) => { i.disc(8, 9, 5, '#b8322a'); i.disc(6, 7, 1, '#e86a5a'); i.line(8, 4, 9, 2, '#5e3c20'); i.rect(9, 2, 3, 1, '#5e9b3c'); },
   journal: (i) => { i.rect(3, 2, 10, 12, '#6b3e26'); i.rect(4, 3, 8, 10, '#7d4a2e'); i.rect(12, 2, 1, 12, '#e8dcc0'); i.line(5, 6, 10, 6, '#c9a227'); },
 };
 
