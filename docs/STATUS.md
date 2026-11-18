@@ -87,6 +87,7 @@ _The page to resume from. Keep it short; history lives in git._
 ## Next
 
 1. The owner looks at Phase 3.
+   - **Seen at publishing:** under water, the valley-side lever stone (north wall, just before the gate) is nearly black. Light dies within a few blocks in water. A player who doesn't know where it is will struggle to find it. Light it as part of the next step: the builder would have set a lamp by it.
 2. **Next: one hidden river, bursting out of the ridge both ways** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the higher mountains soaks into the limestone, runs underground, and bursts out of both faces of the ridge between the canyon and the valley.
    - **Two waterfalls, mirrored:** one pours from a dark opening in the ridge's canyon face into the canyon pool, the other from its valley face into the valley pool. The rim above both stays dry rock.
    - **The canyon pool moves east** to the ridge's foot, so the outside falls land in it.
