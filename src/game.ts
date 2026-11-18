@@ -30,7 +30,7 @@ import { openStore, writePending, readPending, clearPending, type Store } from '
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
-import { HOME, WATERFALL, VALLEY, POOL, GATE, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, creekDistance } from './gen/layout.ts';
+import { HOME, WATERFALL, VALLEY, POOL, GATE, PLACES, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 
 const SAVE_KEY = 'save:1';
@@ -399,6 +399,10 @@ export class Game {
       const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
       if (inSanctuary(x, z)) parts.firefly(x, valleyFloorHeight(x, z) + 0.6 + Math.random() * 2.8, z);
     }
+    // Blue morphos gather round the morpho tree in daylight.
+    const m = PLACES.morphoTree;
+    const daytime = h > 7.5 && h < 17;
+    if (daytime && Math.hypot(p.x - m.x, p.z - m.z) < 90 && parts.morphos() < 14) parts.morpho(m.x + 1, outsideHeight(m.x, m.z) + 1, m.z + 1);
   }
 
   // ---- Looking, mining, placing -----------------------------------------------------------

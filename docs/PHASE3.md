@@ -111,9 +111,11 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    Fix what looks wrong; for example, leg 1 of the ramp leaves a small gully against the wall. Add a journal entry (`data/journal.json`) in the builder's voice that tells where the two marked stones are.
 
    *Done:* the ramp is now a ledge: between it and the rising wall the ground is filled up to it, so no gully opens on its inner side (test: "is a ledge cut into the wall"). The journal's "The gate" entry tells where both marked stones are. The gate, pocket, road, sign, warren and morpho tree looked right in the screenshots.
-2. **Morpho butterflies and the tower.**
+2. **DONE: Morpho butterflies and the tower.**
    - Blue morpho particles around the morpho tree by day (`src/render/particles.ts`, like the fireflies).
    - The ridge tower's silhouette in the distant land, at `PLACES.ridgeTower`: a thin lattice mesh with the same fog as `src/render/farland.ts`.
+
+   *Done:* up to 14 morphos circle under the tree's crown from 07:30 to 17:00, flashing blue and brown as they flap (`KIND.morpho`). The tower (`src/render/tower.ts`) is a buckled, X-braced frame with a mast and a hanging dish; its haze is held to 80% so the thin frame still shows from the buffer, where it is a faint mark on the north-west skyline.
 3. **Items, icons and recipes:**
    - Items: `hide`, `bone`, `leather`, `rabbit_raw` / `rabbit_cooked`, `venison_raw` / `venison_cooked`, `pork_raw` / `pork_cooked`, `puma_pelt`, `live_rabbit`, `arrowhead`, `leather_armor`.
    - Icons go in `src/render/itemIcons.ts`.

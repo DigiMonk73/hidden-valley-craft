@@ -157,3 +157,16 @@ describe('the canyon ramp and the old road', () => {
     expect(holes).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('the ridge tower', () => {
+  it('is a tall, thin frame standing on Zone-4’s ridge', async () => {
+    const { towerGeometry } = await import('../src/render/tower.ts');
+    const { zoneAt } = await import('../src/gen/layout.ts');
+    const g = towerGeometry(PLACES.ridgeTower.height);
+    g.computeBoundingBox();
+    const b = g.boundingBox!;
+    expect(b.max.y - b.min.y).toBeGreaterThan(PLACES.ridgeTower.height);
+    expect(b.max.x - b.min.x).toBeLessThan(20);
+    expect(zoneAt(PLACES.ridgeTower.x, PLACES.ridgeTower.z)).toBe('zone4');
+  });
+});
