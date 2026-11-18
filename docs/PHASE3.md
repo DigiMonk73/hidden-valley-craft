@@ -128,12 +128,14 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - Tests: zero hostile spawns in the sanctuary over 100,000 samples, and a creature pushed toward the valley never enters it.
 
    *Done* (`tests/wild.test.ts`). The 100,000-try test counts every kind, not only hostiles, and finds none inside. Fixed on the way: `groundAt` refused any cell with grass or ferns in it, so creatures could hardly spawn in the forest. Creatures don't spawn in test mode (`?test`); `window.__hv.spawn(kind, x, z)` places one.
-5. **Hunting.** All shots and blows also check `rayHitCreature` before blocks.
+5. **DONE: Hunting.** All shots and blows also check `rayHitCreature` before blocks.
    - **Melee:** a left-click on a creature in reach hits with the held item's damage (fist 2, knife 5, spear 8, axe 7, machete 9). Give a short cooldown.
    - **Bow:** hold the right button to draw (up to 1 s), release to shoot an arrow entity with gravity for 12–22 damage. It uses an `arrow`; an arrow that hits a block stays there, and walking over it picks it up.
    - **Rifle:** right-click fires a hitscan shot for 45 and uses a `rifle_round`. Creatures within 60 m hear it.
    - **Drops:** a kill puts the drops in the pack, or tells you if the pack is full.
    - **Tests:** arrow flight, damage and drops.
+
+   *Done* (`src/sim/hunting.ts`, `tests/hunting.test.ts`). Notes: the round is the existing `rifle_rounds` item; the bolt takes 1.4 s between shots and blows 0.6 s. An arrow that hits an animal drops where it stood, to be picked up like any other. The bow's draw shows on the mining bar. A right-click on a chest, lever, station, door or bed still uses it, even with a weapon in hand.
 6. **Snare and hutch.**
    - A rabbit whose cell is a `snare` turns it into `snare_caught` and is removed. Right-clicking gives a `live_rabbit` and resets the snare.
    - The hutch: on each new in-game day (06:00, or waking), a loaded hutch with 2 or more `live_rabbit` gains one, up to 8.

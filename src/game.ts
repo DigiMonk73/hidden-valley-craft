@@ -33,7 +33,8 @@ import { collectContainers, restoreContainers, collectEdits, restoreEdits, encod
 import { HOME, WATERFALL, VALLEY, POOL, GATE, PLACES, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
-import { KINDS, makeCreature, type Creature, type Kind } from './entity/creatures.ts';
+import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
+import { meleeDamage, takeDrops, drawOf, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt } from './entity/spawner.ts';
 
 const SAVE_KEY = 'save:1';
@@ -88,6 +89,10 @@ export class Game {
   wild = new Wild();
   /** A rifle shot this tick, for the creatures to hear. */
   private shotFired = false;
+  private lastBlow = -Infinity;
+  private lastShot = -Infinity;
+  /** When the bowstring was drawn (play time), or null. */
+  private drawing: number | null = null;
   /** Where the player wakes after a death or a night's sleep. */
   spawn = { x: 0, y: 0, z: 0, yaw: 0 };
   private coffeeUntil = 0;
@@ -252,7 +257,9 @@ export class Game {
     // HUD.
     this.hud.updateHotbar(this.hotbar);
     this.hud.setVitals(this.vitals.hp, this.vitals.hunger, this.vitals.thirst, !this.hotbar.creative);
-    this.hud.setMining(this.mining.active ? this.mining.progress : 0);
+    // The bow's draw shows on the same bar as mining; switching away from the bow lets the string down.
+    if (this.drawing !== null && this.hotbar.current?.id !== itemId('compound_bow')) this.drawing = null;
+    this.hud.setMining(this.drawing !== null ? drawOf(this.playTime - this.drawing) : this.mining.active ? this.mining.progress : 0);
     const m = this.mining;
     this.renderer.showCrack(m.x, m.y, m.z, m.active && this.target ? m.progress : 0);
     this.updateFishing();
@@ -382,9 +389,82 @@ export class Game {
 
   /** A kill's drops go into the pack; what doesn't fit is said so. */
   private takeDrops(c: Creature): void {
-    let lost = false;
-    for (const [name, n] of KINDS[c.kind].drops) if (this.hotbar.add(itemId(name), n) > 0) lost = true;
-    this.hud.toast(lost ? 'Your pack is full: some of it is left behind' : KILL_LINE[c.kind]);
+    this.hud.toast(takeDrops(this.hotbar, c.kind) ? KILL_LINE[c.kind] : 'Your pack is full: some of it is left behind');
+    this.edited();
+  }
+
+  // ---- Hunting -------------------------------------------------------------------------------
+
+  /** The creature under the crosshair within `reach`, if no block stands in front of it. */
+  private creatureInSight(reach: number): { c: Creature; dist: number } | null {
+    const p = this.player;
+    const [dx, dy, dz] = p.lookDir();
+    const hit = rayHitCreature(this.wild.creatures, p.x, p.eyeY, p.z, dx, dy, dz, reach);
+    if (!hit) return null;
+    const block = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, hit.dist);
+    return block && block.dist < hit.dist ? null : hit;
+  }
+
+  private damageCreature(c: Creature, damage: number): void {
+    this.sound.hit(c.x, c.y + 0.5, c.z);
+    if (hurtCreature(c, damage)) { this.wild.remove(c); this.takeDrops(c); }
+  }
+
+  /** A left-click on a creature in reach: a blow with what is in hand. True if there was one to hit. */
+  private strike(): boolean {
+    const hit = this.creatureInSight(MELEE_REACH);
+    if (!hit) return false;
+    if (this.playTime - this.lastBlow < MELEE_COOLDOWN) return true;
+    this.lastBlow = this.playTime;
+    this.damageCreature(hit.c, meleeDamage(this.hotbar.current?.id));
+    return true;
+  }
+
+  /** Is the block in front something a right-click uses (a chest, lever, station, bed…), rather than shoots at? */
+  private usableTarget(): boolean {
+    const t = this.target;
+    if (!t) return false;
+    const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
+    return !!this.world.containerAt(t.x, t.y, t.z) || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
+      || ['bed', 'bookshelf', 'computer', 'phone', 'map_table'].includes(name);
+  }
+
+  /** Right-click with the bow or rifle in hand. True if it was handled. */
+  private aim(): boolean {
+    const held = this.hotbar.current?.id;
+    if (held === undefined || this.usableTarget()) return false;
+    if (held === itemId('compound_bow')) {
+      if (this.hotbar.count(itemId('arrow')) === 0) { this.hud.toast('No arrows'); return true; }
+      this.drawing = this.playTime;
+      this.sound.bowDraw();
+      return true;
+    }
+    if (held === itemId('hunting_rifle')) {
+      if (this.playTime - this.lastShot < RIFLE_COOLDOWN) return true;
+      if (!this.hotbar.remove(itemId('rifle_rounds'), 1)) { this.hud.toast('No rifle rounds'); return true; }
+      this.lastShot = this.playTime;
+      this.shotFired = true;
+      this.sound.rifle();
+      this.shake = Math.max(this.shake, 0.25);
+      const hit = this.creatureInSight(RIFLE_RANGE);
+      if (hit) this.damageCreature(hit.c, RIFLE_DAMAGE);
+      this.edited();
+      return true;
+    }
+    return false;
+  }
+
+  /** Letting go of the right button: loose the arrow, if the bow was drawn far enough. */
+  private loose(): void {
+    if (this.drawing === null) return;
+    const draw = drawOf(this.playTime - this.drawing);
+    this.drawing = null;
+    if (this.hotbar.current?.id !== itemId('compound_bow') || draw < BOW_MIN_DRAW) return;
+    if (!this.hotbar.remove(itemId('arrow'), 1)) return;
+    const p = this.player;
+    const [dx, dy, dz] = p.lookDir();
+    this.wild.shoot(p.x + dx * 0.4, p.eyeY - 0.1 + dy * 0.4, p.z + dz * 0.4, dx, dy, dz, draw);
+    this.sound.bowRelease();
     this.edited();
   }
 
@@ -712,14 +792,17 @@ export class Game {
       if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; });
     canvas.addEventListener('mousedown', (e) => {
       if (!this.playing) return;
       if (this.look.mode === 'off') { this.look.engage(); return; }
-      if (e.button === 0) { this.mining.active = true; this.mining.progress = 0; }
-      if (e.button === 2) this.placeBlock();
+      if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
+      if (e.button === 2 && !this.aim()) this.placeBlock();
     });
-    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mining.active = false; });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.mining.active = false;
+      if (e.button === 2) this.loose();
+    });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('wheel', (e) => {
       if (!this.playing) return;
@@ -744,6 +827,7 @@ export class Game {
 
   private pause(): void {
     this.playing = false;
+    this.drawing = null;
     this.sound.suspend();
     this.mining.active = false;
     this.keys.clear();
