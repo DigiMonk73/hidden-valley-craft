@@ -11,6 +11,7 @@ import { Particles } from './particles.ts';
 import { FarLand } from './farland.ts';
 import { Clouds } from './clouds.ts';
 import { RidgeTower } from './tower.ts';
+import { SmokeColumn } from './smoke.ts';
 import { CreatureRenderer } from './creatures.ts';
 import type { FarMesh } from '../gen/farland.ts';
 
@@ -159,6 +160,7 @@ export class Renderer {
   private farland: FarLand | null = null;
   private clouds = new Clouds();
   private tower = new RidgeTower();
+  private smoke = new SmokeColumn();
   /** The wild's creatures and arrows. */
   readonly creatures: CreatureRenderer;
   /** Which columns have real blocks drawn: the distant land stays out of them. */
@@ -247,6 +249,7 @@ export class Renderer {
     this.scene.add(this.bobber);
     this.scene.add(this.clouds.mesh);
     this.scene.add(this.tower.mesh);
+    this.scene.add(this.smoke.mesh);
   }
 
   resize(w: number, h: number): void {
@@ -295,6 +298,7 @@ export class Renderer {
     this.particles.sync(this.gl.domElement.height, this.camera.fov, FOG_NEAR, FOG_FAR, s);
     this.farland?.sync(s, FOG_NEAR, FOG_FAR);
     this.tower.sync(s, FOG_NEAR, FOG_FAR);
+    this.smoke.sync(s, FOG_NEAR, FOG_FAR, time);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
   }
 

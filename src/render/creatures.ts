@@ -111,9 +111,9 @@ const MODELS: Record<Kind, Model> = {
   // Zone-1's near band (docs/PHASE4.md).
   dog: { // a rangy, mangy farm dog gone feral: dark brown with a pale chest
     body: [
-      { size: [0.34, 0.34, 0.72], at: [0, 0.56, 0.02], color: '#4a3a2a' },
+      { size: [0.34, 0.34, 0.72], at: [0, 0.56, 0.02], color: '#6e5438' },
       { size: [0.26, 0.2, 0.3], at: [0, 0.5, -0.24], color: '#c9b08a' },
-      { size: [0.28, 0.27, 0.3], at: [0, 0.76, -0.46], color: '#4f3e2c' },
+      { size: [0.28, 0.27, 0.3], at: [0, 0.76, -0.46], color: '#74593c' },
       { size: [0.14, 0.12, 0.18], at: [0, 0.7, -0.66], color: '#3a2c20' },
       { size: [0.06, 0.04, 0.04], at: [0, 0.74, -0.76], color: '#141414' },
       { size: [0.08, 0.12, 0.05], at: [-0.1, 0.94, -0.42], color: '#3a2c20' },
@@ -122,7 +122,7 @@ const MODELS: Record<Kind, Model> = {
       { size: [0.04, 0.04, 0.02], at: [0.08, 0.8, -0.62], color: '#e0b040' },
       { size: [0.07, 0.07, 0.34], at: [0, 0.7, 0.5], color: '#3f3122' },
     ],
-    leg: { size: [0.1, 0.4, 0.1], color: '#3f3122', hips: [[-0.11, 0.4, -0.26], [0.11, 0.4, -0.26], [-0.11, 0.4, 0.28], [0.11, 0.4, 0.28]] },
+    leg: { size: [0.1, 0.4, 0.1], color: '#5a4430', hips: [[-0.11, 0.4, -0.26], [0.11, 0.4, -0.26], [-0.11, 0.4, 0.28], [0.11, 0.4, 0.28]] },
   },
   coyote: { // grey-tan with a pale belly, big ears and a bushy, black-tipped tail
     body: [
