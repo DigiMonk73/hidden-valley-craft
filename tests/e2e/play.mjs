@@ -449,6 +449,15 @@ const notesPage = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the journal opens at your newest note', /Your notes/.test(notesPage ?? '') && /first run/i.test(notesPage ?? ''), (notesPage ?? '').slice(0, 70));
 await closeScreens();
 
+// F3 shows the debug panel, and F3 again hides it (it used to stay up with its last text).
+await page.keyboard.press('F3');
+await page.waitForTimeout(400);
+const debugOn = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display !== 'none');
+await page.keyboard.press('F3');
+await page.waitForTimeout(400);
+const debugOff = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display === 'none');
+check('F3 shows the debug panel and hides it again', debugOn && debugOff, `on ${debugOn}, off ${debugOff}`);
+
 // Mine a block next to it and leave the hole, then save and reload.
 const t2 = { x: target.x, y: target.y, z: target.z + 1 };
 await g((t) => window.__hv.game.world.setBlock(t.x, t.y, t.z, 0), t2);

@@ -36,7 +36,7 @@ _The page to resume from. Keep it short; history lives in git._
 
   Left open on purpose: the puma has no "from cover" stalking yet, and a hutch only breeds while its chunk is loaded.
 - **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
-- **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (private), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
+- **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (public), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
 
 ## What Phase 1 adds
 

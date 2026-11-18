@@ -17,21 +17,23 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   // A chest that still holds things stays put: empty it first.
   const held = world.containerAt(x, y, z);
   if (held?.some(Boolean)) return { changed: false, full: false, keepsItems: true };
+  // Crops give their harvest; everything else its one drop. A plant on top loses its footing and drops too.
+  const above = world.blockAt(x, y + 1, z);
+  const plantAbove = B_RENDER[above] === RENDER.cross;
+  const drops: [number, number][] = [...(cropDrops(id) ?? [[dropOf(id), 1]]), ...(plantAbove ? cropDrops(above) ?? [[dropOf(above), 1]] : [])];
+  // Nothing is ever lost: if the pack can't take everything, the block stays where it is.
+  if (!hotbar.creative) {
+    const trial = hotbar.clone();
+    if (drops.some(([item, n]) => item && n > 0 && trial.add(item, n) > 0)) return { changed: false, full: true };
+  }
   // A broken block next to water lets the water in (still water, for now).
   const besideWater = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a, b, c]) => isWaterId(world.blockAt(x + a, y + b, z + c)));
   if (!world.setBlock(x, y, z, besideWater ? WATER : AIR)) return { changed: false, full: false };
   // An emptied chest's record stays (empty), so a chest put back here never refills with the builder's things.
   if (held) world.containers.set(packPos(x, y, z), held.map(() => null));
-  let full = false;
-  // Crops give their harvest; everything else its one drop.
-  const drops = cropDrops(id) ?? [[dropOf(id), 1]];
-  for (const [item, n] of drops) if (item && n > 0 && !hotbar.creative && hotbar.add(item, n) > 0) full = true;
-  // Plants on top lose their footing.
-  const above = world.blockAt(x, y + 1, z);
-  if (B_RENDER[above] === RENDER.cross && world.setBlock(x, y + 1, z, AIR) && !hotbar.creative) {
-    for (const [item, n] of cropDrops(above) ?? [[dropOf(above), 1]]) if (item && n > 0 && hotbar.add(item, n) > 0) full = true;
-  }
-  return { changed: true, full };
+  if (plantAbove) world.setBlock(x, y + 1, z, AIR);
+  if (!hotbar.creative) for (const [item, n] of drops) if (item && n > 0) hotbar.add(item, n);
+  return { changed: true, full: false };
 }
 
 /** Where a placed block would go for this target: into a plant, else against the face looked at. */

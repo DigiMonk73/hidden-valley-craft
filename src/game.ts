@@ -30,7 +30,7 @@ import { openStore, writePending, readPending, clearPending, type Store } from '
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
-import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
+import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
@@ -299,7 +299,8 @@ export class Game {
     this.hud.setBreath(p.breath / BREATH_MAX, p.headInWater || p.breath < BREATH_MAX - 0.01);
     this.fps.frames++;
     if (now - this.fps.t > 500) { this.fps.value = Math.round((this.fps.frames * 1000) / (now - this.fps.t)); this.fps.frames = 0; this.fps.t = now; }
-    if (this.hud.debugVisible) this.hud.setDebug(this.debugText());
+    // Every frame, so turning F3 off hides the panel too (it used to stay up with its last text).
+    this.hud.setDebug(this.hud.debugVisible ? this.debugText() : '');
 
     // Save a couple of seconds after the player stops changing things, and at least once a minute.
     if (this.playing && shouldAutosave({ unsaved: this.unsaved, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
@@ -641,10 +642,10 @@ export class Game {
     const h = this.hour;
     const dusk = Math.min(1, Math.max(0, (h - 18.3) / 0.8)) * (h < 23.5 ? 1 : 0) + (h < 4.5 ? 0.5 : 0);
     const want = Math.round(70 * dusk);
-    if (inSanctuary(p.x, p.z) && parts.fireflies() < want) {
+    if (inValleyBowl(p.x, p.z) && parts.fireflies() < want) {
       const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 30;
       const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
-      if (inSanctuary(x, z)) parts.firefly(x, valleyFloorHeight(x, z) + 0.6 + Math.random() * 2.8, z);
+      if (inValleyBowl(x, z)) parts.firefly(x, valleyFloorHeight(x, z) + 0.6 + Math.random() * 2.8, z); // over the valley floor, not the rock of the home
     }
     // Blue morphos gather round the morpho tree in daylight.
     const m = PLACES.morphoTree;

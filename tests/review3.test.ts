@@ -100,10 +100,11 @@ describe('review: spawning', () => {
 
   it('no part of a creature’s body stands inside the sanctuary', () => {
     const edge = VALLEY.radius + 8;
-    const c = makeCreature('deer', VALLEY.cx + edge + 0.1, 100, VALLEY.cz);
+    // The west edge: east of the valley at this latitude is the builder's home, sanctuary too.
+    const c = makeCreature('deer', VALLEY.cx - edge - 0.1, 100, VALLEY.cz);
     expect(inSanctuary(c.x, c.z)).toBe(false);
     expect(fits(c, c.x, 100, c.z, flat)).toBe(false); // its near side would be inside
-    expect(fits(c, VALLEY.cx + edge + 0.5, 100, VALLEY.cz, flat)).toBe(true);
+    expect(fits(c, VALLEY.cx - edge - 0.5, 100, VALLEY.cz, flat)).toBe(true);
   });
 });
 
