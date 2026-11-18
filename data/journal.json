@@ -1,23 +1,99 @@
 {
   "_comment": "The builder's journal, read from the bookshelves or the journal itself. Closed exposition: he is never found (DESIGN.md, ADR-017). The safe's code is the date in the sixth entry (0618).",
   "entries": [
-    { "title": "Found", "text": "The survey team said the sinkhole was dry rock. They were wrong about the water and right to leave. A current under the canyon pool pulled me sideways into a passage, and when I came up for air I was in the greenest place I have ever seen. I bought the whole range the next week, through three companies, so that nobody would ever connect it to me." },
-    { "title": "The east wall", "text": "The cave faces west. Every evening the sun drops behind the falls and the whole room goes gold. I had the balcony dressed in stone and a railing run all the way round, except where the path goes down. The stove went on the left with its back to the rock, and a proper pipe, because I am not living in smoke." },
-    { "title": "Eternal spring", "text": "It never freezes here. Mist in the mornings, rain some afternoons, clear for sunset. The coffee does well along the south side of the garden. Corn, beans and squash together, the old way, and they hold each other up. The trout came with the water; I never stocked them." },
-    { "title": "The news", "text": "Every week the feeds are worse. Borders closing, the labs in the north gone quiet, a sickness nobody will name. I have stopped telling anyone where I am. The phone still has their numbers and I check it anyway, every night, like a fool." },
-    { "title": "Provisions", "text": "Stocked the pantry for months. Rifle, bow and the vest are in the vault behind the steel door, with the medical kits and the pack I carried in Patagonia. Iron in the pantry wall, enough to keep a forge busy. If you are reading this and I am not here: it is yours now. Look after it." },
-    { "title": "The safe", "text": "The cold wallet is in the safe in the vault wall. I set the code to the day I first swam through, the eighteenth of June. Month first, the American way, four digits. Some days you want to remember." },
-    { "title": "The gate", "text": "The way out is under the falls. Dive straight through the white water and you will see the lamp over the tunnel mouth, low in the rock. The tunnel is short and lit all the way. Halfway along there is a gate, so nothing comes up the water that I have not let in. You need do nothing: it knows you. Swim to it and it lifts into the roof, and it shuts itself behind you. The canyon spring pushes harder than ours, so the water runs toward home: easy coming in, slower going out. One breath either way." },
-    { "title": "Workshop notes", "text": "The kiln burns logs to charcoal. The smelter takes ore from the pantry wall with charcoal and gives good iron. Nails, arrowheads and lanterns at the anvil. The stove and the fireplace will cook anything worth eating. Hoe the ground before you sow; the seeds are in the pantry." },
-    { "title": "Last", "text": "Sirens on the satellite feed. Lucía called from the coast road and then the line went dead. I am going out through the pool one more time to bring her back. I will be home before the rains. The lanterns are lit. — R." }
+    {
+      "title": "Found",
+      "text": "The survey team said the sinkhole was dry rock. They were wrong about the water and right to leave. A current under the canyon pool pulled me sideways into a passage, and when I came up for air I was in the greenest place I have ever seen. I bought the whole range the next week, through three companies, so that nobody would ever connect it to me."
+    },
+    {
+      "title": "The east wall",
+      "text": "The cave faces west. Every evening the sun drops behind the falls and the whole room goes gold. I had the balcony dressed in stone and a railing run all the way round, except where the path goes down. The stove went on the left with its back to the rock, and a proper pipe, because I am not living in smoke."
+    },
+    {
+      "title": "Eternal spring",
+      "text": "It never freezes here. Mist in the mornings, rain some afternoons, clear for sunset. The coffee does well along the south side of the garden. Corn, beans and squash together, the old way, and they hold each other up. The trout came with the water; I never stocked them."
+    },
+    {
+      "title": "The news",
+      "text": "Every week the feeds are worse. Borders closing, the labs in the north gone quiet, a sickness nobody will name. I have stopped telling anyone where I am. The phone still has their numbers and I check it anyway, every night, like a fool."
+    },
+    {
+      "title": "Provisions",
+      "text": "Stocked the pantry for months. Rifle, bow and the vest are in the vault behind the steel door, with the medical kits and the pack I carried in Patagonia. Iron in the pantry wall, enough to keep a forge busy. If you are reading this and I am not here: it is yours now. Look after it."
+    },
+    {
+      "title": "The safe",
+      "text": "The cold wallet is in the safe in the vault wall. I set the code to the day I first swam through, the eighteenth of June. Month first, the American way, four digits. Some days you want to remember."
+    },
+    {
+      "title": "The gate",
+      "text": "The way out is under the falls. Dive straight through the white water and you will see the lamp over the tunnel mouth, low in the rock. The tunnel is short and lit all the way. Halfway along there is a gate, so nothing comes up the water that I have not let in. You need do nothing: it knows you. Swim to it and it lifts into the roof, and it shuts itself behind you. The canyon spring pushes harder than ours, so the water runs toward home: easy coming in, slower going out. One breath either way."
+    },
+    {
+      "title": "Workshop notes",
+      "text": "The kiln burns logs to charcoal. The smelter takes ore from the pantry wall with charcoal and gives good iron. Nails, arrowheads and lanterns at the anvil. The stove and the fireplace will cook anything worth eating. Hoe the ground before you sow; the seeds are in the pantry."
+    },
+    {
+      "title": "Last",
+      "text": "Sirens on the satellite feed. Lucía called from the coast road and then the line went dead. I am going out through the pool one more time to bring her back. I will be home before the rains. The lanterns are lit. — R."
+    }
   ],
   "_notes": "The player's own notes, written in the back of the builder's journal as things happen (docs/PHASE4.md). Each appears once its flag is set.",
   "notes": [
-    { "flag": "saddle_seen", "title": "The saddle", "text": "The road tops out between two knolls. Below: a farm, its roof half gone. Far off, a thin column of smoke: someone keeps a fire burning out there. Beyond that, the forest goes dark. A faded farm sign, a cattle grid. Past here, I will be careful." },
-    { "flag": "shelter_found", "title": "The bus shelter", "text": "An old bus shelter on the road, its lantern still lit. Someone keeps it filled. On the timetable, scratched into the paint: MARCO · TRADES · CALL. The builder's phone has the number now." },
-    { "flag": "scout_searched", "title": "The dead man on the road", "text": "A raider scout, shot from the front, a day or two ago. He was walking out toward the saddle, toward the valley. A red armband with a white broken circle: someone sent him, and someone out here shoots back. His lamp was still burning. His map shows a ridge, a bend in a road and a name in pencil: Las Cruces. I took his pistol." },
-    { "flag": "farm_seen", "title": "The farm", "text": "A farm off the road: a collapsed house, a barn still standing, a coop fallen in. Washing still on the line. A name on the board at the gate: Familia Rojas. Hens scratching in the yard, and dogs in the house that were somebody's once." },
-    { "flag": "marco_trust1", "title": "Marco", "text": "Marco keeps his word: he was at the shelter, as he said. A straw hat, a red poncho, a bag of everything. He pays half what he sells for, and says so. I think he trusts me a little. I trust him a little." },
-    { "flag": "m1_done", "title": "The first run", "text": "Out through the gate, over the saddle, and home again with a dead man's pistol. The valley is still mine: nobody followed. The road home is on the builder's map now." }
+    {
+      "flag": "saddle_seen",
+      "title": "The saddle",
+      "text": "The road tops out between two knolls. Below: a farm, its roof half gone. Far off, a thin column of smoke: someone keeps a fire burning out there. Beyond that, the forest goes dark. A faded farm sign, a cattle grid. Past here, I will be careful."
+    },
+    {
+      "flag": "shelter_found",
+      "title": "The bus shelter",
+      "text": "An old bus shelter on the road, its lantern still lit. Someone keeps it filled. On the timetable, scratched into the paint: MARCO · TRADES · CALL. The builder's phone has the number now."
+    },
+    {
+      "flag": "scout_searched",
+      "title": "The dead man on the road",
+      "text": "A raider scout, shot from the front, a day or two ago. He was walking out toward the saddle, toward the valley. A red armband with a white broken circle: someone sent him, and someone out here shoots back. His lamp was still burning. His map shows a ridge, a bend in a road and a name in pencil: Las Cruces. I took his pistol."
+    },
+    {
+      "flag": "farm_seen",
+      "title": "The farm",
+      "text": "A farm off the road: a collapsed house, a barn still standing, a coop fallen in. Washing still on the line. A name on the board at the gate: Familia Rojas. Hens scratching in the yard, and dogs in the house that were somebody's once."
+    },
+    {
+      "flag": "marco_trust1",
+      "title": "Marco",
+      "text": "Marco keeps his word: he was at the shelter, as he said. A straw hat, a red poncho, a bag of everything. He pays half what he sells for, and says so. I think he trusts me a little. I trust him a little."
+    },
+    {
+      "flag": "m1_done",
+      "title": "The first run",
+      "text": "Out through the gate, over the saddle, and home again with a dead man's pistol. The valley is still mine: nobody followed. The road home is on the builder's map now."
+    },
+    {
+      "flag": "outpost_seen",
+      "title": "The outpost",
+      "text": "The smoke comes from an oil drum in front of an old cinder-block shop: TIENDA, faded over the door. Sandbags, tin over the windows, a red flag with the broken circle. A man on the roof with a rifle, watching the road. They are the scout's people."
+    },
+    {
+      "flag": "outpost_cleared",
+      "title": "The outpost is quiet",
+      "text": "Three of them: the lookout, a man with a pistol, a man with a machete. It is done, and it will not need doing again. In the back room: a forge, ammunition, bowstrings, arrowheads. They were making things here, not only taking them."
+    },
+    {
+      "flag": "jaguar_seen",
+      "title": "The jaguar",
+      "text": "At the hunters' camp a jaguar walked across the far side of the clearing, stopped and looked at me. Then it was gone. Its prints are in the mud by the drying shed. I don't think it was afraid of me."
+    },
+    {
+      "flag": "body_seen",
+      "title": "Across the ravine",
+      "text": "The road ends at a bridge with no middle. On the far bank a body lies in the undergrowth, pale clothes, twisted. Not shot. Not torn. Around it the ground is stained pale and patchy, too wide for blood. On this side, in the mud, tracks: two-legged, but not boots and not paws. Whatever made them came along the edge and went away again."
+    },
+    {
+      "flag": "m2_done",
+      "title": "M2",
+      "text": "Eggs in the morning, rabbits in the hutch, meat on the rack, a forge in the workshop that was the raiders', a bow I made myself, new seed in the ground. The valley is bigger for what I brought home."
+    }
   ]
 }

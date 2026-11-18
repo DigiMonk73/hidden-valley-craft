@@ -27,6 +27,9 @@ export interface Listener {
   creekDist: number; // metres to the creek or pool edge
   /** Where each waterfall is (the valley's, then the canyon's), and how loud it is there. */
   falls: { pos: [number, number, number]; loudness: number }[];
+  /** The band of Zone-1 the listener is in (docs/PHASE5.md: the audio gradient), and whether the outpost is held. */
+  band?: 'near' | 'mid' | 'deep' | 'other';
+  raiders?: boolean;
 }
 
 export class Sound {
@@ -45,6 +48,8 @@ export class Sound {
   private nextBird = 0;
   private nextFrog = 0;
   private nextOwl = 0;
+  private nextBand = 0;
+  private hum: { osc: OscillatorNode; gain: GainNode } | null = null;
   volume = 0.8;
   muted = false;
 
@@ -195,11 +200,20 @@ export class Sound {
     // Birds by day (a dawn chorus first thing), tree frogs by night.
     const dawn = l.hour > 5.3 && l.hour < 8.5;
     const day = l.hour > 5.3 && l.hour < 18.4;
-    if (day && t > this.nextBird) {
-      this.bird(l);
+    // The audio gradient: thinner birdsong in the near band, none past it (DESIGN.md, Zone-1 per band).
+    const birds = l.band === 'mid' || l.band === 'deep' ? 0 : l.band === 'near' ? 0.5 : 1;
+    if (day && t > this.nextBird && birds > 0) {
+      if (Math.random() < birds) this.bird(l);
       this.nextBird = t + (dawn ? 0.6 + Math.random() * 1.6 : 1.8 + Math.random() * 5);
     }
-    if (night > 0.5 && t > this.nextFrog) {
+    // The mid band: a distant metal creak, and a raider's voice now and then while the outpost is held.
+    // The deep band: silence, and far off, now and then, something organic and wrong.
+    if ((l.band === 'mid' || l.band === 'deep') && t > this.nextBand) {
+      if (l.band === 'mid') { if (l.raiders && Math.random() < 0.5) this.murmur(l); else this.creak(l); }
+      else if (Math.random() < 0.35) this.stinger(Math.floor(Math.random() * 4), l.x - 80, l.y, l.z + (Math.random() - 0.5) * 80, 0.25);
+      this.nextBand = t + 9 + Math.random() * 14;
+    }
+    if (night > 0.5 && t > this.nextFrog && l.band !== 'deep') {
       this.frog(l);
       this.nextFrog = t + 0.8 + Math.random() * 3;
     }
@@ -511,5 +525,144 @@ export class Sound {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
     src.connect(f).connect(g).connect(this.sfx);
     src.start(t, Math.random() * 3, 0.5);
+  }
+
+  // ---- Zone-1's mid and deep bands (docs/PHASE5.md) --------------------------------------------------
+
+  /** A raider shouting the alarm: two rough syllables. */
+  shout(x: number, y: number, z: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const p = this.at(x, y, z), t = ctx.currentTime;
+    for (const [d, f0, f1, len] of [[0, 230, 260, 0.16], [0.2, 260, 170, 0.3]]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0, t + d); o.frequency.linearRampToValueAtTime(f1, t + d + len);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.5, t + d + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + d + len);
+      // Two formants make it a voice, not a horn.
+      for (const [fq, q] of [[700, 6], [1150, 8]]) {
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fq; bp.Q.value = q;
+        o.connect(bp).connect(g);
+      }
+      g.connect(p);
+      o.start(t + d); o.stop(t + d + len + 0.05);
+    }
+  }
+
+  /** A rifle's bolt worked, or a pistol cocked: the warning that a shot is coming. */
+  click(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.noiseAt(p, t, 0.04, 'highpass', 3500, 1, 0.5);
+    this.noiseAt(p, t + 0.12, 0.05, 'bandpass', 2400, 3, 0.45);
+  }
+
+  /** A raider's shot, from where he stands: the rifle a deep crack, the pistol a flatter bang. */
+  enemyShot(x: number, y: number, z: number, heavy: boolean): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.noiseAt(p, t, heavy ? 0.3 : 0.18, 'lowpass', heavy ? 4200 : 3000, 0.5, heavy ? 1.6 : 1.1, 0.001);
+    this.chirp(p, t, heavy ? 110 : 160, 50, 0.25, heavy ? 0.9 : 0.6);
+    for (const [d, g] of [[0.4, 0.15], [0.8, 0.07]]) this.noiseAt(this.sfx, t + d, 0.5, 'lowpass', 900, 0.6, g, 0.02);
+  }
+
+  /** A bullet passing close: a quick tearing zip. */
+  zip(): void {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.noiseAt(this.sfx, t, 0.09, 'highpass', 5000, 0.8, 0.35, 0.002);
+    this.chirp(this.sfx, t, 2600, 900, 0.1, 0.06, 'sawtooth');
+  }
+
+  /** A bullet striking cover: a whine off the stone. */
+  ricochet(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.noiseAt(p, t, 0.05, 'bandpass', 1800, 1, 0.5);
+    this.chirp(p, t + 0.02, 2600, 1300, 0.35, 0.12, 'sine');
+  }
+
+  /** A machete raised and swung: a rising whoosh. */
+  swing(x: number, y: number, z: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const p = this.at(x, y, z), t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2;
+    f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2600, t + 0.3);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.4, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    src.connect(f).connect(g).connect(p);
+    src.start(t, Math.random() * 2, 0.45);
+  }
+
+  /** The jaguar's call: a deep sawing cough, five or six strokes. */
+  jaguarCall(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    const n = 5 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) {
+      const at = t + i * 0.42, f = 95 - i * 4;
+      this.chirp(p, at, f, f * 0.7, 0.22, 0.55, 'sawtooth');
+      this.noiseAt(p, at, 0.2, 'bandpass', 380, 1.5, 0.3, 0.02);
+    }
+  }
+
+  /**
+   * The deep band's stinger: distant, organic and wrong. Four variations of one family, differing in
+   * pitch, distance and timbre (DESIGN.md: variations on a theme, not different things out there).
+   */
+  stinger(variant: number, x: number, y: number, z: number, gain = 0.5): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const p = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 12, rolloffFactor: 0.6, positionX: x, positionY: y, positionZ: z });
+    p.connect(this.ambience);
+    const t = ctx.currentTime;
+    const base = [70, 92, 58, 110][variant & 3], len = [2.2, 1.6, 2.8, 1.9][variant & 3];
+    // A throat that isn't quite one: a low voice bending down and catching, with a wet rasp over it.
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(base * 1.6, t);
+    o.frequency.exponentialRampToValueAtTime(base, t + len * 0.45);
+    o.frequency.exponentialRampToValueAtTime(base * (variant === 2 ? 0.6 : 1.3), t + len);
+    const wob = ctx.createOscillator(); wob.frequency.value = [7, 13, 4, 19][variant & 3];
+    const wd = ctx.createGain(); wd.gain.value = base * 0.18;
+    wob.connect(wd).connect(o.frequency);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = [420, 600, 300, 760][variant & 3]; bp.Q.value = 3;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.4); g.gain.setValueAtTime(gain, t + len * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(bp).connect(g).connect(p);
+    o.start(t); o.stop(t + len + 0.1); wob.start(t); wob.stop(t + len + 0.1);
+    this.noiseAt(p, t + len * 0.3, len * 0.5, 'bandpass', 1400 + 300 * (variant & 3), 4, gain * 0.25, 0.2);
+    if (variant === 1) for (let i = 0; i < 5; i++) this.noiseAt(p, t + len * 0.6 + i * 0.07, 0.03, 'highpass', 3000, 1, gain * 0.3);
+  }
+
+  /** Focus mode: a low hum under everything while time is slowed. */
+  focus(on: boolean): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (on && !this.hum) {
+      const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 55;
+      const gain = ctx.createGain(); gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.12, t + 0.3);
+      osc.connect(gain).connect(this.sfx); osc.start(t);
+      this.hum = { osc, gain };
+      this.chirp(this.sfx, t, 600, 140, 0.4, 0.08);
+    } else if (!on && this.hum) {
+      const h = this.hum; this.hum = null;
+      h.gain.gain.setTargetAtTime(0, t, 0.1); h.osc.stop(t + 0.6);
+      this.chirp(this.sfx, t, 140, 500, 0.3, 0.05);
+    }
+  }
+
+  /** A raider's voice from the outpost, too far to make out. */
+  private murmur(l: Listener): void {
+    const p = this.around(l, 30, 60, 3), t = this.ctx!.currentTime + 0.05;
+    for (let i = 0; i < 4 + Math.floor(Math.random() * 4); i++) this.chirp(p, t + i * 0.18, 180 + Math.random() * 60, 150, 0.14, 0.05, 'sawtooth');
+  }
+
+  /** Corrugated metal creaking in the wind, somewhere off. */
+  private creak(l: Listener): void {
+    const p = this.around(l, 25, 70, 6), t = this.ctx!.currentTime + 0.05;
+    this.chirp(p, t, 320, 260, 0.9, 0.035, 'sawtooth');
+    this.chirp(p, t + 0.95, 280, 340, 0.6, 0.025, 'sawtooth');
   }
 }

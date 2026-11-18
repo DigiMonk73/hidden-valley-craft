@@ -5,8 +5,12 @@ import { Game, type BootOptions } from './game.ts';
 import { SAVE_FORMAT, type SaveData } from './save/save.ts';
 import { itemId, toolOf, toolFor } from './world/items.ts';
 import { blockName } from './world/blocks.ts';
-import { GARDEN, VALLEY, ZONE1, SADDLE } from './gen/layout.ts';
-import { SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES } from './gen/zone1.ts';
+import { GARDEN, VALLEY, ZONE1, SADDLE, ZONE1FAR } from './gen/layout.ts';
+import { SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, APPLE_TREE } from './gen/zone1.ts';
+import { POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, CAMP_AT } from './gen/zone1far.ts';
+import { manOutpost } from './entity/outpost.ts';
+import { makeJaguar } from './entity/jaguar.ts';
+import { groundAt } from './entity/spawner.ts';
 import type { Kind } from './entity/creatures.ts';
 
 const q = new URLSearchParams(location.search);
@@ -48,8 +52,20 @@ function start(data: unknown): void {
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
       spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),
-      /** Zone-1's places (docs/PHASE4.md), for setting scenes. */
-      places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES },
+      /** Zone-1's places (docs/PHASE4.md, docs/PHASE5.md), for setting scenes. */
+      places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE },
+      /** Puts the outpost's living raiders at their posts now (screenshots and checks run with spawning off). */
+      manOutpost: () => {
+        const w = game.wild, p = game.player;
+        const made = manOutpost(w.creatures, w.outpost, p.x, p.z, () => true);
+        w.creatures.push(...made);
+        return made.length;
+      },
+      /** Starts the jaguar's crossing of the camp's clearing. */
+      jaguar: () => {
+        const j = makeJaguar((x, z) => groundAt(x, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)));
+        return j && game.wild.add(j) ? j : null;
+      },
       rifleId: itemId('hunting_rifle'),
       itemId,
       blockName,

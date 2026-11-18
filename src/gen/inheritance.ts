@@ -5,6 +5,7 @@
 import { itemId } from '../world/items.ts';
 import type { Stack } from '../sim/inventory.ts';
 import { BARN_CRATES, SCOUT_AT } from './zone1.ts';
+import { RAIDER_CRATE, LODGE_CHEST } from './zone1far.ts';
 
 export const CHEST_SLOTS = 27;
 
@@ -56,7 +57,18 @@ export const ZONE1_CHESTS: HomeChest[] = [
   ] },
 ];
 
-const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
+// Zone-1's mid band (docs/PHASE5.md): the raiders' stores in the outpost's back room, and what the raiders
+// left in the hunting lodge (they took the easy gear and left the rest).
+export const ZONE1_MID_CHESTS: HomeChest[] = [
+  { x: RAIDER_CRATE[0], y: RAIDER_CRATE[1], z: RAIDER_CRATE[2], title: 'The raiders’ crate', items: [
+    ['rifle_rounds', 20], ['pistol_rounds', 16], ['bowstring', 3], ['arrowhead', 24], ['nails', 24], ['cordage', 6],
+  ] },
+  { x: LODGE_CHEST[0], y: LODGE_CHEST[1], z: LODGE_CHEST[2], title: 'The lodge’s chest', items: [
+    ['arrow', 12], ['snare', 2], ['cordage', 6], ['hunting_knife', 1], ['salt', 4],
+  ] },
+];
+
+const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS, ...ZONE1_MID_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
 
 export function homeChestAt(x: number, y: number, z: number): HomeChest | undefined {
   return byPos.get(`${x},${y},${z}`);

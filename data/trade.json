@@ -13,7 +13,8 @@
     { "item": "wire_mesh", "lot": 2, "price": 4 },
     { "item": "canvas", "lot": 2, "price": 3 },
     { "item": "arrowhead", "lot": 6, "price": 3 },
-    { "item": "lantern", "lot": 1, "price": 6 }
+    { "item": "lantern", "lot": 1, "price": 6 },
+    { "item": "seeds_quinoa", "lot": 6, "price": 3 }
   ],
   "value": {
     "hide": 1.5, "puma_pelt": 12, "leather": 2, "bone": 0.5,
@@ -23,6 +24,7 @@
     "salt": 0.1, "cordage": 0.1, "nails": 0.05, "rice": 0.4, "canned_food": 0.6, "bandage": 0.3,
     "wire_mesh": 0.8, "canvas": 0.6, "arrowhead": 0.2, "lantern": 1,
     "scrap_metal": 0.4, "wire": 0.2, "copper_nugget": 1, "coal": 0.3, "iron_ore": 1, "iron_ingot": 2, "flint": 0.2,
-    "coffee_beans": 0.3, "corn": 0.2, "tomato": 0.2, "potato": 0.2, "squash": 0.25, "pepper": 0.2, "herbs": 0.15
+    "coffee_beans": 0.3, "corn": 0.2, "seeds_quinoa": 0.1, "quinoa": 0.25, "apple": 0.3,
+    "jaguar_pelt": 20, "smoked_meat": 1.8, "jerky": 1.6, "bowstring": 1, "tomato": 0.2, "potato": 0.2, "squash": 0.25, "pepper": 0.2, "herbs": 0.15
   }
 }

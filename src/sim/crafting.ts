@@ -7,21 +7,23 @@ import { itemId } from '../world/items.ts';
 import { blockName, BLOCK_DEFS } from '../world/blocks.ts';
 import type { Inventory, Stack } from './inventory.ts';
 
-export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery';
+export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge';
 
-export interface Recipe { station: Station; out: [number, number]; in: [number, number][]; returns: [number, number][] }
+/** `learn`: a flag that must be earned before the recipe shows (the leghold, learned at the camp). */
+export interface Recipe { station: Station; out: [number, number]; in: [number, number][]; returns: [number, number][]; learn?: string }
 
-interface RecipeSource { station: Station; out: [string, number]; in: [string, number][]; returns?: [string, number][] }
+interface RecipeSource { station: Station; out: [string, number]; in: [string, number][]; returns?: [string, number][]; learn?: string }
 
 export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
   station: r.station,
   out: [itemId(r.out[0]), r.out[1]],
   in: r.in.map(([n, c]) => [itemId(n), c] as [number, number]),
   returns: (r.returns ?? []).map(([n, c]) => [itemId(n), c] as [number, number]),
+  learn: r.learn,
 }));
 
 export const STATION_LABEL: Record<Station, string> = {
-  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack',
+  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge',
 };
 
 /** Which station a block is, if any. The fireplace cooks like the stove. */
@@ -34,11 +36,15 @@ export function stationOf(block: number): Station | null {
     case 'anvil': return 'anvil';
     case 'stove': case 'fireplace': return 'stove';
     case 'tannery_rack': return 'tannery';
+    case 'forge': return 'forge';
     default: return null;
   }
 }
 
-export function recipesAt(station: Station): Recipe[] { return RECIPES.filter((r) => r.station === station); }
+/** The recipes made at a station; those still to be learned are left out unless `known` has their flag. */
+export function recipesAt(station: Station, known: ReadonlySet<string> = new Set()): Recipe[] {
+  return RECIPES.filter((r) => r.station === station && (!r.learn || known.has(r.learn)));
+}
 
 export function canMake(inv: Inventory, r: Recipe): boolean {
   return r.in.every(([id, n]) => inv.count(id) >= Math.max(1, n));

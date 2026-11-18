@@ -1,5 +1,5 @@
 {
-  "_comment": "What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery. At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug).",
+  "_comment": "What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery, forge (M2). learn: a flag the player must have earned before it shows (the leghold, learned from the camp's trap). At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug).",
   "recipes": [
     { "station": "hand", "out": ["planks", 4], "in": [["log", 1]] },
     { "station": "hand", "out": ["stick", 4], "in": [["planks", 2]] },
@@ -32,6 +32,12 @@
     { "station": "workbench", "out": ["arrow", 4], "in": [["stick", 2], ["arrowhead", 4], ["feather", 1]] },
     { "station": "workbench", "out": ["coop", 1], "in": [["planks", 6], ["wire_mesh", 2], ["nails", 8]] },
     { "station": "workbench", "out": ["wire_mesh", 1], "in": [["wire", 4]] },
+    { "station": "workbench", "out": ["hunting_bow", 1], "in": [["stick", 3], ["bowstring", 1]] },
+    { "station": "workbench", "out": ["smoker", 1], "in": [["cobble", 6], ["planks", 4], ["nails", 6]] },
+    { "station": "workbench", "out": ["jerky_rack", 1], "in": [["planks", 3], ["cordage", 2]] },
+    { "station": "workbench", "out": ["forge", 1], "in": [["stone_bricks", 4], ["planks", 6], ["nails", 8], ["forge_parts", 1]], "returns": [["tool_rack", 1]] },
+    { "station": "workbench", "out": ["leghold_trap", 1], "in": [["iron_ingot", 2], ["nails", 4], ["cordage", 1]], "learn": "leghold_learned" },
+    { "station": "workbench", "out": ["raised_bed", 2], "in": [["planks", 2], ["cordage", 1]] },
 
     { "station": "kiln", "out": ["charcoal", 2], "in": [["log", 1]] },
     { "station": "kiln", "out": ["glass", 2], "in": [["sand", 2], ["charcoal", 1]] },
@@ -47,7 +53,13 @@
     { "station": "anvil", "out": ["arrow", 4], "in": [["stick", 2], ["flint", 1], ["plant_fiber", 1]] },
     { "station": "anvil", "out": ["arrowhead", 6], "in": [["iron_ingot", 1]] },
 
+    { "station": "forge", "out": ["iron_ingot", 2], "in": [["scrap_metal", 3], ["coal", 1]] },
+    { "station": "forge", "out": ["iron_ingot", 2], "in": [["scrap_metal", 3], ["charcoal", 1]] },
+    { "station": "forge", "out": ["arrowhead", 8], "in": [["iron_ingot", 1]] },
+    { "station": "forge", "out": ["nails", 12], "in": [["iron_ingot", 1]] },
+
     { "station": "tannery", "out": ["leather", 2], "in": [["hide", 1], ["salt", 1]] },
+    { "station": "tannery", "out": ["leather", 6], "in": [["jaguar_pelt", 1], ["salt", 1]] },
     { "station": "tannery", "out": ["leather", 4], "in": [["puma_pelt", 1], ["salt", 1]] },
 
     { "station": "stove", "out": ["trout_cooked", 1], "in": [["trout_raw", 1]] },

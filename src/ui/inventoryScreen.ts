@@ -56,6 +56,8 @@ export class InventoryScreen {
   onChange: () => void = () => {};
   /** Called when something is made, with what it was (for a sound). */
   onMake: (r: Recipe) => void = () => {};
+  /** What the player has learned (recipes with a `learn` flag show only once it is here). */
+  known: ReadonlySet<string> = new Set();
   /** Called when something can't be made because the pack has no room for it. */
   onFull: () => void = () => {};
 
@@ -180,7 +182,7 @@ export class InventoryScreen {
   private recipeList(inv: Inventory): HTMLDivElement {
     const list = document.createElement('div');
     list.className = 'iv-recipes';
-    const recipes = recipesAt(this.station);
+    const recipes = recipesAt(this.station, this.known);
     if (!recipes.length) {
       const p = document.createElement('div');
       p.className = 'iv-help';

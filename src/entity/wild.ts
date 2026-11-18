@@ -5,7 +5,11 @@
 
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
-import { think, hurt, KINDS, PACK_KINDS, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
+import { think, hurt, KINDS, PACK_KINDS, RAIDER_KINDS, TRAPPABLE, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
+import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, type OutpostState, type RaiderEvent } from './outpost.ts';
+import { thinkJaguar } from './jaguar.ts';
+import { LEGHOLD, HOLD_SECONDS } from '../sim/preserve.ts';
+import { OUTPOST_AT } from '../gen/zone1far.ts';
 import { trySpawn, despawnFar, denPack, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
 import { snared, snareNear } from '../sim/rabbits.ts';
 
@@ -36,6 +40,8 @@ export interface WildSenses {
   rand: () => number;
   /** How many arrows the player has room to pick up (no limit if not given). */
   arrowRoom?: () => number;
+  /** How fast the player is moving (m/s). */
+  pv?: number;
 }
 
 export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit' | 'bark' | 'snarl' | 'yip' | 'cluck'; x: number; y: number; z: number };
@@ -50,6 +56,12 @@ export interface WildEvents {
   picked: number;
   /** Snares that caught a rabbit: the game marks them full. */
   snared: [number, number, number][];
+  /** What the raiders did: noticed, shouted, aimed, fired, swung (docs/PHASE5.md). */
+  raiders: RaiderEvent[];
+  /** The jaguar slipped away into the trees, or was provoked. */
+  jaguar: ('gone' | 'provoked')[];
+  /** Arrows that killed a raider who never saw it coming (silent: the others are not told). */
+  silent: number;
 }
 
 /** How much of a blow gets through what the player carries: the best of the vest and leather armour. */
@@ -71,10 +83,12 @@ export class Wild {
   denLeft = DEN_SIZE;
   /** How many hens are left in the farm's feral flock: caught or killed ones are gone until it regrows (saved). */
   flockLeft = FLOCK_SIZE;
+  /** The outpost: which of its raiders are alive (saved), and whether it is alerted. */
+  outpost: OutpostState = { left: ALL_RAIDERS, alert: false };
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
-    const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [] };
+    const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [], raiders: [], jaguar: [], silent: 0 };
     if (s.shot) this.shotHeard = true;
     this.acc += dt;
     while (this.acc >= STEP) {
@@ -92,12 +106,40 @@ export class Wild {
       this.creatures = despawnFar(this.creatures, s.px, s.pz, s.night);
       this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded, { chicken: this.flockLeft }));
       this.creatures.push(...denPack(this.creatures, s.px, s.pz, this.denLeft, s.rand, s.blockAt, s.loaded));
+      this.creatures.push(...manOutpost(this.creatures, this.outpost, s.px, s.pz, s.loaded));
+      // Once the player has gone well away and the raiders are no longer about, the outpost stands down.
+      if (!this.creatures.some((c) => RAIDER_KINDS.has(c.kind)) && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) > 130) this.outpost.alert = false;
     }
-    const senses = { px: s.px, py: s.py, pz: s.pz, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
+    const senses = { px: s.px, py: s.py, pz: s.pz, pv: s.pv, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
+    // A gunshot anywhere near the outpost alerts all of it.
+    if (this.shotHeard && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) < 80 && this.outpost.left) alertOutpost(this.creatures, this.outpost);
     this.shotHeard = false;
-    for (const c of this.creatures) {
+    for (const c of [...this.creatures]) {
       if (!s.loaded(c.x, c.z)) continue; // its ground isn't there: it waits
       const before: Mind = c.mind;
+      if (RAIDER_KINDS.has(c.kind)) {
+        const alertBefore = this.outpost.alert;
+        for (const e of thinkRaider(c, STEP, senses, this.outpost, s.blockAt, s.rand)) {
+          ev.raiders.push(e);
+          if (e.kind === 'shot' && e.hit) ev.hits.push({ damage: e.damage, by: c.kind });
+          if (e.kind === 'blow') ev.hits.push({ damage: e.damage, by: c.kind });
+        }
+        if (this.outpost.alert && !alertBefore) alertOutpost(this.creatures, this.outpost);
+        continue;
+      }
+      if (c.kind === 'jaguar') {
+        const j = thinkJaguar(c, STEP, senses, s.blockAt, s.rand);
+        if (j.hit) ev.hits.push(j.hit);
+        if (j.event) ev.jaguar.push(j.event);
+        if (j.event === 'gone') this.remove(c);
+        if (c.mind === 'windup' && before !== 'windup') ev.sounds.push({ kind: 'growl', x: c.x, y: c.y + 0.6, z: c.z });
+        continue;
+      }
+      // A deer or boar that steps in a set leghold is held there (docs/PHASE5.md).
+      if (TRAPPABLE.has(c.kind) && !(c.held && c.held !== 0) && s.blockAt(Math.floor(c.x), Math.floor(c.y), Math.floor(c.z)) === LEGHOLD) {
+        c.held = HOLD_SECONDS;
+        ev.sounds.push({ kind: 'hit', x: c.x, y: c.y + 0.3, z: c.z });
+      }
       const hit = think(c, STEP, senses, s.blockAt, s.rand);
       if (hit) ev.hits.push(hit);
       if (c.mind !== before) this.cue(c, before, ev);
@@ -158,7 +200,10 @@ export class Wild {
       const hit = arrowHitCreature(this.creatures, sx, sy, sz, a.x, a.y, a.z);
       if (hit) {
         ev.sounds.push({ kind: 'hit', x: hit.x, y: hit.y + KINDS[hit.kind].height / 2, z: hit.z });
-        if (hurt(hit, a.damage)) { ev.kills.push(hit); this.remove(hit); }
+        // An arrow in a raider who hasn't seen you does three times its harm; a kill so is silent.
+        const unseen = RAIDER_KINDS.has(hit.kind) && !this.outpost.alert && hit.mind === 'watch';
+        if (hurt(hit, unseen ? a.damage * 3 : a.damage)) { ev.kills.push(hit); this.remove(hit); if (unseen) ev.silent++; }
+        if (RAIDER_KINDS.has(hit.kind) && (!unseen || hit.hp > 0)) alertOutpost(this.creatures, this.outpost);
         // The arrow drops where the animal was, to be picked up again.
         a.x = hit.x; a.y = hit.y + 0.2; a.z = hit.z; a.stuck = true; a.age = 0;
         keep.push(a);
@@ -182,7 +227,7 @@ export class Wild {
 
   count(kind: Kind): number { return this.creatures.filter((c) => c.kind === kind).length; }
 
-  clear(): void { this.creatures = []; this.arrows = []; }
+  clear(): void { this.creatures = []; this.arrows = []; this.outpost.alert = false; }
 }
 
 /**

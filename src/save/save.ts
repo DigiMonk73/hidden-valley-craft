@@ -35,6 +35,8 @@ export interface SaveData {
   den?: number;
   /** How many hens are left in the farm's feral flock (Phase 4). */
   flock?: number;
+  /** Which of the outpost's raiders are alive, as bits: lookout 1, pistol 2, machete 4 (Phase 5). Absent: all three. */
+  outpost?: number;
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {
