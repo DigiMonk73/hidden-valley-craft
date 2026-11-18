@@ -4,6 +4,10 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-18)
 
+- **Phase 4 ("Zone-1 near band")** was merged into `main` (branch `phase4`) and published as version 6. It has the saddle, Marco's bus shelter and trading in Bitcoin, the dead scout and the pistol, the farmstead with its feral dogs and chickens, the coop, salvage, and M1. Details are in docs/PHASE4.md. Checks: 188 unit tests and all 50 play-through checks.
+  - The play-through's safe step failed once on mouse capture; it passed on the rerun.
+  - The swimmer pauses at the floor near each tunnel mouth until they swim up with Space. Make that rise smooth next.
+
 - **Phase 4 ("Zone-1 near") is built on branch `phase4`**, waiting for the lead's review. Details and progress are in docs/PHASE4.md.
   - **Places:** the road runs on to x 940. Along it: the saddle (a crest between two knolls, a farm sign and a cattle grid), Marco's bus shelter with its lantern lit, the dead raider scout with his lamp still burning, the farmstead off a track south, and a rusted truck. The mid band's smoke column rises far off.
   - **Creatures:** the farmhouse den's 3 feral dogs, coyote packs at night, and chickens round the yard. Each pack member flanks from its own side, and every blow is wound up first.
