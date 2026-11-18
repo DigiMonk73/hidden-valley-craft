@@ -2,7 +2,7 @@
 
 _The page to resume from. Keep it short; history lives in git._
 
-## Now (2026-11-17)
+## Now (2026-11-18)
 
 - **The owner passed Phase 0** after a walkabout ("It looks great… we should finish it out"). Mining was not tried.
 - **Phase 1 ("The valley looks right")** was published as version 2.
@@ -12,7 +12,13 @@ _The page to resume from. Keep it short; history lives in git._
   - **Living:** survival (health, hunger, thirst), crafting at five stations and by hand, farming and the builder's garden, coffee, fishing.
   - **The builder's things:** sleep; the journal, computer, phone, map table and safe.
   - **Builder's mode:** a block palette.
-- **Phase 3 ("The way out")**: all nine handoff steps are built on branch `phase3`, reviewed by a fresh reviewer and fixed (docs/PHASE3.md, "Handoff"). Waiting for the lead to merge, publish and show the owner. Left open on purpose: the puma has no "from cover" stalking yet, and a hutch only breeds while its chunk is loaded.
+- **Phase 3 ("The way out")** was merged into `main` and published as version 4, after the phase session's fresh review and the lead's own checks: 127 unit tests, and every step of the play-through. Details are in docs/PHASE3.md.
+  - **The way out:** the gate ritual and the air pocket, the canyon ramp, and the old road.
+  - **The buffer:** the toppled ranger sign, the warren, the morpho tree with its butterflies, and the radio tower faint on the skyline.
+  - **Wildlife:** rabbits, deer, wild boar and the night puma. Hunting with blows, the bow and the rifle; meat, hides and leather.
+  - **Snares, the hutch, and the lost pack** when you die outside.
+
+  Left open on purpose: the puma has no "from cover" stalking yet, and a hutch only breeds while its chunk is loaded.
 - **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
 - **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (private), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
 
@@ -80,15 +86,15 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Next
 
-1. Phase 3 is in its phase session (branch `phase3`); the lead reviews, merges and publishes it.
-2. **After Phase 3 merges: one hidden river, bursting out of the ridge both ways** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the higher mountains soaks into the limestone, runs underground, and bursts out of both faces of the ridge between the canyon and the valley.
+1. The owner looks at Phase 3.
+2. **Next: one hidden river, bursting out of the ridge both ways** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the higher mountains soaks into the limestone, runs underground, and bursts out of both faces of the ridge between the canyon and the valley.
    - **Two waterfalls, mirrored:** one pours from a dark opening in the ridge's canyon face into the canyon pool, the other from its valley face into the valley pool. The rim above both stays dry rock.
    - **The canyon pool moves east** to the ridge's foot, so the outside falls land in it.
    - **The tunnel's mouth is under each curtain:** you dive through white water to find it, which hides it from anyone outside. The script says the hero "dove in" at a pool "beneath a waterfall".
    - **The current:** the canyon spring is the stronger, so a gentle current in the tunnel pulls toward the valley (the script's "lateral current").
    - **Where the water goes:** the valley pool drains by the creek sinking into the rock (it does already). The canyon pool drains down the canyon as a stream.
    - **Why not a river over the rim:** a river on the plateau would lead anyone straight to the hidden valley.
-   - **When:** after Phase 3 merges, as Phase 3 is reworking that ground: the ramp starts beside the canyon pool.
+   - **When:** now that Phase 3 is merged, before Phase 4. Move the ramp's foot with the pool.
    - Changing the Unity game's script is the owner's call; this note is for the block edition.
 3. Still open from before:
    - Water doesn't flow; breaking a block next to water fills it with still water.
