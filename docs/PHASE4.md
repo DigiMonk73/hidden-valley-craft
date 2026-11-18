@@ -16,7 +16,9 @@ Distances are about half DESIGN.md's walking times (docs/PLAN.md, "Feel numbers"
 
 ## 0. First: the floating rock cubes
 
-The Phase 3 sessions saw a few floating rock cubes in the canyon-floor view. Find out why, fix it, with a test that fails on the old code. *(Investigated before this plan: a flood-fill scan of the whole canyon finds no unsupported block in the generated world, on `main` or at the Phase 3 merge; see step 1's notes for what was found.)*
+The Phase 3 sessions saw a few floating rock cubes in the canyon-floor view. Find out why.
+
+*Found, and not a fault* (the lead's cameras `1562,74,1028,60,10,15` and `1580,88,1046,95,-12,15`, with and without `fx`): the "flecks" are **coal-ore blocks** exposed in the canyon's wall. A ray from the camera through each fleck's pixels lands on `coal_ore` (for example at 1552, 72–73, 1018–1019). Coal's texture is pale limestone with black blobs, so a coal block flush with the face reads as dark specks hanging in front of the rock. They are the buffer's coal outcrops (docs/PLAN.md), and they mine to coal. A flood-fill scan of the whole canyon (x 1500–1620, z 600–1480), on `main` and on the Phase 3 merge, finds no unsupported block of rock. Nothing was changed. If the owner finds them confusing, the coal texture could carry a darker rim so it reads as a seam, not as specks.
 
 ## 1. Places (layout: `src/gen/layout.ts`, `src/gen/zone1.ts`; blocks: `src/gen/terrain.ts`)
 
