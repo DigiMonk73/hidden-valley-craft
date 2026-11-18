@@ -184,7 +184,13 @@ const swimThrough = async (startX, yaw, pastMouth) => {
     }, 30);
   });
   await page.keyboard.down('KeyW');
-  const through = await page.waitForFunction((past) => { const x = window.__hv.game.player.x; return past < 1590 ? x < past : x > past; }, pastMouth, { timeout: 120_000, polling: 50 }).then(() => true, () => false);
+  // Hold the heading: synthetic mouse events can turn the view mid-swim, and a swimmer turned
+  // aside meets the rock beside the mouth instead of the mouth.
+  const through = await page.waitForFunction(([past, yaw]) => {
+    const p = window.__hv.game.player;
+    p.yaw = yaw; p.pitch = 0;
+    return past < 1590 ? p.x < past : p.x > past;
+  }, [pastMouth, yaw], { timeout: 120_000, polling: 50 }).then(() => true, () => false);
   if (!through) console.log('  (swim stalled:', await g(() => {
     const gm = window.__hv.game, p = gm.player, w = gm.world;
     const cells = []; for (let y = 65; y <= 70; y++) cells.push(y + ':' + window.__hv.blockName(w.blockAt(Math.floor(p.x) - 1, y, Math.floor(p.z))));
