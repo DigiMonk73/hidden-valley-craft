@@ -5,8 +5,8 @@
 
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
-import { think, hurt, KINDS, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
-import { trySpawn, despawnFar } from './spawner.ts';
+import { think, hurt, KINDS, PACK_KINDS, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
+import { trySpawn, despawnFar, denPack, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
 import { snared, snareNear } from '../sim/rabbits.ts';
 
 export const WILD_HZ = 20;
@@ -38,7 +38,7 @@ export interface WildSenses {
   arrowRoom?: () => number;
 }
 
-export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit'; x: number; y: number; z: number };
+export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit' | 'bark' | 'snarl' | 'yip' | 'cluck'; x: number; y: number; z: number };
 
 export interface WildEvents {
   /** Blows that landed on the player, before armour. */
@@ -67,6 +67,10 @@ export class Wild {
   private shotHeard = false;
   /** Off in test mode, so a scene set up by hand stays as it was set. */
   spawning = true;
+  /** How many of the farmhouse den's dogs are still alive (the game saves it). */
+  denLeft = DEN_SIZE;
+  /** How many hens are left in the farm's feral flock: caught or killed ones are gone until it regrows (saved). */
+  flockLeft = FLOCK_SIZE;
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
@@ -86,7 +90,8 @@ export class Wild {
     if (this.spawnIn <= 0 && this.spawning) {
       this.spawnIn = 1;
       this.creatures = despawnFar(this.creatures, s.px, s.pz, s.night);
-      this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded));
+      this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded, { chicken: this.flockLeft }));
+      this.creatures.push(...denPack(this.creatures, s.px, s.pz, this.denLeft, s.rand, s.blockAt, s.loaded));
     }
     const senses = { px: s.px, py: s.py, pz: s.pz, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
     this.shotHeard = false;
@@ -96,6 +101,11 @@ export class Wild {
       const hit = think(c, STEP, senses, s.blockAt, s.rand);
       if (hit) ev.hits.push(hit);
       if (c.mind !== before) this.cue(c, before, ev);
+      // A roaming pack hunts together: when one notices the player, the others near it join in round the same bearing.
+      if (PACK_KINDS.has(c.kind) && !c.home && c.mind === 'flank' && before === 'wander')
+        for (const o of this.creatures) if (o !== c && o.kind === c.kind && o.mind === 'wander' && Math.hypot(o.x - c.x, o.z - c.z) < 30) { o.mind = 'flank'; o.timer = 7; o.flankBase = c.flankBase; }
+      // The flock talks among itself.
+      if (c.kind === 'chicken' && s.rand() < 0.004) ev.sounds.push({ kind: 'cluck', x: c.x, y: c.y + 0.3, z: c.z });
       // A grazing rabbit now and then smells a snare's bait and wanders over to it.
       if (c.kind === 'rabbit' && c.mind === 'wander' && s.rand() < 0.02) {
         const at = snareNear(c, s.blockAt);
@@ -117,6 +127,10 @@ export class Wild {
     // The boar grunts as it starts its charge, and again as it lowers its head to strike.
     if (c.kind === 'boar' && (c.mind === 'charge' || c.mind === 'windup')) ev.sounds.push({ kind: 'grunt', ...at });
     if (c.kind === 'puma' && c.mind === 'windup') ev.sounds.push({ kind: 'growl', ...at });
+    // A pack gives itself away as it comes: dogs bark, coyotes yip; each snarls as it crouches to spring.
+    if (PACK_KINDS.has(c.kind) && c.mind === 'flank' && before === 'wander') ev.sounds.push({ kind: c.kind === 'dog' ? 'bark' : 'yip', ...at });
+    if (PACK_KINDS.has(c.kind) && c.mind === 'windup') ev.sounds.push({ kind: 'snarl', ...at });
+    if (c.kind === 'chicken' && c.mind === 'flee' && before !== 'flee') ev.sounds.push({ kind: 'cluck', ...at });
   }
 
   /** Looses an arrow from the eye along a direction, at a speed set by the draw. */

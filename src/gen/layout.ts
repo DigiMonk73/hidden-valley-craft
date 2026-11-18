@@ -161,7 +161,7 @@ export const RAMP: [number, number, number][] = [
 export const RAMP_HALF_WIDTH = 1.9;
 
 /** The old road: cracked asphalt, four wide, from the top of the ramp west through the buffer to the saddle and on. */
-export const ROAD = { east: 1534, west: 1100, halfWidth: 2 };
+export const ROAD = { east: 1534, west: 940, halfWidth: 2 };
 
 /** The buffer's places, off the road (DESIGN.md: wilderness buffer). */
 export const PLACES = {
@@ -183,6 +183,45 @@ export const ZONES = {
   ravineX: 640, // deep band runs midX → ravine
   zone2Z: 650, // north of this, beyond Zone-1: faction territory
 };
+
+/** The saddle: the road tops out between two knolls (+knoll m, `knollOffset` m either side of the road). */
+export const SADDLE = { x: 1150, crest: 7, knoll: 16, knollOffset: 34, knollRadius: 24 };
+
+/**
+ * Zone-1's near band (docs/PHASE4.md), along the road west of the saddle. Boxes are [x0, x1) × [z0, z1);
+ * z values and floor heights are filled in at the end of this file, from the road.
+ */
+export const ZONE1 = {
+  /** The farm sign and the cattle grid, at the saddle's crest. */
+  saddleSign: { x: 1146, z: 0 },
+  cattleGrid: { x0: 1148, x1: 1150 },
+  /** Marco's bus shelter: a roof on posts on the road's north side, open to the road. */
+  shelter: { x0: 1109, x1: 1115, z0: 0, z1: 0, floor: 0 },
+  /** The raider scout, lying on the road, and his dropped lamp. */
+  scout: { x: 1090, z: 0, y: 0 },
+  /** The farmstead's broken gate on the road's south side, the track south, and the yard. */
+  farmGate: { x: 1078, z: 0 },
+  farm: { x0: 1052, x1: 1093, z0: 1054, z1: 1083, floor: 0 },
+  house: { x0: 1055, x1: 1063, z0: 1059, z1: 1066 },
+  barn: { x0: 1078, x1: 1087, z0: 1057, z1: 1065 },
+  coop: { x0: 1064, x1: 1069, z0: 1072, z1: 1076 },
+  /** The rusted pickup on the road's north shoulder. */
+  truck: { x0: 1034, x1: 1039, z0: 0 },
+  /** The mid band's outpost (Phase 5): only its smoke, seen from the saddle. */
+  smoke: { x: 860, z: 0 },
+};
+
+/** Is (x, z) on the dirt track from the farm's gate straight south to the yard (two blocks wide)? */
+export function onFarmTrack(x: number, z: number): boolean {
+  const g = ZONE1.farmGate;
+  return x >= g.x - 1 && x <= g.x && z >= g.z && z < ZONE1.farm.z0 + 1;
+}
+
+/** Is (x, z) in the farmyard? */
+export function inFarmyard(x: number, z: number, margin = 0): boolean {
+  const f = ZONE1.farm;
+  return x >= f.x0 - margin && x < f.x1 + margin && z >= f.z0 - margin && z < f.z1 + margin;
+}
 
 export type ZoneId = 'valley' | 'canyon' | 'buffer' | 'near' | 'mid' | 'deep' | 'zone2' | 'zone3' | 'zone4';
 
@@ -310,6 +349,14 @@ export function outsideHeight(x: number, z: number): number {
   // The ramp is a ledge cut into the west wall: between it and the rising rock behind, the ground is
   // filled up to the ramp, so no gully opens on its inner side.
   if (ramp.dist < RAMP_HALF_WIDTH + 5 && natural < ramp.height && naturalHeight(x - 5, z, false) >= ramp.height) return Math.round(ramp.height);
+  // Zone-1's places stand on level ground: the bus shelter's floor, the farm track and the farmyard.
+  if (x > 1040 && x < 1125 && z > 1010 && z < 1095) {
+    const sh = ZONE1.shelter, f = ZONE1.farm, g = ZONE1.farmGate;
+    if (x >= sh.x0 - 2 && x < sh.x1 + 2 && z >= sh.z0 - 2 && z < sh.z1 + 1) return sh.floor;
+    if (onFarmTrack(x, z)) return Math.round(mix(roadHeight(g.x), f.floor, smoothstep(g.z, f.z0, z)));
+    const dx = Math.max(f.x0 - x, x - (f.x1 - 1), 0), dz = Math.max(f.z0 - z, z - (f.z1 - 1), 0), d = Math.hypot(dx, dz);
+    if (d < 7) return Math.round(mix(f.floor, natural, smoothstep(0, 7, d)));
+  }
   if (onRoadX) {
     const d = roadD;
     // Shoulders: the land eases down (or up) to the road over a few blocks.
@@ -357,6 +404,14 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
   for (const rz of [876, 1176]) {
     const along = smoothstep(820, 980, x) * (1 - smoothstep(1420, 1520, x));
     base = Math.max(base, mix(base, 146 - Math.abs(z - rz) * 1.1, along));
+  }
+  // The saddle: the road tops out on a low crest between two knolls, the gateway into Zone-1.
+  const sx = Math.abs(x - SADDLE.x);
+  if (sx < 90) {
+    const rz = roadZ(x), across = Math.abs(z + 0.5 - rz);
+    const crest = SADDLE.crest * Math.exp(-(((x - SADDLE.x) / 34) ** 2)) * (1 - smoothstep(40, 80, across));
+    const knoll = SADDLE.knoll * (1 - smoothstep(6, SADDLE.knollRadius, Math.hypot(x - SADDLE.x, across - SADDLE.knollOffset)));
+    base += Math.max(crest, knoll);
   }
   // North: Zone-2's rolling ground.
   base = mix(base, 92, smoothstep(ZONES.zone2Z + 120, ZONES.zone2Z - 60, z) * smoothstep(ZONES.ravineX, ZONES.ravineX + 60, x));
@@ -447,3 +502,17 @@ RAMP[RAMP.length - 1][2] = roadHeight(ROAD.east);
 PLACES.rangerSign.z = Math.round(roadZ(PLACES.rangerSign.x)) + 4;
 PLACES.morphoTree.z = Math.round(roadZ(PLACES.morphoTree.x)) - 17;
 PLACES.warren.z = Math.round(roadZ(PLACES.warren.x)) + 15;
+{
+  const rz = (x: number) => Math.round(roadZ(x));
+  const Z = ZONE1;
+  Z.saddleSign.z = rz(Z.saddleSign.x) - 4;
+  Z.shelter.z1 = rz((Z.shelter.x0 + Z.shelter.x1) >> 1) - 3;
+  Z.shelter.z0 = Z.shelter.z1 - 3;
+  Z.shelter.floor = roadHeight((Z.shelter.x0 + Z.shelter.x1) >> 1);
+  Z.scout.z = rz(Z.scout.x);
+  Z.scout.y = roadHeight(Z.scout.x);
+  Z.farmGate.z = rz(Z.farmGate.x) + ROAD.halfWidth;
+  Z.farm.floor = roadHeight(Z.farmGate.x) - 1;
+  Z.truck.z0 = rz(Z.truck.x0) - ROAD.halfWidth - 3;
+  Z.smoke.z = rz(Z.smoke.x) + 6;
+}

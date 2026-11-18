@@ -5,7 +5,9 @@ import { Game, type BootOptions } from './game.ts';
 import { SAVE_FORMAT, type SaveData } from './save/save.ts';
 import { itemId, toolOf, toolFor } from './world/items.ts';
 import { blockName } from './world/blocks.ts';
-import { GARDEN, VALLEY } from './gen/layout.ts';
+import { GARDEN, VALLEY, ZONE1, SADDLE } from './gen/layout.ts';
+import { SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES } from './gen/zone1.ts';
+import type { Kind } from './entity/creatures.ts';
 
 const q = new URLSearchParams(location.search);
 const opts: BootOptions = {};
@@ -45,7 +47,9 @@ function start(data: unknown): void {
       idle: () => game.isIdle(),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
-      spawn: (kind: 'rabbit' | 'deer' | 'boar' | 'puma', x: number, z: number) => game.spawnCreature(kind, x, z),
+      spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),
+      /** Zone-1's places (docs/PHASE4.md), for setting scenes. */
+      places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES },
       rifleId: itemId('hunting_rifle'),
       itemId,
       blockName,

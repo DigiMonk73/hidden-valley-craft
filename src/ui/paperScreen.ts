@@ -22,7 +22,19 @@ const CSS = `
 .pp-code { text-align: center; font-size: 30px; letter-spacing: 12px; margin: 6px 0; min-height: 40px; }
 .pp-map canvas { width: 100%; image-rendering: pixelated; border-radius: 6px; display: block; }
 .pp-close { margin-top: 14px; font-size: 12px; opacity: .6; text-align: center; }
+.pp-screen .pp-call { background: #2e6b3e; color: #e6f7ea; padding: 4px 12px; }
+.pp-screen .pp-say { font-family: Georgia, serif; font-style: italic; color: #f1e6c8; margin: 4px 0 12px; line-height: 1.5; }
+.pp-screen .pp-status { min-height: 18px; color: #f7b24a; margin: 6px 0; font-size: 13px; }
+.pp-trade { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pp-trade h3 { margin: 6px 0; font-size: 13px; color: #e6f7ea; text-transform: uppercase; letter-spacing: .6px; }
+.pp-trade .row { align-items: center; font-size: 13px; }
+.pp-trade img { width: 24px; height: 24px; image-rendering: pixelated; vertical-align: middle; margin-right: 6px; }
+.pp-trade .pp-btn { background: rgba(185,243,200,.14); padding: 4px 10px; }
+@media (max-width: 560px) { .pp-trade { grid-template-columns: 1fr; } }
 `;
+
+export interface TradeRow { icon: string; label: string; price: string; button: string; can: boolean; act: () => string }
+export interface TradeView { title: string; say: string; wallet: string; buy: TradeRow[]; sell: TradeRow[] }
 
 export class PaperScreen {
   private wrap: HTMLDivElement;
@@ -62,12 +74,12 @@ export class PaperScreen {
 
   private footer(p: HTMLElement): void { p.append(this.el('div', 'E or Esc to put it down', 'pp-close')); }
 
-  /** The builder's journal, one entry at a time. */
-  journal(entries: { title: string; text: string }[], start = 0): void {
+  /** The builder's journal, one entry at a time; the player's own notes follow his (`by` names whose they are). */
+  journal(entries: { title: string; text: string; by?: string }[], start = 0): void {
     let i = start;
     const show = () => {
       const p = this.open('pp-paper');
-      p.append(this.el('div', `The builder's journal · ${i + 1} of ${entries.length}`, 'pp-meta'), this.el('h2', entries[i].title), this.el('p', entries[i].text));
+      p.append(this.el('div', `${entries[i].by ?? "The builder's journal"} · ${i + 1} of ${entries.length}`, 'pp-meta'), this.el('h2', entries[i].title), this.el('p', entries[i].text));
       const nav = this.el('div', '', 'pp-nav');
       const prev = this.el('button', '← Earlier', 'pp-btn'), next = this.el('button', 'Later →', 'pp-btn');
       prev.disabled = i === 0; next.disabled = i === entries.length - 1;
@@ -89,6 +101,67 @@ export class PaperScreen {
       p.append(r);
     }
     this.footer(p);
+  }
+
+  /** The phone: contacts, each with a line of status and, for one who answers, a Call button. */
+  phone(title: string, rows: { name: string; status: string; cls?: string; call?: () => string }[]): void {
+    const p = this.open('pp-screen');
+    p.append(this.el('h2', title));
+    const said = this.el('div', '', 'pp-say');
+    for (const r of rows) {
+      const row = this.el('div', '', 'row');
+      const right = this.el('span', r.status, r.cls ?? '');
+      row.append(this.el('span', r.name), right);
+      if (r.call) {
+        const b = this.el('button', 'Call', 'pp-btn pp-call');
+        b.onclick = () => { said.textContent = r.call!(); };
+        right.append(' ', b);
+      }
+      p.append(row);
+    }
+    p.append(said);
+    this.footer(p);
+  }
+
+  /**
+   * Trading with a person: what they sell (Buy) and what you carry that they want (Sell). The view is
+   * rebuilt after each deal from `view()`.
+   */
+  trade(view: () => TradeView): void {
+    const draw = (status = '') => {
+      const v = view();
+      const p = this.open('pp-screen');
+      p.append(this.el('h2', v.title), this.el('div', v.say, 'pp-say'));
+      const wallet = this.el('div', '', 'row');
+      wallet.append(this.el('span', 'Your wallet'), this.el('span', v.wallet, 'btc'));
+      p.append(wallet, this.el('div', status, 'pp-status'));
+      const grid = this.el('div', '', 'pp-trade');
+      const col = (head: string, rows: TradeRow[], empty: string) => {
+        const c = this.el('div');
+        c.append(this.el('h3', head));
+        if (!rows.length) c.append(this.el('div', empty, 'dim'));
+        for (const r of rows) {
+          const row = this.el('div', '', 'row');
+          const left = this.el('span');
+          const img = document.createElement('img');
+          img.src = r.icon; img.alt = '';
+          left.append(img, r.label);
+          const b = this.el('button', r.button, 'pp-btn');
+          b.disabled = !r.can;
+          b.onclick = () => draw(r.act());
+          const right = this.el('span');
+          right.append(this.el('span', r.price, 'btc'), ' ', b);
+          row.append(left, right);
+          c.append(row);
+        }
+        grid.append(c);
+      };
+      col('Buy from him', v.buy, 'Nothing today.');
+      col('Sell to him (half price)', v.sell, 'You carry nothing he wants.');
+      p.append(grid);
+      this.footer(p);
+    };
+    draw();
   }
 
   /** A four-digit keypad; `check` says whether the code opens it. */

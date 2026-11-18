@@ -4,6 +4,7 @@
 
 import { itemId } from '../world/items.ts';
 import type { Stack } from '../sim/inventory.ts';
+import { BARN_CRATES, SCOUT_AT } from './zone1.ts';
 
 export const CHEST_SLOTS = 27;
 
@@ -41,7 +42,21 @@ export const HOME_CHESTS: HomeChest[] = [
   ] },
 ];
 
-const byPos = new Map(HOME_CHESTS.map((c) => [`${c.x},${c.y},${c.z}`, c]));
+// Zone-1's near band (docs/PHASE4.md): the barn's crates, with what a coop needs and a few tools, and
+// the dead scout's pockets.
+export const ZONE1_CHESTS: HomeChest[] = [
+  { x: BARN_CRATES[0][0], y: BARN_CRATES[0][1], z: BARN_CRATES[0][2], title: 'Barn crate', items: [
+    ['wire_mesh', 4], ['nails', 24], ['planks', 16], ['canvas', 4],
+  ] },
+  { x: BARN_CRATES[1][0], y: BARN_CRATES[1][1], z: BARN_CRATES[1][2], title: 'Barn crate: tools', items: [
+    ['steel_shovel', 1], ['hammer', 1], ['cordage', 6], ['wire', 8],
+  ] },
+  { x: SCOUT_AT[0], y: SCOUT_AT[1], z: SCOUT_AT[2], title: 'The scout’s pockets', items: [
+    ['pistol', 1], ['pistol_rounds', 6], ['map_scrap', 1], ['armband', 1],
+  ] },
+];
+
+const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
 
 export function homeChestAt(x: number, y: number, z: number): HomeChest | undefined {
   return byPos.get(`${x},${y},${z}`);

@@ -4,6 +4,8 @@
 
 import { KINDS, type Kind } from '../entity/creatures.ts';
 import { itemId, itemName } from '../world/items.ts';
+import { B_SOLID, AIR } from '../world/blocks.ts';
+import { raycast } from './raycast.ts';
 import type { Inventory } from './inventory.ts';
 
 /** Damage of a blow with what is in hand (fist 2). */
@@ -39,4 +41,14 @@ export function takeDrops(inv: Inventory, kind: Kind): [number, number][] {
 /** How far the bow is drawn (0–1) after holding for `seconds`. */
 export function drawOf(seconds: number): number {
   return Math.max(0, Math.min(1, seconds / BOW_FULL_DRAW));
+}
+
+/**
+ * Is the line from the eye to a creature `dist` away clear of anything solid? Grass, ferns and other
+ * plants don't stop a blow, a shot or a hand reaching for a hen; rock, wood and leaves do.
+ */
+export function clearShot(blockAt: (x: number, y: number, z: number) => number, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, dist: number): boolean {
+  const solid = (x: number, y: number, z: number) => { const id = blockAt(x, y, z); return B_SOLID[id] ? id : AIR; };
+  const block = raycast(solid, ox, oy, oz, dx, dy, dz, dist);
+  return !block || block.dist >= dist;
 }

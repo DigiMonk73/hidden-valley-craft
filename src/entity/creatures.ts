@@ -1,11 +1,12 @@
-// Wildlife outside the valley: rabbits, deer, wild boar and the night's puma. Each has a simple
-// mind (wander, flee, charge, stalk), a body that walks on the blocks, and what it gives when hunted.
+// Wildlife outside the valley: rabbits, deer, wild boar and the night's puma; in Zone-1, feral dogs,
+// coyotes and feral chickens; and one person, Marco, who waits at his bus shelter. Each has a simple
+// mind (wander, flee, charge, stalk, flank), a body that walks on the blocks, and what it gives when hunted.
 // The valley is a sanctuary: no creature here can enter it, at any depth (docs/PLAN.md).
 
 import { B_SOLID, isWaterId } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 
-export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma';
+export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco';
 
 export interface KindDef {
   hp: number;
@@ -25,9 +26,23 @@ export const KINDS: Record<Kind, KindDef> = {
   deer: { hp: 30, width: 0.8, height: 1.4, walk: 1.6, run: 7.5, shy: 14, hostile: false, damage: 0, windup: 0, drops: [['venison_raw', 3], ['hide', 1], ['bone', 1]] },
   boar: { hp: 45, width: 0.9, height: 0.9, walk: 1.3, run: 5.6, shy: 0, hostile: true, damage: 10, windup: 0.6, drops: [['pork_raw', 3], ['hide', 1], ['bone', 1]] },
   puma: { hp: 60, width: 0.8, height: 0.9, walk: 2.2, run: 7, shy: 0, hostile: true, damage: 16, windup: 0.5, drops: [['puma_pelt', 1]] },
+  // Zone-1's near band (docs/PHASE4.md).
+  dog: { hp: 22, width: 0.6, height: 0.75, walk: 1.6, run: 6, shy: 0, hostile: true, damage: 8, windup: 0.5, drops: [['hide', 1], ['bone', 1]] },
+  coyote: { hp: 16, width: 0.55, height: 0.7, walk: 2, run: 6.4, shy: 0, hostile: true, damage: 6, windup: 0.55, drops: [['hide', 1]] },
+  chicken: { hp: 4, width: 0.35, height: 0.5, walk: 0.7, run: 3.2, shy: 4, hostile: false, damage: 0, windup: 0, drops: [['chicken_raw', 1], ['feather', 2]] },
+  marco: { hp: 1e9, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: false, damage: 0, windup: 0, drops: [] },
 };
 
-export type Mind = 'wander' | 'flee' | 'charge' | 'stalk' | 'windup' | 'recover';
+/** Kinds that hunt as a pack, each from its own side (docs/PHASE4.md, "The flank"). */
+export const PACK_KINDS: ReadonlySet<Kind> = new Set<Kind>(['dog', 'coyote']);
+/** The side each member of a pack takes round the player, by its place in the pack: left, right, behind. */
+export const FLANK_SIDES = [-1.25, 1.25, Math.PI];
+/** How far from the player a pack member circles before it closes in. */
+export const FLANK_RADIUS = 4;
+/** A den's dogs come out when the player is this near their home, by day and by night. */
+export const DEN_RANGE = { day: 12, night: 30 };
+
+export type Mind = 'wander' | 'flee' | 'charge' | 'stalk' | 'windup' | 'recover' | 'flank';
 
 export interface Creature {
   id: number;
@@ -44,6 +59,14 @@ export interface Creature {
   stride: number;
   /** Seconds since last hurt (for a red flash). */
   hurt: number;
+  /** Its place in a pack (which side it flanks from), or -1. */
+  pack: number;
+  /** Where it lives and keeps near (a den, a farmyard), or null to roam. */
+  home: [number, number] | null;
+  /** The pack's bearing from the player when it noticed them: the sides are taken round this. */
+  flankBase: number;
+  /** Seconds a hurt animal still fights back wherever the player is (a dog shot from afar comes for them). */
+  angry: number;
 }
 
 type BlockAt = (x: number, y: number, z: number) => number;
@@ -51,7 +74,7 @@ type BlockAt = (x: number, y: number, z: number) => number;
 let nextId = 1;
 
 export function makeCreature(kind: Kind, x: number, y: number, z: number): Creature {
-  return { id: nextId++, kind, x, y, z, vx: 0, vy: 0, vz: 0, yaw: Math.random() * Math.PI * 2, hp: KINDS[kind].hp, mind: 'wander', timer: 0, goalX: x, goalZ: z, onGround: false, stride: 0, hurt: 9 };
+  return { id: nextId++, kind, x, y, z, vx: 0, vy: 0, vz: 0, yaw: Math.random() * Math.PI * 2, hp: KINDS[kind].hp, mind: 'wander', timer: 0, goalX: x, goalZ: z, onGround: false, stride: 0, hurt: 9, pack: -1, home: null, flankBase: 0, angry: 0 };
 }
 
 /** Whether a creature's body fits at (x, y, z): no solid blocks, and never inside the sanctuary. */
@@ -125,10 +148,37 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   const d = KINDS[c.kind];
   c.hurt += dt;
   c.timer -= dt;
+  c.angry = Math.max(0, c.angry - dt);
   const dx = s.px - c.x, dz = s.pz - c.z;
   const dist = Math.hypot(dx, dz);
   const reachable = !s.playerInSanctuary && Math.abs(s.py - c.y) < 3;
   let hit: Hit | null = null;
+
+  // Marco stands where he is and turns to whoever comes near.
+  if (c.kind === 'marco') {
+    c.vx = c.vz = 0;
+    if (dist < 14 && dist > 0.1) c.yaw = Math.atan2(-dx, -dz);
+    moveBody(c, dt, blockAt);
+    return null;
+  }
+
+  // A pack notices the player: dogs when the player comes near their den (wider at night), coyotes
+  // anywhere near. Each member then takes its own side round the player.
+  const pack = PACK_KINDS.has(c.kind);
+  if (pack && reachable && c.mind === 'wander') {
+    const range = c.home ? (s.night ? DEN_RANGE.night : DEN_RANGE.day) : 30;
+    const near = c.home ? Math.hypot(s.px - c.home[0], s.pz - c.home[1]) < range : dist < range;
+    if (near) {
+      c.mind = 'flank'; c.timer = 7;
+      c.flankBase = c.home ? Math.atan2(c.home[1] - s.pz, c.home[0] - s.px) : Math.atan2(c.z - s.pz, c.x - s.px);
+    }
+  }
+  // A dog won't follow far from its den: past its range (and a little more) it goes home.
+  if (pack && c.home && c.angry <= 0 && (c.mind === 'flank' || c.mind === 'charge' || c.mind === 'recover')) {
+    const range = (s.night ? DEN_RANGE.night : DEN_RANGE.day) + 14;
+    if (Math.hypot(s.px - c.home[0], s.pz - c.home[1]) > range) { c.mind = 'wander'; c.timer = 0; }
+  }
+  if (pack && !reachable && c.mind === 'flank') { c.mind = 'wander'; c.timer = 0; }
 
   // Changes of mind.
   if (d.shy && dist < d.shy && c.mind !== 'flee') { c.mind = 'flee'; c.timer = 3 + rand() * 2; }
@@ -147,8 +197,15 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
         // Pick somewhere nearby to amble to, or stand and graze for a while.
         const a = rand() * Math.PI * 2, r = 3 + rand() * 9;
         c.goalX = c.x + Math.cos(a) * r; c.goalZ = c.z + Math.sin(a) * r;
+        // Creatures with a home keep to it: dogs lie up in their den by day and range out at night;
+        // chickens scratch round their yard.
+        if (c.home) {
+          const keep = c.kind === 'dog' ? (s.night ? 22 : 2.5) : 9;
+          const ha = rand() * Math.PI * 2, hr = rand() * keep;
+          c.goalX = c.home[0] + Math.cos(ha) * hr; c.goalZ = c.home[1] + Math.sin(ha) * hr;
+        }
         c.timer = 2 + rand() * 6;
-        if (rand() < 0.4) { c.goalX = c.x; c.goalZ = c.z; }
+        if (rand() < 0.4 && (!c.home || Math.hypot(c.x - c.home[0], c.z - c.home[1]) < 25)) { c.goalX = c.x; c.goalZ = c.z; }
       }
       toX = c.goalX - c.x; toZ = c.goalZ - c.z;
       speed = Math.hypot(toX, toZ) > 0.5 ? d.walk : 0;
@@ -160,8 +217,17 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
     case 'charge':
       toX = dx; toZ = dz; speed = d.run;
       if (dist < 1.4 + d.width / 2 && inReach(c, s, blockAt)) { c.mind = 'windup'; c.timer = d.windup; speed = 0; }
-      if (dist > 25 || c.timer <= 0) { c.mind = 'wander'; c.timer = 0; }
+      if ((dist > 25 && c.angry <= 0) || dist > 60 || c.timer <= 0) { c.mind = c.angry > 0 ? 'charge' : 'wander'; c.timer = c.angry > 0 ? 6 : 0; }
       break;
+    case 'flank': {
+      // Circle to this member's own side of the player, a few metres off, then close in.
+      const a = c.flankBase + FLANK_SIDES[Math.max(0, c.pack) % FLANK_SIDES.length];
+      const gx = s.px + Math.cos(a) * FLANK_RADIUS, gz = s.pz + Math.sin(a) * FLANK_RADIUS;
+      toX = gx - c.x; toZ = gz - c.z; speed = d.run;
+      if (Math.hypot(toX, toZ) < 1.2 || c.timer <= 0) { c.mind = 'charge'; c.timer = 6; }
+      if (dist > 40) { c.mind = 'wander'; c.timer = 0; }
+      break;
+    }
     case 'stalk':
       // Close in quietly, then charge from cover.
       toX = dx; toZ = dz; speed = dist > 7 ? d.walk : d.run;
@@ -178,7 +244,8 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
       break;
     case 'recover':
       toX = -dx; toZ = -dz; speed = d.walk;
-      if (c.timer <= 0) { c.mind = c.kind === 'puma' ? 'stalk' : 'charge'; c.timer = 8; }
+      // A pack circles round again to its sides; the puma stalks; the boar charges.
+      if (c.timer <= 0) { c.mind = c.kind === 'puma' ? 'stalk' : pack ? 'flank' : 'charge'; c.timer = pack ? 5 : 8; }
       break;
   }
   // A badly hurt animal runs, hostile or not.
@@ -202,10 +269,12 @@ function inReach(c: Creature, s: Senses, blockAt: BlockAt): boolean {
 
 /** Damages a creature; returns true if that killed it. A hurt animal flees, a hurt boar charges. */
 export function hurt(c: Creature, damage: number): boolean {
+  if (c.kind === 'marco') return false; // a person, not game
   c.hp -= damage;
   c.hurt = 0;
   if (c.hp <= 0) return true;
   if (c.kind === 'boar') { c.mind = 'charge'; c.timer = 8; }
+  else if (PACK_KINDS.has(c.kind)) { c.angry = 20; if (c.mind === 'wander') { c.mind = 'charge'; c.timer = 8; } }
   else if (!KINDS[c.kind].hostile) { c.mind = 'flee'; c.timer = 5; }
   return false;
 }

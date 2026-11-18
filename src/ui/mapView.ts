@@ -1,7 +1,8 @@
 // The map on the builder's table: the land from the layout, shown only where the player has been
 // (one cell per 32 m column), with the cave and the player marked.
 
-import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance } from '../gen/layout.ts';
+import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, roadZ, TUNNEL } from '../gen/layout.ts';
+import { SCOUT_AT } from '../gen/zone1.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
 
 const N = 256; // 8 m per pixel
@@ -29,7 +30,10 @@ function landColours(): Uint8ClampedArray {
   return px;
 }
 
-export function drawMap(explored: Uint8Array, playerX: number, playerZ: number): HTMLCanvasElement {
+/** What the map shows beyond the land: the road home once known, and the places found. */
+export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean }
+
+export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, marks: MapMarks = {}): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = N;
   const ctx = canvas.getContext('2d')!;
@@ -45,6 +49,24 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number):
     }
   ctx.putImageData(img, 0, 0);
   const s = N / WORLD_X;
+  // The road home (M1's "safe extraction route"): cave → tunnel → ramp → the road west, in red ink.
+  if (marks.route) {
+    ctx.strokeStyle = '#a3241c';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 2]);
+    ctx.beginPath();
+    ctx.moveTo(HOME.wallX * s, VALLEY.cz * s);
+    ctx.lineTo(POOL.cx * s, POOL.cz * s);
+    ctx.lineTo(TUNNEL.x0 * s, TUNNEL.z * s);
+    for (const [x, z] of RAMP) ctx.lineTo(x * s, z * s);
+    for (let x = ROAD.east; x >= ROAD.west; x -= 8) ctx.lineTo(x * s, roadZ(x) * s);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const mark = (x: number, z: number, colour: string) => { ctx.fillStyle = colour; ctx.fillRect(x * s - 1.5, z * s - 1.5, 3, 3); };
+  if (marks.shelter) mark((ZONE1.shelter.x0 + ZONE1.shelter.x1) / 2, ZONE1.shelter.z0, '#2c5a8c');
+  if (marks.scout) mark(SCOUT_AT[0], SCOUT_AT[2], '#1b130a');
+  if (marks.farm) mark((ZONE1.farm.x0 + ZONE1.farm.x1) / 2, (ZONE1.farm.z0 + ZONE1.farm.z1) / 2, '#8a5a32');
   // The cave, and where the player stands.
   ctx.fillStyle = '#7a1f12';
   ctx.fillRect(HOME.wallX * s - 2, VALLEY.cz * s - 2, 4, 4);
@@ -55,4 +77,37 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number):
   ctx.stroke();
   void WORLD_Z;
   return canvas;
+}
+
+/** The scout's map scrap: a ridgeline's contours, a bend in a road, an arrow, and a place-name in pencil. */
+export function drawMapScrap(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = 320; c.height = 200;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#e6dab8';
+  ctx.beginPath();
+  ctx.moveTo(6, 14); ctx.lineTo(300, 4); ctx.lineTo(314, 120); ctx.lineTo(296, 196); ctx.lineTo(18, 188); ctx.lineTo(4, 96);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#8a7a52';
+  ctx.lineWidth = 1;
+  for (let k = 0; k < 4; k++) { // the ridge's contours
+    ctx.beginPath();
+    for (let x = 30; x <= 290; x += 10) ctx.lineTo(x, 40 + k * 11 + 14 * Math.sin(x / 38 + k * 0.3));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#4a3a24';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); // the road, and its bend
+  ctx.moveTo(40, 180); ctx.bezierCurveTo(110, 150, 120, 110, 200, 120); ctx.lineTo(280, 100);
+  ctx.stroke();
+  ctx.strokeStyle = '#a3241c';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); // the arrow
+  ctx.moveTo(150, 170); ctx.lineTo(240, 130); ctx.moveTo(240, 130); ctx.lineTo(224, 130); ctx.moveTo(240, 130); ctx.lineTo(232, 144);
+  ctx.stroke();
+  ctx.fillStyle = '#3a3a3a';
+  ctx.font = 'italic 18px Georgia, serif';
+  ctx.fillText('Las Cruces', 214, 92);
+  return c;
 }

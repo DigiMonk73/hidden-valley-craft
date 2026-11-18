@@ -9,9 +9,10 @@ import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, CANYON_POOL, TUNNEL, MOUTH_BASINS, GARDEN, SPRINGS, SPRING_OPENING, type Falls,
   GATE, TUNNEL_LAMPS, MOUTH_LAMPS, ROAD, PLACES, RAMP_HALF_WIDTH,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
-  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream,
+  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
+import { buildZone1 } from './zone1.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -145,6 +146,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   // 5b. The way out: the switchback up the canyon wall and the old road, and the places beside it.
   paveRoad(col, x0, z0, tops);
   placeBufferPlaces(col, x0, z0);
+  buildZone1(col, x0, z0);
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
@@ -199,6 +201,7 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
       const x = x0 + lx, z = z0 + lz;
       const top = tops[lz * CS + lx];
       const valley = inSanctuary(x, z);
+      const near = zoneAt(x, z) === 'near';
       for (let y = 3; y < top - 2; y++) {
         const i = ci(lx, y, lz);
         if (col[i] !== LIMESTONE || caveExcluded(x, y, z)) continue;
@@ -211,9 +214,11 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
           else if (roll < 0.06) ore = FLINT;
           else if (roll < 0.075 && y < 66) ore = CLAY;
         } else {
+          // Zone-1's near band shows its iron and copper closer to the surface (docs/PHASE4.md).
+          const lift = near ? 12 : 0;
           if (roll < 0.05 && y < 112) ore = COAL;
-          else if (roll < 0.08 && y < 92) ore = IRON;
-          else if (roll < 0.105 && y < 84) ore = COPPER;
+          else if (roll < 0.08 && y < 92 + lift) ore = IRON;
+          else if (roll < 0.105 && y < 84 + lift) ore = COPPER;
           else if (roll < 0.12) ore = FLINT;
           else if (roll < 0.14) ore = GRAVEL;
         }
@@ -261,7 +266,8 @@ function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array
       if (slope >= 3) continue; // steep ground stays bare rock
       const valley = d < VALLEY.radius - 4;
       const canyonFloor = !valley && Math.abs(x - canyonCenterX(z)) < 20 && top <= VALLEY.floor + 3;
-      let topBlock = valley ? GRASS : FOREST;
+      // Zone-1's near band is old farmland gone semi-feral: grass, not forest floor.
+      let topBlock = valley || zoneAt(x, z) === 'near' ? GRASS : FOREST;
       let fill = DIRT;
       let depth = valley ? 4 : 3;
       if (canyonFloor) { topBlock = rand3(x, top, z, SEED) < 0.5 ? GRAVEL : SAND; fill = GRAVEL; depth = 2; }
@@ -615,6 +621,12 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (onRoad(x, z, 4)) return null;
   const m = PLACES.morphoTree, w = PLACES.warren, sign = PLACES.rangerSign;
   if (Math.hypot(x - m.x, z - m.z) < m.clearing + 4 || Math.hypot(x - w.x, z - w.z) < w.radius + 4 || Math.hypot(x - sign.x, z - sign.z) < 5) return null;
+  // Zone-1's places stand in the open, and the saddle's view down to the farm stays clear.
+  if (inFarmyard(x, z, 6) || onFarmTrack(x, z) || onFarmTrack(x - 2, z) || onFarmTrack(x + 2, z)) return null;
+  const sh = ZONE1.shelter, tk = ZONE1.truck;
+  if (x > sh.x0 - 6 && x < sh.x1 + 6 && z > sh.z0 - 6 && z < sh.z1 + 3) return null;
+  if (x > tk.x0 - 5 && x < tk.x1 + 5 && Math.abs(z - tk.z0) < 6) return null;
+  if (Math.abs(x - ZONE1.saddleSign.x) < 6 && Math.abs(z - ZONE1.saddleSign.z) < 6) return null;
   let kind: TreeSpot['kind'] | null = null;
   if (zone === 'valley') {
     const cd = creekDistance(x, z);
@@ -625,6 +637,11 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   } else if (zone === 'canyon') {
     if (roll < 0.12) kind = 'fern';
     else if (roll < 0.2) kind = 'bamboo';
+  } else if (zone === 'near') {
+    // Open, semi-feral farmland: a third of the buffer's trees, and fewer still between the saddle and the farm.
+    const open = x > 1040 && x < 1160 && z > 1000 && z < 1095;
+    if (roll < (open ? 0.05 : 0.17)) kind = 'broadleaf';
+    else if (roll < (open ? 0.08 : 0.24)) kind = 'fern';
   } else {
     if (roll < 0.5) kind = 'broadleaf';
     else if (roll < 0.72) kind = 'fern';

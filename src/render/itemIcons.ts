@@ -106,6 +106,21 @@ const DRAW: Record<string, (i: Icon) => void> = {
   headlamp: (i) => { i.line(1, 9, 15, 9, '#2d2d2d', 1); i.rect(5, 6, 6, 5, '#3c3c3c'); i.disc(8, 8, 1, '#fff3c8'); },
   backpack: (i) => { i.rect(3, 3, 10, 11, '#6d5a3a'); i.rect(5, 8, 6, 4, '#5a4a2e'); i.rect(6, 1, 4, 2, '#4a3c24'); },
   wallet: (i) => { i.rect(4, 2, 8, 12, '#1f1f1f'); i.rect(5, 3, 6, 5, '#5a8db0'); i.rect(6, 10, 2, 2, '#f7931a'); i.rect(9, 10, 2, 2, '#7d8790'); },
+  // Zone-1's near band (docs/PHASE4.md).
+  pistol: (i) => { i.rect(3, 5, 10, 3, '#2f3133'); i.rect(4, 4, 8, 1, '#4a4d50'); i.rect(4, 8, 3, 6, '#3a2c22'); i.rect(5, 9, 1, 4, '#4f3c2c'); i.set(8, 9, '#2f3133'); i.set(9, 9, '#2f3133'); i.set(12, 4, '#1c1d1e'); },
+  rounds_pistol: (i) => { for (const x of [3, 7, 11]) { i.rect(x, 7, 3, 6, '#c9a227'); i.rect(x, 5, 3, 2, '#9a9fa4'); } },
+  map_scrap: (i) => { i.rect(2, 3, 12, 10, '#e6dab8'); i.line(2, 3, 5, 5, '#c8b98f'); i.line(3, 11, 9, 6, '#7a6a4a'); i.line(9, 6, 13, 7, '#7a6a4a'); i.line(4, 5, 9, 4, '#4a6a3a'); i.line(10, 10, 12, 9, '#a3241c'); i.set(12, 8, '#a3241c'); i.set(11, 8, '#a3241c'); },
+  armband: (i) => { i.rect(2, 6, 12, 5, '#a3241c'); i.rect(2, 6, 12, 1, '#7d1a14'); i.disc(8, 8, 1, '#e9e2d0'); i.set(8, 8, '#a3241c'); i.set(7, 7, '#a3241c'); },
+  wire_mesh: (i) => { for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) if ((x + y) % 3 === 0 || (x - y + 30) % 3 === 0) i.set(x, y, '#9aa3a8'); },
+  canvas: (i) => { i.rect(2, 4, 12, 9, '#c9b98a'); i.rect(2, 4, 12, 2, '#b3a275'); for (let x = 3; x < 14; x += 3) i.line(x, 6, x, 12, '#b8a87a'); },
+  scrap: (i) => { i.rect(3, 7, 7, 5, '#8a4a2a'); i.rect(6, 4, 7, 4, '#7d8288'); i.line(4, 12, 12, 10, '#5a4a3e'); i.set(8, 8, '#b8703c'); },
+  wire: (i) => { for (let k = 0; k < 3; k++) for (let a = 0; a < 20; a++) { const t = (a / 20) * Math.PI * 2; i.set(8 + Math.cos(t) * (5 - k), 8 + Math.sin(t) * (4 - k), '#9a958e'); } },
+  chicken: (i) => { i.disc(8, 10, 4, '#d9b17a'); i.disc(5, 6, 2, '#d9b17a'); i.set(3, 6, '#e0a526'); i.set(5, 5, '#1d1d1d'); i.rect(5, 3, 2, 1, '#c0392b'); i.rect(11, 7, 2, 3, '#a87a46'); i.rect(7, 14, 1, 1, '#e0a526'); i.rect(9, 14, 1, 1, '#e0a526'); },
+  egg: (i) => { i.disc(8, 9, 4, '#efe2c4'); i.disc(8, 6, 3, '#efe2c4'); i.disc(7, 7, 1, '#fbf4e2'); },
+  egg_cooked: (i) => { i.disc(8, 8, 6, '#f6f1e6'); i.disc(8, 8, 2, '#f2b81c'); i.disc(7, 7, 0, '#f8d45a'); },
+  feather: (i) => { i.line(4, 13, 12, 3, '#8a6a3a'); for (let k = 0; k < 8; k++) { i.line(5 + k, 11 - k, 3 + k, 8 - k, '#d9c9a8'); i.line(5 + k, 11 - k, 8 + k, 12 - k, '#c9b58e'); } },
+  poultry: (i) => { i.disc(7, 9, 4, '#e8b4a0'); i.disc(7, 9, 2, '#f2c8b6'); i.line(10, 7, 14, 3, '#ece6d6', 1); i.disc(14, 3, 1, '#ece6d6'); },
+  poultry_cooked: (i) => { i.disc(7, 9, 4, '#b8743e'); i.disc(7, 9, 2, '#d08c4e'); i.line(10, 7, 14, 3, '#ece6d6', 1); i.disc(14, 3, 1, '#ece6d6'); },
   journal: (i) => { i.rect(3, 2, 10, 12, '#6b3e26'); i.rect(4, 3, 8, 10, '#7d4a2e'); i.rect(12, 2, 1, 12, '#e8dcc0'); i.line(5, 6, 10, 6, '#c9a227'); },
 };
 

@@ -430,6 +430,69 @@ export class Sound {
     o.start(t); o.stop(t + 0.85); trem.start(t); trem.stop(t + 0.85);
   }
 
+  // ---- Zone-1's near band (docs/PHASE4.md) ----------------------------------------------------
+
+  /** A feral dog's bark: two or three short, rough, falling barks. */
+  bark(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    const n = 2 + Math.floor(Math.random() * 2), f = 420 + Math.random() * 120;
+    for (let i = 0; i < n; i++) {
+      this.chirp(p, t + i * 0.26, f, f * 0.55, 0.13, 0.35, 'sawtooth');
+      this.noiseAt(p, t + i * 0.26, 0.1, 'bandpass', 900, 1.2, 0.25);
+    }
+  }
+
+  /** A dog's or coyote's snarl as it crouches to spring: the warning to step back. */
+  snarl(x: number, y: number, z: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const p = this.at(x, y, z), t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(190, t + 0.45);
+    const trem = ctx.createOscillator(); trem.frequency.value = 31;
+    const depth = ctx.createGain(); depth.gain.value = 0.25;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.3, t + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.8;
+    trem.connect(depth).connect(g.gain);
+    o.connect(bp).connect(g).connect(p);
+    o.start(t); o.stop(t + 0.6); trem.start(t); trem.stop(t + 0.6);
+  }
+
+  /** Coyotes: a run of high yips rising into a short howl. */
+  yip(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    for (let i = 0; i < 5; i++) this.chirp(p, t + i * 0.11, 900 + i * 60, 1300 + i * 80, 0.08, 0.12, 'triangle');
+    this.chirp(p, t + 0.6, 700, 1150, 0.9, 0.1, 'triangle');
+  }
+
+  /** A hen's cluck: soft, low and broken. */
+  cluck(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) this.chirp(p, t + i * 0.16, 520 + Math.random() * 80, 380, 0.07, 0.12, 'square');
+  }
+
+  /** The pistol: a flatter, shorter crack than the rifle. */
+  pistol(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noiseAt(this.sfx, t, 0.16, 'lowpass', 4200, 0.5, 0.7, 0.001);
+    this.chirp(this.sfx, t, 180, 70, 0.18, 0.45);
+    this.noiseAt(this.sfx, t + 0.3, 0.4, 'lowpass', 800, 0.6, 0.08, 0.02);
+  }
+
+  /** Marco's greeting: a two-note whistle. */
+  whistle(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.chirp(p, t, 1500, 1700, 0.18, 0.14);
+    this.chirp(p, t + 0.24, 1900, 1250, 0.3, 0.14);
+  }
+
   /** A blow landing on the player. */
   hurt(): void { this.thump(90, 0.18, 0.5); this.burst(0.12, 'lowpass', 700, 0.7, 0.3); }
 

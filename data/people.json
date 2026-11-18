@@ -1,0 +1,21 @@
+{
+  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2).",
+  "marco": {
+    "name": "Marco",
+    "contact": "Marco (trader)",
+    "scratched": "MARCO · TRADES · CALL",
+    "first": "“You found my number, then. Marco. I trade up and down this road: salt, nails, cloth, a bit of everything. I pay in coin, the digital kind, same as I am paid. Half what I sell for, mind. A man has to eat.”",
+    "again": [
+      "“Back again. Good. What do you need?”",
+      "“The road is quiet today. Let’s see what you have.”",
+      "“Careful past the farm. Those dogs have gone wild.”",
+      "“You look like a man who walks a long way for his salt.”"
+    ],
+    "callDay": "“Bueno. I will be at the bus shelter on the old road. Come by daylight.”",
+    "callNight": "“Not in the dark, friend. The coyotes own the road at night. I will be at the shelter in the morning.”",
+    "callWaiting": "“I said I would be there, and I will. By the bus shelter, by day.”",
+    "trust": "Marco nods slowly. He trusts you a little now (trust 1).",
+    "strike": "Marco steps back, hands up. “Easy, friend. Easy.”",
+    "bye": "Marco tips his hat and goes back to the road."
+  }
+}
