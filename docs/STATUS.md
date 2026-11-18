@@ -87,7 +87,7 @@ _The page to resume from. Keep it short; history lives in git._
 ## Next
 
 1. The owner looks at Phase 3.
-   - **Seen at publishing:** under water, the valley-side lever stone (north wall, just before the gate) is nearly black. Light dies within a few blocks in water. A player who doesn't know where it is will struggle to find it. Light it as part of the next step: the builder would have set a lamp by it.
+   - **Seen at publishing:** under water, the valley-side lever stone (north wall, just before the gate) is nearly black. Light dies within a few blocks in water. A player who doesn't know where it is will struggle to find it. Light it as part of the next step: the builder would have set a lamp by it. *Built on branch `river`:* a sealed lamp just above the stone.
 2. **Next: one hidden river, bursting out of the ridge both ways** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the higher mountains soaks into the limestone, runs underground, and bursts out of both faces of the ridge between the canyon and the valley.
    - **Two waterfalls, mirrored:** one pours from a dark opening in the ridge's canyon face into the canyon pool, the other from its valley face into the valley pool. The rim above both stays dry rock.
    - **The canyon pool moves east** to the ridge's foot, so the outside falls land in it.
@@ -97,6 +97,14 @@ _The page to resume from. Keep it short; history lives in git._
    - **Why not a river over the rim:** a river on the plateau would lead anyone straight to the hidden valley.
    - **When:** now that Phase 3 is merged, before Phase 4. Move the ramp's foot with the pool.
    - Changing the Unity game's script is the owner's call; this note is for the block edition.
+   - **Built on branch `river`** (waiting for the lead's review; tests in `tests/river.test.ts`):
+     - Both falls pour from a dark opening 4 high and 5 deep at y 105, about 8 below the ridge top; the old notch and spring pool on the rim are gone. The canyon curtain is 9 wide, the valley's 7.
+     - The canyon's east wall is a sheer cliff band for about 60 m around the falls (`canyonHeadwall` in `src/gen/layout.ts`). A short sheer stretch looked like a spillway standing out of the slope.
+     - `CANYON_POOL` moved to x 1573. `RAMP` gained a short flat lead-in from beside the pool to the old foot.
+     - The tunnel now runs x 1580–1602. Each mouth is a shaft straight under its curtain (`TUNNEL_MOUTHS`). The gate, levers and pocket did not move. The canyon leg is now very short, because the canyon mouth sits just west of the pocket.
+     - The current is 0.7 m/s toward the valley in the passage, with none in the pocket (`riverCurrent`, `Player.flow`). A simulated swimmer uses 11.5 s and 6 s of the 20 s breath going out, and 3 s and 8 s coming in.
+     - The canyon stream runs about 90 m south along the floor and ends in a dry bed of gravel and mud.
+     - Spray and a positioned roar at both falls. The journal's gate entry mentions the falls, the lamp and the current.
 3. Still open from before:
    - Water doesn't flow; breaking a block next to water fills it with still water.
    - Cross-device saves through the page's `db` capability.

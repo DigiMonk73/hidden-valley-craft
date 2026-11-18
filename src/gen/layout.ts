@@ -289,10 +289,21 @@ export function outsideHeight(x: number, z: number): number {
   return Math.round(natural);
 }
 
-/** How sheer the canyon's east wall is at z: 1 behind the canyon falls, easing to 0 either side. */
+/**
+ * How sheer the canyon's east wall is at z: a long cliff band with the canyon falls in its middle
+ * (1), easing back into the canyon's sloping wall well to either side (0), so the falls sit in the
+ * face rather than on a spur standing out of it.
+ */
 function canyonHeadwall(z: number): number {
   const mid = (CANYON_FALLS.z0 + CANYON_FALLS.z1) / 2, half = (CANYON_FALLS.z1 - CANYON_FALLS.z0) / 2;
-  return 1 - smoothstep(half + 4, half + 14, Math.abs(z + 0.5 - mid));
+  return 1 - smoothstep(half + 20, half + 44, Math.abs(z + 0.5 - mid));
+}
+
+/** Where the headwall's foot stands: straight behind the falls, a little ragged either side. */
+function headwallX(z: number): number {
+  const mid = (CANYON_FALLS.z0 + CANYON_FALLS.z1) / 2, half = (CANYON_FALLS.z1 - CANYON_FALLS.z0) / 2;
+  const away = smoothstep(half + 2, half + 6, Math.abs(z + 0.5 - mid));
+  return CANYON_FALLS.x + 0.5 + away * Math.round(1.6 * noiseB.noise2(z / 6, 3.7) + 0.6);
 }
 
 /** The land outside the valley before anything is built on it. `fine` adds the small bumps (not under the road). */
@@ -336,7 +347,7 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
     // easing back into the canyon's sloping wall either side.
     let lo = CANYON.halfFloor, run = CANYON.wallRun;
     const s = x > cc ? canyonHeadwall(z) : 0;
-    if (s > 0) { lo = mix(lo, CANYON_FALLS.x + 0.5 - cc, s); run = mix(run, 0.5, s); }
+    if (s > 0) { lo = mix(lo, headwallX(z) - cc, s); run = mix(run, 0.5, s); }
     const wall = smoothstep(lo, lo + run, cd);
     const canyon = mix(VALLEY.floor + 1 + noise.noise2(x / 12, z / 12), base, Math.pow(wall, 0.6));
     base = mix(base, Math.min(base, canyon), endFade);
