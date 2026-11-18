@@ -142,10 +142,12 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - Tests for both.
 
    *Done* (`src/sim/rabbits.ts`, `tests/rabbits.test.ts`). A grazing rabbit within 6 blocks of a set snare now and then smells the bait and wanders to it, so snares near the warren do catch.
-7. **Death outside.** At 0 HP outside the sanctuary:
+7. **DONE: Death outside.** At 0 HP outside the sanctuary:
    - Everything carried goes into a `lost_pack` placed at the nearest free cell where you fell (its container gets exactly the slots). The pack is emptied and you wake at the bed.
    - Inside the valley nothing changes.
    - Test: the pack holds exactly what was carried.
+
+   *Done* (`src/sim/death.ts`, `tests/death.test.ts`). The pack goes in the nearest open cell (air, water or a plant) within 3 blocks, preferring one on the ground; never in the gate's doorway, and never over another pack. The expedition backpack's extra slots stay on your back.
 8. **The play-through.** Extend `tests/e2e/play.mjs`:
    - swim from the valley pool to the gate, pull the lever and pass;
    - reach the road;

@@ -34,6 +34,7 @@ import { HOME, WATERFALL, VALLEY, POOL, GATE, PLACES, zoneAt, ZONE_DANGER, inSan
 import { CS } from './world/constants.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
+import { leaveLostPack, losesPack } from './sim/death.ts';
 import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
 import { meleeDamage, takeDrops, drawOf, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt } from './entity/spawner.ts';
@@ -495,18 +496,33 @@ export class Game {
     const hurt = fallDamage(fall);
     if (hurt) { v.hp = Math.max(0, v.hp - hurt); this.sound.footstep('stone'); }
     if (v.hp < before - 0.5 || hurt) this.hud.flashHurt();
-    if (v.hp <= 0) this.wakeAgain();
+    if (v.hp <= 0) this.die();
   }
 
-  /** Death in the valley: you wake where you last slept (or on the balcony), with what you carried. */
-  private wakeAgain(): void {
+  /**
+   * Death. In the valley you wake with everything. Outside, what you carried stays in a lost pack
+   * where you fell, and you wake with nothing.
+   */
+  private die(): void {
+    const p = this.player;
+    this.drawing = null;
+    this.fishing = null;
+    this.mining.active = false;
+    if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you.'); return; }
+    const at = leaveLostPack(this.world, this.hotbar, p.x, p.y + 0.2, p.z);
+    if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
+    this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
+  }
+
+  /** You wake where you last slept (or on the balcony). */
+  private wakeAgain(line: string): void {
     const s = this.spawn;
     this.player.setPosition(s.x, s.y, s.z);
     this.player.yaw = s.yaw;
     this.player.pitch = 0;
     this.player.breath = 20;
     this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, 50), thirst: Math.max(this.vitals.thirst, 50) };
-    this.hud.toast('You wake, aching, back at the cave. The valley keeps you.', 5000);
+    this.hud.toast(line, 6000);
     this.edited();
   }
 
