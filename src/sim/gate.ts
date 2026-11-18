@@ -33,6 +33,8 @@ export class Gate {
   pull(): GateEvent | null {
     if (this.state === 'open') { this.timer = HOLD; return null; }
     if (this.state === 'opening') return null;
+    // Asked to close but no row has come down yet: simply stay open.
+    if (this.state === 'closing' && this.rows >= ROWS) { this.state = 'open'; this.timer = HOLD; return null; }
     this.state = 'opening';
     this.timer = ROW_SECONDS;
     return 'grind';
@@ -55,13 +57,16 @@ export class Gate {
     if (this.timer > 0) return null;
     switch (this.state) {
       case 'opening':
+        // Never lift a row that is not part of the slab (the roof above it stays rock).
+        if (this.rows >= ROWS) { this.state = 'open'; this.timer = HOLD; return null; }
         this.setRow(world, this.rows, WATER);
         this.rows++;
         this.timer = ROW_SECONDS;
         if (this.rows >= ROWS) { this.state = 'open'; this.timer = HOLD; return 'open'; }
         return null;
       case 'open': {
-        const near = Math.abs(who.x - (GATE.x0 + GATE.x1) / 2) < CLEAR;
+        // Anyone it would open for keeps it open, so it never closes and reopens on a waiting swimmer.
+        const near = Math.abs(who.x - (GATE.x0 + GATE.x1) / 2) < CLEAR || approaching(who);
         if (near || this.rowOccupied(this.rows - 1, who)) { this.timer = 0.5; return null; }
         this.state = 'closing';
         this.timer = 0;

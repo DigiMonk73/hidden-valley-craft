@@ -109,7 +109,10 @@ _The page to resume from. Keep it short; history lives in git._
      - **Why no pocket:** the whole swim takes about 11 s of the 20 s breath going out and about 8 s coming home, so a second stop would only add a place to get lost.
      - No moss on the rock round the mouths or in the tunnel, so nothing there looks like something to click.
      - The current is 0.5 m/s toward the valley (`riverCurrent`, `Player.flow`).
-     - Old saves: an edit made at the old gate or pocket now lands inside solid rock and does no harm.
+     - Old saves: a player saved in the old tunnel, pocket or shafts (now rock) wakes afloat by the valley mouth (`rescueFromOldTunnel`). An open gate saved by version 4 leaves a few water cells sealed inside the rock below the new tunnel: unseen and harmless.
+     - The gate stays open while a swimmer waits near it, and never lifts a row above the slab. Before this fix, waiting 3–4 blocks away made it reopen over and over and bore a water shaft up into the ridge.
+     - The two falls' roars blend along the tunnel instead of flipping at the valley mouth.
+     - Not done: the swim test starts on the tunnel's centre line only. A diver at the edge of a curtain has to steer toward the lamps.
    - The canyon stream runs about 90 m south along the floor and ends in a dry bed of gravel and mud.
    - Spray and a positioned roar at both falls; each falls is muffled when heard across the ridge. The journal's gate entry says: dive through the falls, see the lamp, swim to the gate: "it knows you".
 3. Still open from before:

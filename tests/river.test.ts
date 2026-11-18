@@ -10,7 +10,7 @@ import { Gate } from '../src/sim/gate.ts';
 import { Player, BREATH_MAX, EYE, type Input } from '../src/sim/player.ts';
 import {
   WATERFALL, CANYON_FALLS, SPRINGS, SPRING_OPENING, CANYON_POOL, TUNNEL, MOUTH_BASINS, MOUTH_LAMPS, TUNNEL_LAMPS, GATE,
-  RIVER_CURRENT, CANYON_STREAM, RAMP, VALLEY, riverCurrent, fallsLoudness, inCanyonStream, outsideHeight, inSanctuary, canyonStreamAt, rampAt, RAMP_HALF_WIDTH,
+  RIVER_CURRENT, CANYON_STREAM, RAMP, VALLEY, riverCurrent, fallsLoudness, inCanyonStream, rescueFromOldTunnel, outsideHeight, inSanctuary, canyonStreamAt, rampAt, RAMP_HALF_WIDTH,
 } from '../src/gen/layout.ts';
 import { CS } from '../src/world/constants.ts';
 
@@ -95,8 +95,37 @@ describe('the review’s findings (river branch)', () => {
   });
 
   it('muffles each waterfall’s roar heard from the other side of the ridge', () => {
-    expect(fallsLoudness(WATERFALL, true)).toBeGreaterThan(fallsLoudness(CANYON_FALLS, true) * 2);
-    expect(fallsLoudness(CANYON_FALLS, false)).toBeGreaterThan(fallsLoudness(WATERFALL, false) * 2);
+    const vx = WATERFALL.x + 12, cx = CANYON_FALLS.x - 12, zz = TUNNEL.z;
+    expect(fallsLoudness(WATERFALL, vx, zz, true)).toBeGreaterThan(fallsLoudness(CANYON_FALLS, vx, zz, true) * 2);
+    expect(fallsLoudness(CANYON_FALLS, cx, zz, false)).toBeGreaterThan(fallsLoudness(WATERFALL, cx, zz, false) * 2);
+  });
+
+  it('blends the two roars smoothly along the tunnel, with no sudden flip at a mouth (second review)', () => {
+    for (const f of SPRINGS) {
+      let last = fallsLoudness(f, CANYON_FALLS.x - 6, TUNNEL.z, false);
+      for (let x = CANYON_FALLS.x - 6; x <= WATERFALL.x + 6; x += 0.25) {
+        const l = fallsLoudness(f, x, TUNNEL.z, x > (CANYON_FALLS.x + WATERFALL.x) / 2 && x > WATERFALL.x - 0.5 ? true : x > WATERFALL.x);
+        expect(Math.abs(l - last), `${x}`).toBeLessThan(0.1);
+        last = l;
+      }
+    }
+  });
+
+  it('wakes a player saved in the old tunnel or air pocket afloat by the valley mouth (second review)', () => {
+    for (const [x, y, zz] of [[1586.5, 65, 1022.5], [1588.5, 63, 1024.5], [1566.5, 62, 1024.5], [1605.5, 62, 1024.5]]) {
+      const at = rescueFromOldTunnel(x, y, zz);
+      expect(at, `${x},${y},${zz}`).not.toBeNull();
+      const [rx, ry, rz] = at!;
+      expect(isWaterId(world.blockAt(Math.floor(rx), Math.floor(ry + 0.4), Math.floor(rz)))).toBe(true);
+      expect(isWaterId(world.blockAt(Math.floor(rx), Math.floor(ry + EYE), Math.floor(rz)))).toBe(false);
+      for (let y = Math.floor(ry); y < ry + 1.8; y++) expect(B_SOLID[world.blockAt(Math.floor(rx), y, Math.floor(rz))]).toBe(0);
+    }
+    // Anywhere fine today is left alone: in the new tunnel, in the pools, on the balcony.
+    expect(rescueFromOldTunnel(GATE.x1 + 2.5, TUNNEL.y0, TUNNEL.z + 0.5)).toBeNull();
+    expect(rescueFromOldTunnel(MOUTH_BASINS.valley.x0 + 1.5, TUNNEL.y0, TUNNEL.z + 0.5)).toBeNull();
+    expect(rescueFromOldTunnel(WATERFALL.x + 10, W - 0.4, TUNNEL.z)).toBeNull();
+    expect(rescueFromOldTunnel(1615.5, 65, 1024.5)).toBeNull(); // on the valley pool's deepest bed
+    expect(rescueFromOldTunnel(1796.5, 82, 1024.5)).toBeNull();
   });
 
   it('draws the canyon stream unbroken on the map table’s 8 m grid', () => {

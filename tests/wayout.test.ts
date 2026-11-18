@@ -58,6 +58,23 @@ describe('the tunnel and the builder’s gate', () => {
     }
   });
 
+  it('stays open for a swimmer waiting near it, and never lifts the roof (second review)', () => {
+    const w2 = load(TUNNEL.x0 - 4, TUNNEL.z - 4, TUNNEL.x1 + 4, TUNNEL.z + 4);
+    const roof = GATE.y1;
+    const before = [GATE.x0, GATE.x1 - 1].map((x) => w2.blockAt(x, roof, TUNNEL.z));
+    const g = new Gate();
+    const mid = (GATE.x0 + GATE.x1) / 2;
+    let grinds = 0;
+    for (let x = mid + 1 + APPROACH - 0.5, t = 0; t < 30; t += 0.05) if (g.update(0.05, w2, swimmer(x)) === 'grind') grinds++;
+    expect(g.rows).toBeLessThanOrEqual(GATE.y1 - GATE.y0);
+    expect(grinds).toBe(1);
+    expect(g.state).toBe('open');
+    [GATE.x0, GATE.x1 - 1].forEach((x, k) => {
+      expect(w2.blockAt(x, roof, TUNNEL.z)).toBe(before[k]);
+      expect(B_SOLID[w2.blockAt(x, roof, TUNNEL.z)]).toBe(1);
+    });
+  });
+
   it('opens row by row from the bottom, then closes behind the swimmer', () => {
     const g = new Gate();
     expect(g.pull()).toBe('grind');

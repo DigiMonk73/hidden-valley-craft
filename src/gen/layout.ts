@@ -77,12 +77,16 @@ export const SPRINGS: Falls[] = [WATERFALL, CANYON_FALLS];
 export const SPRING_OPENING = { depth: 5, height: 4 };
 
 /**
- * How loud a waterfall's roar is to someone in the valley (or outside it): full on its own side of
- * the ridge, muffled by the rock when heard from the other side.
+ * How loud a waterfall's roar is at (x, z): full on its own side of the ridge, muffled by the rock when
+ * heard from the other side, and blending from one to the other along the tunnel through the ridge.
  */
-export function fallsLoudness(f: Falls, inValley: boolean): number {
-  const ownSide = (f.dir === 1) === inValley;
-  return ownSide ? (f.dir === 1 ? 0.9 : 1) : 0.3;
+export function fallsLoudness(f: Falls, x: number, z: number, inValley: boolean): number {
+  const full = f.dir === 1 ? 0.9 : 1, muffled = 0.3;
+  let valleySide = inValley ? 1 : 0;
+  if (Math.abs(z - 1024) < 30 && x > CANYON_FALLS.x - 1 && x < WATERFALL.x + 1)
+    valleySide = Math.min(1, Math.max(0, (x - (CANYON_FALLS.x - 1)) / (WATERFALL.x - CANYON_FALLS.x + 2)));
+  const own = f.dir === 1 ? valleySide : 1 - valleySide;
+  return muffled + (full - muffled) * own;
 }
 
 /** Outside the west wall: the canyon and its pool, joined to the valley pool by the drowned tunnel. */
@@ -103,6 +107,20 @@ export const MOUTH_BASINS = {
 };
 /** The current in the tunnel: the canyon spring pushes harder, so the water runs toward the valley (m/s, +x). */
 export const RIVER_CURRENT = 0.5;
+
+/**
+ * A saved position inside the version-4 tunnel, air pocket or shafts, which are solid rock now: where to
+ * put the player instead (afloat by the valley mouth), or null if the position is fine.
+ */
+export function rescueFromOldTunnel(x: number, y: number, z: number): [number, number, number] | null {
+  if (x < 1560 || x >= 1616 || z < 1018 || z >= 1031 || y < 58) return null;
+  const inTunnel = x >= TUNNEL.x0 - 4 && x < TUNNEL.x1 + 4 && y >= TUNNEL.y0 - 0.05 && y < TUNNEL.y1 && Math.abs(z - (TUNNEL.z + 0.5)) <= TUNNEL.halfWidth + 0.2;
+  // The old tunnel and its shafts ran below anything open today (the pools' deepest water is at y 65).
+  const belowAll = y < 64.6;
+  // The old air pocket, x 1583–1590, z 1022–1026, up to y 68: rock now, but for the new tunnel through it.
+  const oldPocket = x >= 1583 && x < 1591 && z >= 1022 && z < 1027 && y < 68 && !inTunnel;
+  return belowAll || oldPocket ? [MOUTH_BASINS.valley.x1 - 0.5, 69 - 0.4, TUNNEL.z + 0.5] : null;
+}
 
 /** The stream the canyon pool spills into: south along the canyon floor until it sinks into the gravel. */
 export const CANYON_STREAM: [number, number][] = [
