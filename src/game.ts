@@ -478,7 +478,8 @@ export class Game {
     const t = this.target;
     if (!t) return false;
     const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
-    return !!this.world.containerAt(t.x, t.y, t.z) || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
+    const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
+    return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
       || ['bed', 'bookshelf', 'computer', 'phone', 'map_table'].includes(name);
   }
 
