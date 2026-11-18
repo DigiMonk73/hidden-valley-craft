@@ -4,6 +4,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-18)
 
+- **The hidden river** (branch `river`, merged) was published as version 5. Changes:
+  - One underground river bursts from both faces of the canyon–valley ridge as twin waterfalls.
+  - The way in and out is simple: a lit tunnel mouth under each waterfall, a short tunnel lit throughout, and a gate that opens by itself as you swim up. There are no levers and no air pocket.
+  - Checks: 150 unit tests, and all 33 play-through checks.
+  - A diver at the very edge of a curtain meets rock beside the mouth and steers toward the lamps.
+
 - **The owner passed Phase 0** after a walkabout ("It looks great… we should finish it out"). Mining was not tried.
 - **Phase 1 ("The valley looks right")** was published as version 2.
 - **Phase 2 ("Living in the valley")** was published as version 3 (commit 8b3f41f), after a review and a re-check whose findings are fixed. It waits for the owner's look. Step 7, structure export, is deferred.
