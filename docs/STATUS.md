@@ -81,12 +81,14 @@ _The page to resume from. Keep it short; history lives in git._
 ## Next
 
 1. Phase 3 is in its phase session (branch `phase3`); the lead reviews, merges and publishes it.
-2. **After Phase 3 merges: give the waterfalls a source** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the uplands soaks into the limestone and runs underground, and that underground river bursts out of the cliff faces as springs.
-   - **The valley waterfall:** it gushes from a dark opening in the west cliff, a few metres below the rim, and the rim above it stays dry rock.
-   - **The canyon pool:** it gets its own waterfall, the same river surfacing outside (DESIGN.md: the pool "beneath a waterfall" where the story starts).
-   - **The tunnel:** a gentle current flows through it toward the valley, the "lateral current" in the script.
+2. **After Phase 3 merges: one hidden river, bursting out of the ridge both ways** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the higher mountains soaks into the limestone, runs underground, and bursts out of both faces of the ridge between the canyon and the valley.
+   - **Two waterfalls, mirrored:** one pours from a dark opening in the ridge's canyon face into the canyon pool, the other from its valley face into the valley pool. The rim above both stays dry rock.
+   - **The canyon pool moves east** to the ridge's foot, so the outside falls land in it.
+   - **The tunnel's mouth is under each curtain:** you dive through white water to find it, which hides it from anyone outside. The script says the hero "dove in" at a pool "beneath a waterfall".
+   - **The current:** the canyon spring is the stronger, so a gentle current in the tunnel pulls toward the valley (the script's "lateral current").
    - **Where the water goes:** the valley pool drains by the creek sinking into the rock (it does already). The canyon pool drains down the canyon as a stream.
    - **Why not a river over the rim:** a river on the plateau would lead anyone straight to the hidden valley.
+   - **When:** after Phase 3 merges, as Phase 3 is reworking that ground: the ramp starts beside the canyon pool.
    - Changing the Unity game's script is the owner's call; this note is for the block edition.
 3. Still open from before:
    - Water doesn't flow; breaking a block next to water fills it with still water.
