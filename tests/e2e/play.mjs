@@ -441,6 +441,13 @@ check('in the morning the coop has eggs', eggs === 2, `eggs ×${eggs}`);
 await page.waitForTimeout(1300);
 const m1 = await g(() => ({ done: window.__hv.game.flags.has('m1_done'), f: [...window.__hv.game.flags] }));
 check('M1, the first outside run, is done', m1.done, m1.f.join(' '));
+check('the meeting with Marco ended once you left him', !m1.f.includes('marco_meeting'));
+// The journal opens at the newest of your own notes.
+await useAt(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1029.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; },
+  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.1; const t = gm.target; return t && t.x === 1814; });
+const notesPage = await page.locator('.pp-panel').textContent().catch(() => '');
+check('the journal opens at your newest note', /Your notes/.test(notesPage ?? '') && /first run/i.test(notesPage ?? ''), (notesPage ?? '').slice(0, 70));
+await closeScreens();
 
 // Mine a block next to it and leave the hole, then save and reload.
 const t2 = { x: target.x, y: target.y, z: target.z + 1 };

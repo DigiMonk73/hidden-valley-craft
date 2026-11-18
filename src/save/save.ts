@@ -33,6 +33,8 @@ export interface SaveData {
   wallet?: number;
   /** How many of the farmhouse den's dogs are alive (Phase 4). */
   den?: number;
+  /** How many hens are left in the farm's feral flock (Phase 4). */
+  flock?: number;
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

@@ -37,7 +37,7 @@ import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type
 import { leaveLostPack, losesPack } from './sim/death.ts';
 import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
 import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
-import { groundAt } from './entity/spawner.ts';
+import { groundAt, FLOCK_SIZE } from './entity/spawner.ts';
 import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
 import { CATALOG, START_WALLET, buy, sell, sellPrice, sellable, btc } from './sim/trade.ts';
@@ -267,6 +267,8 @@ export class Game {
     if (newDay(this.dayClock, this.hour)) {
       if (breedHutches(this.world)) this.edited();
       if (layEggs(this.world)) this.edited();
+      // The farm's feral flock regrows by a hen a day.
+      this.wild.flockLeft = Math.min(FLOCK_SIZE, this.wild.flockLeft + 1);
     }
     this.dayClock = this.hour;
 
@@ -433,6 +435,7 @@ export class Game {
       this.wild.denLeft = Math.max(0, this.wild.denLeft - 1);
       if (this.wild.denLeft === 0) this.hud.toast('The last of the dogs. The farm is quiet now.', 5000);
     }
+    if (c.kind === 'chicken') this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
     const left = takeDrops(this.hotbar, c.kind);
     if (!left.length) this.hud.toast(KILL_LINE[c.kind]);
     else {
@@ -529,6 +532,7 @@ export class Game {
       const r = catchChicken(this.hotbar, hit.c);
       if (r === 'full') { this.hud.toast('No room in your pack for the chicken'); return true; }
       this.wild.remove(hit.c);
+      this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
       this.sound.cluck(hit.c.x, hit.c.y + 0.3, hit.c.z);
       const n = this.hotbar.count(itemId('live_chicken'));
       this.hud.toast(n >= 2 ? `${n} live chickens: a pair for a coop. Build one at the workbench.` : 'A live chicken! Catch another: a pair lays eggs in a coop.');
@@ -799,7 +803,7 @@ export class Game {
   private openJournal(): void {
     const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
     const all = [...journalData.entries, ...notes];
-    this.openPaper(() => this.paper.journal(all, notes.length ? journalData.entries.length : 0));
+    this.openPaper(() => this.paper.journal(all, notes.length ? all.length - 1 : 0)); // at your newest note
   }
 
   /** The builder's phone: his dead contacts, and Marco once his number has been found at the shelter. */
@@ -812,7 +816,7 @@ export class Game {
           const night = this.hour < MARCO_HOURS[0] || this.hour >= MARCO_HOURS[1];
           const waiting = this.flags.has('marco_meeting');
           this.flags.add('marco_meeting');
-          this.flags.delete('marco_dealt');
+          this.flags.delete('marco_seen');
           this.edited();
           return waiting ? MARCO.callWaiting : night ? MARCO.callNight : MARCO.callDay;
         },
@@ -830,7 +834,6 @@ export class Game {
     this.flags.add('marco_met');
     const say = first ? MARCO.first : MARCO.again[Math.floor(Math.random() * MARCO.again.length)];
     const dealt = () => {
-      this.flags.add('marco_dealt');
       this.edited();
       if (!this.flags.has('marco_trust1')) { this.flags.add('marco_trust1'); return MARCO.trust; }
       return '';
@@ -897,7 +900,8 @@ export class Game {
     const marco = this.wild.creatures.find((c) => c.kind === 'marco');
     const day = this.hour >= MARCO_HOURS[0] && this.hour < MARCO_HOURS[1];
     const dist = Math.hypot(p.x - MARCO_SPOT[0], p.z - MARCO_SPOT[2]);
-    if (f.has('marco_meeting') && f.has('marco_dealt') && dist > 60) { f.delete('marco_meeting'); f.delete('marco_dealt'); this.edited(); }
+    // The meeting is over once you have been to him and walked away (60 m), dealt or not.
+    if (f.has('marco_meeting') && f.has('marco_seen') && dist > 60) { f.delete('marco_meeting'); f.delete('marco_seen'); this.edited(); }
     const here = f.has('marco_meeting') && day;
     if (here && !marco && dist < 120 && this.world.column(Math.floor(MARCO_SPOT[0] / CS), Math.floor(MARCO_SPOT[2] / CS))) {
       const m = makeCreature('marco', MARCO_SPOT[0], MARCO_SPOT[1], MARCO_SPOT[2]);
@@ -906,6 +910,8 @@ export class Game {
     } else if (!here && marco) this.wild.remove(marco);
     if (here && marco && dist < 9 && !this.marcoGreeted) {
       this.marcoGreeted = true;
+      f.add('marco_seen');
+      this.edited();
       this.sound.whistle(marco.x, marco.y + 1.6, marco.z);
       this.hud.toast('Marco is here, under the shelter. Right-click him to talk and trade.', 6000);
     }
@@ -1115,7 +1121,7 @@ export class Game {
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
-      wallet: this.wallet, den: this.wild.denLeft,
+      wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft,
     };
   }
 
@@ -1135,6 +1141,7 @@ export class Game {
     this.flags = new Set(d.flags ?? []);
     this.wallet = d.wallet ?? START_WALLET;
     this.wild.denLeft = d.den ?? 3;
+    this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
@@ -1248,6 +1255,7 @@ export class Game {
       this.flags = new Set();
       this.wallet = START_WALLET;
       this.wild.denLeft = 3;
+      this.wild.flockLeft = FLOCK_SIZE;
       this.explored = new Uint8Array(64 * 64);
       this.hour = 16.5;
       this.dayClock = 16.5;

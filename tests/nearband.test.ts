@@ -181,7 +181,7 @@ describe('trading with Marco', () => {
     expect(full.count(itemId('lantern'))).toBe(0);
   });
 
-  it('pays half: selling back what he sold gives half its price, and he buys hides', () => {
+  it('pays half an item’s value: selling back what he sold returns less than was paid, and he buys hides', () => {
     const inv = new Inventory(36);
     const nails = CATALOG.find((l) => l.id === itemId('nails'))!;
     const bought = buy(inv, START_WALLET, nails);
@@ -192,7 +192,9 @@ describe('trading with Marco', () => {
       expect(r.ok).toBe(true);
       wallet = (r as { wallet: number }).wallet;
     }
-    expect(START_WALLET - wallet).toBeCloseTo(nails.sats / 2, -2);
+    // He pays half of each nail's own resale value: never more back than was paid.
+    expect(START_WALLET - wallet).toBe(nails.sats - nails.lot * sellPrice(itemId('nails')));
+    expect(wallet).toBeLessThan(START_WALLET);
     inv.add(itemId('hide'), 2);
     expect(sellable(inv)).toContain(itemId('hide'));
     expect(sellPrice(itemId('hide'))).toBeGreaterThan(0);
@@ -300,5 +302,79 @@ describe('reaching a creature through the grass', () => {
     expect(clearShot(grassy, 0.2, 100.4, 0.5, 1, 0, 0, 2)).toBe(true);
     const rock = (x: number, y: number, z: number) => (x === 1 ? STONE : grassy(x, y, z));
     expect(clearShot(rock, 0.2, 100.4, 0.5, 1, 0, 0, 2)).toBe(false);
+  });
+});
+
+// ---- The review's findings (docs/PHASE4.md, "Review"), each failing on the code before the fix. ----
+describe('review fixes', () => {
+  it('nothing Marco sells can be made cheaply and sold back at a profit: a lantern resells for no more than its iron', () => {
+    const lantern = sellPrice(itemId('lantern')), ingot = sellPrice(itemId('iron_ingot'));
+    // Two lanterns come from one ingot (plus glass and charcoal, which are free).
+    expect(2 * lantern).toBeLessThanOrEqual(ingot);
+    for (const lot of CATALOG) expect(sellPrice(lot.id) * lot.lot, `resale of ${lot.id}`).toBeLessThanOrEqual(lot.sats / 4);
+    expect(sellPrice(itemId('live_chicken'))).toBe(0);
+  });
+
+  it('the farm’s flock is finite: no more hens spawn than are left in it', () => {
+    const rand = makeRng(12);
+    let cs: Creature[] = [];
+    for (let t = 0; t < 600; t++) {
+      cs.push(...trySpawn(cs, YARD[0] + 20, YARD[1], false, rand, flat, () => true, { chicken: 2 }));
+      cs = cs.filter((c) => c.kind !== 'chicken' || rand() < 0.5); // caught as fast as they come
+    }
+    const rand2 = makeRng(3);
+    let made = 0;
+    for (let t = 0; t < 600; t++) made += trySpawn([], YARD[0] + 20, YARD[1], false, rand2, flat, () => true, { chicken: 0 }).filter((c) => c.kind === 'chicken').length;
+    expect(made).toBe(0);
+  });
+
+  it('a den dog shot from beyond its range comes for the shooter instead of going home', () => {
+    const rand = makeRng(5);
+    const [d] = denPack([], DEN[0] + 28, DEN[2], 1, rand, flat, () => true);
+    const px = DEN[0] + 28, pz = DEN[2];
+    let closest = Infinity;
+    hurt(d, 5);
+    for (let t = 0; t < 200; t++) { think(d, 0.05, senses(px, pz), flat, rand); closest = Math.min(closest, Math.hypot(d.x - px, d.z - pz)); }
+    expect(closest).toBeLessThan(3);
+  });
+
+  it('M1’s gate step needs a swim out through the gate and back: not a death outside, not turning back in the tunnel', async () => {
+    const { GATE } = await import('../src/gen/layout.ts');
+    const f = new Set<string>();
+    trackM1(f, GATE.x0 + 0.4, 1024.5, false); // into the gate's doorway, valley side of its middle… then back
+    trackM1(f, VALLEY.cx, VALLEY.cz, false);
+    expect(f.has('gate_both')).toBe(false);
+    trackM1(f, 1560, 1024, false); // out in the canyon
+    diedOutside(f); // and dies there, waking at the bed
+    trackM1(f, VALLEY.cx, VALLEY.cz, false);
+    expect(f.has('gate_both')).toBe(false);
+  });
+
+  it('a coyote joining a pack takes a free place in it, and the pack closes round one bearing', async () => {
+    const rand = makeRng(21);
+    const one = makeCreature('coyote', 1000, 100, 1024); one.pack = 0;
+    let made: Creature[] = [];
+    for (let t = 0; t < 400 && !made.length; t++) made = trySpawn([one], 1010, 1024, true, rand, flat, () => true).filter((c) => c.kind === 'coyote');
+    expect(made.length).toBeGreaterThan(0);
+    expect(made.map((c) => c.pack)).not.toContain(0);
+    const { Wild } = await import('../src/entity/wild.ts');
+    const w = new Wild(); w.spawning = false;
+    const a = makeCreature('coyote', 1020, 100, 1024), b = makeCreature('coyote', 1022, 100, 1030);
+    a.pack = 0; b.pack = 1;
+    w.add(a); w.add(b);
+    w.update(0.05, { px: 1000, py: 100, pz: 1024, night: true, shot: false, blockAt: flat, loaded: () => true, rand });
+    expect(a.mind).toBe('flank'); expect(b.mind).toBe('flank');
+    expect(a.flankBase).toBe(b.flankBase);
+  });
+
+  it('a coop drops a feather only on mornings it lays', () => {
+    const w = new World();
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) w.addColumn(54 + dx, 32 + dz, (runJob({ kind: 'gen', cx: 54 + dx, cz: 32 + dz, edits: [] }).result as GenResult).chunks);
+    w.setBlock(1740, 70, 1030, COOP);
+    const slots = w.containerAt(1740, 70, 1030)!;
+    slots[0] = { id: itemId('live_chicken'), count: 2 };
+    slots[1] = { id: itemId('egg'), count: EGGS_MAX };
+    expect(layEggs(w)).toBe(0);
+    expect(slots.some((s) => s && s.id === itemId('feather'))).toBe(false);
   });
 });

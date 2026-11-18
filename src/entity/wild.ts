@@ -6,7 +6,7 @@
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 import { think, hurt, KINDS, PACK_KINDS, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
-import { trySpawn, despawnFar, denPack, DEN_SIZE } from './spawner.ts';
+import { trySpawn, despawnFar, denPack, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
 import { snared, snareNear } from '../sim/rabbits.ts';
 
 export const WILD_HZ = 20;
@@ -69,6 +69,8 @@ export class Wild {
   spawning = true;
   /** How many of the farmhouse den's dogs are still alive (the game saves it). */
   denLeft = DEN_SIZE;
+  /** How many hens are left in the farm's feral flock: caught or killed ones are gone until it regrows (saved). */
+  flockLeft = FLOCK_SIZE;
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
@@ -88,7 +90,7 @@ export class Wild {
     if (this.spawnIn <= 0 && this.spawning) {
       this.spawnIn = 1;
       this.creatures = despawnFar(this.creatures, s.px, s.pz, s.night);
-      this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded));
+      this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded, { chicken: this.flockLeft }));
       this.creatures.push(...denPack(this.creatures, s.px, s.pz, this.denLeft, s.rand, s.blockAt, s.loaded));
     }
     const senses = { px: s.px, py: s.py, pz: s.pz, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
@@ -99,6 +101,9 @@ export class Wild {
       const hit = think(c, STEP, senses, s.blockAt, s.rand);
       if (hit) ev.hits.push(hit);
       if (c.mind !== before) this.cue(c, before, ev);
+      // A roaming pack hunts together: when one notices the player, the others near it join in round the same bearing.
+      if (PACK_KINDS.has(c.kind) && !c.home && c.mind === 'flank' && before === 'wander')
+        for (const o of this.creatures) if (o !== c && o.kind === c.kind && o.mind === 'wander' && Math.hypot(o.x - c.x, o.z - c.z) < 30) { o.mind = 'flank'; o.timer = 7; o.flankBase = c.flankBase; }
       // The flock talks among itself.
       if (c.kind === 'chicken' && s.rand() < 0.004) ev.sounds.push({ kind: 'cluck', x: c.x, y: c.y + 0.3, z: c.z });
       // A grazing rabbit now and then smells a snare's bait and wanders over to it.

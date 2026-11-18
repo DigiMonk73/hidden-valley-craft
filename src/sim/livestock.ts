@@ -1,5 +1,5 @@
 // Chickens (docs/PHASE4.md, step 6): caught by hand at the farmstead, taken home to a coop. A coop with
-// two or more hens lays one egg per hen each morning, up to eight waiting, and drops a feather.
+// two or more hens lays one egg per hen each morning, up to eight waiting, and drops a feather as it lays.
 // Like the hutch, it works while its chunk is loaded.
 
 import { blockId } from '../world/blocks.ts';
@@ -39,7 +39,8 @@ export function layEggs(world: World): number {
     const hens = count(slots, hen);
     if (hens < 2) continue;
     const want = Math.min(hens, EGGS_MAX - count(slots, egg));
-    if (want > 0) laid += addTo(slots, egg, want);
+    if (want <= 0) continue;
+    laid += addTo(slots, egg, want);
     addTo(slots, feather, 1);
   }
   return laid;

@@ -89,7 +89,7 @@ Positions are along the old road, which now runs on from x 1100 to **x 940**, pa
 - **Talking:** right-click Marco. He says a line (first meeting, or later meetings), and the trade screen opens.
 - **Trading** goes both ways, in Bitcoin, from the hot wallet (the computer's and phone's single wallet, DESIGN.md A1):
   - **buy** from his catalogue: salt, cordage, nails, rice, canned food, bandages, wire mesh, canvas, lantern and arrowheads. No guns or ammunition before M3 (DESIGN.md M3 row 8);
-  - **sell** him anything in the price table at **half** its price (DESIGN.md A3): hides, pelts, leather, meat, eggs, feathers, scrap metal, wire, copper, coal, iron and more.
+  - **sell** him anything in the price table at **half** its value (DESIGN.md A3): hides, pelts, leather, meat, eggs, feathers, scrap metal, wire, copper, coal, iron and more. What he sells has its own low resale value, so nothing can be made cheaply and sold back at a profit. He doesn't buy live animals.
   - Prices live in `data/trade.json`, in satoshis. They are relative to one unit, the price of a bandage. *Why:* the script anchors every price to wound care, and a bandage is this game's wound care before Doc.
   - The hot wallet starts at 0.05 BTC and is saved. The computer shows the balance as it changes.
   - The cold wallet's 2.5 BTC stays cold: Marco is paid from the phone. *Why:* a fortune spendable on day one would end the economy. Moving coins from cold to hot is for later.
@@ -162,6 +162,15 @@ Set each scene with `window.__hv`, as the earlier steps do, holding the view ste
 - **DONE: Chickens and the coop** (`src/sim/livestock.ts`).
 - **DONE: M1, toasts and the map** (`src/sim/milestones.ts`). The computer lists M1's four steps with ticks; the map table draws the road home in red once Zone-1 has been reached and left alive, and marks the shelter, the scout and the farm once found.
 - **DONE: Sound and the smoke column** (`src/render/smoke.ts`): rising block puffs, drifting east with the wind.
+- **DONE: Review** (a fresh reviewer, which ran its own scripts). Fixed, each with a test in `tests/nearband.test.ts` ("review fixes") that fails on the old code:
+  - two easy fortunes: a crafted lantern sold for six times its iron, and the farm's flock never ran out, so chickens were free money. Every catalogue item now has its own low resale value, Marco doesn't buy live animals, and the flock is finite (6, saved as `flock`), regrowing a hen a day;
+  - a den dog shot from beyond its range went home instead of coming for the shooter; a hurt dog now fights for 20 s wherever the player is;
+  - M1's gate step ticked after dying outside and waking at home, or turning back inside the tunnel; it now needs the gate's canyon side, and a death outside resets it;
+  - Marco came back every day, uncalled, if you met him without trading; the meeting now ends once you have been to him and walked 60 m away;
+  - the journal opened at the first of your notes, not the newest;
+  - coyotes could take the same side: a newcomer now takes a free place in the pack, and a pack closes round one bearing;
+  - a coop dropped a feather every morning even when full; now only when it lays.
+  - Left as they are: wire fences mine without a pickaxe (they are wire); the pistol's numbers and Marco's hours sit in `src/game.ts` like the rifle's.
 - **Fixed on the way:** a creature behind tall grass or a fern could not be struck, shot or caught: the sight line stopped at the first plant. It now passes plants and stops only at solid blocks (`clearShot` in `src/sim/hunting.ts`, with a test).
 
 ## Build order

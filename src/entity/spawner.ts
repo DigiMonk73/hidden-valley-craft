@@ -25,6 +25,9 @@ export const SPAWNS: SpawnRule[] = [
   { kind: 'chicken', zones: ['near'], cap: 6, night: 'day', group: [2, 3], anchor: YARD, radius: 9 },
 ];
 
+/** The farm's feral flock at its fullest; it regrows a hen a day (docs/PHASE4.md). */
+export const FLOCK_SIZE = 6;
+
 /** The farmhouse den: a pack of three dogs (docs/PHASE4.md). Killed dogs stay dead. */
 export const DEN_SIZE = 3;
 /** The den's dogs are about when the player is this near it. */
@@ -54,13 +57,16 @@ export function groundAt(x: number, z: number, blockAt: (x: number, y: number, z
 export function trySpawn(
   creatures: Creature[], px: number, pz: number, night: boolean, rand: () => number,
   blockAt: (x: number, y: number, z: number) => number, loaded: (x: number, z: number) => boolean,
+  /** Lower caps for kinds that are finite where they live (the farm's flock: how many hens are left). */
+  limits: Partial<Record<Kind, number>> = {},
 ): Creature[] {
   const made: Creature[] = [];
   for (const rule of SPAWNS) {
     if (rule.night === 'day' && night) continue;
     if (rule.night === 'night' && !night) continue;
     const have = creatures.filter((c) => c.kind === rule.kind).length + made.filter((c) => c.kind === rule.kind).length;
-    if (have >= rule.cap) continue;
+    const cap = Math.min(rule.cap, limits[rule.kind] ?? Infinity);
+    if (have >= cap) continue;
     let x: number, z: number;
     const w = PLACES.warren;
     if (rule.anchor) {
@@ -80,13 +86,19 @@ export function trySpawn(
     }
     if (!loaded(x, z) || inSanctuary(x, z) || !rule.zones.includes(zoneAt(x, z))) continue;
     // A group never takes the kind over its cap.
-    const n = Math.min(rule.cap - have, rule.group[0] + Math.floor(rand() * (rule.group[1] - rule.group[0] + 1)));
+    const n = Math.min(cap - have, rule.group[0] + Math.floor(rand() * (rule.group[1] - rule.group[0] + 1)));
     for (let k = 0; k < n; k++) {
       const gx = x + (rand() - 0.5) * 4, gz = z + (rand() - 0.5) * 4;
       const y = groundAt(gx, gz, blockAt);
       if (y === null || inSanctuary(gx, gz) || !rule.zones.includes(zoneAt(gx, gz))) continue;
       const c = makeCreature(rule.kind, gx, y, gz);
-      if (PACK_KINDS.has(rule.kind)) c.pack = k;
+      // Each takes the first place in the pack not already taken by one of its kind about.
+      if (PACK_KINDS.has(rule.kind)) {
+        const taken = new Set([...creatures, ...made].filter((o) => o.kind === rule.kind).map((o) => o.pack));
+        let i = 0;
+        while (taken.has(i)) i++;
+        c.pack = i;
+      }
       if (rule.anchor) c.home = [rule.anchor[0], rule.anchor[1]];
       made.push(c);
     }
