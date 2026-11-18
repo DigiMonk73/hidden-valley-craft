@@ -116,10 +116,12 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - The ridge tower's silhouette in the distant land, at `PLACES.ridgeTower`: a thin lattice mesh with the same fog as `src/render/farland.ts`.
 
    *Done:* up to 14 morphos circle under the tree's crown from 07:30 to 17:00, flashing blue and brown as they flap (`KIND.morpho`). The tower (`src/render/tower.ts`) is a buckled, X-braced frame with a mast and a hanging dish; its haze is held to 80% so the thin frame still shows from the buffer, where it is a faint mark on the north-west skyline.
-3. **Items, icons and recipes:**
+3. **DONE: Items, icons and recipes:**
    - Items: `hide`, `bone`, `leather`, `rabbit_raw` / `rabbit_cooked`, `venison_raw` / `venison_cooked`, `pork_raw` / `pork_cooked`, `puma_pelt`, `live_rabbit`, `arrowhead`, `leather_armor`.
    - Icons go in `src/render/itemIcons.ts`.
    - Recipes as in step 4 above. The `drops` in `KINDS` use these names.
+
+   *Done* (`tests/hunting_items.test.ts`). Also: tanning takes a salt with each hide (the pantry has 16); arrows can be made at the workbench from arrowheads, and a bone gives 2 arrowheads there too.
 4. **Creatures in the game:**
    - A `Wild` system (`src/entity/wild.ts`) owns creatures and arrows. It runs at 20 Hz from `Game.tick`, spawns and despawns, and calls `think`. A hit on the player applies armour: the vest ×0.7, leather ×0.85, the best one carried. It also plays the sounds.
    - A creature renderer (`src/render/creatures.ts`) draws box models: body, head and four legs that swing with `stride`. It shades them with the block shader's sky, block light and fog uniforms (copy them from `solidMat`), and gives a red flash when hurt.
