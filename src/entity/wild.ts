@@ -7,6 +7,7 @@ import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 import { think, hurt, KINDS, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
 import { trySpawn, despawnFar } from './spawner.ts';
+import { snared, snareNear } from '../sim/rabbits.ts';
 
 export const WILD_HZ = 20;
 const STEP = 1 / WILD_HZ;
@@ -45,6 +46,8 @@ export interface WildEvents {
   kills: Creature[];
   /** Arrows the player walked over and picked up. */
   picked: number;
+  /** Snares that caught a rabbit: the game marks them full. */
+  snared: [number, number, number][];
 }
 
 /** How much of a blow gets through what the player carries: the best of the vest and leather armour. */
@@ -65,7 +68,7 @@ export class Wild {
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
-    const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0 };
+    const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [] };
     if (s.shot) this.shotHeard = true;
     this.acc += dt;
     while (this.acc >= STEP) {
@@ -91,6 +94,16 @@ export class Wild {
       const hit = think(c, STEP, senses, s.blockAt, s.rand);
       if (hit) ev.hits.push(hit);
       if (c.mind !== before) this.cue(c, before, ev);
+      // A grazing rabbit now and then smells a snare's bait and wanders over to it.
+      if (c.kind === 'rabbit' && c.mind === 'wander' && s.rand() < 0.02) {
+        const at = snareNear(c, s.blockAt);
+        if (at) { c.goalX = at[0] + 0.5; c.goalZ = at[2] + 0.5; c.timer = 6; }
+      }
+    }
+    for (const { c, at } of snared(this.creatures, s.blockAt)) {
+      this.remove(c);
+      ev.snared.push(at);
+      ev.sounds.push({ kind: 'rustle', x: at[0] + 0.5, y: at[1] + 0.3, z: at[2] + 0.5 });
     }
     this.flyArrows(s, ev);
   }

@@ -34,6 +34,7 @@ import { HOME, WATERFALL, VALLEY, POOL, GATE, PLACES, zoneAt, ZONE_DANGER, inSan
 import { CS } from './world/constants.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
+import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
 import { meleeDamage, takeDrops, drawOf, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt } from './entity/spawner.ts';
 
@@ -99,6 +100,8 @@ export class Game {
   look: Look;
   store!: Store;
   hour = 16.5;
+  /** The hour at the last frame, to notice a new day beginning. */
+  private dayClock = 16.5;
   private opts: BootOptions;
   private keys = new Set<string>();
   private mining = { active: false, x: 0, y: 0, z: 0, progress: 0 };
@@ -190,6 +193,7 @@ export class Game {
       this.player.pitch = SPAWN.pitch;
     }
     if (this.opts.hour !== undefined) this.hour = this.opts.hour;
+    this.dayClock = this.hour;
     if (this.opts.cam) {
       const [x, y, z, yaw, pitch] = this.opts.cam;
       this.player.setPosition(x, y - EYE, z);
@@ -238,6 +242,9 @@ export class Game {
       }
       if (!this.opts.test) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
     }
+    // Each morning (or on waking), the hutches breed.
+    if (newDay(this.dayClock, this.hour) && breedHutches(this.world)) this.edited();
+    this.dayClock = this.hour;
 
     // Camera and sky.
     const cam = this.renderer.camera;
@@ -381,6 +388,11 @@ export class Game {
       }
     }
     for (const c of ev.kills) this.takeDrops(c);
+    for (const [x, y, z] of ev.snared) {
+      this.world.setBlock(x, y, z, SNARE_CAUGHT);
+      this.streamer.markUrgentAround(x, y, z);
+      this.edited();
+    }
     if (ev.picked) {
       const left = this.hotbar.add(itemId('arrow'), ev.picked);
       if (left < ev.picked) this.edited();
@@ -604,6 +616,15 @@ export class Game {
     }
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
+    const snare = emptySnare(this.world, this.hotbar, t.x, t.y, t.z);
+    if (snare === 'full') { this.hud.toast('No room in your pack for the rabbit'); return; }
+    if (snare) {
+      this.streamer.markUrgentAround(t.x, t.y, t.z);
+      this.sound.place('leaves');
+      this.hud.toast('A live rabbit. Take it home to a hutch: two or more breed.');
+      this.edited();
+      return;
+    }
     if (t.id === GATE_LEVER) {
       if (this.gate.pull() === 'grind') { this.sound.gate(); this.shake = 2; }
       return;
@@ -880,6 +901,7 @@ export class Game {
     this.player.pitch = d.player.pitch;
     this.player.flying = d.player.flying;
     this.hour = d.hour;
+    this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
     this.flags = new Set(d.flags ?? []);
@@ -996,6 +1018,7 @@ export class Game {
       this.flags = new Set();
       this.explored = new Uint8Array(64 * 64);
       this.hour = 16.5;
+      this.dayClock = 16.5;
       this.player.flying = false;
       this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
       this.player.yaw = SPAWN.yaw;

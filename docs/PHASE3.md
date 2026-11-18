@@ -136,10 +136,12 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - **Tests:** arrow flight, damage and drops.
 
    *Done* (`src/sim/hunting.ts`, `tests/hunting.test.ts`). Notes: the round is the existing `rifle_rounds` item; the bolt takes 1.4 s between shots and blows 0.6 s. An arrow that hits an animal drops where it stood, to be picked up like any other. The bow's draw shows on the mining bar. A right-click on a chest, lever, station, door or bed still uses it, even with a weapon in hand.
-6. **Snare and hutch.**
+6. **DONE: Snare and hutch.**
    - A rabbit whose cell is a `snare` turns it into `snare_caught` and is removed. Right-clicking gives a `live_rabbit` and resets the snare.
    - The hutch: on each new in-game day (06:00, or waking), a loaded hutch with 2 or more `live_rabbit` gains one, up to 8.
    - Tests for both.
+
+   *Done* (`src/sim/rabbits.ts`, `tests/rabbits.test.ts`). A grazing rabbit within 6 blocks of a set snare now and then smells the bait and wanders to it, so snares near the warren do catch.
 7. **Death outside.** At 0 HP outside the sanctuary:
    - Everything carried goes into a `lost_pack` placed at the nearest free cell where you fell (its container gets exactly the slots). The pack is emptied and you wake at the bed.
    - Inside the valley nothing changes.
