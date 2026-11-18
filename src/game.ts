@@ -32,8 +32,14 @@ import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { HOME, WATERFALL, VALLEY, POOL, GATE, PLACES, zoneAt, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
+import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
+import { KINDS, makeCreature, type Creature, type Kind } from './entity/creatures.ts';
+import { groundAt } from './entity/spawner.ts';
 
 const SAVE_KEY = 'save:1';
+const KILL_LINE: Record<Creature['kind'], string> = {
+  rabbit: 'A rabbit: meat and a small hide', deer: 'A deer: venison, a hide and bone', boar: 'A wild boar: pork, a hide and bone', puma: 'The puma is dead. Its pelt is yours',
+};
 const SETTINGS_KEY = 'settings';
 const REACH = 5;
 const STEP = 1 / 60;
@@ -78,6 +84,10 @@ export class Game {
   /** The builder's gate in the tunnel, and how hard the ground is shaking from it. */
   gate = new Gate();
   private shake = 0;
+  /** The creatures and arrows outside the valley. */
+  wild = new Wild();
+  /** A rifle shot this tick, for the creatures to hear. */
+  private shotFired = false;
   /** Where the player wakes after a death or a night's sleep. */
   spawn = { x: 0, y: 0, z: 0, yaw: 0 };
   private coffeeUntil = 0;
@@ -109,6 +119,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
+    this.wild.spawning = !opts.test;
     this.renderer = new Renderer(canvas);
     this.look = new Look(canvas);
     this.screen = new InventoryScreen(ui);
@@ -233,6 +244,7 @@ export class Game {
     this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
     if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
+    this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
     this.updateSound();
     this.renderer.render();
@@ -274,6 +286,7 @@ export class Game {
     }
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
+    this.tickWild(dt);
     this.tickSurvival(dt, input);
     this.tickGate(dt);
     // Mark where the player has been, for the map table (once a second).
@@ -329,6 +342,50 @@ export class Game {
       this.streamer.markUrgentAround(GATE.x0, GATE.y0, GATE.z0);
       this.edited();
     }
+  }
+
+  // ---- The wild ----------------------------------------------------------------------------
+
+  private tickWild(dt: number): void {
+    const p = this.player;
+    const ev = this.wild.update(dt, {
+      px: p.x, py: p.y, pz: p.z, night: this.hour >= 19 || this.hour < 5.5, shot: this.shotFired,
+      blockAt: (x, y, z) => this.world.blockAt(x, y, z),
+      loaded: (x, z) => !!this.world.column(Math.floor(x / CS), Math.floor(z / CS)),
+      rand: Math.random,
+    });
+    this.shotFired = false;
+    this.wildEvents(ev);
+  }
+
+  private wildEvents(ev: WildEvents): void {
+    for (const s of ev.sounds) {
+      if (s.kind === 'rustle') this.sound.rustle(s.x, s.y, s.z);
+      else if (s.kind === 'grunt') this.sound.grunt(s.x, s.y, s.z);
+      else if (s.kind === 'growl') this.sound.growl(s.x, s.y, s.z);
+      else this.sound.hit(s.x, s.y, s.z);
+    }
+    if (!this.hotbar.creative && !this.player.flying) {
+      for (const h of ev.hits) {
+        const factor = armourFactor((name) => this.hotbar.count(itemId(name)));
+        this.vitals.hp = Math.max(0, this.vitals.hp - h.damage * factor);
+        this.sound.hurt();
+        this.hud.flashHurt();
+      }
+    }
+    for (const c of ev.kills) this.takeDrops(c);
+    if (ev.picked) {
+      const left = this.hotbar.add(itemId('arrow'), ev.picked);
+      if (left < ev.picked) this.edited();
+    }
+  }
+
+  /** A kill's drops go into the pack; what doesn't fit is said so. */
+  private takeDrops(c: Creature): void {
+    let lost = false;
+    for (const [name, n] of KINDS[c.kind].drops) if (this.hotbar.add(itemId(name), n) > 0) lost = true;
+    this.hud.toast(lost ? 'Your pack is full: some of it is left behind' : KILL_LINE[c.kind]);
+    this.edited();
   }
 
   // ---- Survival ------------------------------------------------------------------------------
@@ -846,6 +903,7 @@ export class Game {
     this.world.containers.clear();
     this.mining.active = false;
     this.gate = new Gate();
+    this.wild.clear();
     if (d) this.applySave(d);
     else {
       this.hotbar = Inventory.starter();
@@ -904,6 +962,14 @@ export class Game {
   /** For automated checks: is everything near the player loaded and drawn? */
   isIdle(): boolean {
     return this.ready && this.streamer.settledAround(this.player.x, this.player.z, Math.min(3, this.streamer.radius - 1));
+  }
+
+  /** For tests and screenshots: puts a creature on the ground at (x, z). Never inside the valley. */
+  spawnCreature(kind: Kind, x: number, z: number): Creature | null {
+    const y = groundAt(x, z, (bx, by, bz) => this.world.blockAt(bx, by, bz));
+    if (y === null) return null;
+    const c = makeCreature(kind, x, y, z);
+    return this.wild.add(c) ? c : null;
   }
 
   setCamera(x: number, y: number, z: number, yaw: number, pitch: number): void {

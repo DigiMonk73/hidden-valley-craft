@@ -122,10 +122,12 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - Recipes as in step 4 above. The `drops` in `KINDS` use these names.
 
    *Done* (`tests/hunting_items.test.ts`). Also: tanning takes a salt with each hide (the pantry has 16); arrows can be made at the workbench from arrowheads, and a bone gives 2 arrowheads there too.
-4. **Creatures in the game:**
+4. **DONE: Creatures in the game:**
    - A `Wild` system (`src/entity/wild.ts`) owns creatures and arrows. It runs at 20 Hz from `Game.tick`, spawns and despawns, and calls `think`. A hit on the player applies armour: the vest ×0.7, leather ×0.85, the best one carried. It also plays the sounds.
    - A creature renderer (`src/render/creatures.ts`) draws box models: body, head and four legs that swing with `stride`. It shades them with the block shader's sky, block light and fog uniforms (copy them from `solidMat`), and gives a red flash when hurt.
    - Tests: zero hostile spawns in the sanctuary over 100,000 samples, and a creature pushed toward the valley never enters it.
+
+   *Done* (`tests/wild.test.ts`). The 100,000-try test counts every kind, not only hostiles, and finds none inside. Fixed on the way: `groundAt` refused any cell with grass or ferns in it, so creatures could hardly spawn in the forest. Creatures don't spawn in test mode (`?test`); `window.__hv.spawn(kind, x, z)` places one.
 5. **Hunting.** All shots and blows also check `rayHitCreature` before blocks.
    - **Melee:** a left-click on a creature in reach hits with the held item's damage (fist 2, knife 5, spear 8, axe 7, machete 9). Give a short cooldown.
    - **Bow:** hold the right button to draw (up to 1 s), release to shoot an arrow entity with gravity for 12–22 damage. It uses an `arrow`; an arrow that hits a block stays there, and walking over it picks it up.

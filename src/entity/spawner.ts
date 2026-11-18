@@ -2,7 +2,7 @@
 // valley (the sanctuary rule is checked here in code, whatever any table says).
 
 import { zoneAt, inSanctuary, type ZoneId } from '../gen/layout.ts';
-import { B_SOLID, AIR, isWaterId } from '../world/blocks.ts';
+import { B_SOLID, isWaterId } from '../world/blocks.ts';
 import { makeCreature, KINDS, type Creature, type Kind } from './creatures.ts';
 
 interface SpawnRule { kind: Kind; zones: ZoneId[]; cap: number; night: 'day' | 'night' | 'any'; group: [number, number] }
@@ -16,7 +16,7 @@ export const SPAWNS: SpawnRule[] = [
 
 const RING_NEAR = 24, RING_FAR = 80, DESPAWN = 128;
 
-/** A spot a creature could stand: solid ground, open air above, no water, outside the sanctuary. */
+/** A spot a creature could stand: solid ground, room above (plants are fine), no water, outside the sanctuary. */
 export function groundAt(x: number, z: number, blockAt: (x: number, y: number, z: number) => number, top = 190): number | null {
   if (inSanctuary(x, z)) return null;
   for (let y = top; y > 2; y--) {
@@ -24,7 +24,8 @@ export function groundAt(x: number, z: number, blockAt: (x: number, y: number, z
     if (isWaterId(below)) return null;
     if (B_SOLID[below]) {
       const here = blockAt(Math.floor(x), y, Math.floor(z)), above = blockAt(Math.floor(x), y + 1, Math.floor(z));
-      return here === AIR && !B_SOLID[above] ? y : null;
+      // Grass and ferns are no obstacle; rock or water is.
+      return !B_SOLID[here] && !isWaterId(here) && !B_SOLID[above] && !isWaterId(above) ? y : null;
     }
   }
   return null;

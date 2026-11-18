@@ -11,6 +11,7 @@ import { Particles } from './particles.ts';
 import { FarLand } from './farland.ts';
 import { Clouds } from './clouds.ts';
 import { RidgeTower } from './tower.ts';
+import { CreatureRenderer } from './creatures.ts';
 import type { FarMesh } from '../gen/farland.ts';
 
 /** One atmosphere for everything: blocks, distant land and particles fade into the sky alike. */
@@ -158,6 +159,8 @@ export class Renderer {
   private farland: FarLand | null = null;
   private clouds = new Clouds();
   private tower = new RidgeTower();
+  /** The wild's creatures and arrows. */
+  readonly creatures: CreatureRenderer;
   /** Which columns have real blocks drawn: the distant land stays out of them. */
   private drawnTex = (() => {
     const t = new THREE.DataTexture(new Uint8Array(64 * 64), 64, 64, THREE.RedFormat, THREE.UnsignedByteType);
@@ -209,6 +212,7 @@ export class Renderer {
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
     });
     this.waterMat.uniforms.uCutout.value = false;
+    this.creatures = new CreatureRenderer(this.scene, this.solidMat);
 
     // One index buffer shared by every chunk: quad k uses vertices 4k…4k+3.
     this.indexQuads = 1 << 17;
