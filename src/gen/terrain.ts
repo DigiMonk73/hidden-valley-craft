@@ -662,6 +662,8 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (brushTrailDist(x, z) < 8 || farPlace(x, z)) return null;
   if (onCampTrail(x, z) || onCampTrail(x - 3, z) || onCampTrail(x + 3, z)) return null;
   if (Math.abs(x - ravineX(z)) < RAVINE_HALF + 2 && Math.abs(z - F.bridge.z) < 70) return null;
+  // A break in the canopy over the body, so it lies in daylight (DESIGN.md: the one high-contrast thing).
+  if (Math.hypot(x - F.body.x, z - F.body.z) < 11) return null;
   if (x > F.body.x - 6 && x < F.bridge.far + 2 && Math.abs(z - (F.bridge.z + (F.body.z - F.bridge.z) * (F.bridge.far - x) / (F.bridge.far - F.body.x))) < 5) return null;
   let kind: TreeSpot['kind'] | null = null;
   if (zone === 'valley') {

@@ -1,7 +1,7 @@
 // The map on the builder's table: the land from the layout, shown only where the player has been
 // (one cell per 32 m column), with the cave and the player marked.
 
-import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, roadZ, TUNNEL } from '../gen/layout.ts';
+import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL } from '../gen/layout.ts';
 import { SCOUT_AT } from '../gen/zone1.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
 
@@ -31,7 +31,7 @@ function landColours(): Uint8ClampedArray {
 }
 
 /** What the map shows beyond the land: the road home once known, and the places found. */
-export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean }
+export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean }
 
 export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, marks: MapMarks = {}): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -67,6 +67,12 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, 
   if (marks.shelter) mark((ZONE1.shelter.x0 + ZONE1.shelter.x1) / 2, ZONE1.shelter.z0, '#2c5a8c');
   if (marks.scout) mark(SCOUT_AT[0], SCOUT_AT[2], '#1b130a');
   if (marks.farm) mark((ZONE1.farm.x0 + ZONE1.farm.x1) / 2, (ZONE1.farm.z0 + ZONE1.farm.z1) / 2, '#8a5a32');
+  // Zone-1's mid and deep places, once found (docs/PHASE5.md).
+  const F = ZONE1FAR;
+  if (marks.outpost) mark((F.outpost.x0 + F.outpost.x1) / 2, (F.outpost.z0 + F.outpost.z1) / 2, '#a3241c');
+  if (marks.mine) mark(F.mine.x, F.mine.z, '#3a3a3a');
+  if (marks.camp) { mark((F.camp.x0 + F.camp.x1) / 2, (F.camp.z0 + F.camp.z1) / 2, '#3e5a2e'); ctx.fillStyle = '#3e5a2e'; ctx.fillRect(F.campHead.x * s - 0.5, F.camp.z1 * s, 1, (F.campHead.z - F.camp.z1) * s); }
+  if (marks.bridge) mark(F.bridge.near, F.bridge.z, '#6e6c66');
   // The cave, and where the player stands.
   ctx.fillStyle = '#7a1f12';
   ctx.fillRect(HOME.wallX * s - 2, VALLEY.cz * s - 2, 4, 4);

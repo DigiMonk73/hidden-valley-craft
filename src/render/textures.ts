@@ -802,7 +802,7 @@ DRAW.pale_side = (c) => { c.noise(hex('#cfcbbf'), 5); };
 /** A wide, patchy pale stain on the ground: too wide and too pale to be blood. */
 DRAW.pale_stain = (c) => {
   c.clearAlpha();
-  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (c.rng() < 0.55) c.set(x, y, c.rng() < 0.5 ? hex('#d8d6c4') : hex('#c4c8b0'), 200);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (c.rng() < 0.5) c.set(x, y, c.rng() < 0.5 ? hex('#c8c8b0') : hex('#b4baa0'), 190);
 };
 DRAW.smoker_top = (c) => { c.noise(hex('#5a5852'), 6, [hex('#3a3a36')], 0.3); for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) c.set(x, y, hex('#2a2a28')); };
 /** A smoker: a stone firebox below, a plank chamber with a door above. */

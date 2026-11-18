@@ -299,11 +299,14 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
     // The body on the far bank: pale, twisted, and a wide patchy pale stain round it. No wound.
     // It lies on a low rise, level, so it shows over the ground between it and the bridge.
     const bd = F.body;
-    for (let dz = -2; dz <= 2; dz++) for (let dx = -3; dx <= 3; dx++) {
-      const x = bd.x + dx, z = bd.z + dz;
-      for (let y = Math.min(outsideHeight(x, z), bd.y) - 2; y < bd.y; y++) put(x, y, z, y === bd.y - 1 ? 'forest_floor' : 'dirt');
-      clear(x, bd.y, bd.y + 3, z);
-      if ((dx * dx) / 12 + (dz * dz) / 5 < 1 && r(x, 23, z) < 0.75) put(x, bd.y, z, 'pale_stain');
+    for (let dz = -4; dz <= 4; dz++) for (let dx = -6; dx <= 6; dx++) {
+      const x = bd.x + dx, z = bd.z + dz, e = (dx * dx) / 26 + (dz * dz) / 10 + (r(x, 24, z) - 0.5) * 0.3;
+      if (e > 1.7) continue;
+      // An oval rise, stepping down a block at its rim into the land round it.
+      const top = e < 1 ? bd.y : Math.max(outsideHeight(x, z), bd.y - 1);
+      for (let y = Math.min(outsideHeight(x, z), top) - 2; y < top; y++) put(x, y, z, y === top - 1 ? 'forest_floor' : 'dirt');
+      clear(x, top, top + 3, z);
+      if (e < 0.9 && r(x, 23, z) < 0.7) put(x, top, z, 'pale_stain');
     }
     put(bd.x, bd.y, bd.z, 'pale_body');
     put(bd.x + 1, bd.y, bd.z, 'pale_legs');

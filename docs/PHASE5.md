@@ -83,7 +83,7 @@ The road now runs from x 940 on to **x 660**, where it dies at the bridge (DESIG
 **Found**
 - From the outpost's crate: rifle rounds ×20, pistol rounds ×16, bowstring ×3, arrowheads ×24, nails ×24.
 - `forge_parts`: forge-upgrade parts (a hand-crank blower, firebricks, a crucible). Mine the raiders' forge in the back room and you get them: *"the back-room forge comes too"*.
-- From the camp: the lodge chest (arrows ×12, snares ×2, cordage ×6, a hunting knife) and cured hides (each rack mines to leather ×2).
+- From the camp: the lodge chest (arrows ×12, snares ×2, cordage ×6, a hunting knife, salt) and cured hides (each rack mines to leather).
 - The leghold trap: right-click it to learn how it's made.
 - From the farm: an old apple tree by the barn. Right-click it to take a grafting slip.
 - From Marco: quinoa seed.
@@ -196,3 +196,24 @@ Set each scene with `window.__hv`, holding the view steady in each wait:
 ## Progress
 
 - **DONE: Step 0, and the lead's extra** (see 0 above).
+- **DONE: Places** (`src/gen/zone1far.ts`, `tests/phase5.test.ts`):
+  - The road runs on to x 659. The ravine is a sheer gorge 42 m wide at the road: near rim x 657 at height 83, far rim x 615 at height 78, floor at about 42.
+  - Each place is built and lit, and caves never cut under them.
+  - The body lies on a low oval rise in a break in the canopy, so it is in daylight and in line of sight from the deck's end (a test walks that line).
+  - The camp's trail is lit by lamp posts every 14 m. The mine is lit every 8 blocks and in the chamber.
+  - The farm's old apple tree stands in the yard's south-east corner.
+  - *Changed from the plan:*
+    - The jaguar crosses in front of the lodge and the shed, about 16 m from the trail's mouth. At the far edge it was hidden behind them, and too small to see at 30 m.
+    - Each cured hide on a rack mines to one leather.
+- **DONE: Items, recipes, icons, trade.** Marco sells quinoa seed. The jaguar pelt tans to 6 leather. The forge also makes nails ×12.
+- **DONE: Raiders, stealth and focus** (`src/entity/outpost.ts`, `src/sim/focus.ts`).
+  - The raiders are placed exactly at their posts (`manOutpost`), never through `groundAt`, so the lookout stands on the roof.
+  - The outpost stands down once the player is 130 m away and its raiders have gone. A raider still alive comes back unhurt and unaware.
+  - The aim is a pose: the lookout's rifle comes up with a glinting scope (drawn unlit, so it shows in shade), the pistol is held out, the machete is raised.
+- **DONE: The jaguar** (`src/entity/jaguar.ts`). It crosses once, the first time you come to the clearing (`jaguar_seen`, saved).
+- **DONE: The deep band's signals and sounds** (`src/audio/audio.ts`):
+  - The stinger plays once a visit, when you face the body and it is in clear sight within 75 m.
+  - Birds thin out in the near band and fall silent past it.
+  - Frogs are silent in the deep band.
+- **DONE: M2** (`src/sim/preserve.ts`, `src/sim/milestones.ts`, `src/sim/farming.ts`). The smoker converts at 00, 04, 08 … o'clock; the jerky rack at dawn.
+- **The map table** marks the outpost, the mine, the camp and its trail, and the bridge once each is found.

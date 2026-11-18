@@ -904,7 +904,9 @@ export class Game {
     }
     if (name === 'phone') { this.openPhone(); return true; }
     if (name === 'map_table') {
-      const marks = { route: this.flags.has('extracted'), shelter: this.flags.has('shelter_found'), scout: this.flags.has('scout_searched'), farm: this.flags.has('farm_seen') };
+      const f = this.flags;
+      const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
+        outpost: f.has('outpost_seen'), mine: f.has('mine_seen'), camp: f.has('camp_marker'), bridge: f.has('bridge_seen') };
       this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z, marks), marks.route ? 'The builder’s map · the road home is marked' : 'The builder’s map · filled in where you have been'));
       return true;
     }
@@ -1053,8 +1055,9 @@ export class Game {
     const p = this.player, f = this.flags, F = ZONE1FAR;
     const near = (x: number, z: number, r: number) => Math.hypot(p.x - x, p.z - z) < r;
     const zone = zoneAt(p.x, p.z);
-    if (zone === 'mid') this.once('mid_seen', 'Zone 1, mid band: danger 3, and 4 at night. No birds here. Smoke ahead: the raiders’ outpost.', 8000);
-    if (near(OUTPOST_AT[0], OUTPOST_AT[1], 80) && this.wild.outpost.left && p.x > OUTPOST_AT[0])
+    if (zone === 'mid') this.once('mid_seen', 'Zone 1, mid band: danger 3, and 4 at night. No birds here.', 5000);
+    // (A few seconds' walk on from the band's edge, so the two toasts don't overlap.)
+    if (near(OUTPOST_AT[0], OUTPOST_AT[1], 66) && this.wild.outpost.left && p.x > OUTPOST_AT[0] && f.has('mid_seen'))
       this.once('outpost_seen', 'The raiders’ outpost. A lookout on the roof watches the road. Leave the road and go round through the brush to the south to come at them unseen: a blade from behind is silent. Or fight from cover.', 12000);
     if ((zone === 'mid' || zone === 'deep') && isWeapon(this.hotbar.current?.id))
       this.once('focus_hint', 'Focus: press Q with a gun or bow in hand to slow the world for a careful shot. It lasts four seconds, then needs time to come back.', 9000);

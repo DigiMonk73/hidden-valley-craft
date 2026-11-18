@@ -54,6 +54,14 @@ node tests/e2e/play.mjs
 RD=8 node tools/shot.mjs
 ```
 
+A picture can be taken from any camera (`name=x,y,z,yawDeg,pitchDeg,hour`), and `EVAL` runs a script in
+the page first, to place creatures. For example, the outpost's raiders at their posts, the lookout aiming:
+
+```bash
+EVAL="window.__hv.manOutpost(); window.__hv.game.wild.creatures.find(c => c.kind === 'lookout').mind = 'aim'" \
+  DSF=1 RD=7 node tools/shot.mjs outpost=872,112,1012,180,-45,15
+```
+
 Two more drawing tools write into `out/`:
 
 ```bash

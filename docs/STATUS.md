@@ -4,6 +4,18 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-18)
 
+- **Phase 5 ("Zone-1 mid and deep", DESIGN.md's MVP in blocks) is built on branch `phase5`**, waiting for the lead's review. Details and progress are in docs/PHASE5.md.
+  - **Step 0:** a swimmer holding forward now comes up out of each tunnel mouth by itself: the water climbs a block at a time to a ledge under the surface. Creatures are never put on roofs or built things (`groundAt`).
+  - **Places:** the road runs on to the broken bridge at x 659, past:
+    - the raiders' outpost at x 860, under the smoke;
+    - the brush and its game trail round to the back;
+    - the old mine;
+    - the hunting camp's marked trail;
+    - the sheer ravine, 42 m across. On the far bank lies the body; on the near bank are the two-legged tracks.
+  - **The fight:** three raiders, a first human fight, small and telegraphed. A glint and a click before every shot; cover works. A blade from behind is a silent takedown. Once cleared, the outpost stays clear.
+  - **Focus mode** (Q), and the **jaguar** that crosses the camp's clearing once.
+  - **M2** on the computer: the forge from the raiders' parts, the hunting bow, the smoker and jerky rack, the leghold, raised beds, quinoa and the apple slip, the coop and the hutch, the cleared outpost.
+
 - **Phase 4 ("Zone-1 near band")** was merged into `main` (branch `phase4`) and published as version 6. It has the saddle, Marco's bus shelter and trading in Bitcoin, the dead scout and the pistol, the farmstead with its feral dogs and chickens, the coop, salvage, and M1. Details are in docs/PHASE4.md. Checks: 188 unit tests and all 50 play-through checks.
   - The play-through's safe step failed once on mouse capture; it passed on the rerun.
   - The swimmer pauses at the floor near each tunnel mouth until they swim up with Space. Make that rise smooth next.
