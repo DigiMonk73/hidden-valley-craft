@@ -186,8 +186,11 @@ export class CreatureRenderer {
       alive.add(c.id);
       let v = this.views.get(c.id);
       if (!v) { v = this.make(c); this.views.set(c.id, v); }
-      v.group.position.set(c.x, c.y, c.z);
-      v.group.rotation.y = c.yaw;
+      // Winding up to strike: head down, body tensed and trembling. That is the warning to step back.
+      const windup = c.mind === 'windup';
+      const tremble = windup ? Math.sin(c.timer * 60) * 0.03 : 0;
+      v.group.position.set(c.x + tremble, c.y, c.z);
+      v.group.rotation.set(windup ? -0.22 : 0, c.yaw, 0, 'YXZ');
       // Legs swing in diagonal pairs, front-left with back-right.
       const swing = Math.sin(c.stride) * Math.min(0.6, Math.hypot(c.vx, c.vz) * 0.25);
       v.legs.forEach((m, i) => { m.rotation.x = i === 0 || i === 3 ? swing : -swing; });

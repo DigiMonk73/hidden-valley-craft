@@ -34,6 +34,8 @@ export interface WildSenses {
   /** Is the column at (x, z) loaded? Creatures never spawn or walk into unloaded land. */
   loaded: (x: number, z: number) => boolean;
   rand: () => number;
+  /** How many arrows the player has room to pick up (no limit if not given). */
+  arrowRoom?: () => number;
 }
 
 export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit'; x: number; y: number; z: number };
@@ -83,7 +85,7 @@ export class Wild {
     this.spawnIn -= STEP;
     if (this.spawnIn <= 0 && this.spawning) {
       this.spawnIn = 1;
-      this.creatures = despawnFar(this.creatures, s.px, s.pz);
+      this.creatures = despawnFar(this.creatures, s.px, s.pz, s.night);
       this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded));
     }
     const senses = { px: s.px, py: s.py, pz: s.pz, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
@@ -112,7 +114,8 @@ export class Wild {
   private cue(c: Creature, before: Mind, ev: WildEvents): void {
     const at = { x: c.x, y: c.y + KINDS[c.kind].height / 2, z: c.z };
     if (c.mind === 'flee' && before !== 'flee') ev.sounds.push({ kind: 'rustle', ...at });
-    if (c.kind === 'boar' && (c.mind === 'charge' || c.mind === 'windup') && before !== 'charge') ev.sounds.push({ kind: 'grunt', ...at });
+    // The boar grunts as it starts its charge, and again as it lowers its head to strike.
+    if (c.kind === 'boar' && (c.mind === 'charge' || c.mind === 'windup')) ev.sounds.push({ kind: 'grunt', ...at });
     if (c.kind === 'puma' && c.mind === 'windup') ev.sounds.push({ kind: 'growl', ...at });
   }
 
@@ -131,7 +134,8 @@ export class Wild {
       a.age += STEP;
       if (a.stuck) {
         // Walking over a spent arrow picks it up; left alone, it stays a few minutes.
-        if (Math.hypot(a.x - s.px, a.z - s.pz) < 1.3 && Math.abs(a.y - (s.py + 0.6)) < 1.6) { ev.picked++; continue; }
+        const near = Math.hypot(a.x - s.px, a.z - s.pz) < 1.3 && Math.abs(a.y - (s.py + 0.6)) < 1.6;
+        if (near && (s.arrowRoom?.() ?? Infinity) > ev.picked) { ev.picked++; continue; } // a full pack leaves it lying
         if (a.age < 300) keep.push(a);
         continue;
       }
@@ -178,7 +182,14 @@ export function stepArrow(a: Arrow, dt: number, blockAt: BlockAt): boolean {
   const n = Math.max(1, Math.ceil((speed * dt) / 0.25));
   for (let k = 0; k < n; k++) {
     const nx = a.x + (a.vx * dt) / n, ny = a.y + (a.vy * dt) / n, nz = a.z + (a.vz * dt) / n;
-    if (B_SOLID[blockAt(Math.floor(nx), Math.floor(ny), Math.floor(nz))] || inSanctuary(nx, nz) || ny < 1) {
+    if (B_SOLID[blockAt(Math.floor(nx), Math.floor(ny), Math.floor(nz))] || ny < 1) {
+      a.stuck = true;
+      return true;
+    }
+    if (inSanctuary(nx, nz)) {
+      // Stopped at the valley's edge: it drops to the ground there, where it can be picked up.
+      while (a.y > 1 && !B_SOLID[blockAt(Math.floor(a.x), Math.floor(a.y) - 1, Math.floor(a.z))]) a.y -= 1;
+      a.y = Math.floor(a.y) + 0.1;
       a.stuck = true;
       return true;
     }

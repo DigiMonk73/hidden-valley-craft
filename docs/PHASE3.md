@@ -155,6 +155,17 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - cook venison at the stove.
 
    *Done.* The deer scene is on a level stretch of road west of the warren (x ≈ 1392), where the road is flat for 30 m. The play-through holds the aim still during the shot (synthetic mouse presses turn the view) and holds the deer in place for the second arrow, because a deer below 30% health bolts, as it should. Found on the way: `groundAt` stood creatures on tree crowns; it now looks down through leaves and trunks to the forest floor (test in `tests/wild.test.ts`). The old "places the selected block" check also counted the garden's growing crops; it now counts only that block.
-9. **Review.** A fresh reviewer agent that did not write the code checks the branch. Fix what it finds, each bug with a test that fails on the old code. Then message the lead.
+9. **DONE: Review.** A fresh reviewer agent that did not write the code checks the branch. Fix what it finds, each bug with a test that fails on the old code. Then message the lead.
+
+   *Done.* The reviewer ran the checks and its own scripts. Fixed, each with a test in `tests/review3.test.ts` that fails on the old code:
+   - boar and puma blows needed no line of sight: they landed through a wall and up a pillar. Now a blow needs a clear line from head to chest and the player within 1.5 m of height;
+   - spawn groups could push a kind over its cap (6 deer against 4); groups are now trimmed to the cap;
+   - a puma spawned at night stayed by day; it now slips away at dawn once more than 24 m off;
+   - rabbits spawned in the canyon and evenly; now buffer only, and 60% from the warren when the player is near it;
+   - the boar gave no warning at wind-up: it now grunts, lowers its head and trembles (the puma also gets the pose);
+   - creature bodies could overlap the sanctuary edge by half their width; the whole body is now checked;
+   - a lost pack could be placed above the world's top and lost, or flatten a snare or crop; an emptied one dropped free cordage; arrows walked over with a full pack vanished; kill drops that did not fit vanished (they now wait in a sack where the animal fell); arrows stopped at the valley's edge hung in mid-air (they now drop to the ground).
+   - Also, without a test: the lost pack opens under its own name, and a bow drawn when a screen opens is let down instead of loosed.
+   - Not done, on purpose: the puma's "from cover" stalking (it walks in, then runs) and breeding for hutches far away. Both are noted for the lead.
 
 **Checks before every push:** `npx tsc --noEmit`, `npx vitest run`, `npx vite build`, and with `npx vite preview --port 4173` running, `node tests/e2e/play.mjs`. Run vitest and the play-through one after the other, never together: the container runs out of memory.

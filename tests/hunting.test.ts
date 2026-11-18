@@ -94,13 +94,13 @@ describe('damage and drops', () => {
 
   it('a kill puts its drops in the pack, and says when the pack is full', () => {
     const inv = new Inventory();
-    expect(takeDrops(inv, 'deer')).toBe(true);
+    expect(takeDrops(inv, 'deer')).toEqual([]);
     expect(inv.count(itemId('venison_raw'))).toBe(3);
     expect(inv.count(itemId('hide'))).toBe(1);
     expect(inv.count(itemId('bone'))).toBe(1);
     const full = new Inventory();
     for (let i = 0; i < full.size; i++) full.slots[i] = { id: blockId('limestone'), count: 64 };
-    expect(takeDrops(full, 'boar')).toBe(false);
+    expect(takeDrops(full, 'boar')).toEqual([[itemId('pork_raw'), 3], [itemId('hide'), 1], [itemId('bone'), 1]]);
     expect(KINDS.puma.drops).toEqual([['puma_pelt', 1]]);
   });
 });

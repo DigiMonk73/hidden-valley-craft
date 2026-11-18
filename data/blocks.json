@@ -707,6 +707,6 @@
     {"name": "snare", "label": "Snare", "tex": "snare", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.05},
     {"name": "snare_caught", "label": "Snare (a rabbit!)", "tex": "snare_caught", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.05, "drop": "live_rabbit"},
     {"name": "hutch", "label": "Rabbit hutch", "tex": {"top": "planks", "side": "hutch_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "container": 9},
-    {"name": "lost_pack", "label": "Your lost pack", "tex": "lost_pack", "render": "model", "boxes": [[3, 0, 3, 13, 8, 13], [5, 8, 5, 11, 10, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.4, "drop": "cordage", "container": 46}
+    {"name": "lost_pack", "label": "Your lost pack", "tex": "lost_pack", "render": "model", "boxes": [[3, 0, 3, 13, 8, 13], [5, 8, 5, 11, 10, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.4, "drop": "none", "container": 46}
   ]
 }

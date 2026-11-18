@@ -56,9 +56,10 @@ export function makeCreature(kind: Kind, x: number, y: number, z: number): Creat
 
 /** Whether a creature's body fits at (x, y, z): no solid blocks, and never inside the sanctuary. */
 export function fits(c: Creature, x: number, y: number, z: number, blockAt: BlockAt): boolean {
-  if (inSanctuary(x, z)) return false;
   const d = KINDS[c.kind];
   const h = d.width / 2;
+  // The whole body stays out of the sanctuary, not only its middle.
+  for (const [cx, cz] of [[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h], [x, z]]) if (inSanctuary(cx, cz)) return false;
   for (let by = Math.floor(y); by <= Math.floor(y + d.height - 1e-6); by++)
     for (let bz = Math.floor(z - h); bz <= Math.floor(z + h - 1e-6); bz++)
       for (let bx = Math.floor(x - h); bx <= Math.floor(x + h - 1e-6); bx++) if (B_SOLID[blockAt(bx, by, bz)]) return false;
@@ -100,6 +101,21 @@ export interface Senses {
 }
 
 export interface Hit { damage: number; by: Kind }
+
+/** How far above or below a creature the player can be and still be struck. */
+export const STRIKE_HEIGHT = 1.5;
+
+/** Can the creature see the player: no solid block between its head and the player's chest? */
+export function canSee(c: Creature, s: Senses, blockAt: BlockAt): boolean {
+  const ax = c.x, ay = c.y + KINDS[c.kind].height * 0.8, az = c.z;
+  const bx = s.px, by = s.py + 1.2, bz = s.pz;
+  const n = Math.ceil(Math.hypot(bx - ax, by - ay, bz - az) / 0.2);
+  for (let k = 1; k < n; k++) {
+    const t = k / n;
+    if (B_SOLID[blockAt(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t), Math.floor(az + (bz - az) * t))]) return false;
+  }
+  return true;
+}
 
 /**
  * One step of a creature's life. Returns a hit on the player if one lands this step.
@@ -143,20 +159,20 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
       break;
     case 'charge':
       toX = dx; toZ = dz; speed = d.run;
-      if (dist < 1.4 + d.width / 2) { c.mind = 'windup'; c.timer = d.windup; speed = 0; }
+      if (dist < 1.4 + d.width / 2 && inReach(c, s, blockAt)) { c.mind = 'windup'; c.timer = d.windup; speed = 0; }
       if (dist > 25 || c.timer <= 0) { c.mind = 'wander'; c.timer = 0; }
       break;
     case 'stalk':
       // Close in quietly, then charge from cover.
       toX = dx; toZ = dz; speed = dist > 7 ? d.walk : d.run;
-      if (dist < 1.4 + d.width / 2) { c.mind = 'windup'; c.timer = d.windup; speed = 0; }
+      if (dist < 1.4 + d.width / 2 && inReach(c, s, blockAt)) { c.mind = 'windup'; c.timer = d.windup; speed = 0; }
       if (!s.night || c.timer <= 0) { c.mind = 'wander'; c.timer = 0; }
       break;
     case 'windup':
       toX = dx; toZ = dz; speed = 0;
       if (c.timer <= 0) {
         // The blow lands only if the player is still in reach: stepping back is the defence.
-        if (dist < 1.9 + d.width / 2 && reachable) hit = { damage: d.damage, by: c.kind };
+        if (dist < 1.9 + d.width / 2 && reachable && inReach(c, s, blockAt)) hit = { damage: d.damage, by: c.kind };
         c.mind = 'recover'; c.timer = 1.4;
       }
       break;
@@ -177,6 +193,11 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   moveBody(c, dt, blockAt);
   c.stride += Math.hypot(c.vx, c.vz) * dt * 3;
   return hit;
+}
+
+/** Near enough in height, and nothing solid between: a blow could land. */
+function inReach(c: Creature, s: Senses, blockAt: BlockAt): boolean {
+  return Math.abs(s.py - c.y) < STRIKE_HEIGHT && canSee(c, s, blockAt);
 }
 
 /** Damages a creature; returns true if that killed it. A hurt animal flees, a hurt boar charges. */

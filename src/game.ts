@@ -368,6 +368,7 @@ export class Game {
       blockAt: (x, y, z) => this.world.blockAt(x, y, z),
       loaded: (x, z) => !!this.world.column(Math.floor(x / CS), Math.floor(z / CS)),
       rand: Math.random,
+      arrowRoom: () => this.hotbar.room(itemId('arrow')),
     });
     this.shotFired = false;
     this.wildEvents(ev);
@@ -394,15 +395,21 @@ export class Game {
       this.streamer.markUrgentAround(x, y, z);
       this.edited();
     }
-    if (ev.picked) {
-      const left = this.hotbar.add(itemId('arrow'), ev.picked);
-      if (left < ev.picked) this.edited();
-    }
+    if (ev.picked) { this.hotbar.add(itemId('arrow'), ev.picked); this.edited(); }
   }
 
   /** A kill's drops go into the pack; what doesn't fit is said so. */
   private takeDrops(c: Creature): void {
-    this.hud.toast(takeDrops(this.hotbar, c.kind) ? KILL_LINE[c.kind] : 'Your pack is full: some of it is left behind');
+    const left = takeDrops(this.hotbar, c.kind);
+    if (!left.length) this.hud.toast(KILL_LINE[c.kind]);
+    else {
+      // What doesn't fit is left in a sack where the animal fell, to come back for.
+      const sack = new Inventory(left.length);
+      for (const [id, n] of left) sack.add(id, n);
+      const at = leaveLostPack(this.world, sack, c.x, c.y + 0.2, c.z);
+      if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
+      this.hud.toast('Your pack is full: the rest is left in a sack where it fell');
+    }
     this.edited();
   }
 
@@ -630,7 +637,7 @@ export class Game {
       }));
       return;
     }
-    if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? 'Chest', slots: chest }); return; }
+    if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest }); return; }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
     const snare = emptySnare(this.world, this.hotbar, t.x, t.y, t.z);
     if (snare === 'full') { this.hud.toast('No room in your pack for the rabbit'); return; }
@@ -713,6 +720,7 @@ export class Game {
 
   private openPaper(show: () => void): void {
     this.mining.active = false;
+    this.drawing = null;
     this.keys.clear();
     show();
     this.hud.showWorldHud(false);
@@ -789,6 +797,7 @@ export class Game {
 
   private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null, station: Station = 'hand'): void {
     this.mining.active = false;
+    this.drawing = null; // a bow drawn when a screen opens is let down, not loosed
     this.keys.clear();
     this.screen.open(this.hotbar, chest, station);
     this.hud.showWorldHud(false);

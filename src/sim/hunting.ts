@@ -26,11 +26,14 @@ export const RIFLE_RANGE = 150;
 export const RIFLE_HEARD = 60;
 export const MELEE_REACH = 3;
 
-/** Puts a kill's drops in the pack. Returns false if anything did not fit (it is left behind). */
-export function takeDrops(inv: Inventory, kind: Kind): boolean {
-  let all = true;
-  for (const [name, n] of KINDS[kind].drops) if (inv.add(itemId(name), n) > 0) all = false;
-  return all;
+/** Puts a kill's drops in the pack. Returns what did not fit (empty if all did). */
+export function takeDrops(inv: Inventory, kind: Kind): [number, number][] {
+  const left: [number, number][] = [];
+  for (const [name, n] of KINDS[kind].drops) {
+    const over = inv.add(itemId(name), n);
+    if (over > 0) left.push([itemId(name), over]);
+  }
+  return left;
 }
 
 /** How far the bow is drawn (0–1) after holding for `seconds`. */
