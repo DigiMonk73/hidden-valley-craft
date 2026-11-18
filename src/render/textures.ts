@@ -520,6 +520,118 @@ DRAW.lost_pack = (c) => {
   c.set(7, 7, hex('#b8a76a')); c.set(8, 7, hex('#b8a76a'));
 };
 
+// ---- Zone-1's near band (docs/PHASE4.md) -------------------------------------------------
+
+const RUST = [hex('#8a4a2a'), hex('#a35a30'), hex('#6e3a22'), hex('#b8703c')];
+/** Corrugated tin, rusting: grey ridges with orange-brown bleeding through. */
+DRAW.tin_roof = (c) => {
+  c.noise(hex('#8d9196'), 8, RUST, 0.18);
+  for (let x = 0; x < TEX; x += 3) for (let y = 0; y < TEX; y++) { c.shade(x, y, 1.18); c.shade(x + 1, y, 0.82); }
+};
+DRAW.tin_roof_edge = (c) => { DRAW.tin_roof(c); for (let x = 0; x < TEX; x++) c.shade(x, 0, 0.7); };
+DRAW.tin_roof_under = (c) => { c.noise(hex('#5d5f62'), 6, RUST, 0.25); for (let x = 1; x < TEX; x += 3) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.8); };
+DRAW.fence_post = (c) => {
+  c.noise(hex('#7a6247'), 8, [hex('#6a5440'), hex('#8c745a')], 0.25);
+  for (let y = 0; y < TEX; y += 5) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.85);
+};
+/** A blue bus-stop board: a white bus pictogram above two timetable rows, and a scratched number below. */
+DRAW.bus_sign = (c) => {
+  c.noise(hex('#2c5a8c'), 5, [hex('#26507e')], 0.2);
+  for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#d9dde0')); c.set(k, 15, hex('#d9dde0')); c.set(0, k, hex('#d9dde0')); c.set(15, k, hex('#d9dde0')); }
+  const W = hex('#f1f1ec');
+  for (let y = 3; y < 8; y++) for (let x = 4; x < 12; x++) c.set(x, y, W); // the bus
+  for (const x of [5, 7, 9]) c.set(x, 4, hex('#2c5a8c')); // windows
+  c.set(5, 8, hex('#1d1d1d')); c.set(10, 8, hex('#1d1d1d')); // wheels
+  for (const y of [10, 12]) for (let x = 3; x < 13; x++) if (x % 3 !== 0) c.set(x, y, hex('#c9d3dc'));
+  for (let x = 4; x < 12; x++) if (x !== 7) c.set(x, 14, hex('#e8e0c0')); // the number, scratched in
+};
+function boardText(c: Canvas16, base: RGB, letters: RGB): void {
+  c.noise(base, 7, [hex('#6a5038'), hex('#80664a')], 0.25);
+  for (const y of [0, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#4f3b29'));
+  // Faded painted letters: blocky strokes on two lines.
+  for (const row of [4, 9]) for (let x = 2; x < 14; x++) {
+    if (x % 4 === 1) continue;
+    if (c.rng() < 0.82) { c.set(x, row, letters); c.set(x, row + 1, letters); }
+    if (c.rng() < 0.3) c.set(x, row + 2, letters);
+  }
+  for (let k = 0; k < 16; k++) c.shade(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), 0.75);
+}
+DRAW.farm_sign = (c) => boardText(c, hex('#8a6d4c'), hex('#ece2c4'));
+DRAW.family_sign = (c) => boardText(c, hex('#a8483a'), hex('#f0e6cc'));
+/** Iron bars over a dark pit. */
+DRAW.cattle_grid = (c) => {
+  c.noise(hex('#1c1a18'), 4);
+  for (let x = 0; x < TEX; x += 4) for (let y = 0; y < TEX; y++) { c.set(x, y, RUST[y % 4]); c.set(x + 1, y, hex('#5a4a3e')); }
+};
+/** The scout from above, head to the west: dark hair, an olive jacket with a red armband, the wound and its stain. */
+DRAW.scout_upper = (c) => {
+  c.noise(hex('#4a5a7a'), 6, [hex('#3d4a66')], 0.2); // the road showing round him is drawn as shade
+  c.clearAlpha();
+  const jacket = [hex('#4f5a36'), hex('#465030'), hex('#5a663e')];
+  for (let z = 3; z < 13; z++) for (let x = 5; x < 16; x++) c.set(x, z, jacket[(x * 3 + z) % 3]);
+  for (let z = 1; z < 3; z++) for (let x = 7; x < 16; x++) c.set(x, z, jacket[x % 3]); // the arms, out to the side
+  for (let z = 13; z < 15; z++) for (let x = 7; x < 16; x++) c.set(x, z, jacket[x % 3]);
+  for (let x = 10; x < 13; x++) for (const z of [1, 2]) c.set(x, z, hex('#a3241c')); // the armband
+  c.set(11, 1, hex('#e9e2d0'));
+  for (let z = 5; z < 11; z++) for (let x = 0; x < 5; x++) if ((x - 2.5) ** 2 / 6.5 + (z - 7.5) ** 2 / 9 < 1) c.set(x, z, x < 2 ? hex('#2a1f17') : hex('#a9805e'));
+  // The wound: a dark hole in the chest, a red-brown stain spreading.
+  for (let z = 5; z < 11; z++) for (let x = 7; x < 13; x++) if ((x - 9.5) ** 2 + (z - 7.5) ** 2 < 7) c.set(x, z, hex('#5a1e16'));
+  c.set(9, 7, hex('#140807')); c.set(10, 7, hex('#140807')); c.set(9, 8, hex('#140807')); c.set(10, 8, hex('#2a0d0a'));
+};
+DRAW.scout_lower = (c) => {
+  c.clearAlpha();
+  const trousers = [hex('#3a3a36'), hex('#33332f'), hex('#42423d')];
+  for (let z = 4; z < 12; z++) for (let x = 0; x < 11; x++) if (z !== 8 || x < 2) c.set(x, z, trousers[(x + z) % 3]);
+  for (const z0 of [4, 9]) for (let z = z0; z < z0 + 3; z++) for (let x = 11; x < 15; x++) c.set(x, z, hex('#2a1e14')); // boots
+};
+DRAW.scout_side = (c) => { c.noise(hex('#465030'), 6, [hex('#3a3a36')], 0.4); };
+DRAW.scrap_heap = (c) => {
+  c.noise(hex('#6b5a4c'), 10, [...RUST, hex('#7d8288'), hex('#4a4440'), hex('#9aa0a4')], 0.55);
+  for (let k = 0; k < 5; k++) { const y = Math.floor(c.rng() * 16), x0 = Math.floor(c.rng() * 10); for (let x = x0; x < x0 + 6; x++) c.set(x, y, hex('#3a3632')); }
+};
+DRAW.truck_body = (c) => {
+  c.noise(hex('#8c3a2c'), 8, RUST, 0.35); // faded red paint gone to rust
+  for (let x = 0; x < TEX; x++) { c.shade(x, 5, 0.75); c.shade(x, 6, 1.15); }
+  for (let k = 0; k < 6; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#3b2a20'));
+};
+DRAW.truck_cab = (c) => {
+  DRAW.truck_body(c);
+  for (let y = 2; y < 8; y++) for (let x = 2; x < 14; x++) c.set(x, y, y === 2 || x === 2 || x === 13 ? hex('#2a2622') : hex('#3e4a52')); // the window, grimy
+  c.set(5, 4, hex('#7c8e98')); c.set(6, 3, hex('#7c8e98'));
+};
+DRAW.truck_top = (c) => { c.noise(hex('#7a3a2a'), 9, RUST, 0.45); };
+DRAW.truck_under = (c) => { c.noise(hex('#2a2420'), 6, [hex('#3a2a22')], 0.3); };
+DRAW.truck_wheel = (c) => {
+  DRAW.truck_body(c);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 9.5);
+    if (d < 6.5) c.set(x, y, d < 2.5 ? hex('#7d7a74') : d < 3.4 ? hex('#4a4744') : hex('#1c1b1a'));
+  }
+};
+/** Strands of barbed wire, sagging, with the odd barb. */
+DRAW.fence_wire = (c) => {
+  c.clearAlpha();
+  for (const y0 of [4, 9, 13]) for (let x = 0; x < TEX; x++) {
+    const y = y0 + (x > 4 && x < 11 ? 1 : 0);
+    c.set(x, y, hex('#8a8580'));
+    if (x % 5 === 2) { c.set(x, y - 1, hex('#6e6a66')); c.set(x, y + 1, hex('#6e6a66')); }
+  }
+};
+/** A sagging line with faded washing pegged to it. */
+DRAW.laundry = (c) => {
+  c.clearAlpha();
+  for (let x = 0; x < TEX; x++) c.set(x, 2 + (x > 3 && x < 12 ? 1 : 0), hex('#cfc3a4'));
+  for (let y = 4; y < 12; y++) for (let x = 3; x < 8; x++) c.set(x, y, hex('#b9c7d1'));
+  for (let y = 4; y < 9; y++) for (let x = 9; x < 14; x++) c.set(x, y, hex('#c98e7a'));
+};
+/** The coop's front: plank frame, wire mesh, straw, and a small hen-door. */
+DRAW.coop_side = (c) => {
+  c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2);
+  for (let y = 2; y < 10; y++) for (let x = 2; x < 14; x++) c.set(x, y, (x + y) % 3 === 0 || (x - y + 30) % 3 === 0 ? hex('#9aa3a8') : hex('#3a2a1c'));
+  for (let y = 10; y < 15; y++) for (let x = 2; x < 14; x++) c.set(x, y, hex('#d9c27a'));
+  for (let y = 11; y < 15; y++) for (let x = 6; x < 10; x++) c.set(x, y, hex('#2a1e14'));
+};
+
 DRAW.farmland = (c) => {
   c.noise(hex('#4a3322'), 6, [hex('#3e2a1b'), hex('#5a3e28')], 0.2);
   for (const y of [1, 5, 9, 13]) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#2f2015')); c.set(x, y + 1, hex('#5e4430')); }

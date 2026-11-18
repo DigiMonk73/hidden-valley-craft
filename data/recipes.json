@@ -29,12 +29,17 @@
     { "station": "workbench", "out": ["leather_armor", 1], "in": [["leather", 6], ["cordage", 2]] },
     { "station": "workbench", "out": ["arrow", 4], "in": [["stick", 2], ["arrowhead", 4], ["plant_fiber", 1]] },
     { "station": "workbench", "out": ["arrowhead", 2], "in": [["bone", 1]] },
+    { "station": "workbench", "out": ["arrow", 4], "in": [["stick", 2], ["arrowhead", 4], ["feather", 1]] },
+    { "station": "workbench", "out": ["coop", 1], "in": [["planks", 6], ["wire_mesh", 2], ["nails", 8]] },
+    { "station": "workbench", "out": ["wire_mesh", 1], "in": [["wire", 4]] },
 
     { "station": "kiln", "out": ["charcoal", 2], "in": [["log", 1]] },
     { "station": "kiln", "out": ["glass", 2], "in": [["sand", 2], ["charcoal", 1]] },
 
     { "station": "smelter", "out": ["iron_ingot", 1], "in": [["iron_ore", 1], ["charcoal", 1]] },
     { "station": "smelter", "out": ["iron_ingot", 1], "in": [["iron_ore", 1], ["coal", 1]] },
+    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["scrap_metal", 2], ["coal", 1]] },
+    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["scrap_metal", 2], ["charcoal", 1]] },
 
     { "station": "anvil", "out": ["nails", 8], "in": [["iron_ingot", 1]] },
     { "station": "anvil", "out": ["iron_pickaxe", 1], "in": [["iron_ingot", 3], ["stick", 2]] },
@@ -49,6 +54,8 @@
     { "station": "stove", "out": ["rabbit_cooked", 1], "in": [["rabbit_raw", 1]] },
     { "station": "stove", "out": ["venison_cooked", 1], "in": [["venison_raw", 1]] },
     { "station": "stove", "out": ["pork_cooked", 1], "in": [["pork_raw", 1]] },
+    { "station": "stove", "out": ["chicken_cooked", 1], "in": [["chicken_raw", 1]] },
+    { "station": "stove", "out": ["egg_cooked", 1], "in": [["egg", 2]] },
     { "station": "stove", "out": ["stew", 1], "in": [["potato", 1], ["corn", 1], ["tomato", 1], ["herbs", 1]] },
     { "station": "stove", "out": ["coffee", 3], "in": [["coffee_beans", 3], ["water_jug", 1]], "returns": [["empty_jug", 1]] },
     { "station": "stove", "out": ["rice", 2], "in": [["corn", 2], ["salt", 1]] },
