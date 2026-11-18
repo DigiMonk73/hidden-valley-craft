@@ -694,7 +694,9 @@ export class Game {
   private placeBlock(): void {
     if (!this.target) { this.useHeldItem(); return; }
     // Using what is in front comes first: a chest opens.
-    const t = this.target;
+    let t = this.target;
+    // The scout lies across two blocks: his legs open his pockets too.
+    if (blockName(t.id).startsWith('scout_legs') && this.world.containerAt(t.x - 1, t.y, t.z)) t = { ...t, x: t.x - 1, id: this.world.blockAt(t.x - 1, t.y, t.z) };
     const chest = this.world.containerAt(t.x, t.y, t.z);
     if (chest && blockName(t.id).startsWith('wall_safe') && !this.flags.has('safe_open')) {
       this.openPaper(() => this.paper.keypad('Wall safe', (code) => {

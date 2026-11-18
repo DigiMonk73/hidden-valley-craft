@@ -4,6 +4,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-18)
 
+- **Phase 4 ("Zone-1 near") is built on branch `phase4`**, waiting for the lead's review. Details and progress are in docs/PHASE4.md.
+  - **Places:** the road runs on to x 940. Along it: the saddle (a crest between two knolls, a farm sign and a cattle grid), Marco's bus shelter with its lantern lit, the dead raider scout with his lamp still burning, the farmstead off a track south, and a rusted truck. The mid band's smoke column rises far off.
+  - **Creatures:** the farmhouse den's 3 feral dogs, coyote packs at night, and chickens round the yard. Each pack member flanks from its own side, and every blow is wound up first.
+  - **Marco:** his number is on the shelter's timetable; call him from the phone and he waits at the shelter by day. Trade both ways in Bitcoin from the hot wallet; he pays half. The first deal is trust 1.
+  - **The scout's pistol, map scrap and armband**, the lore in your own notes, the coop with eggs, and **M1** on the computer and the map table.
+
 - **The hidden river** (branch `river`, merged) was published as version 5. Changes:
   - One underground river bursts from both faces of the canyon–valley ridge as twin waterfalls.
   - The way in and out is simple: a lit tunnel mouth under each waterfall, a short tunnel lit throughout, and a gate that opens by itself as you swim up. There are no levers and no air pocket.

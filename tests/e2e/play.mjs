@@ -310,7 +310,11 @@ const useAt = async (setup, ready, arg) => {
   await g(() => { window.__aimLock = false; });
   await page.waitForTimeout(500);
 };
-const closeScreens = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(200); };
+// Closes an open screen (Escape with none open would open the pause menu instead).
+const closeScreens = async () => {
+  if (await g(() => window.__hv.game.screen.isOpen || window.__hv.game.paper.isOpen)) await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+};
 const walkWest = async (x0, z, untilX) => {
   await ensureLook();
   await g(([x0, z]) => { const gm = window.__hv.game; gm.hour = 11; gm.player.flying = false; gm.player.setPosition(x0, 125, z); gm.player.yaw = Math.PI / 2; gm.player.pitch = 0; }, [x0, z]);
