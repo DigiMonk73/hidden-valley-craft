@@ -25,7 +25,8 @@ export interface Listener {
   open: number; // 0 (enclosed, a cave) … 1 (under open sky)
   underwater: boolean;
   creekDist: number; // metres to the creek or pool edge
-  fallPos: [number, number, number];
+  /** Where each waterfall is (the valley's, then the canyon's), and how loud it is there. */
+  falls: { pos: [number, number, number]; loudness: number }[];
 }
 
 export class Sound {
@@ -36,7 +37,7 @@ export class Sound {
   private sfx!: GainNode;
   private noise!: AudioBuffer;
   private brown!: AudioBuffer;
-  private fall!: { gain: GainNode; panner: PannerNode };
+  private falls: { gain: GainNode; panner: PannerNode }[] = [];
   private creek!: GainNode;
   private wind!: GainNode;
   private crickets!: GainNode;
@@ -67,21 +68,23 @@ export class Sound {
     this.noise = this.makeNoise(false);
     this.brown = this.makeNoise(true);
 
-    // The waterfall: deep rumbling noise, placed where the water falls.
-    const fallSrc = this.loop(this.brown);
-    const fallBand = ctx.createBiquadFilter();
-    fallBand.type = 'lowpass';
-    fallBand.frequency.value = 1400;
-    const fallHiss = this.loop(this.noise);
-    const hissBand = ctx.createBiquadFilter();
-    hissBand.type = 'bandpass'; hissBand.frequency.value = 2200; hissBand.Q.value = 0.6;
-    const hissGain = ctx.createGain(); hissGain.gain.value = 0.18;
-    const fallGain = ctx.createGain();
-    const panner = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 14, rolloffFactor: 1, maxDistance: 600 });
-    fallSrc.connect(fallBand).connect(fallGain);
-    fallHiss.connect(hissBand).connect(hissGain).connect(fallGain);
-    fallGain.connect(panner).connect(this.ambience);
-    this.fall = { gain: fallGain, panner };
+    // The waterfalls (the valley's and the canyon's): deep rumbling noise, each placed where its water falls.
+    for (let k = 0; k < 2; k++) {
+      const fallSrc = this.loop(this.brown);
+      const fallBand = ctx.createBiquadFilter();
+      fallBand.type = 'lowpass';
+      fallBand.frequency.value = 1400 - k * 150;
+      const fallHiss = this.loop(this.noise);
+      const hissBand = ctx.createBiquadFilter();
+      hissBand.type = 'bandpass'; hissBand.frequency.value = 2200 - k * 200; hissBand.Q.value = 0.6;
+      const hissGain = ctx.createGain(); hissGain.gain.value = 0.18;
+      const fallGain = ctx.createGain(); fallGain.gain.value = 0;
+      const panner = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 14, rolloffFactor: 1, maxDistance: 600 });
+      fallSrc.connect(fallBand).connect(fallGain);
+      fallHiss.connect(hissBand).connect(hissGain).connect(fallGain);
+      fallGain.connect(panner).connect(this.ambience);
+      this.falls.push({ gain: fallGain, panner });
+    }
 
     // The creek: a bright babble whose filter wanders.
     const creekSrc = this.loop(this.noise);
@@ -169,16 +172,20 @@ export class Sound {
       (lis as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(l.x, l.y, l.z);
       (lis as unknown as { setOrientation(...a: number[]): void }).setOrientation(l.fx, l.fy, l.fz, 0, 1, 0);
     }
-    const [fx, fy, fz] = l.fallPos;
-    if (this.fall.panner.positionX) {
-      this.fall.panner.positionX.value = fx; this.fall.panner.positionY.value = fy; this.fall.panner.positionZ.value = fz;
-    } else (this.fall.panner as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(fx, fy, fz);
+    this.falls.forEach((f, k) => {
+      const at = l.falls[k];
+      if (!at) { set(f.gain.gain, 0); return; }
+      const [fx, fy, fz] = at.pos;
+      if (f.panner.positionX) {
+        f.panner.positionX.value = fx; f.panner.positionY.value = fy; f.panner.positionZ.value = fz;
+      } else (f.panner as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(fx, fy, fz);
+      set(f.gain.gain, at.loudness);
+    });
 
     // Outdoor sound fades inside a cave; the cave's own hum comes up instead.
     const open = 0.15 + 0.85 * l.open;
     set(this.ambience.gain, open);
     set(this.cave.gain, (1 - l.open) * 0.05);
-    set(this.fall.gain.gain, 0.9);
     set(this.creek.gain, l.inValley ? 0.06 / (1 + l.creekDist / 5) : 0);
     const high = Math.min(1, Math.max(0, (l.y - 88) / 40));
     set(this.wind.gain, 0.03 + 0.12 * high + (l.inValley ? 0 : 0.06), 1);

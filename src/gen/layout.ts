@@ -57,15 +57,43 @@ export const PATH_HALF_WIDTH = 1.6;
 
 /** The pool under the waterfall on the west wall, and the creek that leaves it. */
 export const POOL = { cx: 1615, cz: 1024, radius: 14, depth: 5 };
-export const WATERFALL = { x: 1601, z0: 1021, z1: 1028, top: 113 };
 export const CREEK: [number, number][] = [
   [1628, 1033], [1646, 1046], [1668, 1051], [1692, 1060], [1714, 1071], [1734, 1084], [1752, 1094], [1766, 1098],
 ];
 
+/**
+ * The hidden river: rain on the higher mountains soaks into the limestone, runs underground and
+ * bursts out of both faces of the ridge between the canyon and the valley, a few blocks below its top.
+ * Each spring pours from a dark opening as a curtain two blocks thick. `x` is the curtain's column
+ * against the rock, `dir` the way the face looks (+1 east into the valley, −1 west into the canyon),
+ * `top` the opening's floor, where the river runs out. The rock above each opening stays dry.
+ */
+export interface Falls { x: number; z0: number; z1: number; top: number; dir: 1 | -1 }
+export const WATERFALL: Falls = { x: 1601, z0: 1021, z1: 1028, top: 105, dir: 1 };
+/** The canyon spring is the stronger: a wider curtain, from the same river at the same height. */
+export const CANYON_FALLS: Falls = { x: 1581, z0: 1020, z1: 1029, top: 105, dir: -1 };
+export const SPRINGS: Falls[] = [WATERFALL, CANYON_FALLS];
+/** How deep each opening runs back into the rock, and how tall it is above the water. */
+export const SPRING_OPENING = { depth: 5, height: 4 };
+
 /** Outside the west wall: the canyon and its pool, joined to the valley pool by the drowned tunnel. */
 export const CANYON = { x: 1560, halfFloor: 14, wallRun: 16, z0: 620, z1: 1460 };
-export const CANYON_POOL = { cx: 1564, cz: 1024, radius: 9, depth: 5 };
-export const TUNNEL = { x0: 1566, x1: 1607, z: 1024, y0: 62, y1: 65, halfWidth: 1 };
+/** The canyon pool lies at the foot of the ridge, so the canyon falls land in it. */
+export const CANYON_POOL = { cx: 1573, cz: 1024, radius: 9, depth: 5 };
+/**
+ * The drowned tunnel, from under one curtain to under the other: each mouth is a shaft straight down
+ * through the white water (`x0`–`x0 + 1` in the canyon, `x1 − 2`–`x1 − 1` in the valley).
+ */
+export const TUNNEL = { x0: CANYON_FALLS.x - 1, x1: WATERFALL.x + 2, z: 1024, y0: 62, y1: 65, halfWidth: 1 };
+/** The x range [x0, x1) of each mouth's shaft: the curtain's two columns. */
+export const TUNNEL_MOUTHS = { canyon: [TUNNEL.x0, TUNNEL.x0 + 2], valley: [TUNNEL.x1 - 2, TUNNEL.x1] } as const;
+/** The current in the tunnel: the canyon spring pushes harder, so the water runs toward the valley (m/s, +x). */
+export const RIVER_CURRENT = 0.7;
+
+/** The stream the canyon pool spills into: south along the canyon floor until it sinks into the gravel. */
+export const CANYON_STREAM: [number, number][] = [
+  [1575, 1030], [1572, 1042], [1569, 1060], [1567, 1080], [1565, 1100], [1563, 1118],
+];
 
 /**
  * The builder's gate in the drowned tunnel, and the air pocket beside it (docs/PHASE3.md, step 1).
@@ -77,7 +105,9 @@ export const POCKET = { x0: 1583, x1: 1591, z0: 1022, z1: 1027, y0: 62, water: 6
 export const GATE = { x0: 1591, x1: 1593, z0: TUNNEL.z - TUNNEL.halfWidth, z1: TUNNEL.z + TUNNEL.halfWidth + 1, y0: TUNNEL.y0, y1: TUNNEL.y1 };
 export const GATE_LEVERS: [number, number, number][] = [[1594, 63, 1022], [1589, 66, 1021]];
 /** Lamps the builder set in the rock: either side of the gate, and the lantern in the pocket. */
-export const TUNNEL_LAMPS: [number, number, number][] = [[1595, 63, 1026], [1600, 65, 1024], [1584, 63, 1021]];
+export const TUNNEL_LAMPS: [number, number, number][] = [[1595, 63, 1026], [1600, 65, 1024], [1584, 63, 1021], [1594, 64, 1022]];
+/** The lamp the builder set just above the valley-side lever, so the marked stone can be found under water. */
+export const LEVER_LAMP = TUNNEL_LAMPS[3];
 export const POCKET_LANTERN: [number, number, number] = [1587, 67, 1024];
 
 /**
@@ -85,6 +115,7 @@ export const POCKET_LANTERN: [number, number, number] = [1587, 67, 1024];
  * the old road begins: x, z, walking height (one block up for every two along).
  */
 export const RAMP: [number, number, number][] = [
+  [1562, 1030, 71], // beside the canyon pool
   [1556, 1031, 71],
   [1552, 1057, 84],
   [1546, 1061, 86],
@@ -185,6 +216,37 @@ export function creekDistance(x: number, z: number): number {
   return best;
 }
 
+/** Distance to the canyon stream's centre line, and how far along it (0 at the pool … 1 where it sinks). */
+export function canyonStreamAt(x: number, z: number): { dist: number; t: number } {
+  let best = Infinity, along = 0, total = 0, at = 0;
+  for (let i = 0; i < CANYON_STREAM.length - 1; i++) {
+    const [ax, az] = CANYON_STREAM[i], [bx, bz] = CANYON_STREAM[i + 1];
+    const len = Math.hypot(bx - ax, bz - az);
+    const [d, t] = distToSegment(x, z, ax, az, bx, bz);
+    if (d < best) { best = d; at = along + t * len; }
+    along += len;
+  }
+  total = along;
+  return { dist: best, t: at / total };
+}
+
+/** Is (x, z) on the canyon stream's water (widened by `extra`)? It thins along the way and is gone by its end. */
+export function inCanyonStream(x: number, z: number, extra = 0): boolean {
+  if (Math.abs(x - CANYON.x) > 30 || z < CANYON_STREAM[0][1] - 3 || z > CANYON_STREAM[CANYON_STREAM.length - 1][1] + 3) return false;
+  const st = canyonStreamAt(x, z);
+  return st.t < 0.93 && st.dist < 1.9 - 1.2 * st.t + extra;
+}
+
+/**
+ * The tunnel's current at a point (m/s along +x, toward the valley), or 0 outside it. None in the air
+ * pocket, where the passage widens and the water rests, or in the shafts above the passage.
+ */
+export function riverCurrent(x: number, y: number, z: number): number {
+  if (y < TUNNEL.y0 || y >= TUNNEL.y1 || x < TUNNEL.x0 || x >= TUNNEL.x1) return 0;
+  if (x >= POCKET.x0 && x < POCKET.x1 && z >= POCKET.z0 && z < POCKET.z1) return 0;
+  return Math.abs(Math.floor(z) - TUNNEL.z) <= TUNNEL.halfWidth ? RIVER_CURRENT : 0;
+}
+
 /** Distance to the path and the walking height there (Infinity when far from it). */
 export function pathAt(x: number, z: number): { dist: number; height: number } {
   let best = Infinity, height = 0;
@@ -227,6 +289,12 @@ export function outsideHeight(x: number, z: number): number {
   return Math.round(natural);
 }
 
+/** How sheer the canyon's east wall is at z: 1 behind the canyon falls, easing to 0 either side. */
+function canyonHeadwall(z: number): number {
+  const mid = (CANYON_FALLS.z0 + CANYON_FALLS.z1) / 2, half = (CANYON_FALLS.z1 - CANYON_FALLS.z0) / 2;
+  return 1 - smoothstep(half + 4, half + 14, Math.abs(z + 0.5 - mid));
+}
+
 /** The land outside the valley before anything is built on it. `fine` adds the small bumps (not under the road). */
 function naturalHeight(x: number, z: number, fine: boolean): number {
   // Large regions, west of the valley along the road.
@@ -262,9 +330,14 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
 
   // The canyon west of the valley: steep walls, flat floor.
   if (z > CANYON.z0 - 40 && z < CANYON.z1 + 40) {
-    const cd = Math.abs(x - canyonCenterX(z));
+    const cc = canyonCenterX(z), cd = Math.abs(x - cc);
     const endFade = smoothstep(CANYON.z0 - 40, CANYON.z0 + 40, z) * (1 - smoothstep(CANYON.z1 - 40, CANYON.z1 + 40, z));
-    const wall = smoothstep(CANYON.halfFloor, CANYON.halfFloor + CANYON.wallRun, cd);
+    // Where the canyon spring bursts out, its east wall is a sheer headwall the falls pour down,
+    // easing back into the canyon's sloping wall either side.
+    let lo = CANYON.halfFloor, run = CANYON.wallRun;
+    const s = x > cc ? canyonHeadwall(z) : 0;
+    if (s > 0) { lo = mix(lo, CANYON_FALLS.x + 0.5 - cc, s); run = mix(run, 0.5, s); }
+    const wall = smoothstep(lo, lo + run, cd);
     const canyon = mix(VALLEY.floor + 1 + noise.noise2(x / 12, z / 12), base, Math.pow(wall, 0.6));
     base = mix(base, Math.min(base, canyon), endFade);
   }

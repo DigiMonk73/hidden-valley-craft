@@ -4,7 +4,7 @@ import { runJob, type GenResult } from '../src/jobs/tasks.ts';
 import { blockId, AIR, WATER, B_SOLID, isWaterId, blockName } from '../src/world/blocks.ts';
 import { Gate, GATE_STONE, GATE_LEVER } from '../src/sim/gate.ts';
 import {
-  GATE, GATE_LEVERS, POCKET, TUNNEL, POOL, CANYON_POOL, RAMP, ROAD, roadZ, roadHeight, outsideHeight, rampAt, PLACES, VALLEY,
+  GATE, GATE_LEVERS, POCKET, TUNNEL, TUNNEL_MOUTHS, RIVER_CURRENT, POOL, CANYON_POOL, RAMP, ROAD, roadZ, roadHeight, outsideHeight, rampAt, PLACES, VALLEY,
 } from '../src/gen/layout.ts';
 import { CS } from '../src/world/constants.ts';
 
@@ -39,11 +39,12 @@ describe('the tunnel and the builder’s gate', () => {
       expect(w.blockAt(x, POCKET.water + 1, z)).toBe(AIR);
       expect(w.blockAt(x, POCKET.water + 2, z)).toBe(AIR);
     }
-    // Each leg of the swim (shaft to pocket, pocket to shaft) is well inside one breath at swimming speed.
-    const legA = POCKET.x0 - (TUNNEL.x0 + 2), legB = POOL.cx - 4 - POCKET.x1;
-    for (const leg of [legA, legB]) expect(leg / 2.6 + (VALLEY.water - TUNNEL.y0) / 2).toBeLessThan(16);
+    // Each leg of the swim (shaft to pocket, pocket to shaft) is well inside one breath, even against
+    // the current (tests/river.test.ts swims both ways for real).
+    const legA = POCKET.x0 - TUNNEL_MOUTHS.canyon[1], legB = TUNNEL_MOUTHS.valley[0] - POCKET.x1;
+    for (const leg of [legA, legB]) expect(leg / (2.6 - RIVER_CURRENT) + (VALLEY.water - TUNNEL.y0) / 2).toBeLessThan(16);
     // Water all the way from the canyon pool to the valley pool, but for the gate.
-    for (let x = TUNNEL.x0; x < POOL.cx - 4; x++) {
+    for (let x = TUNNEL.x0; x < TUNNEL.x1; x++) {
       if (x >= GATE.x0 && x < GATE.x1) continue;
       expect(isWaterId(w.blockAt(x, TUNNEL.y0, z)), `x ${x}`).toBe(true);
     }
@@ -109,8 +110,10 @@ describe('the canyon ramp and the old road', () => {
   });
 
   it('is a ledge cut into the wall, with no gully between the ramp and the rock', () => {
-    // Leg 1 climbs along the west wall: just inside it (west), the ground is never below the ramp.
-    const [ax, az] = RAMP[0], [bx, bz] = RAMP[1];
+    // Leg 1 (after the short walk from the pool) climbs along the west wall: just inside it (west),
+    // the ground is never below the ramp.
+    expect(RAMP[1][2]).toBe(RAMP[0][2]);
+    const [ax, az] = RAMP[1], [bx, bz] = RAMP[2];
     for (let k = 2; k < 18; k++) {
       const x = Math.round(ax + ((bx - ax) * k) / 20), z = Math.round(az + ((bz - az) * k) / 20);
       const h = outsideHeight(x, z);
@@ -139,7 +142,7 @@ describe('the canyon ramp and the old road', () => {
     }
     expect(road / n).toBeGreaterThan(0.7);
     expect(Math.hypot(RAMP[0][0] - CANYON_POOL.cx, RAMP[0][1] - CANYON_POOL.cz)).toBeLessThan(CANYON_POOL.radius + 6);
-    expect(rampAt(RAMP[2][0], RAMP[2][1]).dist).toBeLessThan(1);
+    expect(rampAt(RAMP[3][0], RAMP[3][1]).dist).toBeLessThan(1);
   });
 
   it('has the ranger sign beside the road and burrows in the warren', () => {

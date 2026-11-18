@@ -162,10 +162,14 @@ const ensureLook = async () => {
 // Holds breath and health up while the scene is set by hand (software rendering is slow).
 const keepAlive = () => g(() => { const gm = window.__hv.game; gm.player.breath = 20; gm.vitals.hp = 100; });
 
-// Swim from the valley pool's tunnel mouth west to the gate.
+// Dive through the valley falls into the tunnel's mouth beneath them, and swim west to the gate.
 await ensureLook();
-await g(() => { const gm = window.__hv.game; gm.hour = 12; gm.player.flying = false; gm.player.setPosition(1603.5, 62, 1024.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = 0; });
+await g(() => { const gm = window.__hv.game; gm.hour = 12; gm.player.flying = false; gm.player.setPosition(1602, 68.6, 1024.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = 0; });
 await page.waitForFunction(() => window.__hv.idle(), null, { timeout: 120_000, polling: 300 }).catch(() => {});
+const curtain = await g(() => { const p = window.__hv.game.player, w = window.__hv.game.world; return window.__hv.blockName(w.blockAt(Math.floor(p.x), 70, Math.floor(p.z))) === 'falling_water'; });
+await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.y < 62.5; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
+const dived = await g(() => window.__hv.game.player.y);
+check('dives through the falls down the tunnel mouth', curtain && dived < 62.5, `under the curtain ${curtain}, height ${dived.toFixed(1)}`);
 await page.keyboard.down('KeyW');
 await page.waitForFunction(() => { const gm = window.__hv.game; gm.player.breath = 20; return gm.player.x < 1595.6; }, null, { timeout: 60_000, polling: 100 }).catch(() => {});
 await page.keyboard.up('KeyW');

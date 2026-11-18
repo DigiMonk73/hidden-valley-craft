@@ -41,6 +41,8 @@ export class Player {
   /** Highest point of the current fall, and how far the last landing fell (read and cleared by the game). */
   private fallTop = 0;
   landedFall = 0;
+  /** The water's own current at a point (m/s along x), such as the drowned tunnel's; none if unset. */
+  flow: ((x: number, y: number, z: number) => number) | null = null;
 
   setPosition(x: number, y: number, z: number): void {
     this.x = x; this.y = y; this.z = z;
@@ -75,7 +77,9 @@ export class Player {
       this.vy = (input.jump ? speed : 0) - (input.descend ? speed : 0);
     } else if (this.inWater) {
       const speed = input.sprint ? SWIM * 1.4 : SWIM;
-      this.vx += (wx * speed - this.vx) * Math.min(1, dt * 6);
+      // A current carries the swimmer along with it: swimming against it is slower, with it faster.
+      const current = this.flow ? this.flow(this.x, this.y + 0.4, this.z) : 0;
+      this.vx += (wx * speed + current - this.vx) * Math.min(1, dt * 6);
       this.vz += (wz * speed - this.vz) * Math.min(1, dt * 6);
       // Slow sinking; space swims up, and climbs out at the edge.
       this.vy += (input.jump ? 9 : -3.5) * dt;
