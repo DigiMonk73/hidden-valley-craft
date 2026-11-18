@@ -4,6 +4,8 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-18)
 
+- **Review fixes (Silas)** were published as version 7. The sanctuary now covers the whole home, F3 hides the panel, and a full pack keeps the block. Checks: 193 unit tests and all 51 play-through checks. The play-through now takes about 30 minutes here; give it an hour's timeout.
+
 - **Phase 4 ("Zone-1 near band")** was merged into `main` (branch `phase4`) and published as version 6. It has the saddle, Marco's bus shelter and trading in Bitcoin, the dead scout and the pistol, the farmstead with its feral dogs and chickens, the coop, salvage, and M1. Details are in docs/PHASE4.md. Checks: 188 unit tests and all 50 play-through checks.
   - The play-through's safe step failed once on mouse capture; it passed on the rerun.
   - The swimmer pauses at the floor near each tunnel mouth until they swim up with Space. Make that rise smooth next.
