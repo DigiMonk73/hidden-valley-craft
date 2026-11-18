@@ -100,11 +100,26 @@ export const CANYON_POOL = { cx: 1573, cz: 1024, radius: 9, depth: 5 };
  * `x0` is the canyon face's column, `x1 − 1` the valley face's. Rows y0 … y1 − 1 are water.
  */
 export const TUNNEL = { x0: CANYON_FALLS.x + 1, x1: WATERFALL.x, z: 1024, y0: 66, y1: 69, halfWidth: 1 };
-/** The deep water under each curtain, in front of its mouth: x range [x0, x1), down to the tunnel's floor. */
+/**
+ * The water in front of each mouth: x range [x0, x1). Under the two curtain columns it is deep, down to
+ * the tunnel's floor; beyond them its gravel floor climbs one block at a time to a ledge just under the
+ * surface, so a swimmer holding forward out of the mouth is carried up step by step until their head
+ * is out (`basinFloor`), with no wall to stop at and no need to swim up.
+ */
 export const MOUTH_BASINS = {
-  canyon: { x0: TUNNEL.x0 - 4, x1: TUNNEL.x0, z0: CANYON_FALLS.z0, z1: CANYON_FALLS.z1 },
-  valley: { x0: TUNNEL.x1, x1: TUNNEL.x1 + 4, z0: WATERFALL.z0, z1: WATERFALL.z1 },
+  canyon: { x0: TUNNEL.x0 - 5, x1: TUNNEL.x0, z0: CANYON_FALLS.z0, z1: CANYON_FALLS.z1 },
+  valley: { x0: TUNNEL.x1, x1: TUNNEL.x1 + 5, z0: WATERFALL.z0, z1: WATERFALL.z1 },
 };
+
+/** The walking height of a mouth basin's floor at (x, z) (the tunnel's floor, then a block higher per block out), or null outside the basins. */
+export function basinFloor(x: number, z: number): number | null {
+  const c = MOUTH_BASINS.canyon, v = MOUTH_BASINS.valley;
+  let k = -1;
+  if (x >= c.x0 && x < c.x1 && z >= c.z0 && z < c.z1) k = c.x1 - 1 - x;
+  else if (x >= v.x0 && x < v.x1 && z >= v.z0 && z < v.z1) k = x - v.x0;
+  if (k < 0) return null;
+  return TUNNEL.y0 + Math.max(0, k - 1); // two deep columns under the curtain, then one up per block
+}
 /** The current in the tunnel: the canyon spring pushes harder, so the water runs toward the valley (m/s, +x). */
 export const RIVER_CURRENT = 0.5;
 
@@ -119,7 +134,7 @@ export function rescueFromOldTunnel(x: number, y: number, z: number): [number, n
   const belowAll = y < 64.6;
   // The old air pocket, x 1583–1590, z 1022–1026, up to y 68: rock now, but for the new tunnel through it.
   const oldPocket = x >= 1583 && x < 1591 && z >= 1022 && z < 1027 && y < 68 && !inTunnel;
-  return belowAll || oldPocket ? [MOUTH_BASINS.valley.x1 - 0.5, 69 - 0.4, TUNNEL.z + 0.5] : null;
+  return belowAll || oldPocket ? [MOUTH_BASINS.valley.x0 + 3.5, 69 - 0.4, TUNNEL.z + 0.5] : null;
 }
 
 /** The stream the canyon pool spills into: south along the canyon floor until it sinks into the gravel. */

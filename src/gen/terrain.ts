@@ -9,7 +9,7 @@ import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, CANYON_POOL, TUNNEL, MOUTH_BASINS, GARDEN, SPRINGS, SPRING_OPENING, type Falls,
   GATE, TUNNEL_LAMPS, MOUTH_LAMPS, ROAD, PLACES, RAMP_HALF_WIDTH,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
-  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack,
+  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack, basinFloor,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
 import { buildZone1 } from './zone1.ts';
@@ -346,12 +346,13 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
         }
       }
 
-      // The deep water under each curtain, down to the tunnel's floor, on a gravel bed.
-      for (const b of [MOUTH_BASINS.canyon, MOUTH_BASINS.valley])
-        if (x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1) {
-          col[ci(lx, TUNNEL.y0 - 1, lz)] = GRAVEL;
-          for (let y = TUNNEL.y0; y <= W; y++) col[ci(lx, y, lz)] = WATER;
-        }
+      // The deep water under each curtain, down to the tunnel's floor, then a gravel floor stepping up
+      // a block at a time to a ledge just under the surface (basinFloor).
+      const bf = basinFloor(x, z);
+      if (bf !== null) {
+        for (let y = TUNNEL.y0 - 1; y < bf; y++) col[ci(lx, y, lz)] = GRAVEL;
+        for (let y = bf; y <= W; y++) col[ci(lx, y, lz)] = WATER;
+      }
 
       // The drowned tunnel, straight through the ridge from one mouth to the other.
       if (x >= TUNNEL.x0 && x < TUNNEL.x1 && Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth) {

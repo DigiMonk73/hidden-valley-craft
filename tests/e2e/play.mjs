@@ -186,31 +186,33 @@ const swimThrough = async (startX, yaw, pastMouth) => {
   await page.keyboard.down('KeyW');
   // Hold the heading: synthetic mouse events can turn the view mid-swim, and a swimmer turned
   // aside meets the rock beside the mouth instead of the mouth.
+  // Holding forward alone carries the swimmer out of the far mouth and up the basin's steps until the
+  // head is out (no Space to swim up).
   const through = await page.waitForFunction(([past, yaw]) => {
     const p = window.__hv.game.player;
     p.yaw = yaw; p.pitch = 0;
-    return past < 1590 ? p.x < past : p.x > past;
+    return (past < 1590 ? p.x < past : p.x > past) && !p.headInWater;
   }, [pastMouth, yaw], { timeout: 120_000, polling: 50 }).then(() => true, () => false);
   if (!through) console.log('  (swim stalled:', await g(() => {
     const gm = window.__hv.game, p = gm.player, w = gm.world;
     const cells = []; for (let y = 65; y <= 70; y++) cells.push(y + ':' + window.__hv.blockName(w.blockAt(Math.floor(p.x) - 1, y, Math.floor(p.z))));
     return JSON.stringify({ x: p.x, y: p.y, z: p.z, vy: p.vy, yaw: p.yaw, fly: p.flying, keys: [...gm.keys], playing: gm.playing, look: gm.look.mode, screens: [gm.screen.isOpen, gm.paper.isOpen], ahead: cells });
   }), ')');
-  await page.keyboard.down('Space');
-  await page.waitForFunction(() => !window.__hv.game.player.headInWater, null, { timeout: 60_000, polling: 50 }).catch(() => {});
-  await page.keyboard.up('Space');
   await page.keyboard.up('KeyW');
-  return g(() => { clearInterval(window.__swimTimer); const p = window.__hv.game.player; return { ...window.__swim, x: p.x, out: !p.headInWater }; });
+  const r = await g(() => { clearInterval(window.__swimTimer); const p = window.__hv.game.player; return { ...window.__swim, x: p.x, out: !p.headInWater }; });
+  return { ...r, through };
 };
 const out = await swimThrough(1604.5, Math.PI / 2, 1581.6);
 check('swims out: through the valley falls, the tunnel and up under the canyon falls', out.out && out.x < 1582 && out.curtain, `x ${out.x.toFixed(1)}, under the falls ${out.curtain}`);
 check('the gate opens by itself on the way', out.gate !== 'shut', `gate ${out.gate}`);
+check('holding forward alone brings the head up out of the canyon mouth (no Space)', out.through);
 check('the way out takes well under one breath', out.low > 8, `breath left ${out.low.toFixed(1)} of 20`);
 const shut = await page.waitForFunction(() => window.__hv.game.gate.state === 'shut', null, { timeout: 90_000, polling: 300 }).then(() => true, () => false);
 check('the gate closes itself behind', shut);
 const home = await swimThrough(1577.5, -Math.PI / 2, 1601.4);
 check('swims home: through the canyon falls and up under the valley falls', home.out && home.x > 1601 && home.curtain, `x ${home.x.toFixed(1)}, under the falls ${home.curtain}`);
 check('the gate opens by itself coming home', home.gate !== 'shut', `gate ${home.gate}`);
+check('holding forward alone brings the head up out of the valley mouth (no Space)', home.through);
 check('coming home takes well under one breath', home.low > 8, `breath left ${home.low.toFixed(1)} of 20`);
 
 // Climb the last leg of the canyon ramp onto the old road.

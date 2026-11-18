@@ -157,9 +157,26 @@ describe('the drowned tunnel’s mouths, right under the falls', () => {
       // The curtain falls right in front of it: the falls' columns are the basin's nearest ones.
       expect(f.x).toBe(face + f.dir);
       // Deep water under the curtain, down to the tunnel's floor.
-      for (let x = basin.x0; x < basin.x1; x++)
+      for (const x of [f.x, f.x + f.dir])
         for (let z = basin.z0; z < basin.z1; z++)
           for (let y = TUNNEL.y0; y <= W; y++) expect(isWaterId(world.blockAt(x, y, z)), `${x},${y},${z}`).toBe(true);
+    }
+  });
+
+  it('climbs out of each mouth a block at a time to a ledge just under the surface (step 0 of phase 5)', () => {
+    for (const { f, basin } of mouths) {
+      for (let z = basin.z0; z < basin.z1; z++) {
+        // From the curtain outward: the floor never rises more than a block at once, and ends a block under the surface.
+        let last = TUNNEL.y0, x = f.x;
+        for (; x >= basin.x0 && x < basin.x1; x += f.dir) {
+          let top = TUNNEL.y0 - 1;
+          while (B_SOLID[world.blockAt(x, top + 1, z)]) top++;
+          expect(top + 1 - last, `${x},${z}`).toBeLessThanOrEqual(1);
+          last = top + 1;
+          expect(isWaterId(world.blockAt(x, last, z))).toBe(true);
+        }
+        expect(last, `outer edge at z ${z}`).toBe(W);
+      }
     }
   });
 
@@ -277,14 +294,15 @@ const z = TUNNEL.z + 0.5;
 /** Afloat just outside one curtain: swim straight at it, through the tunnel, and up beyond the other. */
 function swim(from: 'valley' | 'canyon') {
   const out = from === 'valley';
-  const s = new Swim(out ? MOUTH_BASINS.valley.x1 - 0.5 : MOUTH_BASINS.canyon.x0 + 0.5, z);
+  const s = new Swim(out ? MOUTH_BASINS.valley.x0 + 3.5 : MOUTH_BASINS.canyon.x1 - 3.5, z);
   expect(s.headOut).toBe(true);
   const yaw = out ? WEST : EAST;
-  // Holding forward: through the white water, down into the mouth, along the tunnel (the gate opens
-  // as you come) and out of the far mouth; then up through the falling water and out beyond it.
+  // Holding forward and nothing else: through the white water, down into the mouth, along the tunnel
+  // (the gate opens as you come) and out of the far mouth; then up the basin's steps, through the
+  // falling water, until the head is out beyond it. No Space to swim up (phase 5, step 0).
   const pastMouth = out ? (p: Player) => p.x < TUNNEL.x0 - 0.35 : (p: Player) => p.x > TUNNEL.x1 + 0.35;
   s.until(fwd, yaw, pastMouth);
-  s.until({ ...fwd, jump: true }, yaw, () => s.headOut);
+  s.until(fwd, yaw, () => s.headOut, 6);
   expect(out ? s.p.x < CANYON_FALLS.x + CANYON_FALLS.dir : s.p.x > WATERFALL.x + WATERFALL.dir).toBe(true); // clear of the curtain
   return { time: s.t, breath: BREATH_MAX - s.low };
 }
