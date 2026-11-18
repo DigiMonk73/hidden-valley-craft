@@ -108,6 +108,16 @@ describe('the canyon ramp and the old road', () => {
     }
   });
 
+  it('is a ledge cut into the wall, with no gully between the ramp and the rock', () => {
+    // Leg 1 climbs along the west wall: just inside it (west), the ground is never below the ramp.
+    const [ax, az] = RAMP[0], [bx, bz] = RAMP[1];
+    for (let k = 2; k < 18; k++) {
+      const x = Math.round(ax + ((bx - ax) * k) / 20), z = Math.round(az + ((bz - az) * k) / 20);
+      const h = outsideHeight(x, z);
+      for (let d = 3; d <= 4; d++) expect(outsideHeight(x - d, z), `west of ${x},${z}`).toBeGreaterThanOrEqual(h - 1);
+    }
+  });
+
   it('runs west to the saddle with no step over one block', () => {
     let last = roadHeight(ROAD.east);
     for (let x = ROAD.east; x >= ROAD.west; x--) {

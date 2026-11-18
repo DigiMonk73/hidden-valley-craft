@@ -103,12 +103,14 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
   - They have no tests yet and are not in the game.
 
 **Left to build, in this order:**
-1. **Check the way out by eye.** Take screenshots of:
+1. **DONE: Check the way out by eye.** Take screenshots of:
    - the tunnel at the gate and in the pocket;
    - the ramp from the canyon pool;
    - the road with the ranger sign, the warren and the morpho tree.
 
    Fix what looks wrong; for example, leg 1 of the ramp leaves a small gully against the wall. Add a journal entry (`data/journal.json`) in the builder's voice that tells where the two marked stones are.
+
+   *Done:* the ramp is now a ledge: between it and the rising wall the ground is filled up to it, so no gully opens on its inner side (test: "is a ledge cut into the wall"). The journal's "The gate" entry tells where both marked stones are. The gate, pocket, road, sign, warren and morpho tree looked right in the screenshots.
 2. **Morpho butterflies and the tower.**
    - Blue morpho particles around the morpho tree by day (`src/render/particles.ts`, like the fireflies).
    - The ridge tower's silhouette in the distant land, at `PLACES.ridgeTower`: a thin lattice mesh with the same fog as `src/render/farland.ts`.

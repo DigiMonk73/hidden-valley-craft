@@ -212,6 +212,9 @@ export function outsideHeight(x: number, z: number): number {
   const ramp = rampAt(x, z);
   if (ramp.dist < RAMP_HALF_WIDTH) return Math.round(ramp.height);
   const natural = naturalHeight(x, z, true);
+  // The ramp is a ledge cut into the west wall: between it and the rising rock behind, the ground is
+  // filled up to the ramp, so no gully opens on its inner side.
+  if (ramp.dist < RAMP_HALF_WIDTH + 5 && natural < ramp.height && naturalHeight(x - 5, z, false) >= ramp.height) return Math.round(ramp.height);
   if (onRoadX) {
     const d = roadD;
     // Shoulders: the land eases down (or up) to the road over a few blocks.
