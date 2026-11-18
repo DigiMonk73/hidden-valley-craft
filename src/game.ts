@@ -1036,13 +1036,13 @@ export class Game {
       if (e.code === 'Escape' && this.playing) this.pause();
       if (e.code === 'KeyE' && this.playing) { this.openScreen(null); return; }
       if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
+      if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
       if (!this.playing) return;
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
       if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
       if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.hud.toast(this.hotbar.creative ? 'Builder’s mode: blocks never run out' : 'Builder’s mode off'); }
       if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
       if (e.code === 'BracketLeft') this.hour = (this.hour + 23) % 24;
-      if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; });

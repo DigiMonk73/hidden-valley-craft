@@ -430,7 +430,9 @@ const inCoop = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n
 check('the pair goes into the coop', inCoop === 2, `chickens in the coop ×${inCoop}`);
 for (let attempt = 0; attempt < 3; attempt++) {
   await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
-    (gm) => { gm.hour = 21; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+    // The clock is set once, before aiming: setting it again while waiting could put a slept night back to
+    // 21:00, and a second sleep lays a second morning's eggs.
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
 await page.waitForTimeout(500);
@@ -450,6 +452,7 @@ check('the journal opens at your newest note', /Your notes/.test(notesPage ?? ''
 await closeScreens();
 
 // F3 shows the debug panel, and F3 again hides it (it used to stay up with its last text).
+await ensureLook();
 await page.keyboard.press('F3');
 await page.waitForTimeout(400);
 const debugOn = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display !== 'none');
