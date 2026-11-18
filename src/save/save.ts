@@ -29,6 +29,10 @@ export interface SaveData {
   spawn?: { x: number; y: number; z: number; yaw: number };
   flags?: string[];
   explored?: number[];
+  /** The hot wallet, in satoshis (Phase 4). */
+  wallet?: number;
+  /** How many of the farmhouse den's dogs are alive (Phase 4). */
+  den?: number;
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

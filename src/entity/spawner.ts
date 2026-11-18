@@ -6,16 +6,29 @@ import { B_SOLID, isWaterId, blockId } from '../world/blocks.ts';
 
 /** Tree crowns and trunks: a creature never stands on these; the search goes on down to the ground. */
 const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds'].map(blockId));
-import { makeCreature, KINDS, type Creature, type Kind } from './creatures.ts';
+import { makeCreature, KINDS, PACK_KINDS, type Creature, type Kind } from './creatures.ts';
+import { DEN, YARD } from '../gen/zone1.ts';
 
-interface SpawnRule { kind: Kind; zones: ZoneId[]; cap: number; night: 'day' | 'night' | 'any'; group: [number, number] }
+interface SpawnRule {
+  kind: Kind; zones: ZoneId[]; cap: number; night: 'day' | 'night' | 'any'; group: [number, number];
+  /** Spawns only round this point (when the player is near it), and the creatures keep to it as home. */
+  anchor?: [number, number]; radius?: number;
+}
 
 export const SPAWNS: SpawnRule[] = [
   { kind: 'rabbit', zones: ['buffer'], cap: 6, night: 'day', group: [1, 3] },
   { kind: 'deer', zones: ['buffer', 'canyon'], cap: 4, night: 'any', group: [2, 3] },
   { kind: 'boar', zones: ['buffer'], cap: 2, night: 'any', group: [1, 2] },
   { kind: 'puma', zones: ['buffer'], cap: 1, night: 'night', group: [1, 1] },
+  // Zone-1's near band (docs/PHASE4.md): coyote packs by night; the feral flock round the farmyard by day.
+  { kind: 'coyote', zones: ['near'], cap: 3, night: 'night', group: [2, 3] },
+  { kind: 'chicken', zones: ['near'], cap: 6, night: 'day', group: [2, 3], anchor: YARD, radius: 9 },
 ];
+
+/** The farmhouse den: a pack of three dogs (docs/PHASE4.md). Killed dogs stay dead. */
+export const DEN_SIZE = 3;
+/** The den's dogs are about when the player is this near it. */
+const DEN_NEAR = 100;
 
 const RING_NEAR = 24, RING_FAR = 80, DESPAWN = 128, WARREN_NEAR = 16;
 /** A night creature still about by day slips away once it is this far from the player. */
@@ -50,7 +63,13 @@ export function trySpawn(
     if (have >= rule.cap) continue;
     let x: number, z: number;
     const w = PLACES.warren;
-    if (rule.kind === 'rabbit' && Math.hypot(px - w.x, pz - w.z) < RING_FAR + 20 && rand() < 0.6) {
+    if (rule.anchor) {
+      const [ax, az] = rule.anchor;
+      if (Math.hypot(px - ax, pz - az) > RING_FAR + 40) continue;
+      const a = rand() * Math.PI * 2, r = rand() * (rule.radius ?? 8);
+      x = ax + Math.cos(a) * r; z = az + Math.sin(a) * r;
+      if (Math.hypot(x - px, z - pz) < 10) continue; // not under the player's nose
+    } else if (rule.kind === 'rabbit' && Math.hypot(px - w.x, pz - w.z) < RING_FAR + 20 && rand() < 0.6) {
       // Most rabbits come from the warren, when the player is anywhere near it.
       const a = rand() * Math.PI * 2, r = w.radius + rand() * 10;
       x = w.x + Math.cos(a) * r; z = w.z + Math.sin(a) * r;
@@ -66,8 +85,35 @@ export function trySpawn(
       const gx = x + (rand() - 0.5) * 4, gz = z + (rand() - 0.5) * 4;
       const y = groundAt(gx, gz, blockAt);
       if (y === null || inSanctuary(gx, gz) || !rule.zones.includes(zoneAt(gx, gz))) continue;
-      made.push(makeCreature(rule.kind, gx, y, gz));
+      const c = makeCreature(rule.kind, gx, y, gz);
+      if (PACK_KINDS.has(rule.kind)) c.pack = k;
+      if (rule.anchor) c.home = [rule.anchor[0], rule.anchor[1]];
+      made.push(c);
     }
+  }
+  return made;
+}
+
+/**
+ * The den's dogs: when the player is near the farmhouse, those of the pack still alive (`left`) lie
+ * in the house. Each keeps its own place in the pack, so the three always come from three sides.
+ */
+export function denPack(
+  creatures: Creature[], px: number, pz: number, left: number, rand: () => number,
+  blockAt: (x: number, y: number, z: number) => number, loaded: (x: number, z: number) => boolean,
+): Creature[] {
+  if (left <= 0 || Math.hypot(px - DEN[0], pz - DEN[2]) > DEN_NEAR || !loaded(DEN[0], DEN[2])) return [];
+  const dogs = creatures.filter((c) => c.kind === 'dog' && c.home);
+  const made: Creature[] = [];
+  for (let k = 0; k < DEN_SIZE && dogs.length + made.length < left; k++) {
+    if (dogs.some((c) => c.pack === k)) continue;
+    const x = DEN[0] + (rand() - 0.5) * 3, z = DEN[2] + (rand() - 0.5) * 3;
+    const y = groundAt(x, z, blockAt, DEN[1] + 3);
+    if (y === null || inSanctuary(x, z)) continue;
+    const c = makeCreature('dog', x, y, z);
+    c.pack = k;
+    c.home = [DEN[0], DEN[2]];
+    made.push(c);
   }
   return made;
 }

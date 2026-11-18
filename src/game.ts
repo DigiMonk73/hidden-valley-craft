@@ -38,11 +38,26 @@ import { leaveLostPack, losesPack } from './sim/death.ts';
 import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
 import { meleeDamage, takeDrops, drawOf, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt } from './entity/spawner.ts';
+import { ZONE1, SADDLE } from './gen/layout.ts';
+import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
+import { CATALOG, START_WALLET, buy, sell, sellPrice, sellable, btc } from './sim/trade.ts';
+import { M1_STEPS, trackM1, diedOutside } from './sim/milestones.ts';
+import { catchChicken, layEggs, COOP, CATCH_REACH } from './sim/livestock.ts';
+import { itemLabel } from './world/items.ts';
+import { iconFor } from './ui/icons.ts';
+import { drawMapScrap } from './ui/mapView.ts';
+import people from '../data/people.json' with { type: 'json' };
 
 const SAVE_KEY = 'save:1';
 const KILL_LINE: Record<Creature['kind'], string> = {
   rabbit: 'A rabbit: meat and a small hide', deer: 'A deer: venison, a hide and bone', boar: 'A wild boar: pork, a hide and bone', puma: 'The puma is dead. Its pelt is yours',
+  dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '',
 };
+const MARCO = people.marco;
+/** Pistol: the dead scout's, never crafted (ADR-019). */
+const PISTOL = { damage: 30, cooldown: 0.5, range: 60 };
+/** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
+const MARCO_HOURS: [number, number] = [7, 18];
 const SETTINGS_KEY = 'settings';
 const REACH = 5;
 const STEP = 1 / 60;
@@ -71,6 +86,10 @@ export class Game {
   explored = new Uint8Array(64 * 64);
   /** Things that have happened for good (the safe opened). */
   flags = new Set<string>();
+  /** The hot wallet, in satoshis: what Marco is paid from and pays into (docs/PHASE4.md). */
+  wallet = START_WALLET;
+  /** Once a second: the places' toasts, M1, Marco's comings and goings. */
+  private lastPlaces = -1;
   private lastExplore = -1;
   sound = new Sound();
   private stepDist = 0;
@@ -245,7 +264,10 @@ export class Game {
       if (!this.opts.test) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
     }
     // Each morning (or on waking), the hutches breed.
-    if (newDay(this.dayClock, this.hour) && breedHutches(this.world)) this.edited();
+    if (newDay(this.dayClock, this.hour)) {
+      if (breedHutches(this.world)) this.edited();
+      if (layEggs(this.world)) this.edited();
+    }
     this.dayClock = this.hour;
 
     // Camera and sky.
@@ -305,6 +327,7 @@ export class Game {
     this.tickWild(dt);
     this.tickSurvival(dt, input);
     this.tickGate(dt);
+    if (Math.floor(this.time) !== this.lastPlaces) { this.lastPlaces = Math.floor(this.time); this.tickPlaces(); }
     // Mark where the player has been, for the map table (once a second).
     if (Math.floor(this.time) !== this.lastExplore) {
       this.lastExplore = Math.floor(this.time);
@@ -380,6 +403,10 @@ export class Game {
       if (s.kind === 'rustle') this.sound.rustle(s.x, s.y, s.z);
       else if (s.kind === 'grunt') this.sound.grunt(s.x, s.y, s.z);
       else if (s.kind === 'growl') this.sound.growl(s.x, s.y, s.z);
+      else if (s.kind === 'bark') { this.sound.bark(s.x, s.y, s.z); this.once('dogs_met', 'Dogs! When one crouches and snarls, step back, then strike.', 6000); }
+      else if (s.kind === 'yip') { this.sound.yip(s.x, s.y, s.z); this.once('coyotes_met', 'Coyotes! They come from the sides. Step back when one crouches to spring.', 6000); }
+      else if (s.kind === 'snarl') this.sound.snarl(s.x, s.y, s.z);
+      else if (s.kind === 'cluck') this.sound.cluck(s.x, s.y, s.z);
       else this.sound.hit(s.x, s.y, s.z);
     }
     if (!this.hotbar.creative && !this.player.flying) {
@@ -401,6 +428,11 @@ export class Game {
 
   /** A kill's drops go into the pack; what doesn't fit is said so. */
   private takeDrops(c: Creature): void {
+    // The den's dogs stay dead: the farm is quiet once all three are.
+    if (c.kind === 'dog' && c.home) {
+      this.wild.denLeft = Math.max(0, this.wild.denLeft - 1);
+      if (this.wild.denLeft === 0) this.hud.toast('The last of the dogs. The farm is quiet now.', 5000);
+    }
     const left = takeDrops(this.hotbar, c.kind);
     if (!left.length) this.hud.toast(KILL_LINE[c.kind]);
     else {
@@ -435,6 +467,7 @@ export class Game {
   private strike(): boolean {
     const hit = this.creatureInSight(MELEE_REACH);
     if (!hit) return false;
+    if (hit.c.kind === 'marco') { this.hud.toast(MARCO.strike); return true; }
     if (this.playTime - this.lastBlow < MELEE_COOLDOWN) return true;
     this.lastBlow = this.playTime;
     this.damageCreature(hit.c, meleeDamage(this.hotbar.current?.id));
@@ -460,6 +493,18 @@ export class Game {
       this.sound.bowDraw();
       return true;
     }
+    if (held === itemId('pistol')) {
+      if (this.playTime - this.lastShot < PISTOL.cooldown) return true;
+      if (!this.hotbar.remove(itemId('pistol_rounds'), 1)) { this.hud.toast('No pistol rounds'); return true; }
+      this.lastShot = this.playTime;
+      this.shotFired = true;
+      this.sound.pistol();
+      this.shake = Math.max(this.shake, 0.15);
+      const hit = this.creatureInSight(PISTOL.range);
+      if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, PISTOL.damage);
+      this.edited();
+      return true;
+    }
     if (held === itemId('hunting_rifle')) {
       if (this.playTime - this.lastShot < RIFLE_COOLDOWN) return true;
       if (!this.hotbar.remove(itemId('rifle_rounds'), 1)) { this.hud.toast('No rifle rounds'); return true; }
@@ -468,7 +513,25 @@ export class Game {
       this.sound.rifle();
       this.shake = Math.max(this.shake, 0.25);
       const hit = this.creatureInSight(RIFLE_RANGE);
-      if (hit) this.damageCreature(hit.c, RIFLE_DAMAGE);
+      if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, RIFLE_DAMAGE);
+      this.edited();
+      return true;
+    }
+    return false;
+  }
+
+  /** A right-click on a creature that can be used: Marco to talk and trade, a chicken to catch. */
+  private useCreature(): boolean {
+    const hit = this.creatureInSight(4);
+    if (!hit) return false;
+    if (hit.c.kind === 'marco') { this.talkToMarco(); return true; }
+    if (hit.c.kind === 'chicken' && hit.dist <= CATCH_REACH) {
+      const r = catchChicken(this.hotbar, hit.c);
+      if (r === 'full') { this.hud.toast('No room in your pack for the chicken'); return true; }
+      this.wild.remove(hit.c);
+      this.sound.cluck(hit.c.x, hit.c.y + 0.3, hit.c.z);
+      const n = this.hotbar.count(itemId('live_chicken'));
+      this.hud.toast(n >= 2 ? `${n} live chickens: a pair for a coop. Build one at the workbench.` : 'A live chicken! Catch another: a pair lays eggs in a coop.');
       this.edited();
       return true;
     }
@@ -517,6 +580,7 @@ export class Game {
     this.fishing = null;
     this.mining.active = false;
     if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you.'); return; }
+    diedOutside(this.flags);
     const at = leaveLostPack(this.world, this.hotbar, p.x, p.y + 0.2, p.z);
     if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
     this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
@@ -644,6 +708,11 @@ export class Game {
       }));
       return;
     }
+    if (chest && t.x === SCOUT_AT[0] && t.y === SCOUT_AT[1] && t.z === SCOUT_AT[2] && !this.flags.has('scout_searched')) {
+      this.flags.add('scout_searched');
+      this.hud.toast('Shot from the front, a day or two ago. A raider scout, walking out toward the saddle. Someone out here shoots back. (In your notes: the journal.)', 9000);
+      this.edited();
+    }
     if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest }); return; }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
     const snare = emptySnare(this.world, this.hotbar, t.x, t.y, t.z);
@@ -678,6 +747,7 @@ export class Game {
     if (placeBlock(this.world, this.hotbar, this.player, this.target)) {
       this.edited();
       this.sound.place(materialOf(id));
+      if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning.', 6000);
     }
   }
 
@@ -699,31 +769,147 @@ export class Game {
       void this.save(false);
       return true;
     }
-    if (name === 'bookshelf') { this.openPaper(() => this.paper.journal(journalData.entries)); return true; }
+    if (name === 'bookshelf') { this.openJournal(); return true; }
     if (name === 'computer') {
       const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
+      const m1 = this.flags.has('m1_done');
       this.openPaper(() => this.paper.computer([
-        ['Hot wallet', '0.05000000 BTC', 'btc'],
-        ['Cold wallet', cold ? '2.50000000 BTC (connected)' : 'not connected', cold ? 'btc' : 'dim'],
+        ['Hot wallet (phone)', btc(this.wallet), 'btc'],
+        ['Cold wallet', cold ? '2.50000000 BTC (connected, kept cold)' : 'not connected', cold ? 'btc' : 'dim'],
         ['Mining', 'no rig: needs a solar array and battery bank', 'dim'],
         ['Satellite uplink', 'no antenna', 'dim'],
+        ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
+        ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['Last note', '“Back before the rains.”'],
       ], 'R.’s terminal'));
       return true;
     }
-    if (name === 'phone') {
-      this.openPaper(() => this.paper.computer([
-        ['Mamá', 'no answer', 'dim'], ['Lucía', 'no answer', 'dim'], ['Dr. Alvarez', 'no answer', 'dim'], ['Raúl (pilot)', 'no answer', 'dim'],
-        ['Signal', 'satellite: weak', ''],
-      ], 'Satellite phone · the builder’s contacts'));
-      return true;
-    }
+    if (name === 'phone') { this.openPhone(); return true; }
     if (name === 'map_table') {
-      this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z), 'The builder’s map · filled in where you have been'));
+      const marks = { route: this.flags.has('extracted'), shelter: this.flags.has('shelter_found'), scout: this.flags.has('scout_searched'), farm: this.flags.has('farm_seen') };
+      this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z, marks), marks.route ? 'The builder’s map · the road home is marked' : 'The builder’s map · filled in where you have been'));
       return true;
     }
     return false;
   }
+
+  /** The builder's journal, and after it the player's own notes as they are earned. */
+  private openJournal(): void {
+    const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
+    const all = [...journalData.entries, ...notes];
+    this.openPaper(() => this.paper.journal(all, notes.length ? journalData.entries.length : 0));
+  }
+
+  /** The builder's phone: his dead contacts, and Marco once his number has been found at the shelter. */
+  private openPhone(): void {
+    const rows: { name: string; status: string; cls?: string; call?: () => string }[] = [];
+    if (this.flags.has('shelter_found')) {
+      rows.push({
+        name: MARCO.contact, status: this.flags.has('marco_trust1') ? 'trust 1' : 'new', cls: 'btc',
+        call: () => {
+          const night = this.hour < MARCO_HOURS[0] || this.hour >= MARCO_HOURS[1];
+          const waiting = this.flags.has('marco_meeting');
+          this.flags.add('marco_meeting');
+          this.flags.delete('marco_dealt');
+          this.edited();
+          return waiting ? MARCO.callWaiting : night ? MARCO.callNight : MARCO.callDay;
+        },
+      });
+    }
+    rows.push({ name: 'Mamá', status: 'no answer', cls: 'dim' }, { name: 'Lucía', status: 'no answer', cls: 'dim' }, { name: 'Dr. Alvarez', status: 'no answer', cls: 'dim' }, { name: 'Raúl (pilot)', status: 'no answer', cls: 'dim' });
+    rows.push({ name: 'Signal', status: 'satellite: weak' });
+    if (this.flags.has('shelter_found')) rows.push({ name: 'Wallet', status: btc(this.wallet), cls: 'btc' });
+    this.openPaper(() => this.paper.phone('Satellite phone · the builder’s contacts', rows));
+  }
+
+  /** Talking to Marco: a line, then his trade. The first deal earns trust 1 (DESIGN.md M1). */
+  private talkToMarco(): void {
+    const first = !this.flags.has('marco_met');
+    this.flags.add('marco_met');
+    const say = first ? MARCO.first : MARCO.again[Math.floor(Math.random() * MARCO.again.length)];
+    const dealt = () => {
+      this.flags.add('marco_dealt');
+      this.edited();
+      if (!this.flags.has('marco_trust1')) { this.flags.add('marco_trust1'); return MARCO.trust; }
+      return '';
+    };
+    const why = { funds: 'Not enough in your wallet.', room: 'No room in your pack.', none: 'You have none of that.' };
+    this.openPaper(() => this.paper.trade(() => ({
+      title: `${MARCO.name} · ${this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
+      say,
+      wallet: btc(this.wallet),
+      buy: CATALOG.map((lot) => ({
+        icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy',
+        can: this.wallet >= lot.sats,
+        act: () => {
+          const r = buy(this.hotbar, this.wallet, lot);
+          if (!r.ok) return why[r.why];
+          this.wallet = r.wallet;
+          return dealt() || `Bought ${itemLabel(lot.id)} ×${lot.lot}.`;
+        },
+      })),
+      sell: sellable(this.hotbar).map((id) => ({
+        icon: iconFor(id), label: `${itemLabel(id)} (you have ${this.hotbar.count(id)})`, price: btc(sellPrice(id)), button: 'Sell 1',
+        can: true,
+        act: () => {
+          const r = sell(this.hotbar, this.wallet, id);
+          if (!r.ok) return why[r.why];
+          this.wallet = r.wallet;
+          return dealt() || `Sold one ${itemLabel(id)}.`;
+        },
+      })),
+    })));
+  }
+
+  /** Says something the first time only. */
+  private once(flag: string, line: string, ms = 5000): void {
+    if (this.flags.has(flag)) return;
+    this.flags.add(flag);
+    this.hud.toast(line, ms);
+    this.edited();
+  }
+
+  /**
+   * Once a second: a toast the first time each Zone-1 place is reached (saying what can be done there),
+   * M1's steps, and Marco coming to the shelter by day once a meeting is arranged.
+   */
+  private tickPlaces(): void {
+    const p = this.player, f = this.flags;
+    const near = (x: number, z: number, r: number) => Math.hypot(p.x - x, p.z - z) < r;
+    if (p.x < SADDLE.x + 2 && p.x > SADDLE.x - 20 && Math.abs(p.z - 1025) < 30)
+      this.once('saddle_seen', 'The saddle. Below: a farm, a smoke column far off, the dark forest beyond. Past here is Zone 1: danger 2, and 3 at night.', 8000);
+    const sh = ZONE1.shelter;
+    if (near((sh.x0 + sh.x1) / 2, (sh.z0 + sh.z1) / 2, 8))
+      this.once('shelter_found', `A bus shelter, its lantern lit. Scratched on the timetable: “${MARCO.scratched}”. His number is in your phone now: call him from the cave to meet here by day.`, 9000);
+    if (near(SCOUT_AT[0] + 0.5, SCOUT_AT[2] + 0.5, 7) && !f.has('scout_searched')) this.once('scout_seen', 'A dead man on the road, shot. Right-click him to search his pockets.', 6000);
+    const g = ZONE1.farmGate;
+    if (near(g.x, g.z + 2, 9)) this.once('farm_seen', 'A farm track. On the board at the gate: FAMILIA ROJAS. Hens are clucking down there, and something growls in the house.', 7000);
+    if (near(YARD[0], YARD[1], 16) && this.wild.creatures.some((c) => c.kind === 'chicken' && near(c.x, c.z, 14)))
+      this.once('chickens_seen', 'Feral chickens. Walk up close and right-click to catch one. Two make a pair for a coop.', 7000);
+    // M1.
+    const gained = trackM1(f, p.x, p.z, this.hotbar.count(itemId('pistol')) > 0);
+    if (gained.length) this.edited();
+    if (gained.includes('m1_done')) this.hud.toast('M1 · the first outside run. You went out, and came home. (The road home is on the map table now.)', 9000);
+    else if (gained.includes('extracted')) this.hud.toast('Home, from Zone 1, alive. The way back is on the builder’s map now.', 6000);
+    // Marco: at the shelter by day once a meeting is arranged; gone again once you have dealt and left.
+    const marco = this.wild.creatures.find((c) => c.kind === 'marco');
+    const day = this.hour >= MARCO_HOURS[0] && this.hour < MARCO_HOURS[1];
+    const dist = Math.hypot(p.x - MARCO_SPOT[0], p.z - MARCO_SPOT[2]);
+    if (f.has('marco_meeting') && f.has('marco_dealt') && dist > 60) { f.delete('marco_meeting'); f.delete('marco_dealt'); this.edited(); }
+    const here = f.has('marco_meeting') && day;
+    if (here && !marco && dist < 120 && this.world.column(Math.floor(MARCO_SPOT[0] / CS), Math.floor(MARCO_SPOT[2] / CS))) {
+      const m = makeCreature('marco', MARCO_SPOT[0], MARCO_SPOT[1], MARCO_SPOT[2]);
+      m.yaw = Math.PI; // facing the road
+      this.wild.add(m);
+    } else if (!here && marco) this.wild.remove(marco);
+    if (here && marco && dist < 9 && !this.marcoGreeted) {
+      this.marcoGreeted = true;
+      this.sound.whistle(marco.x, marco.y + 1.6, marco.z);
+      this.hud.toast('Marco is here, under the shelter. Right-click him to talk and trade.', 6000);
+    }
+    if (dist > 30) this.marcoGreeted = false;
+  }
+  private marcoGreeted = false;
 
   private openPaper(show: () => void): void {
     this.mining.active = false;
@@ -781,7 +967,12 @@ export class Game {
       }
     }
     if (!held) return false;
-    if (held.id === itemId('builders_journal')) { this.openPaper(() => this.paper.journal(journalData.entries)); return true; }
+    if (held.id === itemId('builders_journal')) { this.openJournal(); return true; }
+    if (held.id === itemId('map_scrap')) {
+      this.openPaper(() => this.paper.map(drawMapScrap(), 'The scout’s map scrap · a ridge, a bend in a road, an arrow, and “Las Cruces” in pencil'));
+      return true;
+    }
+    if (held.id === itemId('armband')) { this.hud.toast('A red armband, a white broken circle stitched on it. Whoever sent him wears the same.', 5000); return true; }
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : 0;
     if (food || heal) {
@@ -850,7 +1041,7 @@ export class Game {
       if (!this.playing) return;
       if (this.look.mode === 'off') { this.look.engage(); return; }
       if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
-      if (e.button === 2 && !this.aim()) this.placeBlock();
+      if (e.button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mining.active = false;
@@ -922,6 +1113,7 @@ export class Game {
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
+      wallet: this.wallet, den: this.wild.denLeft,
     };
   }
 
@@ -939,6 +1131,8 @@ export class Game {
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
     this.flags = new Set(d.flags ?? []);
+    this.wallet = d.wallet ?? START_WALLET;
+    this.wild.denLeft = d.den ?? 3;
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
@@ -1050,6 +1244,8 @@ export class Game {
       this.vitals = freshVitals();
       this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
       this.flags = new Set();
+      this.wallet = START_WALLET;
+      this.wild.denLeft = 3;
       this.explored = new Uint8Array(64 * 64);
       this.hour = 16.5;
       this.dayClock = 16.5;

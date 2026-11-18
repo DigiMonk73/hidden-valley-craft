@@ -108,6 +108,70 @@ const MODELS: Record<Kind, Model> = {
     ],
     leg: { size: [0.13, 0.5, 0.13], color: '#a38050', hips: [[-0.14, 0.5, -0.4], [0.14, 0.5, -0.4], [-0.14, 0.5, 0.42], [0.14, 0.5, 0.42]] },
   },
+  // Zone-1's near band (docs/PHASE4.md).
+  dog: { // a rangy, mangy farm dog gone feral: dark brown with a pale chest
+    body: [
+      { size: [0.34, 0.34, 0.72], at: [0, 0.56, 0.02], color: '#4a3a2a' },
+      { size: [0.26, 0.2, 0.3], at: [0, 0.5, -0.24], color: '#c9b08a' },
+      { size: [0.28, 0.27, 0.3], at: [0, 0.76, -0.46], color: '#4f3e2c' },
+      { size: [0.14, 0.12, 0.18], at: [0, 0.7, -0.66], color: '#3a2c20' },
+      { size: [0.06, 0.04, 0.04], at: [0, 0.74, -0.76], color: '#141414' },
+      { size: [0.08, 0.12, 0.05], at: [-0.1, 0.94, -0.42], color: '#3a2c20' },
+      { size: [0.08, 0.12, 0.05], at: [0.1, 0.94, -0.42], color: '#3a2c20' },
+      { size: [0.04, 0.04, 0.02], at: [-0.08, 0.8, -0.62], color: '#e0b040' },
+      { size: [0.04, 0.04, 0.02], at: [0.08, 0.8, -0.62], color: '#e0b040' },
+      { size: [0.07, 0.07, 0.34], at: [0, 0.7, 0.5], color: '#3f3122' },
+    ],
+    leg: { size: [0.1, 0.4, 0.1], color: '#3f3122', hips: [[-0.11, 0.4, -0.26], [0.11, 0.4, -0.26], [-0.11, 0.4, 0.28], [0.11, 0.4, 0.28]] },
+  },
+  coyote: { // grey-tan with a pale belly, big ears and a bushy, black-tipped tail
+    body: [
+      { size: [0.3, 0.3, 0.7], at: [0, 0.55, 0.02], color: '#93806a' },
+      { size: [0.24, 0.08, 0.6], at: [0, 0.42, 0.02], color: '#d6c8b0' },
+      { size: [0.24, 0.24, 0.28], at: [0, 0.72, -0.44], color: '#9a8770' },
+      { size: [0.12, 0.1, 0.2], at: [0, 0.67, -0.64], color: '#b8a588' },
+      { size: [0.06, 0.04, 0.04], at: [0, 0.7, -0.75], color: '#141414' },
+      { size: [0.08, 0.16, 0.04], at: [-0.08, 0.92, -0.42], color: '#7a6852' },
+      { size: [0.08, 0.16, 0.04], at: [0.08, 0.92, -0.42], color: '#7a6852' },
+      { size: [0.12, 0.12, 0.4], at: [0, 0.5, 0.52], color: '#8a7760' },
+      { size: [0.1, 0.1, 0.1], at: [0, 0.44, 0.75], color: '#2a2420' },
+    ],
+    leg: { size: [0.08, 0.4, 0.08], color: '#85735e', hips: [[-0.1, 0.4, -0.26], [0.1, 0.4, -0.26], [-0.1, 0.4, 0.28], [0.1, 0.4, 0.28]] },
+  },
+  chicken: { // a red-brown hen
+    body: [
+      { size: [0.24, 0.22, 0.32], at: [0, 0.27, 0.02], color: '#9a5230' },
+      { size: [0.2, 0.08, 0.26], at: [0, 0.37, 0.02], color: '#b0673a' },
+      { size: [0.13, 0.15, 0.13], at: [0, 0.43, -0.16], color: '#a85c34' },
+      { size: [0.04, 0.06, 0.1], at: [0, 0.53, -0.16], color: '#c0392b' },
+      { size: [0.05, 0.04, 0.07], at: [0, 0.43, -0.26], color: '#e0a526' },
+      { size: [0.03, 0.06, 0.03], at: [0, 0.38, -0.24], color: '#c0392b' },
+      { size: [0.16, 0.16, 0.08], at: [0, 0.38, 0.2], color: '#5a2e1a' },
+    ],
+    leg: { size: [0.03, 0.16, 0.03], color: '#e0a526', hips: [[-0.05, 0.16, 0.02], [0.05, 0.16, 0.02]] },
+  },
+  marco: { // a farmer-trader: straw hat, a woven poncho of brick red with ochre and cream bands, a canvas bag
+    body: [
+      { size: [0.42, 0.56, 0.24], at: [0, 1.1, 0], color: '#3d4a3a' }, // shirt under the poncho
+      { size: [0.62, 0.5, 0.36], at: [0, 1.14, 0], color: '#9c3b2a' }, // the poncho
+      { size: [0.63, 0.05, 0.37], at: [0, 1.02, 0], color: '#d39a3a' },
+      { size: [0.63, 0.04, 0.37], at: [0, 1.1, 0], color: '#e8dcc0' },
+      { size: [0.63, 0.05, 0.37], at: [0, 1.25, 0], color: '#d39a3a' },
+      { size: [0.12, 0.16, 0.14], at: [-0.25, 0.83, 0], color: '#a77a55' }, // hands
+      { size: [0.12, 0.16, 0.14], at: [0.25, 0.83, 0], color: '#a77a55' },
+      { size: [0.12, 0.08, 0.12], at: [0, 1.43, 0], color: '#9a6e4c' }, // neck
+      { size: [0.28, 0.3, 0.28], at: [0, 1.6, 0], color: '#a77a55' }, // head
+      { size: [0.2, 0.05, 0.02], at: [0, 1.52, -0.145], color: '#3a2a20' }, // moustache
+      { size: [0.04, 0.04, 0.02], at: [-0.07, 1.64, -0.145], color: '#1d1d1d' },
+      { size: [0.04, 0.04, 0.02], at: [0.07, 1.64, -0.145], color: '#1d1d1d' },
+      { size: [0.72, 0.04, 0.72], at: [0, 1.76, 0], color: '#d8bf7a' }, // hat brim
+      { size: [0.32, 0.16, 0.32], at: [0, 1.85, 0], color: '#cdb26a' },
+      { size: [0.33, 0.04, 0.33], at: [0, 1.8, 0], color: '#5a3a24' }, // hat band
+      { size: [0.16, 0.24, 0.08], at: [0.36, 0.98, 0.04], color: '#b9a678' }, // the bag
+      { size: [0.04, 0.5, 0.04], at: [0.18, 1.22, 0.14], color: '#8a6a40' }, // its strap
+    ],
+    leg: { size: [0.17, 0.82, 0.19], color: '#33363c', hips: [[-0.1, 0.82, 0], [0.1, 0.82, 0]] },
+  },
 };
 
 function coloured(g: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
