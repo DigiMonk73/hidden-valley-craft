@@ -80,7 +80,14 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Next
 
-1. Phase 2: living in the valley, plus the billionaire's inheritance (docs/PHASE2.md), in its build order.
+1. Phase 3 is in its phase session (branch `phase3`); the lead reviews, merges and publishes it.
+2. **After Phase 3 merges: give the waterfalls a source** (the owner, 2026-11-18). The valley's waterfall now pours from a notch at the rim with nothing feeding it. The fix is the karst answer: rain on the uplands soaks into the limestone and runs underground, and that underground river bursts out of the cliff faces as springs.
+   - **The valley waterfall:** it gushes from a dark opening in the west cliff, a few metres below the rim, and the rim above it stays dry rock.
+   - **The canyon pool:** it gets its own waterfall, the same river surfacing outside (DESIGN.md: the pool "beneath a waterfall" where the story starts).
+   - **The tunnel:** a gentle current flows through it toward the valley, the "lateral current" in the script.
+   - **Where the water goes:** the valley pool drains by the creek sinking into the rock (it does already). The canyon pool drains down the canyon as a stream.
+   - **Why not a river over the rim:** a river on the plateau would lead anyone straight to the hidden valley.
+   - Changing the Unity game's script is the owner's call; this note is for the block edition.
 3. Still open from before:
    - Water doesn't flow; breaking a block next to water fills it with still water.
    - Cross-device saves through the page's `db` capability.
