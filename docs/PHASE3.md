@@ -148,11 +148,13 @@ Branch `phase3`. The lead session published Phase 2 and handed the rest of this 
    - Test: the pack holds exactly what was carried.
 
    *Done* (`src/sim/death.ts`, `tests/death.test.ts`). The pack goes in the nearest open cell (air, water or a plant) within 3 blocks, preferring one on the ground; never in the gate's doorway, and never over another pack. The expedition backpack's extra slots stay on your back.
-8. **The play-through.** Extend `tests/e2e/play.mjs`:
+8. **DONE: The play-through.** Extend `tests/e2e/play.mjs`:
    - swim from the valley pool to the gate, pull the lever and pass;
    - reach the road;
    - shoot a deer with the bow (set the scene with `window.__hv`, as the other steps do);
    - cook venison at the stove.
+
+   *Done.* The deer scene is on a level stretch of road west of the warren (x ≈ 1392), where the road is flat for 30 m. The play-through holds the aim still during the shot (synthetic mouse presses turn the view) and holds the deer in place for the second arrow, because a deer below 30% health bolts, as it should. Found on the way: `groundAt` stood creatures on tree crowns; it now looks down through leaves and trunks to the forest floor (test in `tests/wild.test.ts`). The old "places the selected block" check also counted the garden's growing crops; it now counts only that block.
 9. **Review.** A fresh reviewer agent that did not write the code checks the branch. Fix what it finds, each bug with a test that fails on the old code. Then message the lead.
 
 **Checks before every push:** `npx tsc --noEmit`, `npx vitest run`, `npx vite build`, and with `npx vite preview --port 4173` running, `node tests/e2e/play.mjs`. Run vitest and the play-through one after the other, never together: the container runs out of memory.

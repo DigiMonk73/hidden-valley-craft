@@ -2,7 +2,10 @@
 // valley (the sanctuary rule is checked here in code, whatever any table says).
 
 import { zoneAt, inSanctuary, type ZoneId } from '../gen/layout.ts';
-import { B_SOLID, isWaterId } from '../world/blocks.ts';
+import { B_SOLID, isWaterId, blockId } from '../world/blocks.ts';
+
+/** Tree crowns and trunks: a creature never stands on these; the search goes on down to the ground. */
+const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds'].map(blockId));
 import { makeCreature, KINDS, type Creature, type Kind } from './creatures.ts';
 
 interface SpawnRule { kind: Kind; zones: ZoneId[]; cap: number; night: 'day' | 'night' | 'any'; group: [number, number] }
@@ -22,6 +25,7 @@ export function groundAt(x: number, z: number, blockAt: (x: number, y: number, z
   for (let y = top; y > 2; y--) {
     const below = blockAt(Math.floor(x), y - 1, Math.floor(z));
     if (isWaterId(below)) return null;
+    if (TREE.has(below)) continue;
     if (B_SOLID[below]) {
       const here = blockAt(Math.floor(x), y, Math.floor(z)), above = blockAt(Math.floor(x), y + 1, Math.floor(z));
       // Grass and ferns are no obstacle; rock or water is.

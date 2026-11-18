@@ -32,6 +32,15 @@ describe('the sanctuary rule', () => {
     expect(groundAt(VALLEY.cx + VALLEY.radius + 30, VALLEY.cz, flat)).toBe(100);
   });
 
+  it('a creature stands on the forest floor, never on top of a tree', () => {
+    const leaves = blockId('leaves');
+    const canopy = (x: number, y: number, z: number) => (y >= 110 && y < 113 ? leaves : flat(x, y, z));
+    expect(groundAt(1400, 1024, canopy)).toBe(100);
+    // Under a trunk there is no room: no spot there.
+    const trunk = (x: number, y: number, z: number) => (y >= 100 && y < 105 ? blockId('log') : flat(x, y, z));
+    expect(groundAt(1400, 1024, trunk)).toBeNull();
+  });
+
   it('a creature can stand in grass and ferns, not in water', () => {
     const grass = blockId('tall_grass');
     const grassy = (x: number, y: number, z: number) => (y === 100 ? grass : flat(x, y, z));
