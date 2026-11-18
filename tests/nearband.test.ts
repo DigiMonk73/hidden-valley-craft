@@ -290,3 +290,15 @@ describe('saving the near band', () => {
 });
 
 void (null as unknown as Creature);
+
+describe('reaching a creature through the grass', () => {
+  it('tall grass and ferns don’t stop a blow, a shot or a hand; rock does', async () => {
+    const { clearShot } = await import('../src/sim/hunting.ts');
+    const grass = blockId('tall_grass'), fern = blockId('fern');
+    // A hen 2 m ahead along +x, with a tuft of grass and a fern on the line between.
+    const grassy = (x: number, y: number, z: number) => (y < 100 ? STONE : x === 1 && y === 100 ? grass : x === 0 && y === 100 ? fern : AIR);
+    expect(clearShot(grassy, 0.2, 100.4, 0.5, 1, 0, 0, 2)).toBe(true);
+    const rock = (x: number, y: number, z: number) => (x === 1 ? STONE : grassy(x, y, z));
+    expect(clearShot(rock, 0.2, 100.4, 0.5, 1, 0, 0, 2)).toBe(false);
+  });
+});

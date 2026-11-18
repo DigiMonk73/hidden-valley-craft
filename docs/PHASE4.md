@@ -150,6 +150,18 @@ Set each scene with `window.__hv`, as the earlier steps do, holding the view ste
 
 **Screenshots** from a first-time player's eye: the saddle's view, the shelter at night, the scout at night, the farm from its gate, Marco by day. Each with a step-by-step note of how a new player finds it.
 
+## Progress
+
+- **DONE: Places** (`src/gen/zone1.ts`, `tests/zone1.test.ts`). The saddle is a crest between two limestone knolls; the near band has grass and few trees, so from the saddle the barn's roof, the shelter and the smoke column all show at once. The tin roof sits on the posts as a bottom slab.
+- **DONE: Items, recipes, icons.** Also a feather recipe for arrows. Smelting scrap takes coal or charcoal.
+- **DONE: Creatures** (`src/entity/`, `tests/nearband.test.ts`). The 100,000-try sanctuary test now samples the whole road out to Zone-1 and the den, and finds none inside. The "driven toward the valley" test covers every kind, Marco included.
+- **DONE: Marco, the phone and trading** (`src/sim/trade.ts`, `data/trade.json`, `data/people.json`). The hot wallet is saved (`wallet` in the save); the den's count too (`den`).
+- **DONE: The corpse and the notes.** The journal opens at your newest notes once you have some.
+- **DONE: Chickens and the coop** (`src/sim/livestock.ts`).
+- **DONE: M1, toasts and the map** (`src/sim/milestones.ts`). The computer lists M1's four steps with ticks; the map table draws the road home in red once Zone-1 has been reached and left alive, and marks the shelter, the scout and the farm once found.
+- **DONE: Sound and the smoke column** (`src/render/smoke.ts`): rising block puffs, drifting east with the wind.
+- **Fixed on the way:** a creature behind tall grass or a fern could not be struck, shot or caught: the sight line stopped at the first plant. It now passes plants and stops only at solid blocks (`clearShot` in `src/sim/hunting.ts`, with a test).
+
 ## Build order
 
 1. The floating cubes. 2. Places and blocks. 3. Items, recipes, icons. 4. Creatures. 5. Marco, the phone and trading. 6. The corpse and the notes. 7. Chickens and the coop. 8. M1, toasts and the map. 9. Sound and the smoke column. 10. The play-through and screenshots. 11. A fresh review; fixes, each with a test. Then message the lead.

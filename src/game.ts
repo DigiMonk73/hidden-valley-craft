@@ -36,7 +36,7 @@ import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
 import { leaveLostPack, losesPack } from './sim/death.ts';
 import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
-import { meleeDamage, takeDrops, drawOf, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
+import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt } from './entity/spawner.ts';
 import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
@@ -454,8 +454,7 @@ export class Game {
     const [dx, dy, dz] = p.lookDir();
     const hit = rayHitCreature(this.wild.creatures, p.x, p.eyeY, p.z, dx, dy, dz, reach);
     if (!hit) return null;
-    const block = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, hit.dist);
-    return block && block.dist < hit.dist ? null : hit;
+    return clearShot((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, hit.dist) ? hit : null;
   }
 
   private damageCreature(c: Creature, damage: number): void {
