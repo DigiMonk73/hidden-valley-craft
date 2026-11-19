@@ -12,6 +12,7 @@ _The page to resume from. Keep it short; history lives in git._
   - a bedroom section;
   - better furniture;
   - true patio furniture, placed properly on the balcony.
+- **Saves before version 1 don't matter** (the owner, 2026-11-19: "they are all just test runs"). Changes needn't carry old saves across: an older save must never crash the game or strand the player, and that is all. Saving and loading within a build must still work and stay tested.
 - **The repo rename** to hidden-valley-blocks: the owner does it after Phase 7 or when home; then point the remote and the docs at the new name.
 
 - **Phase 6 ("Zone-2 and power, M3")** was merged into `main` (branch `phase6`) and published as version 9.
