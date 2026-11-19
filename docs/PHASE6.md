@@ -255,3 +255,5 @@ Phase 6's part: walk up the highway from the camp; the border toast; the armband
   7. An array in the cave made power. Only arrays under open sky count now.
   8. A light pole stood on the highway's edge, ferns grew on its dirt patches, and the parking lot raised the edge of the highway a block. The highway is clear now (a test walks it).
   - Also from the review: cold water now gives the 3 health the plan promised.
+- **DONE: Screenshots, by eye.** The server room was dark round its racks and Las Cruces read poorly at night from the ruins: the racks' aisles and the battery room have lamps now, and the compound's south wall has a lamp every six blocks and one on each tower (tests check both).
+- **Checks at the end:** 302 unit tests; the play-through's four parts all pass, 110 checks (valley 36 in 14 min, near 22, mid 19 in 20 min, Zone-2 33 in 14 min).

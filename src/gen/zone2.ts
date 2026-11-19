@@ -192,6 +192,9 @@ export function buildZone2(col: Uint16Array, x0: number, z0: number): void {
     for (let z = e.z0 + 1; z < e.z1 - 1; z++) if (z !== e.split) put(e.x0 + 1, EF + 4, z, 'cable_tray');
     put(e.x1 - 4, EF + 4, (e.z0 + e.split) >> 1, 'lantern');
     put(e.x1 - 4, EF + 4, (e.split + e.z1) >> 1, 'lantern');
+    // And over the racks and cabinets, so the rooms read from the door.
+    for (const z of [e.z0 + 3, e.z0 + 6]) { put(e.x0 + 6, EF + 4, z, 'lantern'); put(e.x0 + 10, EF + 4, z, 'lantern'); }
+    for (const z of [e.split + 2, e.split + 5]) put(e.x0 + 4, EF + 4, z, 'lantern');
     // The mast, from the roof, its red light on top: seen from the camp.
     for (let y = EF + 6; y < EF + 6 + e.mastHeight; y++) put(e.mastX, y, e.mastZ, 'mast');
     put(e.mastX, EF + 6 + e.mastHeight, e.mastZ, 'red_beacon');
@@ -314,8 +317,10 @@ export function buildZone2(col: Uint16Array, x0: number, z0: number): void {
       put(tx + (tx < GATE_X ? 1 : -1), top + 3, C.z1 - 1, 'faction_flag@south');
       put(tx + (tx < GATE_X ? 1 : -1), top + 4, C.z1 - 1, 'faction_flag@south');
     }
-    // Lamps on the wall's face either side of the gate.
-    for (const s of [-1, 1]) put(GATE_X + s * (C.gateHalf + 2), F + 4, C.z1, 'lantern');
+    // Lamps along the south wall's face, every six blocks, so the walls read at night from the ruins.
+    for (let x = C.x0 + 2; x < C.x1 - 1; x += 6) if (Math.abs(x - GATE_X) > C.gateHalf) put(x, F + 4, C.z1, 'lantern');
+    for (const s of [-1, 1]) put(GATE_X + s * (C.gateHalf + 1), F + 4, C.z1, 'lantern');
+    for (const p of TOWER_POSTS) { const fx = Math.floor(p.x) + (p.x < GATE_X ? 1 : -1); put(fx, top + 5, C.z1 - 2, 'lantern'); }
     // Inside: a warehouse (its walls too are the faction's concrete), a water tower, the yard's fire and lamps.
     const w = { x0: C.x0 + 8, x1: C.x1 - 8, z0: C.z0 + 6, z1: C.z0 + 26 };
     for (let z = w.z0; z < w.z1; z++) for (let x = w.x0; x < w.x1; x++) {

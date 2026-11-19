@@ -447,6 +447,8 @@ describe('Zone-2’s places, built and lit', () => {
     const e = ZONE2.exchange, EF = SERVER_RACKS[0][1];
     expect(n(e.mastX, EF + 6 + e.mastHeight, e.mastZ)).toBe('red_beacon');
     expect(lightNear(e.x1, EF, e.z0 + 4, 2)).toBe(true);
+    // The racks and cabinets are lit, not only the doors (screenshot: dark room).
+    for (const r of [...SERVER_RACKS, ...UPS_CABINETS]) expect(night(r[0] + 1, r[1] + 1, r[2]), `${r}`).toBeGreaterThanOrEqual(9);
   });
 
   it('fills the ruins’ containers: a rig’s worth of parts, a bank’s worth of cells, the pump, casings and primers', () => {
@@ -498,6 +500,12 @@ describe('Las Cruces', () => {
     expect(n(GATE_X, F + C.wall - 1, C.z1 - 1)).toBe('compound_mark@south');
     for (const b of ['compound_wall', 'steel_gate', 'compound_mark@south']) expect(BLOCK_DEFS[blockId(b)].hardness).toBeLessThan(0);
     expect(Math.abs(GATE_X + 0.5 - highwayX(C.z1))).toBeLessThan(1.5);
+  });
+  it('reads at night: lamps along the south wall and on the towers (screenshot: dark from the ruins)', () => {
+    const C = ZONE2.compound;
+    let lit = 0;
+    for (let x = C.x0; x < C.x1; x++) if (blockOf(w.lightAt(x, COMPOUND_FLOOR + 2, C.z1 + 1)) >= 8) lit++;
+    expect(lit / (C.x1 - C.x0)).toBeGreaterThan(0.8);
   });
   it('mans its towers: a platform with room to stand and a searchlight', () => {
     for (const p of TOWER_POSTS) {
