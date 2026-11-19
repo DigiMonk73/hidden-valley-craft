@@ -11,6 +11,10 @@ import { POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, RAIDER_CRATE, RAIDER_FORGE, R
 import { manOutpost } from './entity/outpost.ts';
 import { ZONE2 } from './gen/layout.ts';
 import * as Z2 from './gen/zone2.ts';
+import { ZONE3 } from './gen/layout.ts';
+import * as Z3 from './gen/zone3.ts';
+import { manAshen } from './entity/ashen.ts';
+import { floorNear } from './entity/wild.ts';
 import { makeJaguar } from './entity/jaguar.ts';
 import { groundAt } from './entity/spawner.ts';
 import type { Kind } from './entity/creatures.ts';
@@ -56,11 +60,20 @@ function start(data: unknown): void {
       spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),
       /** Zone-1's places (docs/PHASE4.md, docs/PHASE5.md), for setting scenes. */
       places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE,
-        ZONE2, Z2: { GATE_X: Z2.GATE_X, TOWER_POSTS: Z2.TOWER_POSTS, PHARMACY_COUNTER: Z2.PHARMACY_COUNTER, HARDWARE_CRATE: Z2.HARDWARE_CRATE, SERVER_RACKS: Z2.SERVER_RACKS, UPS_CABINETS: Z2.UPS_CABINETS, DISPLAY_FRIDGES: Z2.DISPLAY_FRIDGES, HOT_POOL: Z2.HOT_POOL, CAVE_FLOOR: Z2.CAVE_FLOOR, COMPOUND_FLOOR: Z2.COMPOUND_FLOOR } },
+        ZONE2, Z2: { GATE_X: Z2.GATE_X, TOWER_POSTS: Z2.TOWER_POSTS, PHARMACY_COUNTER: Z2.PHARMACY_COUNTER, HARDWARE_CRATE: Z2.HARDWARE_CRATE, SERVER_RACKS: Z2.SERVER_RACKS, UPS_CABINETS: Z2.UPS_CABINETS, DISPLAY_FRIDGES: Z2.DISPLAY_FRIDGES, HOT_POOL: Z2.HOT_POOL, CAVE_FLOOR: Z2.CAVE_FLOOR, COMPOUND_FLOOR: Z2.COMPOUND_FLOOR },
+        ZONE3, Z3: { LOGBOOK_DESK: Z3.LOGBOOK_DESK, PARTS_CRATE: Z3.PARTS_CRATE, TOOL_LOCKER: Z3.TOOL_LOCKER, CONTROL_CABINETS: Z3.CONTROL_CABINETS, OLD_LATHES: Z3.OLD_LATHES, STEEL_RACKS: Z3.STEEL_RACKS, SHOP_CRATE: Z3.SHOP_CRATE,
+          FOUNDRY_CRUCIBLE: Z3.FOUNDRY_CRUCIBLE, BOXCAR_CRATE: Z3.BOXCAR_CRATE, GALLERY_FLOOR: Z3.GALLERY_FLOOR, CROSSING_LIGHTS: Z3.CROSSING_LIGHTS } },
       /** Puts the outpost's living raiders at their posts now (screenshots and checks run with spawning off). */
       manOutpost: () => {
         const w = game.wild, p = game.player;
         const made = manOutpost(w.creatures, w.outpost, p.x, p.z, () => true);
+        w.creatures.push(...made);
+        return made.length;
+      },
+      /** Puts Zone-3's Ashen in their nests now (and, by day the first time, one out in the road): for screenshots and checks with spawning off. */
+      manAshen: (night = false) => {
+        const w = game.wild, p = game.player;
+        const made = manAshen(w.creatures, w.ashen, p.x, p.z, night, () => true, (x, y, z) => floorNear(x, y, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)));
         w.creatures.push(...made);
         return made.length;
       },

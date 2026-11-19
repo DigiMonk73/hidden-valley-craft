@@ -16,6 +16,7 @@ import { HOME_CHESTS } from './inheritance.ts';
 import { buildZone1 } from './zone1.ts';
 import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
+import { buildZone3, zone3Place } from './zone3.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -102,6 +103,8 @@ function caveExcluded(x: number, y: number, z: number): boolean {
   if (y > 60 && farPlace(x, z)) return true;
   // Nor open under Zone-2's places: the highway, the ruins, the compound, the hot-spring cave (docs/PHASE6.md).
   if (y > 55 && zone2Place(x, z)) return true;
+  // Nor under Zone-3's places, into the reservoir or the river's bed (docs/PHASE7.md).
+  if (y > 30 && zone3Place(x, z)) return true;
   return false;
 }
 
@@ -168,6 +171,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   buildZone1(col, x0, z0);
   buildZone1Far(col, x0, z0);
   buildZone2(col, x0, z0);
+  buildZone3(col, x0, z0);
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
@@ -226,6 +230,8 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
       const near = zone === 'near';
       // The mid band's deeper rock holds twice the coal and iron (docs/PHASE5.md).
       const rich = zone === 'mid' ? 2 : 1;
+      // Under Zone-3 the deep rock is richer still: three times the coal and iron below y 60 (docs/PHASE7.md).
+      const deep3 = zone === 'zone3';
       for (let y = 3; y < top - 2; y++) {
         const i = ci(lx, y, lz);
         if (col[i] !== LIMESTONE || caveExcluded(x, y, z)) continue;
@@ -240,7 +246,7 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
         } else {
           // Zone-1's near band shows its iron and copper closer to the surface (docs/PHASE4.md).
           const lift = near ? 12 : 0;
-          const k = y < 72 ? rich : 1;
+          const k = deep3 ? (y < 60 ? 3 : 1) : y < 72 ? rich : 1;
           if (roll < 0.05 * k && y < 112) ore = COAL;
           else if (roll < 0.08 * k && y < 92 + lift) ore = IRON;
           else if (roll < 0.08 * k + 0.025 && y < 84 + lift) ore = COPPER;
@@ -666,6 +672,8 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (brushTrailDist(x, z) < 8 || farPlace(x, z)) return null;
   // Zone-2's highway, its places and the clearing round them.
   if (zone2Place(x, z)) return null;
+  // Zone-3's roads and places, and the avenue's verges: open ground by day.
+  if (zone3Place(x, z)) return null;
   if (onCampTrail(x, z) || onCampTrail(x - 3, z) || onCampTrail(x + 3, z)) return null;
   if (Math.abs(x - ravineX(z)) < RAVINE_HALF + 2 && Math.abs(z - F.bridge.z) < 70) return null;
   // A break in the canopy over the body, so it lies in daylight (DESIGN.md: the one high-contrast thing).

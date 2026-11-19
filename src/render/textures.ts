@@ -992,6 +992,196 @@ DRAW.wall_mark = (c) => { DRAW.reinforced_concrete(c); brokenCircle(c, hex('#ece
 DRAW.steel_gate = (c) => { c.noise(hex('#5a5f64'), 5, RUST, 0.12); for (let x = 0; x < TEX; x += 4) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.7); for (const y of [3, 12]) for (let x = 0; x < TEX; x++) c.shade(x, y, 1.2); };
 DRAW.searchlight = (c) => { c.noise(hex('#3a3d40'), 4); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 7.5, y - 7.5) < 5) c.set(x, y, hex('#fffbe6')); };
 
+// ---- Zone-3, the industrial river (docs/PHASE7.md) ------------------------------------------------
+const STEEL_BLUE = hex('#6f7c88'), W_PAINT = hex('#f2f5f2');
+/** The dam's sign: a white dam wall holding water, and an arrow left, on highway green. */
+DRAW.dam_sign = (c) => {
+  c.noise(hex('#1f6b3a'), 4);
+  frame(c, hex('#e8efe8'));
+  for (let y = 3; y < 9; y++) for (let x = 8; x < 10 + ((y - 3) >> 1); x++) c.set(x, y, W_PAINT); // the wall, thicker at its foot
+  for (let x = 10; x < 14; x++) for (let y = 4; y < 9; y++) if (x > 10 + ((y - 3) >> 1) - 1) c.set(x, y, hex('#6fb6e0')); // the water behind it
+  for (let x = 2; x < 7; x++) c.set(x, 6, W_PAINT); // the arrow
+  c.set(3, 5, W_PAINT); c.set(3, 7, W_PAINT); c.set(4, 4, W_PAINT); c.set(4, 8, W_PAINT);
+  for (let x = 2; x < 14; x++) if (x % 4 !== 1) { c.set(x, 11, W_PAINT); c.set(x, 12, W_PAINT); }
+};
+/** The faction's warning: red letters daubed on boards, and a pale long-armed figure crossed out. */
+DRAW.cenizos_board = (c) => {
+  c.noise(hex('#8a6a42'), 7, [hex('#6a5038'), hex('#80664a')], 0.25);
+  const R = hex('#c0281c'), P = hex('#e8e4d8');
+  for (const row of [1, 12]) for (let x = 1; x < 15; x++) if (x % 5 !== 0 && c.rng() < 0.9) { c.set(x, row, R); c.set(x, row + 1, R); }
+  for (let y = 4; y < 11; y++) c.set(8, y, P); // the figure: head, long arms, legs
+  c.set(8, 3, P); c.set(7, 3, P);
+  for (let y = 5; y < 10; y++) { c.set(6, y, P); c.set(10, y, P); }
+  c.set(7, 10, P); c.set(9, 10, P);
+  for (let k = 3; k < 12; k++) { c.set(k + 1, k, R); c.set(14 - k, k, R); }
+};
+/** A cog, white on steel blue: the machine shop. */
+DRAW.taller_sign = (c) => {
+  c.noise(hex('#2c4a6c'), 4); frame(c, hex('#1c2c40'));
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5), a = Math.atan2(y - 7.5, x - 7.5);
+    if ((d > 2 && d < 4.4) || (d >= 4.4 && d < 5.8 && Math.cos(a * 6) > 0.2)) c.set(x, y, W_PAINT);
+  }
+};
+/** A ladle pouring, orange on black: the foundry. */
+DRAW.fundicion_sign = (c) => {
+  c.noise(hex('#1f1c1a'), 4); frame(c, hex('#c8641e'));
+  for (let x = 3; x < 9; x++) for (let y = 4; y < 8; y++) c.set(x, y, hex('#9aa0a6'));
+  for (let x = 9; x < 13; x++) c.set(x, 4, hex('#9aa0a6'));
+  for (let y = 7; y < 13; y++) c.set(8 + ((y - 7) >> 2), y, hex('#ff9a2e'));
+  for (let x = 6; x < 12; x++) c.set(x, 13, hex('#ffd060'));
+};
+/** A lightning bolt, yellow on grey-blue: the powerhouse. */
+DRAW.powerhouse_sign = (c) => {
+  c.noise(hex('#3a4a5a'), 4); frame(c, hex('#20282f'));
+  const Y = hex('#ffd83a');
+  for (const [x, y] of [[9, 2], [8, 3], [8, 4], [7, 5], [7, 6], [6, 7], [7, 7], [8, 7], [9, 7], [8, 8], [8, 9], [7, 10], [7, 11], [6, 12], [6, 13]]) { c.set(x, y, Y); c.set(x + 1, y, Y); }
+};
+/** A level crossing's cross: two white boards with red tips, on a post. */
+DRAW.crossing_sign = (c) => {
+  c.clearAlpha();
+  for (let y = 8; y < TEX; y++) { c.set(7, y, hex('#6a6e72')); c.set(8, y, hex('#6a6e72')); }
+  for (let k = 1; k < 15; k++) for (const d of [0, 1]) {
+    const tip = k < 3 || k > 12;
+    c.set(k, 1 + Math.round((k * 7) / 15) + d, tip ? hex('#d0281c') : W_PAINT);
+    c.set(15 - k, 1 + Math.round((k * 7) / 15) + d, tip ? hex('#d0281c') : W_PAINT);
+  }
+};
+/** The desk's top: a ledger lying open, ruled lines, a pencil. */
+DRAW.logbook_top = (c) => {
+  c.noise(hex('#7a5a3c'), 6);
+  for (let y = 4; y < 12; y++) for (let x = 3; x < 13; x++) c.set(x, y, x === 8 ? hex('#b8ad90') : hex('#f1ead6'));
+  for (const y of [6, 8, 10]) for (let x = 4; x < 12; x++) if (x !== 8 && c.rng() < 0.8) c.set(x, y, hex('#4a5a8a'));
+  for (let k = 0; k < 4; k++) c.set(11 + k * 0, 13, hex('#e0a526'));
+  for (let x = 10; x < 14; x++) c.set(x, 13, hex('#e0a526'));
+};
+/** A wall of round gauges, their needles fallen to zero. */
+DRAW.gauge_panel = (c) => {
+  c.noise(hex('#5a626a'), 4); frame(c, hex('#3a4046'));
+  for (const [gx, gy] of [[4, 4], [11, 4], [4, 11], [11, 11]]) {
+    for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y <= 5) c.set(gx + x, gy + y, hex('#e6e2d2'));
+    c.set(gx, gy, hex('#1a1a1a')); c.set(gx - 1, gy + 1, hex('#c0281c'));
+  }
+};
+/** A turbine's casing: riveted steel bands, a green running lamp. */
+DRAW.turbine_side = (c) => {
+  c.noise(hex('#5c7a8c'), 5, [hex('#4e6a7a'), hex('#6a8a9c')], 0.2);
+  for (const y of [2, 8, 13]) for (let x = 0; x < TEX; x++) { c.shade(x, y, 0.72); if (x % 4 === 1) c.set(x, y + 1, hex('#c9d0d6')); }
+  for (let y = 4; y < 7; y++) for (let x = 6; x < 10; x++) c.set(x, y, hex('#3ee05a'));
+};
+DRAW.turbine_dead = (c) => {
+  c.noise(hex('#5a6266'), 6, RUST, 0.22);
+  for (const y of [2, 8, 13]) for (let x = 0; x < TEX; x++) { c.shade(x, y, 0.72); if (x % 4 === 1) c.set(x, y + 1, hex('#8a8f94')); }
+  for (let y = 4; y < 7; y++) for (let x = 6; x < 10; x++) c.set(x, y, hex('#2a2e30'));
+};
+const turbineTop = (c: Canvas16, live: boolean) => {
+  c.noise(live ? hex('#5c7a8c') : hex('#5a6266'), 5, live ? undefined : RUST, live ? 0 : 0.2);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if (d > 5.5 && d < 7) c.shade(x, y, 0.7);
+    if (d < 2.2) c.set(x, y, live ? hex('#c9d0d6') : hex('#6a6e72'));
+  }
+};
+DRAW.turbine_top = (c) => turbineTop(c, true);
+DRAW.turbine_top_dead = (c) => turbineTop(c, false);
+/** A penstock: a great riveted steel pipe, a flange ring across it. */
+DRAW.penstock = (c) => {
+  c.noise(hex('#4f6470'), 5, RUST, 0.1);
+  for (let x = 0; x < TEX; x++) { c.shade(x, 3, 1.25); c.shade(x, 12, 0.7); }
+  for (let y = 0; y < TEX; y++) { c.shade(7, y, 0.65); c.shade(8, y, 1.2); if (y % 3 === 1) c.set(6, y, hex('#c9d0d6')); }
+};
+/** A control cabinet: a grey door, a row of switches, two lamps still lit. */
+DRAW.control_cabinet = (c) => {
+  c.noise(hex('#7a8088'), 4); frame(c, hex('#4a4f55'));
+  for (let x = 3; x < 13; x += 2) { c.set(x, 4, hex('#1a1a1a')); c.set(x, 5, hex('#d8dcdf')); }
+  for (let y = 8; y < 13; y++) for (let x = 3; x < 13; x++) c.set(x, y, hex('#2c3036'));
+  c.set(4, 10, hex('#3ee05a')); c.set(6, 10, hex('#e0a526')); c.set(13, 7, hex('#2a2a2a'));
+};
+/** A steel locker: louvres at the top, a handle, a painted spanner. */
+DRAW.steel_locker = (c) => {
+  c.noise(hex('#4a6a5a'), 5, RUST, 0.08); frame(c, hex('#2c4034'));
+  for (const y of [2, 4]) for (let x = 3; x < 13; x++) c.set(x, y, hex('#22302a'));
+  c.set(12, 8, hex('#d8dcdf')); c.set(12, 9, hex('#d8dcdf'));
+  for (let k = 0; k < 5; k++) c.set(4 + k, 12 - k, hex('#f2e8c8'));
+  c.set(3, 13, hex('#f2e8c8')); c.set(9, 7, hex('#f2e8c8')); c.set(8, 6, hex('#f2e8c8'));
+};
+/** A lathe from the side: the green bed, the headstock, a bright chuck and bar. */
+DRAW.lathe_side = (c) => {
+  c.noise(hex('#3e6a52'), 5, RUST, 0.1);
+  for (let x = 0; x < TEX; x++) { c.shade(x, 0, 0.7); c.shade(x, 9, 0.75); }
+  for (let y = 2; y < 8; y++) for (let x = 6; x < 13; x++) if (y === 4 || y === 5) c.set(x, y, hex('#c9d0d6'));
+  for (let y = 2; y < 8; y++) c.set(5, y, hex('#9aa0a6'));
+};
+DRAW.lathe_top = (c) => { c.noise(hex('#467a5e'), 5, RUST, 0.08); for (let x = 0; x < TEX; x++) { c.set(x, 6, hex('#c9d0d6')); c.set(x, 9, hex('#c9d0d6')); } for (let y = 4; y < 12; y++) for (let x = 1; x < 5; x++) c.set(x, y, hex('#2c4a3a')); };
+/** Steel bar and angle stacked on a rack: bright cut ends. */
+DRAW.steel_rack = (c) => {
+  c.noise(hex('#30343a'), 4);
+  for (const y of [1, 5, 9, 13]) for (let x = 0; x < TEX; x++) { c.set(x, y, STEEL_BLUE); c.set(x, y + 1, hex('#8f9aa4')); if (x % 3 === 0) c.set(x, y + 1, hex('#d8dee4')); }
+  for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#6e3a22')); c.set(15, y, hex('#6e3a22')); }
+};
+/** The crucible: a fat graphite pot, a pouring lip, slag crusted at its rim. */
+DRAW.crucible_side = (c) => { c.noise(hex('#34322f'), 5, [hex('#4a4640'), hex('#26241f')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 2, hex('#8a5a3a')); c.shade(x, 3, 1.25); c.shade(x, 13, 0.7); } };
+DRAW.crucible_top = (c) => {
+  c.noise(hex('#34322f'), 5);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 5) c.set(x, y, hex('#1a1816')); else if (d < 6.2) c.set(x, y, hex('#8a5a3a')); }
+};
+/** Firebrick: pale buff bricks, soot in the joints. */
+DRAW.firebrick = (c) => {
+  c.noise(hex('#c8a878'), 7, [hex('#b89868'), hex('#d8b888')], 0.25);
+  for (const y of [0, 4, 8, 12]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#5a4a3a'));
+  for (let y = 0; y < TEX; y++) { const off = (y >> 2) % 2 ? 4 : 0; for (let x = off; x < TEX; x += 8) c.set(x, y, hex('#5a4a3a')); }
+};
+/** The crucible furnace: firebrick with an arched mouth, the melt glowing inside. */
+DRAW.furnace_side = (c) => {
+  DRAW.firebrick(c);
+  for (let y = 6; y < 14; y++) for (let x = 4; x < 12; x++) if (y > 7 || (x > 4 && x < 11)) c.set(x, y, y > 10 ? hex('#ffb03a') : hex('#e0581e'));
+  for (let x = 5; x < 11; x++) c.set(x, 6, hex('#3a2a20'));
+};
+DRAW.furnace_top = (c) => { DRAW.firebrick(c); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 4) c.set(x, y, d < 2.5 ? hex('#ffd060') : hex('#ff8a2e')); else if (d < 5.2) c.set(x, y, hex('#34322f')); } };
+/** Track from above: two rails on dark sleepers over ballast. */
+DRAW.rail_top = (c) => {
+  c.noise(hex('#77736a'), 9, [hex('#8a867c'), hex('#5e5a52')], 0.3);
+  for (const y of [1, 2, 6, 7, 11, 12]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#4a3526'));
+  for (let y = 0; y < TEX; y++) for (const x of [1, 2, 13, 14]) c.set(x, y, x === 1 || x === 14 ? hex('#7d5a44') : hex('#b9c0c6'));
+};
+DRAW.rail_side = (c) => { c.noise(hex('#5a4030'), 6); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#b9c0c6')); c.set(x, 1, hex('#7d5a44')); } };
+/** The locomotive: dark green plate, a yellow stripe, rust at the rivets. */
+DRAW.loco_body = (c) => {
+  c.noise(hex('#27402f'), 5, RUST, 0.12);
+  for (let x = 0; x < TEX; x++) { c.set(x, 9, hex('#d8b020')); c.set(x, 10, hex('#b8941a')); c.shade(x, 15, 0.6); }
+  for (let x = 2; x < TEX; x += 4) { c.set(x, 2, hex('#6f7c6f')); c.set(x, 13, hex('#6f7c6f')); }
+};
+DRAW.loco_top = (c) => { c.noise(hex('#1f3026'), 5, RUST, 0.15); for (let y = 0; y < TEX; y += 4) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.75); };
+/** A boxcar's side: planked, oxide red, a white stencil worn nearly away. */
+DRAW.wagon_body = (c) => {
+  c.noise(hex('#7a3226'), 7, RUST, 0.25);
+  for (let x = 0; x < TEX; x += 4) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.72);
+  for (let x = 5; x < 11; x++) if (c.rng() < 0.6) c.set(x, 6, hex('#d8cfc0'));
+  for (let x = 0; x < TEX; x++) c.shade(x, 15, 0.6);
+};
+DRAW.wagon_top = (c) => { c.noise(hex('#5a2a20'), 6, RUST, 0.3); for (let y = 0; y < TEX; y += 5) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.7); };
+/** Coal heaped in a wagon: black lumps with a glint. */
+DRAW.coal_heap = (c) => { c.noise(hex('#1c1b1b'), 6); c.blobs(12, [hex('#2a2828'), hex('#121111'), hex('#343232')], [1.2, 2.4], hex('#5a5858')); };
+/** Stacked steel plate: bright edges, mill-blue faces. */
+DRAW.plate_side = (c) => { c.noise(STEEL_BLUE, 4); for (let y = 0; y < TEX; y += 3) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#3a4248')); c.set(x, y + 1, hex('#c2cad2')); } };
+DRAW.plate_top = (c) => { c.noise(hex('#7f8c98'), 5, RUST, 0.06); for (let k = 0; k < TEX; k++) c.shade(k, (k * 3) % 16, 1.2); };
+/** The hydro generator: a blue housing, a brass nameplate, a shaft cap on top. */
+DRAW.hydro_side = (c) => {
+  c.noise(hex('#2d5f8a'), 5); frame(c, hex('#1c3c5a'));
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 6.5); if (d > 3 && d < 4.4) c.set(x, y, hex('#c9d0d6')); }
+  for (let x = 5; x < 11; x++) c.set(x, 13, hex('#c9a227'));
+};
+DRAW.hydro_top = (c) => { c.noise(hex('#2d5f8a'), 5); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 3) c.set(x, y, hex('#c9d0d6')); else if (d < 4) c.set(x, y, hex('#7d8790')); } };
+/** An electric street lamp: a dark iron housing and hood, a white-hot band of glass round it behind cage bars. */
+DRAW.arc_lamp = (c) => {
+  c.noise(hex('#3a3f44'), 4);
+  for (let y = 4; y < 12; y++) for (let x = 0; x < TEX; x++) c.set(x, y, x % 5 === 0 ? hex('#3a3f44') : hex(y === 4 || y === 11 ? '#cfe4ff' : '#fffdf0'));
+};
+DRAW.arc_lamp_hood = (c) => { c.noise(hex('#33383d'), 4, RUST, 0.08); };
+DRAW.arc_lamp_lens = (c) => { c.noise(hex('#3a3f44'), 4); for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) c.set(x, y, hex('#fffdf0')); };
+/** A planter box's side: new planks, two bands. */
+DRAW.planter_side = (c) => { c.noise(hex('#a8804e'), 7, [hex('#96703f'), hex('#b8905e')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#6e4b31')); c.shade(x, 5, 0.75); c.shade(x, 11, 0.75); } };
+
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */
 export function drawTexture(name: string): Uint8ClampedArray {
   const c = new Canvas16(name);

@@ -26,7 +26,9 @@ const LAST_STAGE = 3;
 export const FARMLAND = blockId('farmland');
 /** A raised bed is farmland you can place (M2's expanded garden). */
 export const RAISED_BED = blockId('raised_bed');
-export const isFarmland = (id: number): boolean => id === FARMLAND || id === RAISED_BED;
+/** M4's balcony drip (docs/PHASE7.md): farmland in a box, to set on stone. */
+export const PLANTER_BOX = blockId('planter_box');
+export const isFarmland = (id: number): boolean => id === FARMLAND || id === RAISED_BED || id === PLANTER_BOX;
 const TILLABLE = new Set([blockId('grass'), blockId('dirt'), blockId('forest_floor')]);
 
 export function cropOf(block: number): { kind: string; stage: number } | undefined { return BLOCK_DEFS[block]?.crop; }

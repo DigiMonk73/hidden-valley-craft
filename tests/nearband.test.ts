@@ -276,7 +276,9 @@ describe('M1: the first outside run', () => {
   it('every note in the journal has its flag set somewhere the game can set it', () => {
     const settable = ['saddle_seen', 'shelter_found', 'scout_searched', 'farm_seen', 'marco_trust1', 'm1_done',
       // Phase 5 (docs/PHASE5.md).
-      'outpost_seen', 'outpost_cleared', 'jaguar_seen', 'body_seen', 'm2_done'];
+      'outpost_seen', 'outpost_cleared', 'jaguar_seen', 'body_seen', 'm2_done',
+      // Phase 7 (docs/PHASE7.md).
+      'ashen_seen', 'body_reached', 'm4_done'];
     for (const n of journal.notes) expect(settable).toContain(n.flag);
   });
 });

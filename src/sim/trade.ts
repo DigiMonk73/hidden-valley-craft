@@ -16,6 +16,10 @@ export const CATALOG: Lot[] = data.catalog.map((c) => ({ id: itemId(c.item), lot
 
 /** What Marco adds once he trusts you (trust 2, after your first run to Las Cruces): guns and rounds (docs/PHASE6.md, 7). */
 export const CATALOG_M3: Lot[] = data.catalogM3.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));
+/** What Ray sells (docs/PHASE7.md, 3): plans and parts at a premium. He buys nothing. */
+export const CATALOG_RAY: Lot[] = data.catalogRay.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));
+/** Ray's price for his micro-hydro plans: knowledge, not an item (DESIGN.md: schematics are recipe-unlock flags). */
+export const RAY_PLANS_PRICE = Math.round(data.ray.plans * UNIT);
 /** Doc's flat fee for each service, in satoshis (DESIGN.md A3: service-priced, wound care is the anchor P_wc). */
 export const DOC_PRICE = { wound: Math.round(data.doc.wound * UNIT), rad: Math.round(data.doc.rad * UNIT) };
 
@@ -30,7 +34,7 @@ export function sellPrice(id: number): number {
 }
 
 /** Every name in the trade data is a real item (checked by a test, so a typo fails the build's checks). */
-export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...Object.keys(data.value)]; }
+export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...data.catalogRay.map((c) => c.item), ...Object.keys(data.value)]; }
 export const tradeNamesValid = (): boolean => tradeNames().every(hasItem);
 
 export type TradeResult = { ok: true; wallet: number } | { ok: false; why: 'funds' | 'room' | 'none' };

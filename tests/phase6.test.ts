@@ -108,7 +108,7 @@ import { chunkKey } from '../src/world/constants.ts';
 
 const homeDevices = (arrays: number, banks: number, rigs: number, fridges = 0, pumps = 0): Devices => {
   const at = (n: number): [number, number, number][] => Array.from({ length: n }, (_, i) => [1790 + i, 82, 1020] as [number, number, number]);
-  return { solar_array: at(arrays), battery_bank: at(banks), mining_rig: at(rigs), fridge: at(fridges), water_pump: at(pumps) };
+  return { solar_array: at(arrays), battery_bank: at(banks), mining_rig: at(rigs), fridge: at(fridges), water_pump: at(pumps), hydro_generator: [] };
 };
 
 describe('power at home', () => {

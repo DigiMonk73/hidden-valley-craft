@@ -16,8 +16,8 @@ const HEIGHT = 1.8;
 export const EYE = 1.62;
 const GRAVITY = 28;
 const JUMP_SPEED = 8.6;
-const WALK = 4.0;
-const SPRINT = 5.6;
+export const WALK = 4.0;
+export const SPRINT = 5.6;
 const SWIM = 2.6;
 const FLY = 12;
 export const BREATH_MAX = 20; // seconds
@@ -132,6 +132,19 @@ export class Player {
 
   private collides(x: number, y: number, z: number, blockAt: BlockAt): boolean {
     return this.obstacleTop(x, y, z, blockAt) > -Infinity;
+  }
+
+  /**
+   * A save made before the land changed can stand inside rock (docs/PHASE7.md: Zone-3's west bank rose).
+   * Called once when a loaded save's land has come in: lifts a buried player straight up to the first open
+   * space. Returns whether it moved them. (Day to day, `move` climbs two blocks at most, by design.)
+   */
+  liftOut(blockAt: BlockAt, ceiling: number): boolean {
+    if (!this.collides(this.x, this.y, this.z, blockAt)) return false;
+    for (let y = Math.floor(this.y) + 1; y <= ceiling; y++) {
+      if (!this.collides(this.x, y, this.z, blockAt)) { this.y = y; this.vy = 0; return true; }
+    }
+    return false;
   }
 
   /** True if a block at (bx, by, bz) would overlap the player's body. */

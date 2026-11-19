@@ -125,7 +125,9 @@
     "gunpowder": 0.5,
     "bullet": 0.05,
     "pistol_rounds": 0.1,
-    "rifle_rounds": 0.15
+    "rifle_rounds": 0.15,
+    "steel_stock": 0.8,
+    "steel_ingot": 1.0
   },
   "catalogM3": [
     {
@@ -153,5 +155,35 @@
     "wound": 4,
     "rad": 12
   },
-  "rigSatsPerDay": 50000
+  "rigSatsPerDay": 50000,
+  "catalogRay": [
+    {
+      "item": "steel_ingot",
+      "lot": 4,
+      "price": 6
+    },
+    {
+      "item": "gpu",
+      "lot": 1,
+      "price": 10
+    },
+    {
+      "item": "psu",
+      "lot": 1,
+      "price": 4
+    },
+    {
+      "item": "mining_board",
+      "lot": 1,
+      "price": 7
+    },
+    {
+      "item": "wiring",
+      "lot": 8,
+      "price": 8
+    }
+  ],
+  "ray": {
+    "plans": 12
+  }
 }
