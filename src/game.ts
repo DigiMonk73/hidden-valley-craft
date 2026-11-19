@@ -48,13 +48,13 @@ import { iconFor } from './ui/icons.ts';
 import { drawMapScrap } from './ui/mapView.ts';
 import people from '../data/people.json' with { type: 'json' };
 import { RAIDER_KINDS } from './entity/creatures.ts';
-import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS } from './entity/outpost.ts';
+import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS, outpostFromSave } from './entity/outpost.ts';
 import { makeJaguar, atCampClearing } from './entity/jaguar.ts';
 import { Focus } from './sim/focus.ts';
 import { ZONE1FAR, ZONES } from './gen/layout.ts';
 import { OUTPOST_AT, CAMP_MARKER, DECK_END, RUSTED_TRAP } from './gen/zone1far.ts';
 import { M2_STEPS, trackM2 } from './sim/milestones.ts';
-import { smokeMeat, cureJerky, newWatch } from './sim/preserve.ts';
+import { smokeMeat, cureJerky, newWatch, learnLeghold, LEGHOLD_LESSON, LEGHOLD } from './sim/preserve.ts';
 import { pickApple, isFarmland, sows, NEW_CROPS } from './sim/farming.ts';
 import { itemName } from './world/items.ts';
 import { blockId } from './world/blocks.ts';
@@ -760,6 +760,7 @@ export class Game {
     const id = this.world.blockAt(x, y, z);
     const lv = this.world.lightAt(x, y + 1, z);
     const r = breakBlock(this.world, this.hotbar, x, y, z);
+    if (r.changed && id === LEGHOLD && learnLeghold(this.flags)) this.hud.toast(LEGHOLD_LESSON, 10000);
     if (r.changed) {
       // The right tool wears with each block it mines.
       const held = this.hotbar.current;
@@ -871,10 +872,9 @@ export class Game {
     // Zone-1's mid and deep bands (docs/PHASE5.md).
     if (name === 'photo_frame') { this.hud.toast('A framed photo, faded, the glass cracked: four smiling people in hunting clothes beside a buck. Somebody’s best day.', 8000); return true; }
     if (name === 'leghold_trap') {
-      if (!this.flags.has('leghold_learned')) {
-        this.flags.add('leghold_learned');
+      if (learnLeghold(this.flags)) {
         this.edited();
-        this.hud.toast('You turn the rusted trap over: jaws, a spring, a pan, a chain. You could make one at the workbench now (iron, nails, cordage). It holds a deer or a boar. Outside the valley only.', 10000);
+        this.hud.toast(LEGHOLD_LESSON, 10000);
       } else this.hud.toast('A leghold trap. Set it where deer or boar walk, outside the valley; mine it to pick it up.');
       return true;
     }
@@ -1322,7 +1322,7 @@ export class Game {
     this.wallet = d.wallet ?? START_WALLET;
     this.wild.denLeft = d.den ?? 3;
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
-    this.wild.outpost = { left: d.outpost ?? ALL_RAIDERS, alert: false };
+    this.wild.outpost = outpostFromSave(d.outpost);
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };

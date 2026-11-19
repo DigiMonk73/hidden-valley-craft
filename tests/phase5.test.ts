@@ -290,11 +290,10 @@ describe('the outpost’s raiders: telegraphed, and cover works', () => {
     // A wall between: the player crouches behind it (from his roof, the wall covers chest and head).
     const walls: [number, number, number][] = [];
     for (let z = -2; z <= 2; z++) for (let y = 100; y < 104; y++) walls.push([28, y, z]);
-    const ev = run(c, sense(29.5, 0.5), st, arena(walls), 1);
-    const shot = ev.find((x) => x.e.kind === 'shot')?.e as Extract<RaiderEvent, { kind: 'shot' }>;
-    expect(shot).toBeTruthy();
-    expect(shot.hit).toBe(false);
-    expect(shot.cover).not.toBeNull();
+    // Hidden, he holds his shot (review fix 3); whatever he fires lands nowhere near.
+    const ev = run(c, sense(29.5, 0.5), st, arena(walls), 4);
+    expect(ev.some((x) => x.e.kind === 'shot' && x.e.hit)).toBe(false);
+    expect(c.mind).toBe('aim');
   });
 
   it('hits less often far off and on the run', () => {
@@ -452,7 +451,7 @@ describe('the jaguar at the hunters’ camp', () => {
     for (const how of ['close', 'shot', 'hurt'] as const) {
       const j = makeJaguar(() => 86)!;
       if (how === 'hurt') j.angry = 60;
-      const s = { ...sense(how === 'close' ? j.x + 5 : 800.5, how === 'close' ? j.z : 990.5), py: 86, shot: how === 'shot' };
+      const s = { ...sense(how === 'close' ? j.x + 3 : 800.5, how === 'close' ? j.z : 990.5), py: 86, shot: how === 'shot' };
       const r = thinkJaguar(j, 0.05, s, flat, () => 0.5);
       expect(r.event, how).toBe('provoked');
       expect(j.mind).toBe('charge');
@@ -560,5 +559,93 @@ describe('M2: the forge, the bow, preserving, the garden, traps', () => {
     expect(trackM2(f, count)).toEqual(['bow_made', 'preserved']);
     for (const s of M2_STEPS) f.add(s.flag);
     expect(trackM2(f, count)).toEqual(['m2_done']);
+  });
+});
+
+// ---- The fresh review's findings (each fails on the code before its fix) ---------------------------------
+import { outpostFromSave, SHOT_HEARD, REACQUIRE, LEASH } from '../src/entity/outpost.ts';
+import { learnLeghold } from '../src/sim/preserve.ts';
+import { consume } from '../src/sim/survival.ts';
+
+describe('review fixes', () => {
+  it('1. the pistol and the machete don’t see a player right behind them before the alarm', () => {
+    for (const kind of ['gunman', 'rusher'] as const) {
+      const c = makeCreature(kind, 0.5, 100, 10.5);
+      c.post = { x: 0.5, y: 100, z: 10.5, yaw: 0 }; c.mind = 'watch'; // facing north, the road
+      expect(raiderSees(c, sense(0.5, 12), false, arena()), `${kind} behind`).toBe(false);
+      expect(raiderSees(c, sense(0.5, 4.5), false, arena()), `${kind} in front`).toBe(true);
+      // So a blade from behind can take him.
+      expect(silentTakedown(c, { left: 7, alert: false }, true)).toBe(true);
+    }
+  });
+
+  it('2. a gunshot alerts the outpost from as far as its raiders are posted', () => {
+    expect(SHOT_HEARD).toBeGreaterThanOrEqual(110);
+    const w = new Wild();
+    w.spawning = false;
+    const g = makeCreature('gunman', POSTS.pistol.x, POSTS.pistol.y, POSTS.pistol.z);
+    g.mind = 'watch'; g.post = { ...POSTS.pistol };
+    w.creatures.push(g);
+    w.update(0.06, { px: POSTS.pistol.x + 95, py: 120, pz: POSTS.pistol.z, night: false, shot: true, blockAt: (_x, y) => (y < 89 ? STONE : 0), loaded: () => true, rand: () => 0.5 });
+    expect(w.outpost.alert).toBe(true);
+  });
+
+  it('3. a raider who loses you mid-aim holds his shot a moment after you step back out', () => {
+    const c = makeCreature('gunman', 2.5, 100, 0.5), st: OutpostState = { left: 7, alert: true };
+    c.post = { x: 2.5, y: 100, z: 0.5, yaw: -Math.PI / 2 }; c.mind = 'alerted';
+    const walls: [number, number, number][] = [];
+    for (let z = -2; z <= 2; z++) for (let y = 100; y < 104; y++) walls.push([8, y, z]);
+    let t = 0, shotAt = -1;
+    const step = (px: number, blocks: ReturnType<typeof arena>) => { for (const e of thinkRaider(c, 0.05, sense(px, 0.5), st, blocks, () => 0)) if (e.kind === 'shot') shotAt = t; t += 0.05; };
+    step(10.5, arena()); // seen: he aims
+    expect(c.mind).toBe('aim');
+    while (t < 0.9) step(10.5, arena(walls)); // behind the wall
+    const back = t;
+    while (t < 3 && shotAt < 0) step(10.5, arena()); // out again
+    expect(shotAt - back).toBeGreaterThanOrEqual(REACQUIRE - 0.06);
+  });
+
+  it('4. the machete gives up a chase far from his post and walks back', () => {
+    const c = makeCreature('rusher', 0.5, 100, 0.5), st: OutpostState = { left: 7, alert: true };
+    c.post = { x: 0.5, y: 100, z: 0.5, yaw: 0 }; c.mind = 'charge'; c.timer = 10;
+    let px = 3.5;
+    for (let t = 0; t < 60; t += 0.05) { px += 4.3 * 0.05; thinkRaider(c, 0.05, sense(px, 0.5), st, (_x, y) => (y < 100 ? STONE : 0), () => 0); }
+    expect(c.x).toBeLessThan(LEASH + 6);
+    expect(px - c.x).toBeGreaterThan(100);
+  });
+
+  it('5. jerky is not eaten on a full stomach just because it is salty', () => {
+    const v = { hp: 100, hunger: 100, thirst: 60 };
+    expect(consume(v, { hunger: 28, thirst: -4 })).toBe(false);
+    expect(v.thirst).toBe(60);
+  });
+
+  it('6. walking into the camp to the shed or the lodge door doesn’t provoke the jaguar', () => {
+    const flat = (_x: number, y: number) => (y < 86 ? STONE : 0);
+    for (const goal of [[RUSTED_TRAP[0] + 0.5, RUSTED_TRAP[2] + 0.5], [ZONE1FAR.lodge.x1 + 0.5, ZONE1FAR.lodge.z0 + 3.5]]) {
+      const j = makeJaguar(() => 86)!;
+      let px = ZONE1FAR.campHead.x + 0.5, pz = ZONE1FAR.camp.z1 + 3;
+      let provoked = false;
+      for (let t = 0; t < 40; t += 0.05) {
+        const dx = goal[0] - px, dz = goal[1] - pz, d = Math.hypot(dx, dz);
+        if (d > 0.3) { px += (dx / d) * 4 * 0.05; pz += (dz / d) * 4 * 0.05; }
+        if (thinkJaguar(j, 0.05, { ...sense(px, pz), py: 86 }, flat, () => 0.5).event === 'provoked') provoked = true;
+        if (j.mind === 'leave' && j.timer < 7) break;
+      }
+      expect(provoked, `toward ${goal}`).toBe(false);
+    }
+  });
+
+  it('7. taking up the rusted trap teaches it too, once', () => {
+    const f = new Set<string>();
+    expect(learnLeghold(f)).toBe(true);
+    expect(f.has('leghold_learned')).toBe(true);
+    expect(learnLeghold(f)).toBe(false);
+  });
+
+  it('8. the outpost restores from a save: dead raiders stay dead; an old save has all three', () => {
+    expect(outpostFromSave(undefined)).toEqual({ left: ALL_RAIDERS, alert: false });
+    expect(outpostFromSave(0)).toEqual({ left: 0, alert: false });
+    expect(outpostFromSave(RAIDER_BIT.rusher).left).toBe(RAIDER_BIT.rusher);
   });
 });

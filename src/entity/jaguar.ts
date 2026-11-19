@@ -10,7 +10,8 @@ type BlockAt = (x: number, y: number, z: number) => number;
 
 /** How long it holds your gaze, and how near you can come before it turns on you. */
 export const STARE = 2.2;
-export const PROVOKE_RANGE = 8;
+/** While it crosses and looks it turns on you only this close: walking into the camp doesn't start a fight (review). */
+export const PROVOKE_RANGE = 5;
 
 export type JaguarEvent = 'gone' | 'provoked';
 

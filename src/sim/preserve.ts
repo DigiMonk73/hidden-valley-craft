@@ -86,3 +86,14 @@ export function cureJerky(world: World): number {
 export function newWatch(before: number, now: number): boolean {
   return Math.floor(before / 4) !== Math.floor(now / 4);
 }
+
+/**
+ * Learning the leghold from the hunters' rusted trap: by right-clicking it, or by taking it up (mining it),
+ * whichever comes first (review: mining it first used to skip the lesson). True the first time.
+ */
+export function learnLeghold(flags: Set<string>): boolean {
+  if (flags.has('leghold_learned')) return false;
+  flags.add('leghold_learned');
+  return true;
+}
+export const LEGHOLD_LESSON = 'You turn the rusted trap over: jaws, a spring, a pan, a chain. You could make one at the workbench now (iron, nails, cordage). It holds a deer or a boar. Outside the valley only.';

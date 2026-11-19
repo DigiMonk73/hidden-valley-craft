@@ -30,7 +30,8 @@ export function fallDamage(blocks: number): number {
 
 /** Eats or drinks: returns false if there was no room for it (already full). */
 export function consume(v: Vitals, food: { hunger?: number; thirst?: number }, heal = 0): boolean {
-  const useful = (food.hunger && v.hunger < 99) || (food.thirst && v.thirst < 99) || (heal && v.hp < 99);
+  // Only what does good counts: salty jerky's lost water is no reason to eat on a full stomach (review).
+  const useful = ((food.hunger ?? 0) > 0 && v.hunger < 99) || ((food.thirst ?? 0) > 0 && v.thirst < 99) || (heal && v.hp < 99);
   if (!useful) return false;
   v.hunger = Math.min(100, v.hunger + (food.hunger ?? 0));
   v.thirst = Math.max(0, Math.min(100, v.thirst + (food.thirst ?? 0)));

@@ -20,8 +20,20 @@ const POST_OF = { lookout: POSTS.lookout, gunman: POSTS.pistol, rusher: POSTS.ma
 
 /** How far each sees you: before the alarm, and after it. The lookout, before it, only looks east. */
 export const SIGHT: Record<'lookout' | 'gunman' | 'rusher', [number, number]> = { lookout: [45, 60], gunman: [25, 35], rusher: [14, 40] };
-/** Half the lookout's field of view before the alarm, either side of the way he faces (the road east). */
+/**
+ * Half each raider's field of view before the alarm, either side of the way he faces: the lookout watches
+ * the road east; the pistol and the machete face the road too. Behind them, a player is unseen, so a blade
+ * from behind can take any of them (review: the gunman and rusher used to see all round).
+ */
 export const LOOKOUT_CONE = (70 * Math.PI) / 180;
+export const GROUND_CONE = (65 * Math.PI) / 180;
+/** How far a gunshot is heard at the outpost: as far as its raiders are posted, and the rifle reaches. */
+export const SHOT_HEARD = 150;
+/** The rusher gives up a chase this far from his post, or after this long, and walks back to it. */
+export const LEASH = 40;
+export const CHASE_SECONDS = 10;
+/** A raider who loses sight of you mid-aim holds his shot at least this long after you reappear. */
+export const REACQUIRE = 0.5;
 /** How long a raider must see you to raise the alarm (a turn of the head first). */
 export const NOTICE = 0.8;
 /** Seconds between a gun raider's shots, after the aim. */
@@ -61,6 +73,14 @@ export function manOutpost(creatures: Creature[], st: OutpostState, px: number, 
   return made;
 }
 
+/** How far the player is from a raider's post. */
+const fromPost = (c: Creature, s: Senses) => (c.post ? Math.hypot(s.px - c.post.x, s.pz - c.post.z) : 0);
+
+/** The outpost as a save left it: an old save (no field) has all three raiders alive, and nobody alerted. */
+export function outpostFromSave(left: number | undefined): OutpostState {
+  return { left: typeof left === 'number' ? left & ALL_RAIDERS : ALL_RAIDERS, alert: false };
+}
+
 /** The bearing a body at (ax, az) must face to look at (bx, bz), in the game's yaw (0 looks north, −z). */
 const bearing = (ax: number, az: number, bx: number, bz: number) => Math.atan2(-(bx - ax), -(bz - az));
 const angleDiff = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -70,7 +90,7 @@ export function raiderSees(c: Creature, s: Senses, alert: boolean, blockAt: Bloc
   if (!isRaider(c.kind) || s.playerInSanctuary) return false;
   const dist = Math.hypot(s.px - c.x, s.pz - c.z);
   if (dist > SIGHT[c.kind][alert ? 1 : 0]) return false;
-  if (!alert && c.kind === 'lookout' && angleDiff(bearing(c.x, c.z, s.px, s.pz), c.post?.yaw ?? c.yaw) > LOOKOUT_CONE) return false;
+  if (!alert && angleDiff(bearing(c.x, c.z, s.px, s.pz), c.post?.yaw ?? c.yaw) > (c.kind === 'lookout' ? LOOKOUT_CONE : GROUND_CONE)) return false;
   return canSee(c, s, blockAt) || canSee(c, { ...s, py: s.py + 0.45 }, blockAt); // the chest, or the head
 }
 
@@ -125,13 +145,15 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
     case 'alerted':
       if (sees) face();
       if (c.timer > 0) break;
-      if (c.kind === 'rusher') { if (sees || dist < SIGHT.rusher[1]) { c.mind = 'charge'; c.timer = 10; } }
+      if (c.kind === 'rusher') { if ((sees || dist < SIGHT.rusher[1]) && fromPost(c, s) < LEASH) { c.mind = 'charge'; c.timer = CHASE_SECONDS; } }
       else if (sees) { c.mind = 'aim'; c.timer = d.windup; ev.push({ kind: 'aim', c }); }
       break;
     case 'aim':
       // The aim: he tracks you while the glint shows and the bolt clicks. Then the shot, which lands only
       // if he can still see you, and not always then.
       if (sees) face();
+      // Hidden mid-aim, he holds the shot: whoever steps back out gets a moment's warning again.
+      else c.timer = Math.max(c.timer, REACQUIRE);
       if (c.timer <= 0 && (c.kind === 'lookout' || c.kind === 'gunman')) {
         const cover = sees ? null : firstSolid(c, s, blockAt);
         const hit = sees && !s.playerInSanctuary && rand() < hitChance(c.kind, dist, s.pv ?? 0);
@@ -147,7 +169,7 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
     case 'charge': {
       // The rusher runs at you; near, he raises the machete (the warning) before the blow.
       const reachable = !s.playerInSanctuary && Math.abs(s.py - c.y) < 3;
-      if (!reachable || dist > SIGHT.rusher[1] + 10) { c.mind = 'alerted'; c.timer = 1; break; }
+      if (!reachable || dist > SIGHT.rusher[1] + 10 || c.timer <= 0 || fromPost(c, s) > LEASH + 5) { c.mind = 'alerted'; c.timer = 3; break; }
       toX = s.px - c.x; toZ = s.pz - c.z; speed = d.run;
       if (dist < 1.4 + d.width / 2 && Math.abs(s.py - c.y) < STRIKE_HEIGHT && canSee(c, s, blockAt)) {
         c.mind = 'windup'; c.timer = d.windup; speed = 0; ev.push({ kind: 'swing', c });
@@ -165,7 +187,7 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
       c.mind = st.alert ? 'alerted' : 'watch';
   }
   // The gun raiders keep to their posts; the rusher, once the fight is over, walks back to his.
-  if (c.kind === 'rusher' && c.mind === 'alerted' && c.post && !sees && Math.hypot(c.post.x - c.x, c.post.z - c.z) > 0.6) {
+  if (c.kind === 'rusher' && c.mind === 'alerted' && c.post && Math.hypot(c.post.x - c.x, c.post.z - c.z) > 0.6) {
     toX = c.post.x - c.x; toZ = c.post.z - c.z; speed = d.walk;
   }
   const len = Math.hypot(toX, toZ);

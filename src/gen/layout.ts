@@ -255,8 +255,11 @@ export const ZONE1FAR = {
   camp: { x0: 780, x1: 817, z0: 958, z1: 988, floor: 0 },
   lodge: { x0: 783, x1: 792, z0: 961, z1: 968 },
   shed: { x0: 803, x1: 811, z0: 963, z1: 968 },
-  /** Where the jaguar crosses: from the clearing's west edge to its east, in front of the lodge and the shed (past its own tracks). */
-  jaguarPath: [[778, 973], [798, 972.5], [818, 971]] as [number, number][],
+  /**
+   * Where the jaguar crosses: in from the clearing's west edge in front of the lodge, a stop to look at you
+   * well west of the trail (so walking to the lodge or the shed doesn't brush it), then out past the shed.
+   */
+  jaguarPath: [[778, 973], [786, 973], [818, 971]] as [number, number][],
   /** The broken bridge: the road's end (near abutment) and the far abutment across the ravine. */
   bridge: { near: 0, deckEnd: 0, far: 0, farDeck: 0, z: 0, y: 0 },
   /** The body on the far bank, in the line of sight from the deck's end. */

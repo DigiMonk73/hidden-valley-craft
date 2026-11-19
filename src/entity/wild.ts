@@ -6,7 +6,7 @@
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 import { think, hurt, KINDS, PACK_KINDS, RAIDER_KINDS, TRAPPABLE, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
-import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, type OutpostState, type RaiderEvent } from './outpost.ts';
+import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, SHOT_HEARD, type OutpostState, type RaiderEvent } from './outpost.ts';
 import { thinkJaguar } from './jaguar.ts';
 import { LEGHOLD, HOLD_SECONDS } from '../sim/preserve.ts';
 import { OUTPOST_AT } from '../gen/zone1far.ts';
@@ -112,7 +112,7 @@ export class Wild {
     }
     const senses = { px: s.px, py: s.py, pz: s.pz, pv: s.pv, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
     // A gunshot anywhere near the outpost alerts all of it.
-    if (this.shotHeard && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) < 80 && this.outpost.left) alertOutpost(this.creatures, this.outpost);
+    if (this.shotHeard && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) < SHOT_HEARD && this.outpost.left) alertOutpost(this.creatures, this.outpost);
     this.shotHeard = false;
     for (const c of [...this.creatures]) {
       if (!s.loaded(c.x, c.z)) continue; // its ground isn't there: it waits
