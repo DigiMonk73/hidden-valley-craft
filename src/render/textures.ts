@@ -1172,6 +1172,8 @@ DRAW.hydro_side = (c) => {
   for (let x = 5; x < 11; x++) c.set(x, 13, hex('#c9a227'));
 };
 DRAW.hydro_top = (c) => { c.noise(hex('#2d5f8a'), 5); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 3) c.set(x, y, hex('#c9d0d6')); else if (d < 4) c.set(x, y, hex('#7d8790')); } };
+/** An electric lamp's globe: white-hot, a faint blue at the rim, a dark cage line. */
+DRAW.arc_lamp = (c) => { c.noise(hex('#fffdf0'), 3); for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#cfe4ff')); c.set(k, 15, hex('#cfe4ff')); c.set(0, k, hex('#cfe4ff')); c.set(15, k, hex('#cfe4ff')); } for (let k = 0; k < TEX; k++) c.set(k, 8, hex('#b8c4d0')); };
 /** A planter box's side: new planks, two bands. */
 DRAW.planter_side = (c) => { c.noise(hex('#a8804e'), 7, [hex('#96703f'), hex('#b8905e')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#6e4b31')); c.shade(x, 5, 0.75); c.shade(x, 11, 0.75); } };
 

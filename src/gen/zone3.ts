@@ -79,7 +79,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
   const near = (bx0: number, bx1: number, bz0: number, bz1: number, m = 2) => x0 < bx1 + m && x0 + CS > bx0 - m && z0 < bz1 + m && z0 + CS > bz0 - m;
   const clear = (x: number, y0: number, y1: number, z: number) => { for (let y = y0; y < y1; y++) put(x, y, z, AIR); };
   const r = (x: number, y: number, z: number, k = 0) => rand3(x, y + k * 41, z, SEED + 110);
-  const lampPost = (x: number, z: number, h = 4, lamp = 'street_light') => {
+  const lampPost = (x: number, z: number, h = 4, lamp = 'arc_lamp') => {
     const g = outsideHeight(x, z);
     for (let y = g; y < g + h; y++) put(x, y, z, 'fence_post');
     put(x, g + h, z, lamp);
@@ -137,7 +137,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
         const pz = Math.floor((x - D.x0) / 6) % 2 === 0 ? PAR_N : PAR_S;
         put(x, D.crest, pz, 'concrete');
         put(x, D.crest + 1, pz, 'fence_post');
-        put(x, D.crest + 2, pz, 'street_light');
+        put(x, D.crest + 2, pz, 'arc_lamp');
       }
     }
   }
@@ -153,7 +153,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
       put(x, y - 2, z, 'gravel');
       clear(x, y, y + 5, z);
     }
-    for (let x = D.x1 + 10; x < jx - 6; x += 24) lampPost(x, ((x - D.x1) / 24) % 2 < 1 ? PAR_N : PAR_S);
+    for (let x = D.x1 + 10; x < jx - 6; x += 24) lampPost(x, ((x - D.x1) / 24) % 2 < 1 ? PAR_N : PAR_S, 4, 'street_light'); // the faction's side: their lamps
     // The sign on the highway's west shoulder, facing those who come up from the south, lit.
     {
       const sz = D.z + HALF + 2, sx = Math.floor(highwayX(sz)) - ZONE2.highway.halfWidth - 3, g = outsideHeight(sx, sz);
@@ -315,7 +315,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     put(sb.x0 - 1, YF + sb.height, sb.z1, 'red_beacon');
     put(sb.x1, YF + 3, sb.z0 + 1, 'lantern');
     // Lamp posts down the platform, between the tracks and the avenue.
-    for (let z = Y.z0 + 16; z < Y.z1; z += 20) { for (let y = YF; y < YF + 4; y++) put(TA + 5, y, z, 'fence_post'); put(TA + 5, YF + 4, z, 'street_light'); }
+    for (let z = Y.z0 + 16; z < Y.z1; z += 20) { for (let y = YF; y < YF + 4; y++) put(TA + 5, y, z, 'fence_post'); put(TA + 5, YF + 4, z, 'arc_lamp'); }
     // The stock.
     for (const s of ROLLING) {
       const t = Y.tracks[s.track];
@@ -419,7 +419,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
       // Each lamp two above the road beside it, whatever the verge does.
       const px = ((z - D.z - 6) / LAMP_EVERY) % 2 < 1 ? A.x - HALF - 1 : A.x + HALF, g = outsideHeight(px, z), top = outsideHeight(A.x, z) + 2;
       for (let y = Math.min(g, top - 1); y < top; y++) put(px, y, z, 'fence_post');
-      put(px, top, z, 'street_light');
+      put(px, top, z, 'arc_lamp');
     }
     lampPost(A.x - HALF - 1, D.z - HALF - 1, 2); // the bend
     for (let x = A.x + 6; x < D.x0 - 2; x += LAMP_EVERY) lampPost(x, ((x - A.x - 6) / LAMP_EVERY) % 2 < 1 ? PAR_N : PAR_S, 2);

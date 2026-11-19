@@ -46,6 +46,7 @@ export interface PowerState {
   charge: number; // kWh stored in the banks
   on: Record<'mining_rig' | 'fridge' | 'water_pump', boolean>; // each load, running in the last minute
   made: number; // kW made in the last minute, sun and water together
+  solar: number; // the sun's share of that
   rigs: number; // how many rigs ran in the last minute
   satsTotal: number; // what the rig has earned, all told
   satsToday: number; // since the last dawn
@@ -53,7 +54,7 @@ export interface PowerState {
 }
 
 export function newPower(): PowerState {
-  return { charge: 0, on: { mining_rig: false, fridge: false, water_pump: false }, made: 0, rigs: 0, satsTotal: 0, satsToday: 0, frac: 0 };
+  return { charge: 0, on: { mining_rig: false, fridge: false, water_pump: false }, made: 0, solar: 0, rigs: 0, satsTotal: 0, satsToday: 0, frac: 0 };
 }
 
 /** How high the sun stands, 0 at night to 1 at noon (the sun rises at 6 and sets at 18). */
@@ -94,6 +95,7 @@ export function stepPower(s: PowerState, d: Devices, hour: number, minutes: numb
     s.rigs = rigs;
     s.charge = Math.min(cap, avail);
     s.made = made;
+    s.solar = made - hydro * HYDRO_KW;
     if (s.on.mining_rig) {
       s.frac += (rigs * RIG_SATS_PER_DAY) / (24 * 60);
       const whole = Math.floor(s.frac);

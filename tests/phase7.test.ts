@@ -138,6 +138,16 @@ const home = (o: Partial<Record<keyof Devices, number>>): Devices => {
 };
 
 describe('hydro and the farm', () => {
+  it('keeps the sun’s share apart from the creek’s, for the computer’s Solar line (it showed the hydro’s 2 kW with no array)', () => {
+    const s = newPower();
+    stepPower(s, home({ hydro_generator: 1 }), 0, 5);
+    expect(s.solar).toBe(0);
+    expect(s.made).toBeCloseTo(HYDRO_KW);
+    stepPower(s, home({ hydro_generator: 1, solar_array: 2 }), 12, 5);
+    expect(s.solar).toBeCloseTo(2, 1);
+    expect(s.made).toBeCloseTo(4, 1);
+  });
+
   it('makes two kilowatts at midnight as at noon, with no battery', () => {
     for (const hour of [0, 12]) {
       const s = newPower();

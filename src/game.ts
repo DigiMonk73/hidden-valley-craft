@@ -1764,7 +1764,7 @@ export class Game {
       return true;
     }
     if (name === 'battery_bank') { this.hud.toast(`Battery bank: ${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh.`); return true; }
-    if (name === 'solar_array') { this.hud.toast(`Solar: ${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} making ${P.made.toFixed(1)} kW now.`); return true; }
+    if (name === 'solar_array') { this.hud.toast(`Solar: ${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} making ${P.solar.toFixed(1)} kW now.`); return true; }
     if (name === 'pharmacy_counter') {
       if (!this.flags.has('doc_known')) { this.flags.add('doc_known'); this.edited(); this.hud.toast(DOC.card, 10000); }
       else this.hud.toast('Doc’s card. His number is in your phone.');
@@ -1781,7 +1781,7 @@ export class Game {
     const hydro = d.hydro_generator.length;
     return [
       ...(hydro ? [['Hydro', `${hydro} generator${hydro === 1 ? '' : 's'} in the creek · ${(hydro * HYDRO_KW).toFixed(2)} kW, day and night`, 'btc'] as [string, string, string]] : []),
-      ['Solar', `${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} · ${P.made.toFixed(2)} kW now`, ''],
+      ['Solar', `${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} · ${P.solar.toFixed(2)} kW now`, d.solar_array.length ? '' : 'dim'],
       ['Battery bank', d.battery_bank.length ? `${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh` : 'none', d.battery_bank.length ? '' : 'dim'],
       n > 1
         ? ['Mining farm', P.rigs ? `${P.rigs} of ${n} rigs running · ${(RIG_THS * P.rigs).toFixed(2)} TH/s${P.rigs < n ? (hydro ? ' · short of power' : ' · more than one rig needs hydro') : ''}` : 'stopped: no power', P.rigs ? 'btc' : 'dim']

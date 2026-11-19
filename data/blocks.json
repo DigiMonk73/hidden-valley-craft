@@ -835,6 +835,7 @@
     {"name": "hydro_generator", "label": "Hydro generator", "tex": {"top": "hydro_top", "side": "hydro_side", "bottom": "steel"}, "render": "model", "boxes": [[1, 0, 1, 15, 11, 15], [5, 11, 5, 11, 15, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.8},
     {"name": "planter_box", "label": "Planter box", "tex": {"top": "farmland", "side": "planter_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.4},
     {"name": "dam_parapet", "label": "Concrete parapet", "tex": "concrete", "render": "model", "boxes": [[0, 0, 4, 16, 14, 12]], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "collideTop": 32, "hardness": 1.6, "drop": "cobble"},
-    {"name": "shed_roof", "label": "Tin roof (on purlins)", "tex": {"top": "tin_roof", "side": "tin_roof_edge", "bottom": "tin_roof_under"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.6, "drop": "scrap_metal"}
+    {"name": "shed_roof", "label": "Tin roof (on purlins)", "tex": {"top": "tin_roof", "side": "tin_roof_edge", "bottom": "tin_roof_under"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.6, "drop": "scrap_metal"},
+    {"name": "arc_lamp", "label": "Electric lamp (still lit off the dam)", "tex": "arc_lamp", "render": "model", "boxes": [[3, 3, 3, 13, 13, 13], [7, 0, 7, 9, 3, 9]], "layer": "cutout", "solid": true, "opaque": false, "emit": 15, "hardness": 0.3, "drop": "scrap_metal"}
   ]
 }
