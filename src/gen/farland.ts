@@ -3,7 +3,7 @@
 // Pure: built in a worker from the same layout the terrain comes from.
 
 import { WORLD_X, WORLD_Z } from '../world/constants.ts';
-import { VALLEY, POOL, CANYON_POOL, inCanyonStream, surfaceHeight, landZoneAt, distToValley, creekDistance, type ZoneId } from './layout.ts';
+import { VALLEY, POOL, CANYON_POOL, inCanyonStream, surfaceHeight, landZoneAt, distToValley, creekDistance, inReservoir, ZONE3, type ZoneId } from './layout.ts';
 import { blockId, B_FACE_TEX } from '../world/blocks.ts';
 
 const tex = (name: string, face: number) => B_FACE_TEX[blockId(name) * 6 + face];
@@ -57,6 +57,7 @@ export function buildFarLand(): FarMesh {
       let kind: keyof typeof LAYERS = 'canopy';
       let top = g;
       if (water) { kind = 'water'; top = VALLEY.water + 0.9; }
+      else if (inReservoir(x, z)) { kind = 'water'; top = ZONE3.dam.water - 0.1; } // the reservoir behind Zone-3's dam
       else if (slope > 7 || g > 168) kind = 'rock';
       else if (inValley) { kind = 'grass'; if (((i * 73856093) ^ (j * 19349663)) % 7 === 0) { kind = 'canopy'; top = g + 8; } }
       else { c = CANOPY[zone] ?? NEUTRAL; top = g + 7; } // forest canopy stands above the ground

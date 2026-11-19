@@ -16,9 +16,9 @@ type BlockAt = (x: number, y: number, z: number) => number;
 export const LIGHT_KEEN = 7;
 export interface Temper { sight: number; cone: number; hearSprint: number; hearWalk: number; hearMine: number; speed: number; windup: number; damage: number }
 /** Dull: in daylight or lamplight. It sees a little way, only in front; hears running and mining. */
-export const DULL: Temper = { sight: 6, cone: (60 * Math.PI) / 180, hearSprint: 16, hearWalk: 0, hearMine: 10, speed: KINDS.ashen.walk, windup: KINDS.ashen.windup, damage: KINDS.ashen.damage };
+export const DULL: Temper = { sight: 6, cone: (60 * Math.PI) / 180, hearSprint: 16, hearWalk: 0, hearMine: 8, speed: KINDS.ashen.walk, windup: KINDS.ashen.windup, damage: KINDS.ashen.damage };
 /** Keen: in the dark. It sees far, all round; hears a walk; faster than a walk, slower than a sprint. */
-export const KEEN: Temper = { sight: 20, cone: Math.PI, hearSprint: 24, hearWalk: 8, hearMine: 14, speed: KINDS.ashen.run, windup: 0.6, damage: 24 };
+export const KEEN: Temper = { sight: 20, cone: Math.PI, hearSprint: 24, hearWalk: 8, hearMine: 10, speed: KINDS.ashen.run, windup: 0.6, damage: 24 };
 /** Once it is hunting, it keeps track of a player in plain view this far off, dull or keen. */
 export const HUNT_SIGHT = 16;
 /** How far a gunshot is heard, and a suppressed one. */

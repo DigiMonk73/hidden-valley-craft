@@ -7,6 +7,7 @@ import type { Stack } from '../sim/inventory.ts';
 import { BARN_CRATES, SCOUT_AT } from './zone1.ts';
 import { RAIDER_CRATE, LODGE_CHEST } from './zone1far.ts';
 import { PHARMACY_SHELF, HARDWARE_CRATE, SERVER_RACKS, UPS_CABINETS, LEAD_CASKET } from './zone2.ts';
+import { PARTS_CRATE, TOOL_LOCKER, CONTROL_CABINETS, SHOP_CRATE, BOXCAR_CRATE } from './zone3.ts';
 
 export const CHEST_SLOTS = 27;
 
@@ -83,7 +84,19 @@ export const ZONE2_CHESTS: HomeChest[] = [
   { x: LEAD_CASKET[0], y: LEAD_CASKET[1], z: LEAD_CASKET[2] + 1, title: 'A cracked lead casket', items: [['scrap_lead', 8]] },
 ];
 
-const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS, ...ZONE1_MID_CHESTS, ...ZONE2_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
+// Zone-3 (docs/PHASE7.md): the powerhouse's parts crate, tool locker and control cabinets (the script's turbine
+// parts, river-engineering tools and advanced electronics: two more rigs' worth, with the exchange's spares),
+// the machine shop's crate, and the crate in the first boxcar.
+export const ZONE3_CHESTS: HomeChest[] = [
+  { x: PARTS_CRATE[0], y: PARTS_CRATE[1], z: PARTS_CRATE[2], title: 'Powerhouse: spare parts', items: [['turbine_parts', 1], ['wiring', 6], ['pipe_fittings', 4]] },
+  { x: TOOL_LOCKER[0], y: TOOL_LOCKER[1], z: TOOL_LOCKER[2], title: 'Tool locker', items: [['sluice_tools', 1], ['hammer', 1], ['nails', 16]] },
+  { x: CONTROL_CABINETS[0][0], y: CONTROL_CABINETS[0][1], z: CONTROL_CABINETS[0][2], title: 'Control cabinet', items: [['gpu', 1], ['mining_board', 1], ['psu', 1], ['wiring', 2]] },
+  { x: CONTROL_CABINETS[1][0], y: CONTROL_CABINETS[1][1], z: CONTROL_CABINETS[1][2], title: 'Control cabinet', items: [['gpu', 1], ['mining_board', 1], ['wiring', 2]] },
+  { x: SHOP_CRATE[0], y: SHOP_CRATE[1], z: SHOP_CRATE[2], title: 'Machine shop: the stores', items: [['steel_stock', 4], ['nails', 32], ['wiring', 6], ['pipe_fittings', 6], ['glass', 2]] },
+  { x: BOXCAR_CRATE[0], y: BOXCAR_CRATE[1], z: BOXCAR_CRATE[2], title: 'Boxcar: a crate', items: [['canvas', 6], ['wire_mesh', 4], ['nails', 32], ['cordage', 8], ['pipe_fittings', 4]] },
+];
+
+const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS, ...ZONE1_MID_CHESTS, ...ZONE2_CHESTS, ...ZONE3_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
 
 export function homeChestAt(x: number, y: number, z: number): HomeChest | undefined {
   return byPos.get(`${x},${y},${z}`);

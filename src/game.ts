@@ -1852,7 +1852,7 @@ export class Game {
     const first = this.wild.creatures.find((c) => c.kind === 'ashen' && c.post);
     const seeOne = this.wild.creatures.find((c) => c.kind === 'ashen' && near(c.x, c.z, 60) && this.inView(c.x, c.y + 1.5, c.z));
     if (!f.has('ashen_seen') && (first ? near(first.x, first.z, 62) && this.inView(first.x, first.y + 1.5, first.z) : !!seeOne)) {
-      this.once('ashen_seen', 'Down in the road: it was a man once. One of the Ashen. By day and in the light they are slow and half blind: walk, don’t run, keep a few metres off, and stay out of dark places. In the dark they are fast. (In your notes.)', 14000);
+      this.once('ashen_seen', 'Down in the road: it was a man once. One of the Ashen. By day and in the light they are slow and half blind: walk, don’t run, pass it seven paces wide and never in front of its face, and stay out of dark places. In the dark they are fast. (In your notes.)', 14000);
       this.sound.stinger(1, (first ?? seeOne)!.x, p.y + 2, (first ?? seeOne)!.z, 0.35);
     }
     if (zone === 'zone3' && p.x < ravineX(p.z) - 22) {

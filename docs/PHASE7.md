@@ -88,8 +88,8 @@ Simple, short, well lit, easy to find. So in this phase:
 
 **How they sense:**
 - **Light decides everything.** Each Ashen is *dull* or *keen* by the light where it stands: daylight or a lamp's pool (light 7 or more) makes it dull; the dark makes it keen. Night outside the lamps, the back of a shed and anywhere underground are dark.
-- **Dull** (day, open ground, under a lamp): it stands and sways, or shuffles. It sees a walking player only within **6 m, in front of it**. It hears: a sprinting player within 16 m, mining within 10 m.
-- **Keen** (dark): it sees **20 m all round**, hears a walk at 8 m and a sprint at 24 m.
+- **Dull** (day, open ground, under a lamp): it stands and sways, or shuffles. It sees a walking player only within **6 m, in front of it**. It hears: a sprinting player within 16 m, mining within 8 m.
+- **Keen** (dark): it sees **20 m all round**, hears a walk at 8 m, mining at 10 m and a sprint at 24 m.
 - **A gunshot** is heard at 70 m, by any of them: they come to **where the shot was fired**, not to you. Moving on after a shot is the defence. (The suppressed pistol of M4 is heard at 12 m.)
 
 **How they move:**
@@ -243,3 +243,10 @@ The computer lists M4's steps with ticks under M3:
   - Hold H does nothing while one hunts you within 30 m (`ashenOn`).
 - **DONE: Ray, M4 on the computer, the mods and the armour** (`src/game.ts`, `src/sim/milestones.ts`): the logbook, his calls and catalogue, the plans, the uplink plans after hydro; the eight M4 lines; the toasts for Zone-3's places; the map table's dam and works; the spillway's roar and the turbine's hum.
 - **DONE: Hutches and coops while away** (`World.blockKnown`): smokers and jerky racks too, by the same rule.
+- **DONE (ahead of the owner's go, built against the proposed map): the land** (`src/gen/zone3.ts`). *Why not wait:* everything else was done, and every block is placed from `ZONE3` in `layout.ts`, so a change the owner asks for moves it with the layout.
+  - The dam road with its sign and the barricade; the dam (stepped downstream face, parapets, the spillway, a lamp every six metres); the reservoir; the plunge pool, the stream and its dry bed; the control house; the avenue; the powerhouse (penstocks, the tailrace down the bank), the machine shop and the foundry; the yard (ballast, two tracks, the engine shed, the signal box, a locomotive, a coal hopper, a flatcar of plate, two boxcars, the crossing); the mine; the far road.
+  - *Changed from the plan:* each building's dark half is **walled off** from its lit half and has its own open roller door. *Why:* in one open hall an Ashen at the dark end saw a player at the lit end (20 m, all round), so the lit half was not safe by day. Now nothing in a lit half wakes them but a sprint; mining a lathe or the crucible is out of their hearing (8 m dull, 10 m keen).
+  - *Changed from the plan:* the yard's nest is the **engine shed**, not a boxcar (a boxcar is one block wide inside).
+  - *Changed from the plan:* the avenue has a lamp **every eight metres**, at head height, either side in turn, so their pools meet: its centre line is never darker than 7 of 15, and an Ashen that steps onto it at night is dull while it stands there. Lamps 24 m apart left it nearly all dark (light falls off a block at a time). The dam's deck and the far road are lit the same way.
+  - A new opaque roof block (`shed_roof`): the thin tin roof lets daylight through, which made every "dark" room bright.
+- **DONE: The strip mall's lot.** The highway is raised a block beside the lot's south end (z 739–748), so the lot is never above it; the road's own step is just past the lot. *Why not the north end too:* there the highway is a block above the lot, which reads as a kerb down into a car park; lowering the highway there would put the same step in front of the exchange.

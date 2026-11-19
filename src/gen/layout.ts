@@ -754,6 +754,10 @@ export function highwayHeight(z: number): number {
       const v = Math.max(prev - 1, Math.min(prev + 1, Math.round(hwHeights.get(zs[i])!)));
       hwHeights.set(zs[i], v); prev = v;
     }
+    // Beside the strip mall's lot the highway is never below the lot: its south end used to sit a block
+    // above the asphalt, a kerb with no reason (docs/PHASE7.md, 7). The road's own step moves just past the lot.
+    const lot = ZONE2.lot, lotFloor = hwHeights.get(Math.round((ZONE2.mall.z0 + ZONE2.mall.z1) / 2))!;
+    for (let zz = lot.z0 - 3; zz <= lot.z1 + 2; zz++) if (hwHeights.get(zz)! < lotFloor) hwHeights.set(zz, lotFloor);
   }
   const zz = Math.max(ZONE2.highway.z1 - 20, Math.min(ZONE2.highway.z0 + 20, Math.round(z)));
   return hwHeights.get(zz)!;
@@ -844,7 +848,7 @@ export const ZONE3 = {
   /** The river below the dam: a plunge pool, then a stream that thins and sinks into the limestone at `sink`. */
   river: { pool: 9, sink: DAM_Z + 112 },
   /** Where the first Ashen stands, in the road by day, seen from the bend above (docs/PHASE7.md). */
-  firstAshen: { x: 580.5, z: 812.5 },
+  firstAshen: { x: 580.5, z: 802.5 },
   /**
    * Where the Ashen keep by day: the dark ends of the buildings, the engine shed, the mine's unlit drift.
    * `n` of them at each (never more than two); `under`: below ground, where it is always dark and they never

@@ -833,6 +833,8 @@
     {"name": "coal_heap", "label": "Coal (a wagon-load)", "tex": "coal_heap", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "drop": "coal"},
     {"name": "plate_stack", "label": "Steel plate", "tex": {"top": "plate_top", "side": "plate_side", "bottom": "plate_top"}, "render": "model", "boxes": [[0, 0, 0, 16, 10, 16]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 1.0, "drop": "steel_stock"},
     {"name": "hydro_generator", "label": "Hydro generator", "tex": {"top": "hydro_top", "side": "hydro_side", "bottom": "steel"}, "render": "model", "boxes": [[1, 0, 1, 15, 11, 15], [5, 11, 5, 11, 15, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.8},
-    {"name": "planter_box", "label": "Planter box", "tex": {"top": "farmland", "side": "planter_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.4}
+    {"name": "planter_box", "label": "Planter box", "tex": {"top": "farmland", "side": "planter_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.4},
+    {"name": "dam_parapet", "label": "Concrete parapet", "tex": "concrete", "render": "model", "boxes": [[0, 0, 4, 16, 14, 12]], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "collideTop": 32, "hardness": 1.6, "drop": "cobble"},
+    {"name": "shed_roof", "label": "Tin roof (on purlins)", "tex": {"top": "tin_roof", "side": "tin_roof_edge", "bottom": "tin_roof_under"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.6, "drop": "scrap_metal"}
   ]
 }

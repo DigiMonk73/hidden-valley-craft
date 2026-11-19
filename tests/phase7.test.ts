@@ -106,8 +106,8 @@ import baseline from './fixtures/east-of-ravine.json' with { type: 'json' };
 import { hashColumn } from '../tools/worldhash.ts';
 
 describe('the land of earlier phases', () => {
-  /** The only columns east of x 672 that Phase 7 may change: the dam road's corridor and the strip mall's lot. */
-  const MAY_CHANGE = new Set(['21,23', '22,23', '23,23', '24,23', '25,23', '25,21', '25,22']);
+  /** The only columns east of x 672 that Phase 7 may change: the dam road's corridor (the lot's kerb, smoothed, lies in its last two). */
+  const MAY_CHANGE = new Set(['21,23', '22,23', '23,23', '24,23', '25,23']);
 
   it('hashes the same as before Phase 7 in a sample of columns east of the gorge, zone by zone', () => {
     const base = baseline as Record<string, number>;
@@ -429,11 +429,13 @@ describe('the Ashen: dull in the light, keen in the dark', () => {
     expect(see(c, YX + 5, YZ + 1, { pv: 4 }, false)).toBe(null); // beside and a little behind
   });
 
-  it('by day hears a sprint at 15 m and mining at 9 m, but not a walk', () => {
+  it('by day hears a sprint at 15 m and mining at 7 m, but not a walk', () => {
     const c = ashenAt(YX, YZ);
     expect(see(c, YX, YZ + 15, { pv: 5.6, sprint: true }, false)).toBe('heard');
     expect(see(c, YX, YZ + 17, { pv: 5.6, sprint: true }, false)).toBe(null);
-    expect(see(c, YX, YZ + 9, { mining: true }, false)).toBe('heard');
+    expect(see(c, YX, YZ + 7, { mining: true }, false)).toBe('heard');
+    expect(see(c, YX, YZ + 9, { mining: true }, false)).toBe(null);
+    expect(see(c, YX, YZ + 9, { mining: true }, true)).toBe('heard'); // in the dark it carries to 10 m
     expect(see(c, YX, YZ + 9, { pv: 4 }, false)).toBe(null);
   });
 
@@ -692,5 +694,306 @@ describe('hutches and coops while their land is not loaded', () => {
     bare.containers.set(packPos(1750, 70, 1040), [{ id: itemId('live_rabbit'), count: 2 }]);
     expect(breedHutches(bare)).toBe(0);
     expect(bare.blockKnown(1750, 70, 1040)).toBe(-1);
+  });
+});
+
+// ---- The strip mall's lot and the highway (docs/PHASE7.md, 7) -------------------------------------------------
+describe('the strip mall’s lot', () => {
+  it('never stands above the highway beside it (its south end used to: a kerb a block high)', () => {
+    const l = ZONE2.lot;
+    for (let z = l.z0; z < l.z1; z++) {
+      const edge = Math.ceil(highwayX(z) + ZONE2.highway.halfWidth); // the first block past the asphalt
+      expect(outsideHeight(edge, z), `z ${z}`).toBeLessThanOrEqual(highwayHeight(z));
+      expect(highwayHeight(z) - outsideHeight(edge, z), `z ${z}`).toBeLessThanOrEqual(1);
+    }
+    // And the highway itself still never steps more than a block.
+    for (let z = l.z0 - 10; z < l.z1 + 12; z++) expect(Math.abs(highwayHeight(z) - highwayHeight(z + 1))).toBeLessThanOrEqual(1);
+  });
+});
+
+// ---- Zone-3's places, built and lit (docs/PHASE7.md, 1) -----------------------------------------------------
+import { load } from './load.ts';
+import { blockName, B_SOLID, isWaterId } from '../src/world/blocks.ts';
+import { blockOf, skyOf } from '../src/world/light.ts';
+import { zone3Floor, onFarRoad as farRoad, onDamCrest } from '../src/gen/layout.ts';
+import * as Z3 from '../src/gen/zone3.ts';
+import { initialContents } from '../src/gen/inheritance.ts';
+import { floorNear } from '../src/entity/wild.ts';
+import { LIGHT_KEEN } from '../src/entity/ashen.ts';
+
+describe('Zone-3’s places, built and lit', () => {
+  const Z = ZONE3, D = Z.dam, A = Z.avenue;
+  const w = load(488, 738, 700, 1036);
+  const name = (x: number, y: number, z: number) => blockName(w.blockAt(x, y, z));
+  const base = (x: number, y: number, z: number) => name(x, y, z).split('@')[0];
+  const lamp = (x: number, y: number, z: number) => blockOf(w.lightAt(x, y, z));
+  /** The light the Ashen live by at noon: daylight where it reaches, or lamplight. */
+  const noon = (x: number, y: number, z: number) => Math.max(skyOf(w.lightAt(x, y, z)), lamp(x, y, z));
+  const open = (x: number, y: number, z: number) => !B_SOLID[w.blockAt(x, y, z)] && !B_SOLID[w.blockAt(x, y + 1, z)];
+  const count = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, n: string) => { let k = 0; for (let y = y0; y < y1; y++) for (let z = z0; z < z1; z++) for (let x = x0; x < x1; x++) if (base(x, y, z) === n) k++; return k; };
+
+  it('builds the dam: a level deck between parapets from rim to rim, concrete to the gorge’s floor, lit end to end', () => {
+    for (let x = D.x0; x < D.x1; x++) {
+      for (const z of [D.z - 2, D.z - 1, D.z, D.z + 1]) {
+        expect(onDamCrest(x, z)).toBe(true);
+        expect(B_SOLID[w.blockAt(x, D.crest - 1, z)], `deck at ${x},${z}`).toBe(1);
+        expect(open(x, D.crest, z), `clear over the deck at ${x},${z}`).toBe(true);
+      }
+      for (const z of [D.z - 3, D.z + 2]) expect(B_SOLID[w.blockAt(x, D.crest, z)], `a parapet at ${x},${z}`).toBe(1);
+      expect(lamp(x, D.crest + 1, D.z)).toBeGreaterThanOrEqual(7);
+    }
+    for (let y = 44; y < D.crest; y++) expect(name(D.spill + 6, y, D.z)).toBe('concrete');
+    expect(count(D.x0, D.x1, D.crest, D.crest + 1, D.z - 3, D.z + 3, 'dam_parapet')).toBeGreaterThan(80);
+  });
+
+  it('holds the reservoir behind it and pours the spillway down its face into a pool; the river thins and sinks', () => {
+    expect(name(D.spill, D.water - 1, D.z - 5)).toBe('water');
+    expect(name(D.spill, 50, D.z - 5)).toBe('water'); // deep, to the gorge's floor
+    expect(name(D.spill, D.water, D.z - 5)).toBe('air');
+    expect(name(D.spill, 60, D.z + 3)).toBe('falling_water');
+    expect(isWaterId(w.blockAt(D.spill, 41, D.z + 8))).toBe(true); // the plunge pool
+    expect(isWaterId(w.blockAt(Math.round(ravineX(D.z + 60)), 41, D.z + 60))).toBe(true); // the stream
+    // Below the sink, and at the broken bridge, the gorge is dry.
+    const b = ZONE1FAR.bridge;
+    for (let x = b.far; x <= b.near; x++) for (let z = b.z - 8; z <= b.z + 8; z++) for (let y = 36; y < 60; y++) expect(isWaterId(w.blockAt(x, y, z)), `water at ${x},${y},${z}`).toBe(false);
+    for (let x = 600; x < 680; x++) expect(isWaterId(w.blockAt(x, 41, Z.river.sink + 12))).toBe(false);
+  });
+
+  it('paves and lights the dam road, with the sign at the highway and the faction’s barricade short of the dam', () => {
+    const east = load(672, 738, 815, 768);
+    const n2 = (x: number, y: number, z: number) => blockName(east.blockAt(x, y, z)).split('@')[0];
+    for (let x = D.x1; x < 795; x++) {
+      const y = damRoadHeight(x);
+      expect(['road', 'gravel', 'dirt']).toContain(x < 672 ? base(x, y - 1, D.z) : n2(x, y - 1, D.z));
+    }
+    let signs = 0, boards = 0, barriers = 0, flags = 0;
+    for (let y = 80; y < 98; y++) for (let z = D.z - 6; z < D.z + 8; z++) for (let x = 672; x < 808; x++) {
+      const b = n2(x, y, z);
+      if (b === 'dam_sign') signs++;
+      if (b === 'cenizos_board') boards++;
+      if (b === 'concrete_barrier') barriers++;
+      if (b === 'faction_flag') flags++;
+    }
+    expect(signs).toBe(4);
+    expect(boards).toBe(2);
+    expect(barriers).toBe(4);
+    expect(flags).toBe(2);
+    // The barricade is a chicane, not a wall: there is a way through on foot.
+    const bx = Z.barricade.x, y = damRoadHeight(bx);
+    expect(!B_SOLID[east.blockAt(bx, y, D.z)] || !B_SOLID[east.blockAt(bx, y, D.z + 1)]).toBe(true);
+    expect(!B_SOLID[east.blockAt(bx + 3, y, D.z - 2)] || !B_SOLID[east.blockAt(bx + 3, y, D.z - 1)]).toBe(true);
+  });
+
+  it('lights the avenue from the bend to the old road: no step of it is in the dark', () => {
+    for (let z = D.z + 3; z < A.z1 - 1; z++) {
+      const y = outsideHeight(A.x, z);
+      expect(['road', 'gravel', 'dirt']).toContain(name(A.x, y - 1, z));
+      expect(open(A.x, y, z), `clear at z ${z}`).toBe(true);
+      expect(lamp(A.x, y + 1, z), `light at z ${z}`).toBeGreaterThanOrEqual(LIGHT_KEEN);
+    }
+    for (let x = A.x + 2; x < D.x0; x++) expect(lamp(x, D.crest + 1, D.z)).toBeGreaterThanOrEqual(LIGHT_KEEN);
+    // No tree stands on any of it.
+    for (let z = D.z; z < A.z1; z += 2) for (let y = outsideHeight(A.x, z); y < outsideHeight(A.x, z) + 6; y++) for (let x = A.x - 2; x < A.x + 2; x++) expect(['log', 'tree_fern_trunk']).not.toContain(name(x, y, z));
+  });
+
+  it('builds the control house at the dam’s end: a lit room, the logbook on the desk, a door on the road', () => {
+    const c = Z.control, [dx, dy, dz] = Z3.LOGBOOK_DESK;
+    expect(name(dx, dy, dz)).toBe('logbook_desk');
+    expect(lamp(dx, dy + 1, dz - 1)).toBeGreaterThanOrEqual(9);
+    expect(open(c.x0 + 3, zone3Floor.control, c.z1 - 1)).toBe(true); // the door
+    expect(open(c.x0 + 3, zone3Floor.control, c.z1)).toBe(true); // onto the crest road's edge
+    expect(open(dx, dy, dz + 2) || open(dx - 1, dy, dz)).toBe(true); // room to walk up to the desk
+  });
+
+  const halls = [
+    { what: 'the powerhouse', b: Z.powerhouse, floor: zone3Floor.powerhouse, split: Z3.POWER_SPLIT, side: 'west', nest: 0, sign: 'powerhouse_sign' },
+    { what: 'the machine shop', b: Z.shop, floor: zone3Floor.shop, split: Z3.SHOP_SPLIT, side: 'west', nest: 1, sign: 'taller_sign' },
+    { what: 'the foundry', b: Z.foundry, floor: zone3Floor.foundry, split: Z3.FOUNDRY_SPLIT, side: 'east', nest: 2, sign: 'fundicion_sign' },
+  ] as const;
+
+  it('lights the half of each building you enter, with its sign over the door and a lamp either side', () => {
+    for (const h of halls) {
+      const b = h.b, wallX = h.side === 'west' ? b.x0 : b.x1 - 1, out = h.side === 'west' ? -1 : 1;
+      for (const z of [b.door, b.door + 1]) { expect(open(wallX, h.floor, z), `${h.what}: the door`).toBe(true); expect(open(wallX + out, h.floor, z)).toBe(true); }
+      expect(count(wallX + out, wallX + out + 1, h.floor + 3, h.floor + 6, b.door - 2, b.door + 4, h.sign), h.what).toBe(2);
+      expect(count(wallX + out, wallX + out + 1, h.floor + 3, h.floor + 6, b.door - 2, b.door + 4, 'lantern'), h.what).toBe(2);
+      let dim = 0, cells = 0;
+      for (let z = b.z0 + 1; z < h.split; z++) for (let x = b.x0 + 1; x < b.x1 - 1; x++) {
+        if (!open(x, h.floor, z)) continue;
+        cells++;
+        if (lamp(x, h.floor + 1, z) < 8) dim++;
+      }
+      expect(cells, h.what).toBeGreaterThan(100);
+      expect(dim, `${h.what}: dim cells in the lit half`).toBe(0);
+    }
+  });
+
+  it('walls the dark half off from the lit one, with its own open bay; it is dark at noon, and that is where the nest is', () => {
+    for (const h of halls) {
+      const b = h.b, wallX = h.side === 'west' ? b.x0 : b.x1 - 1, out = h.side === 'west' ? -1 : 1, n = Z.nests[h.nest];
+      for (let x = b.x0; x < b.x1; x++) for (let y = h.floor; y < h.floor + 5; y++) expect(B_SOLID[w.blockAt(x, y, h.split)], `${h.what}: the wall across at ${x},${y}`).toBe(1);
+      for (let z = b.bay; z < b.bay + 4; z++) for (let y = h.floor; y < h.floor + 4; y++) expect(B_SOLID[w.blockAt(wallX, y, z)], `${h.what}: the bay`).toBe(0);
+      expect(n.z).toBeGreaterThan(h.split);
+      expect(noon(Math.floor(n.x), h.floor + 1, Math.floor(n.z)), `${h.what}: light at the nest`).toBeLessThan(LIGHT_KEEN);
+      expect(base(Math.floor(n.x), h.floor, Math.floor(n.z))).toBe('pale_stain');
+      // Its way out is one straight clear line to open daylight outside the bay.
+      const [ex, ez] = n.path[n.path.length - 1];
+      expect(Math.sign(ex - wallX)).toBe(out);
+      const steps = Math.ceil(Math.hypot(ex - n.x, ez - n.z) / 0.5);
+      for (let k = 0; k <= steps; k++) { const x = Math.floor(n.x + ((ex - n.x) * k) / steps), z = Math.floor(n.z + ((ez - n.z) * k) / steps); expect(open(x, h.floor, z), `${h.what}: the way out at ${x},${z}`).toBe(true); }
+      expect(ashenGround(ex, ez)).toBe(true);
+      expect(skyOf(w.lightAt(Math.floor(ex), outsideHeight(Math.floor(ex), Math.floor(ez)) + 1, Math.floor(ez)))).toBeGreaterThanOrEqual(12);
+    }
+  });
+
+  it('puts what M4 needs in the lit halves, each with room to walk up to it', () => {
+    const P = Z.powerhouse, S = Z.shop, F = Z.foundry;
+    expect(name(...Z3.PARTS_CRATE)).toBe('stock_crate');
+    expect(base(...Z3.TOOL_LOCKER)).toBe('steel_locker');
+    for (const c of Z3.CONTROL_CABINETS) expect(base(...c)).toBe('control_cabinet');
+    for (const l of Z3.OLD_LATHES) expect(name(...l)).toBe('old_lathe');
+    for (const k of Z3.STEEL_RACKS) expect(name(...k)).toBe('steel_rack');
+    expect(Z3.STEEL_RACKS.length).toBe(8);
+    expect(name(...Z3.SHOP_CRATE)).toBe('stock_crate');
+    expect(name(...Z3.FOUNDRY_CRUCIBLE)).toBe('foundry_crucible');
+    expect(count(P.x0, P.x1, zone3Floor.powerhouse, zone3Floor.powerhouse + 3, P.z0, Z3.POWER_SPLIT, 'turbine')).toBe(27);
+    const things: [string, [number, number, number], number][] = [
+      ['the parts crate', Z3.PARTS_CRATE, Z3.POWER_SPLIT], ['the tool locker', Z3.TOOL_LOCKER, Z3.POWER_SPLIT], ['a control cabinet', Z3.CONTROL_CABINETS[0], Z3.POWER_SPLIT],
+      ['a lathe', Z3.OLD_LATHES[0], Z3.SHOP_SPLIT], ['the steel racks', Z3.STEEL_RACKS[0], Z3.SHOP_SPLIT], ['the shop’s crate', Z3.SHOP_CRATE, Z3.SHOP_SPLIT], ['the crucible', Z3.FOUNDRY_CRUCIBLE, Z3.FOUNDRY_SPLIT],
+    ];
+    for (const [what, [x, y, z], split] of things) {
+      expect(z, `${what}: on the lit side of the wall`).toBeLessThan(split);
+      expect([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => open(x + dx, y, z + dz)), `${what}: room beside it`).toBe(true);
+      expect(lamp(x, y + 1, z) >= 9 || [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => lamp(x + dx, y + 1, z + dz) >= 9), `${what}: lit`).toBe(true);
+    }
+    void F; void S;
+  });
+
+  it('fills the containers: the turbine parts, the sluice tools, two more rigs’ worth of electronics', () => {
+    const at = ([x, y, z]: [number, number, number]) => initialContents(x, y, z).filter(Boolean).map((s) => [s!.id, s!.count]);
+    const has = (c: [number, number, number], n: string) => at(c).find(([id]) => id === itemId(n))?.[1] ?? 0;
+    expect(has(Z3.PARTS_CRATE, 'turbine_parts')).toBe(1);
+    expect(has(Z3.TOOL_LOCKER, 'sluice_tools')).toBe(1);
+    const cabs = Z3.CONTROL_CABINETS;
+    expect(has(cabs[0], 'gpu') + has(cabs[1], 'gpu')).toBe(2);
+    expect(has(cabs[0], 'mining_board') + has(cabs[1], 'mining_board')).toBe(2);
+    expect(has(cabs[0], 'psu') + has(cabs[1], 'psu')).toBe(1);
+    expect(has(Z3.SHOP_CRATE, 'steel_stock')).toBeGreaterThan(0);
+    expect(has(Z3.BOXCAR_CRATE, 'canvas')).toBeGreaterThan(0);
+  });
+
+  it('builds the rail yard: two tracks, the engine shed dark at the back, the signal box’s red light, the stock', () => {
+    const Y = Z.yard, YF = zone3Floor.yard, E = Z.engineShed;
+    for (const t of Y.tracks) for (let z = E.z1 + 1; z < Y.z1; z++) expect(base(t, YF, z) === 'rail' || B_SOLID[w.blockAt(t, YF + 1, z)] === 1, `rail at ${t},${z}`).toBe(true);
+    expect(count(Y.x0, Y.x1, YF, YF + 12, Y.z0, Y.z0 + 16, 'red_beacon')).toBe(1);
+    expect(count(Y.x0, Y.x1, YF, YF + 6, Y.z0, Y.z1, 'loco_body')).toBeGreaterThan(80);
+    expect(count(Y.x0, Y.x1, YF, YF + 6, Y.z0, Y.z1, 'coal_heap')).toBeGreaterThanOrEqual(24);
+    expect(count(Y.x0, Y.x1, YF, YF + 6, Y.z0, Y.z1, 'plate_stack')).toBeGreaterThanOrEqual(10);
+    expect(name(...Z3.BOXCAR_CRATE)).toBe('stock_crate');
+    const [cx, cy, cz] = Z3.BOXCAR_CRATE;
+    expect(open(cx + 1, cy - 1, cz)).toBe(true); // reached from the platform side
+    const n = Z.nests[3];
+    expect(noon(Math.floor(n.x), YF + 1, Math.floor(n.z))).toBeLessThan(LIGHT_KEEN);
+    for (let z = Math.floor(n.z); z <= Math.floor(n.path[0][1]); z++) expect(open(Math.floor(n.x), YF, z), `the shed's way out at z ${z}`).toBe(true);
+    // Nothing grows on the yard.
+    expect(count(Y.x0, Y.x1, YF, YF + 1, Y.z0 + 20, Y.z1, 'fern') + count(Y.x0, Y.x1, YF, YF + 12, Y.z0, Y.z1, 'log')).toBe(0);
+  });
+
+  it('builds the mine: a lit trail and decline with no step over one block, a gallery thick with iron and coal, an unlit drift', () => {
+    const M = Z.mine, G = M.gallery, gf = Z3.GALLERY_FLOOR, YF = zone3Floor.yard;
+    expect(gf).toBe(YF - M.depth);
+    let y = YF;
+    for (let x = M.headX + 2; x >= G.x1; x--) {
+      const f = floorNear(x + 0.5, y, M.z + 0.5, (bx, by, bz) => w.blockAt(bx, by, bz));
+      expect(f, `a floor on the way down at x ${x}`).not.toBe(null);
+      expect(Math.abs(f! - y)).toBeLessThanOrEqual(1);
+      y = f!;
+      if (x < M.headX - 1) expect(lamp(x, y + 1, M.z), `lit on the way down at x ${x}`).toBeGreaterThanOrEqual(8);
+    }
+    expect(y).toBe(gf);
+    let dim = 0;
+    for (let z = G.z0; z < G.z1; z++) for (let x = G.x0; x < G.x1; x++) { expect(open(x, gf, z) || name(x, gf, z) === 'lantern').toBe(true); if (lamp(x, gf + 1, z) < 7) dim++; }
+    expect(dim).toBe(0);
+    expect(count(G.x0 - 1, G.x1 + 1, gf, gf + 5, G.z0 - 1, G.z1 + 1, 'iron_ore')).toBeGreaterThan(60);
+    expect(count(G.x0 - 1, G.x1 + 1, gf, gf + 5, G.z0 - 1, G.z1 + 1, 'coal_ore')).toBeGreaterThan(60);
+    // The drift: open from the gallery to the nest, and dark there.
+    const n = Z.nests[4];
+    for (let z = Math.floor(n.z) - 1; z < G.z0; z++) expect(open(M.drift.x, gf, z), `the drift at z ${z}`).toBe(true);
+    expect(lamp(Math.floor(n.x), gf + 1, Math.floor(n.z))).toBeLessThan(LIGHT_KEEN);
+    expect(skyOf(w.lightAt(Math.floor(n.x), gf + 1, Math.floor(n.z)))).toBe(0);
+    expect(count(M.drift.x - 1, M.drift.x + 2, gf, gf + 3, M.drift.z0, G.z0 - 3, 'lantern')).toBe(0);
+    expect(name(M.headX + 1, YF + 5, M.z)).toBe('mina_sign@east');
+  });
+
+  it('carries the old road on past the body to a level crossing with two red lights, and lights it', () => {
+    const b = ZONE1FAR.bridge, body = ZONE1FAR.body;
+    for (let x = Z.farRoad.west + 1; x < b.far - 4; x++) {
+      const z = Math.floor(farRoadZ(x)), y = outsideHeight(x, z);
+      expect(farRoad(x, z)).toBe(true);
+      expect(['road', 'gravel', 'dirt'], `x ${x}`).toContain(name(x, y - 1, z));
+      expect(lamp(x, y + 1, z), `light at x ${x}`).toBeGreaterThanOrEqual(6);
+    }
+    for (const [lx, lz] of Z3.CROSSING_LIGHTS) { const g = outsideHeight(lx, lz); expect(name(lx, g + 2, lz)).toBe('red_beacon'); expect(name(lx, g + 3, lz)).toBe('crossing_sign'); }
+    // Phase 5's body still lies on its rise beside the road, with its stain.
+    expect(name(body.x, body.y, body.z)).toBe('pale_body');
+    expect(name(body.x + 1, body.y, body.z)).toBe('pale_legs');
+    expect(lamp(body.x, body.y + 1, body.z), 'the body is lit at night now').toBeGreaterThanOrEqual(4);
+  });
+
+  it('cuts no cave under any of it, nor into the reservoir', () => {
+    const air = (x: number, y: number, z: number) => w.blockAt(x, y, z) === 0;
+    for (const b of [Z.control, Z.powerhouse, Z.shop, Z.foundry, Z.engineShed]) for (let z = b.z0; z < b.z1; z += 2) for (let x = b.x0; x < b.x1; x += 2) for (let y = 40; y < outsideHeight(x, z) - 1; y += 2) expect(air(x, y, z), `a cave under ${x},${y},${z}`).toBe(false);
+    for (let z = 742; z < 748; z++) for (let x = Math.round(ravineX(z)) - 8; x < ravineX(z) + 8; x++) for (let y = 32; y < 41; y++) expect(air(x, y, z), `a cave under the reservoir at ${x},${y},${z}`).toBe(false);
+  });
+
+  it('gives each of the nine a floor to stand on in its nest, in the dark, and the first one a place in the lit road', () => {
+    const floor = (x: number, y: number, z: number) => floorNear(x, y, z, (bx, by, bz) => w.blockAt(bx, by, bz));
+    const st = newAshen();
+    st.firstOut = false;
+    const all: Creature[] = [];
+    for (const n of Z.nests) all.push(...manAshen(all, st, n.x, n.z, false, (x, z) => w.isLoaded(x, z), floor));
+    expect(all.length).toBe(9);
+    for (const c of all) {
+      expect(fits(c, c.x, c.y, c.z, (x, y, z) => w.blockAt(x, y, z)), `nest ${c.nest}: it fits where it stands`).toBe(true);
+      expect(noon(Math.floor(c.x), Math.floor(c.y) + 1, Math.floor(c.z)), `nest ${c.nest}: in the dark`).toBeLessThan(LIGHT_KEEN);
+    }
+    const first = manAshen([], newAshen(), Z.firstAshen.x, Z.firstAshen.z - 30, false, (x, z) => w.isLoaded(x, z), floor).find((c) => c.post)!;
+    expect(first.y).toBe(outsideHeight(A.x, Math.floor(Z.firstAshen.z)));
+    expect(skyOf(w.lightAt(Math.floor(first.x), first.y + 1, Math.floor(first.z)))).toBeGreaterThanOrEqual(12); // in daylight: dull
+  });
+});
+
+describe('the Ashen in the real buildings', () => {
+  const Z = ZONE3, S = Z.shop, SF = zone3Floor.shop;
+  const w = load(560, 830, 620, 880);
+  const blockAt = (x: number, y: number, z: number) => w.blockAt(x, y, z);
+  const noonLight = (x: number, y: number, z: number) => { const l = w.lightAt(x, y, z); return Math.max(skyOf(l), blockOf(l)); };
+  const shopPair = () => { const st = newAshen(); st.firstOut = false; return manAshen([], st, Z.nests[1].x, Z.nests[1].z, false, (x, z) => w.isLoaded(x, z), (x, y, z) => floorNear(x, y, z, blockAt)).filter((c) => c.nest === 1); };
+  const sense = (px: number, pz: number, o: Partial<AshenSenses> = {}): AshenSenses => ({ px, py: SF, pz, pv: 0, sprint: false, playerInSanctuary: false, night: false, shot: false, lightAt: noonLight, ...o });
+
+  it('a player in the lit half by day, walking, opening crates and mining a lathe, wakes nothing behind the wall', () => {
+    const pair = shopPair();
+    expect(pair.length).toBe(2);
+    const [lx, , lz] = Z3.OLD_LATHES[1];
+    const rand = makeRng(9);
+    const ev: AshenEvent[] = [];
+    for (let k = 0; k < 20 * 20; k++) for (const c of pair) ev.push(...thinkAshen(c, 1 / 20, sense(lx + 0.5, lz + 1.5, { pv: k % 40 < 20 ? 4 : 0, mining: k % 40 >= 20 }), 0, blockAt, rand));
+    expect(ev.filter((e) => e.kind !== 'breath')).toEqual([]);
+    for (const c of pair) expect(c.z).toBeGreaterThan(Z3.SHOP_SPLIT);
+  });
+
+  it('one that hears a sprint in the lit half goes out by its own bay, never through a wall, and is dull in the daylight outside', () => {
+    const [c] = shopPair();
+    const rand = makeRng(4);
+    let noticed = false, out = false;
+    for (let k = 0; k < 20 * 14; k++) {
+      // The player runs up and down the lit half, by the door.
+      const pz = S.door + 0.5 + 3 * Math.sin(k / 15);
+      for (const e of thinkAshen(c, 1 / 20, sense(S.x0 + 4.5, pz, { pv: 5.6, sprint: true }), 0, blockAt, rand)) if (e.kind === 'notice') noticed = true;
+      expect(fits(c, c.x, c.y, c.z, blockAt), `inside a wall at ${c.x.toFixed(1)},${c.z.toFixed(1)}`).toBe(true);
+      if (c.x < S.x0 - 0.5) { out = true; expect(c.keen, 'dull once out in the daylight').toBe(false); }
+    }
+    expect(noticed).toBe(true);
+    expect(out, 'it came out through its bay').toBe(true);
   });
 });
