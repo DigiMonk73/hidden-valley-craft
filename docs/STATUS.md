@@ -4,6 +4,10 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **Phase 6 ("Zone-2 and power, M3")** was merged into `main` (branch `phase6`) and published as version 9.
+  - It was built to the map shown to the owner (docs/phase6-map.png); no changes came back before it was done.
+  - Checks: 302 unit tests, and all 110 checks in the four play-through parts (`tests/e2e/play.mjs` runs them in turn; `PARTS=` picks some), about an hour here.
+  - Next: the owner can rename the repo to hidden-valley-blocks now that no session is pushing; then point the remote and the docs at the new name.
 - **Phase 6 ("Zone-2 and power", M3) is built on branch `phase6`**, waiting for the lead's review and the owner's look at the map. Details and progress are in docs/PHASE6.md; the map is docs/phase6-map.png.
   - **Places:** the old highway north from the hunting camp, lit; the border; the ruins (a strip mall with a pharmacy, a hardware store and a supermarket, and a telephone exchange with a red-lit mast); two marked radiation rings; the hot-spring cave (saltpeter, sulfur, a steam plume); Las Cruces, the faction's walled compound, which can't be taken yet. Zone-2 now begins at z 760 west of the saddle.
   - **People:** patrols, a sentry and two tower guards (1–3 a group, back each dawn); the scout's armband passes you at a distance. Doc, by phone, treats wounds and radiation.
