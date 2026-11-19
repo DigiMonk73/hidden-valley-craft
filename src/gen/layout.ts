@@ -199,7 +199,9 @@ export const ZONES = {
   nearX: 950, // near band runs saddle → nearX
   midX: 760, // mid band runs nearX → midX
   ravineX: 640, // deep band runs midX → ravine
-  zone2Z: 650, // north of this, beyond Zone-1: faction territory
+  zone2Z: 650, // the land: north of this the ground rolls (terrain only; kept so no land changes)
+  /** Faction territory begins north of this, west of the saddle (docs/PHASE6.md: moved south from 650 so the walk is short). */
+  zone2Play: 760,
 };
 
 /** The saddle: the road tops out between two knolls (+knoll m, `knollOffset` m either side of the road). */
@@ -339,7 +341,7 @@ export function landZoneAt(x: number, z: number): ZoneId {
 function zoneOutside(x: number, z: number): ZoneId {
   if (x < 450 && z < 450) return 'zone4';
   if (x < ZONES.ravineX) return 'zone3';
-  if (z < ZONES.zone2Z) return 'zone2';
+  if (z < ZONES.zone2Z || (z < ZONES.zone2Play && x < ZONES.saddleX)) return 'zone2';
   if (x >= ZONES.saddleX) {
     const inCanyon = Math.abs(x - canyonCenterX(z)) < 40 && z > CANYON.z0 && z < CANYON.z1;
     return inCanyon ? 'canyon' : 'buffer';
@@ -457,7 +459,13 @@ export function outsideHeight(x: number, z: number): number {
   // Zone-1's mid and deep places stand on level ground too: the outpost's yard, the mine's head, the
   // camp's trail and clearing, and the bridge's approach.
   if (x > 760 && x < 920 && z > 940 && z < 1070) {
+    if (onHighway(x, z)) return highwayHeight(z);
     const flat = farPad(x, z, natural);
+    if (flat !== null) return flat;
+  }
+  // Zone-2's places (docs/PHASE6.md): the old highway north from the camp, and the level pads it serves.
+  if (x > 690 && x < 900 && z > 400 && z < 960) {
+    const flat = zone2Pad(x, z, natural);
     if (flat !== null) return flat;
   }
   if (onRoadX) {
@@ -666,4 +674,119 @@ PLACES.warren.z = Math.round(roadZ(PLACES.warren.x)) + 15;
   F.body.z = b.z + 3;
   F.body.y = Math.round(naturalHeight(F.body.x, F.body.z, false)) + 2; // on a low rise
   F.tracks = [[b.near + 14, b.z - 11], [b.near + 4, b.z - 22]];
+}
+
+// ---------------------------------------------------------------------------------------
+// Zone-2, faction territory (docs/PHASE6.md). The old highway runs north from the hunting camp's
+// clearing, past the commercial ruins, to the gate of the faction's compound, Las Cruces: the name on
+// the dead scout's map scrap. Boxes are [x0, x1) × [z0, z1); floors are filled in lazily from the land.
+// ---------------------------------------------------------------------------------------
+
+export const ZONE2 = {
+  /** The highway: from the camp clearing's north edge (z0) to the compound's gate (z1), six wide. */
+  highway: { z0: 958, z1: 602, halfWidth: 3 },
+  /** Where the highway crosses into Zone-2: a chicane of concrete barriers painted with the faction's mark. */
+  border: { z: 762 },
+  /** The strip mall on the highway's east side: three shops in a row, fronts facing the highway. */
+  mall: { x0: 814, x1: 828, z0: 698, z1: 743 },
+  /** Its shops, south to north as you walk up the highway: pharmacy, hardware store, supermarket. */
+  shops: [
+    { name: 'farmacia', z0: 728, z1: 743 },
+    { name: 'ferreteria', z0: 713, z1: 728 },
+    { name: 'supermercado', z0: 698, z1: 713 },
+  ],
+  /** The parking lot between the highway and the mall. */
+  lot: { x0: 803, x1: 814, z0: 696, z1: 746 },
+  /** The telephone exchange on the west side: server room and battery room, a mast with a red light on top. */
+  exchange: { x0: 768, x1: 786, z0: 706, z1: 724, split: 716, mastX: 771, mastZ: 709, mastHeight: 26 },
+  /** The faction's compound, Las Cruces: walled, two gate towers, its gate on the highway's end. */
+  compound: { x0: 772, x1: 824, z0: 546, z1: 598, gateHalf: 3, wall: 7 },
+  /** The hot-spring cave: a trail east off the highway, the mouth in a low bank, a lit decline to the cavern. */
+  caveTrail: { z: 661, x1: 846 },
+  cave: { mouthX: 848, z: 661, depth: 13, cavern: { x0: 862, x1: 880, z0: 652, z1: 672 } },
+  /** Radiation hotspots: small, ringed by warning signs. r is the radius where the dose begins. */
+  hotspots: [
+    { name: 'van', x: 806, z: 700, r: 6, rate: 3 }, // a wrecked clinic van in the lot, its source cracked open
+    { name: 'pond', x: 760, z: 719, r: 5, rate: 2 }, // the drainage pond behind the exchange, where fallout washed down
+  ],
+};
+
+/** The highway's centre line x at z: north from the camp with a long, easy bend. */
+export function highwayX(z: number): number {
+  return 797 + 7 * Math.sin((ZONE2.highway.z0 - z) / 95);
+}
+
+/** Is (x, z) on the highway (plus a margin)? */
+export function onHighway(x: number, z: number, margin = 0): boolean {
+  const h = ZONE2.highway;
+  return z <= h.z0 && z >= h.z1 && Math.abs(x + 0.5 - highwayX(z)) < h.halfWidth + margin;
+}
+
+let hwHeights: Map<number, number> | null = null;
+/** The highway's walking height at z: the lie of the land smoothed, never more than one block per two along. */
+export function highwayHeight(z: number): number {
+  if (!hwHeights) {
+    const h = ZONE2.highway, raw: number[] = [];
+    for (let zz = h.z1 - 20; zz <= h.z0 + 20; zz++) raw.push(naturalHeight(Math.floor(highwayX(zz)), zz, false));
+    const smooth = raw.map((_, i) => { let s = 0, n = 0; for (let k = -18; k <= 18; k++) { const v = raw[i + k]; if (v !== undefined) { s += v; n++; } } return s / n; });
+    hwHeights = new Map();
+    const campFloor = ZONE1FAR.camp.floor;
+    for (let zz = h.z1 - 20; zz <= h.z0 + 20; zz++) {
+      const t = smoothstep(h.z0 - 30, h.z0, zz);
+      hwHeights.set(zz, mix(smooth[zz - (h.z1 - 20)], campFloor, t));
+    }
+    // Rounded, then eased so no step is more than one block.
+    const zs = [...hwHeights.keys()].sort((a, b) => a - b);
+    let prev = Math.round(hwHeights.get(zs[zs.length - 1])!);
+    for (let i = zs.length - 1; i >= 0; i--) {
+      const v = Math.max(prev - 1, Math.min(prev + 1, Math.round(hwHeights.get(zs[i])!)));
+      hwHeights.set(zs[i], v); prev = v;
+    }
+  }
+  const zz = Math.max(ZONE2.highway.z1 - 20, Math.min(ZONE2.highway.z0 + 20, Math.round(z)));
+  return hwHeights.get(zz)!;
+}
+
+/** The floor of each Zone-2 place: the highway's height beside it. */
+export const zone2Floor = {
+  get mall() { return highwayHeight((ZONE2.mall.z0 + ZONE2.mall.z1) / 2); },
+  get exchange() { return highwayHeight((ZONE2.exchange.z0 + ZONE2.exchange.z1) / 2); },
+  get compound() { return highwayHeight(ZONE2.highway.z1); },
+  get cave() { return highwayHeight(ZONE2.caveTrail.z); },
+};
+
+/** Is (x, z) on the cave's trail, from the highway east to the mouth (three wide)? */
+export function onCaveTrail(x: number, z: number): boolean {
+  const t = ZONE2.caveTrail;
+  return Math.abs(z - t.z) <= 1 && x >= highwayX(t.z) && x <= ZONE2.cave.mouthX;
+}
+
+/** How hard a hotspot bites at (x, z): 0 outside every ring, up to the hotspot's rate at its heart (dose per second). */
+export function radiationAt(x: number, z: number): number {
+  let best = 0;
+  for (const h of ZONE2.hotspots) {
+    const d = Math.hypot(x - h.x, z - h.z);
+    if (d < h.r) best = Math.max(best, h.rate * (1 - d / h.r) ** 1.5 + 0.15);
+  }
+  return best;
+}
+
+/** The level ground round Zone-2's places, blended into the land; null elsewhere. */
+function zone2Pad(x: number, z: number, natural: number): number | null {
+  const Z = ZONE2;
+  if (onHighway(x, z)) return highwayHeight(z);
+  const box = (x0: number, x1: number, z0: number, z1: number, floor: number, blend: number) => {
+    const dx = Math.max(x0 - x, x - (x1 - 1), 0), dz = Math.max(z0 - z, z - (z1 - 1), 0), d = Math.hypot(dx, dz);
+    return d < blend ? Math.round(mix(floor, natural, smoothstep(0, blend, d))) : null;
+  };
+  const m = Z.mall, l = Z.lot, e = Z.exchange, c = Z.compound;
+  const hx = (zz: number) => Math.floor(highwayX(zz));
+  if (onCaveTrail(x, z)) return zone2Floor.cave;
+  return box(hx(m.z0) + Z.highway.halfWidth, m.x1 + 4, Math.min(l.z0, m.z0) - 3, Math.max(l.z1, m.z1) + 3, zone2Floor.mall, 6)
+    ?? box(e.x0 - 10, hx(e.z0) - Z.highway.halfWidth + 1, e.z0 - 4, e.z1 + 4, zone2Floor.exchange, 6)
+    ?? box(c.x0 - 6, c.x1 + 6, c.z0 - 6, c.z1 + 12, zone2Floor.compound, 8)
+    ?? (Math.abs(z - Z.caveTrail.z) < 4 && x > Z.cave.mouthX - 6 && x < Z.cave.mouthX + 2 ? zone2Floor.cave : null)
+    // The road's shoulders ease into the land, as the old road's do.
+    ?? (Math.abs(x + 0.5 - highwayX(z)) < Z.highway.halfWidth + 3.5 && z <= Z.highway.z0 && z >= Z.highway.z1
+      ? Math.round(mix(highwayHeight(z), natural, smoothstep(Z.highway.halfWidth, Z.highway.halfWidth + 3.5, Math.abs(x + 0.5 - highwayX(z))))) : null);
 }
