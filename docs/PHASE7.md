@@ -281,3 +281,14 @@ The computer lists M4's steps with ticks under M3:
   3. **Every behaviour test ran on flat stub ground.** The Ashen are now also tested on the generated land: out of each of the five nests by its own door to a runner outside, never inside a block or off their ground; stopped at the dam's end with the player on the deck; the avenue walked in every lane; every floor of the lit halves.
   - *Not done here, left for the fixes session as the lead allowed:* Zone-2's sentry stuck against the truck, and the jaguar's exit into the shed wall.
 
+## Checks at the end (2026-11-19, on the pushed code)
+
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 33 files, **394 tests, all pass** (90 in `tests/phase7.test.ts`).
+- `npx vite build`: `dist/index.html` 1.10 MB.
+- The land east of the gorge: 5 of 2,752 columns differ from before Phase 7 (the dam road's, columns 21–25 at row 23). The gorge's east rim differs only along the reservoir's shore and at the dam's end.
+- The play-through, all five parts on the final build: **152 of 152 checks** (valley 36, near 22, mid 19, Zone-2 33, Zone-3 42).
+  - Zone-3's part now walks the avenue's middle past the dark bays with all nine in their nests (none stirs), takes the salvage with them behind the walls (none stirs), and ends with a fed player killed by one.
+  - Run on the build from before the death fix, that last check failed as the review said: health 0.006, alive.
+- A fresh reviewer checked `git diff main...phase7` by running things; its twelve findings are fixed above.
+
