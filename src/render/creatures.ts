@@ -231,6 +231,40 @@ const MODELS: Record<Kind, Model> = {
   guard: raider('#5d5d55', PARTS_LOOKOUT),
   patrol: raider('#5d5d55', PARTS_GUNMAN),
   sentry: raider('#5d5d55', PARTS_RUSHER),
+  // Zone-3's Ashen (docs/PHASE7.md): taller and thinner than a man, the back bent, the head hung to one side,
+  // arms too long. Skin the grey-white of wood ash; what is left of blue overalls and an orange safety vest.
+  // Winding up it rears with its arms thrown wide; lunging, they reach straight out.
+  ashen: {
+    body: [
+      { size: [0.34, 0.36, 0.2], at: [0, 1.13, 0], color: '#46566a' }, // the overalls' bib, faded
+      { size: [0.38, 0.36, 0.22], at: [0, 1.45, -0.07], color: '#bdb8ac' }, // the chest, bent forward
+      { size: [0.4, 0.09, 0.24], at: [0, 1.36, -0.07], color: '#b0703a' }, // a strip of the vest
+      { size: [0.1, 0.34, 0.03], at: [-0.11, 1.44, -0.19], color: '#b0703a' },
+      { size: [0.1, 0.14, 0.1], at: [0.03, 1.66, -0.15], color: '#a8a398' }, // the neck, forward
+      { size: [0.24, 0.27, 0.25], at: [0.08, 1.8, -0.2], color: '#c9c5ba' }, // the head, hung to one side
+      { size: [0.25, 0.07, 0.26], at: [0.08, 1.91, -0.2], color: '#8a867c' }, // what hair is left
+      { size: [0.06, 0.07, 0.02], at: [0.02, 1.82, -0.33], color: '#141210' }, // eye pits
+      { size: [0.06, 0.07, 0.02], at: [0.14, 1.82, -0.33], color: '#141210' },
+      { size: [0.12, 0.06, 0.02], at: [0.08, 1.71, -0.33], color: '#34302c' }, // the mouth, dark
+      // The arms: hanging past the knees, the hands darker.
+      { size: [0.1, 0.98, 0.11], at: [-0.25, 1.08, -0.06], color: '#bdb8ac', not: ['windup', 'lunge'] },
+      { size: [0.1, 0.98, 0.11], at: [0.25, 1.08, -0.06], color: '#bdb8ac', not: ['windup', 'lunge'] },
+      { size: [0.11, 0.18, 0.12], at: [-0.25, 0.52, -0.06], color: '#7a756c', not: ['windup', 'lunge'] },
+      { size: [0.11, 0.18, 0.12], at: [0.25, 0.52, -0.06], color: '#7a756c', not: ['windup', 'lunge'] },
+      // Rearing: thrown wide and up.
+      { size: [0.8, 0.1, 0.11], at: [-0.6, 1.72, 0.02], color: '#bdb8ac', when: ['windup'] },
+      { size: [0.8, 0.1, 0.11], at: [0.6, 1.72, 0.02], color: '#bdb8ac', when: ['windup'] },
+      { size: [0.13, 0.2, 0.13], at: [-1.02, 1.8, 0.02], color: '#7a756c', when: ['windup'] },
+      { size: [0.13, 0.2, 0.13], at: [1.02, 1.8, 0.02], color: '#7a756c', when: ['windup'] },
+      // The lunge: straight out in front.
+      { size: [0.1, 0.11, 0.95], at: [-0.2, 1.5, -0.62], color: '#bdb8ac', when: ['lunge'] },
+      { size: [0.1, 0.11, 0.95], at: [0.2, 1.5, -0.62], color: '#bdb8ac', when: ['lunge'] },
+      { size: [0.12, 0.13, 0.18], at: [-0.2, 1.5, -1.14], color: '#7a756c', when: ['lunge'] },
+      { size: [0.12, 0.13, 0.18], at: [0.2, 1.5, -1.14], color: '#7a756c', when: ['lunge'] },
+    ],
+    // Overall legs, and under them bare pale feet (the tracks).
+    leg: { size: [0.14, 0.96, 0.15], color: '#3e4c5e', hips: [[-0.09, 0.96, 0], [0.09, 0.96, 0]] },
+  },
   jaguar: { // heavier than the puma: a golden coat with black rosettes, a broad head, a long dark-ringed tail
     body: [
       { size: [0.5, 0.48, 1.25], at: [0, 0.78, 0.05], color: '#c9973c' },
@@ -364,10 +398,14 @@ export class CreatureRenderer {
       for (const { mesh, part } of v.posed) mesh.visible = (!part.when || part.when.includes(c.mind)) && !part.not?.includes(c.mind);
       const glint = v.posed.find((p) => p.part.glow);
       if (glint && glint.mesh.visible) glint.mesh.scale.setScalar(1 + 0.6 * Math.abs(Math.sin(c.timer * 9)));
-      const windup = c.mind === 'windup' && !c.post; // a raider raising his machete stands upright
+      const ashen = c.kind === 'ashen';
+      const windup = c.mind === 'windup' && (ashen || !c.post); // a raider raising his machete stands upright
       const tremble = windup ? Math.sin(c.timer * 60) * 0.03 : 0;
       v.group.position.set(c.x + tremble, c.y, c.z);
-      v.group.rotation.set(windup ? -0.22 : 0, c.yaw, 0, 'YXZ');
+      // An Ashen rears back before the lunge, is thrown forward in it, and stands bent double after a miss;
+      // unaware, it sways where it stands.
+      const lean = ashen ? (c.mind === 'windup' ? 0.3 : c.mind === 'lunge' ? -0.5 : c.mind === 'recover' ? -0.75 : -0.08) : windup ? -0.22 : 0;
+      v.group.rotation.set(lean, c.yaw, ashen && (c.mind === 'wander' || c.mind === 'seek') ? 0.06 * Math.sin(c.id * 1.7 + performance.now() / 900) : 0, 'YXZ');
       // Legs swing in diagonal pairs, front-left with back-right.
       const swing = Math.sin(c.stride) * Math.min(0.6, Math.hypot(c.vx, c.vz) * 0.25);
       v.legs.forEach((m, i) => { m.rotation.x = i === 0 || i === 3 ? swing : -swing; });

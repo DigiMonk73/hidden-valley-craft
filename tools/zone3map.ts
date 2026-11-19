@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { encodePng } from './png.ts';
 import {
   surfaceHeight, zoneAt, onRoad, onHighway, ZONE2, ZONE3, ZONE1FAR, highwayX, onDamRoad, onDamCrest, onAvenue, onFarRoad, onMineTrail,
-  inReservoir, riverBelowDam, ravineX, ZONES, type ZoneId,
+  inReservoir, riverBelowDam, ravineX, ZONES, ROLLING, type ZoneId,
 } from '../src/gen/layout.ts';
 
 const X0 = 470, X1 = 830, Z0 = 690, Z1 = 1050, S = 2;
@@ -51,7 +51,8 @@ const boxes: Box[] = [
   { ...Z.powerhouse, fill: 'rgba(40,90,130,0.9)', label: '3. Powerhouse: turbine parts, the sluice tools, control cabinets', side: 'r' },
   { ...Z.shop, fill: 'rgba(150,90,30,0.9)', label: '4. Machine shop: lathes, steel racks', side: 'r' },
   { ...Z.foundry, fill: 'rgba(130,60,40,0.9)', label: '4. Foundry: the crucible (for making steel at home)', side: 'l' },
-  { ...Z.signalBox, fill: 'rgba(200,60,60,0.95)', label: '5. Rail yard: signal box (red light), a locomotive, wagons: rails and plate for steel, a wagon of coal', side: 'l' },
+  { ...Z.engineShed, fill: 'rgba(70,60,60,0.9)' },
+  { ...Z.signalBox, fill: 'rgba(200,60,60,0.95)', label: '5. Rail yard: signal box (red light), engine shed, a locomotive, wagons: rails and plate for steel, a wagon of coal', side: 'l' },
   { x0: g.x0, x1: g.x1, z0: g.z0, z1: g.z1, fill: 'rgba(90,70,50,0.6)', label: '6. Mine gallery (18 m down, lit): thick iron and coal. A dark drift off it', side: 'l' },
   { x0: ZONE2.exchange.x0, x1: ZONE2.exchange.x1, z0: ZONE2.exchange.z0, z1: ZONE2.exchange.z1, fill: 'rgba(60,60,80,0.6)', label: 'Telephone exchange (Phase 6)', side: 'r' },
   { x0: ZONE2.mall.x0, x1: ZONE2.mall.x1, z0: ZONE2.mall.z0, z1: ZONE2.mall.z1, fill: 'rgba(40,80,140,0.6)', label: 'Strip mall (Phase 6)', side: 'r' },
@@ -59,9 +60,7 @@ const boxes: Box[] = [
 // Rolling stock in the yard.
 const [tb, ta] = Z.yard.tracks;
 const stock: Box[] = [
-  { x0: ta - 1, x1: ta + 2, z0: 928, z1: 939, fill: 'rgba(40,40,40,0.95)' }, { x0: ta - 1, x1: ta + 2, z0: 942, z1: 950, fill: 'rgba(70,60,50,0.95)' },
-  { x0: ta - 1, x1: ta + 2, z0: 953, z1: 961, fill: 'rgba(110,110,120,0.95)' }, { x0: tb - 1, x1: tb + 2, z0: 930, z1: 939, fill: 'rgba(120,50,40,0.95)' },
-  { x0: tb - 1, x1: tb + 2, z0: 944, z1: 953, fill: 'rgba(120,50,40,0.95)' },
+  ...ROLLING.map((r) => ({ x0: (r.track ? ta : tb) - 1, x1: (r.track ? ta : tb) + 2, z0: r.z0, z1: r.z1, fill: r.kind === 'loco' ? 'rgba(40,60,45,0.95)' : r.kind === 'hopper' ? 'rgba(40,40,40,0.95)' : r.kind === 'flat' ? 'rgba(110,110,120,0.95)' : 'rgba(120,50,40,0.95)' })),
 ];
 const pins: { x: number; z: number; label: string; color: string; side: 'l' | 'r' }[] = [
   { x: highwayX(D.z) - 5, z: D.z - 4, label: 'Sign on the highway, lit: “PRESA RÍO SECO ←”. 10 m inside Zone-2’s border', color: '#fff', side: 'r' },

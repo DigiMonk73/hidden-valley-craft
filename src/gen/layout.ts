@@ -824,14 +824,19 @@ export const ZONE3 = {
   avenue: { x: 580, halfWidth: 2, z0: DAM_Z, z1: 0 },
   /** The dam's control house, on the crest road's north side at the west end: the engineer's logbook. */
   control: { x0: 597, x1: 605, z0: 743, z1: 750 },
-  /** The powerhouse, between the avenue and the gorge: the turbine hall. Its door faces the avenue. */
-  powerhouse: { x0: 586, x1: 604, z0: 772, z1: 797 },
-  /** The machine shop (east of the avenue) and the foundry (west of it). */
-  shop: { x0: 586, x1: 604, z0: 846, z1: 866 },
-  foundry: { x0: 556, x1: 574, z0: 852, z1: 872 },
+  /**
+   * The powerhouse, between the avenue and the gorge: the turbine hall. `door`: the lit north half's door on
+   * the avenue (z of its two columns' first); `bay`: the dark south half's open roller door (its four columns' first).
+   */
+  powerhouse: { x0: 586, x1: 604, z0: 772, z1: 797, door: 777, bay: 791 },
+  /** The machine shop (east of the avenue) and the foundry (west of it), each with a lit door and a dark bay. */
+  shop: { x0: 586, x1: 604, z0: 846, z1: 866, door: 850, bay: 860 },
+  foundry: { x0: 556, x1: 574, z0: 852, z1: 872, door: 856, bay: 865 },
   /** The rail yard, west of the avenue: two tracks north–south (their centre columns), the signal box. */
   yard: { x0: 544, x1: 575, z0: 902, z1: 1012, tracks: [553, 562] },
   signalBox: { x0: 568, x1: 573, z0: 906, z1: 911, height: 9 },
+  /** The engine shed over the west track's north end: open at its south end, dark at the back. */
+  engineShed: { x0: 548, x1: 559, z0: 904, z1: 926 },
   /** The mine: a lit trail west across the yard at z, the adit's head, a decline west to the gallery, a dark drift north. */
   mine: { z: 972, headX: 530, depth: 18, gallery: { x0: 494, x1: 512, z0: 966, z1: 979 }, drift: { x: 498, z0: 952, z1: 966 } },
   /** The old road on the far side of the broken bridge: west from the abutment past the level crossing. */
@@ -841,17 +846,28 @@ export const ZONE3 = {
   /** Where the first Ashen stands, in the road by day, seen from the bend above (docs/PHASE7.md). */
   firstAshen: { x: 580.5, z: 812.5 },
   /**
-   * Where the Ashen keep by day: the dark ends of the buildings, a boxcar, the mine's unlit drift. `n` of
-   * them at each (never more than two), `under`: below ground, where it is always dark.
+   * Where the Ashen keep by day: the dark ends of the buildings, the engine shed, the mine's unlit drift.
+   * `n` of them at each (never more than two); `under`: below ground, where it is always dark and they never
+   * roam out. `path`: the way out of the dark room, point by point in straight clear lines, ending outside
+   * (they have no other pathfinding: they walk this out and back, and straight at what they hunt).
    */
   nests: [
-    { name: 'powerhouse', x: 598.5, z: 792.5, n: 2, under: false },
-    { name: 'shop', x: 599.5, z: 861.5, n: 2, under: false },
-    { name: 'foundry', x: 560.5, z: 867.5, n: 1, under: false },
-    { name: 'boxcar', x: 553.5, z: 948.5, n: 2, under: false },
-    { name: 'drift', x: 498.5, z: 955.5, n: 2, under: true },
-  ],
+    { name: 'powerhouse', x: 598.5, z: 793, n: 2, under: false, path: [[583.5, 793]] },
+    { name: 'shop', x: 599.5, z: 862, n: 2, under: false, path: [[583.5, 862]] },
+    { name: 'foundry', x: 560.5, z: 867, n: 1, under: false, path: [[576.5, 867]] },
+    { name: 'shed', x: 553.5, z: 908.5, n: 2, under: false, path: [[553.5, 929.5]] },
+    { name: 'drift', x: 498.5, z: 954.5, n: 2, under: true, path: [[498.5, 964.5], [498.5, 972.5], [511.5, 972.5], [532.5, 972.5]] },
+  ] as { name: string; x: number; z: number; n: number; under: boolean; path: [number, number][] }[],
 };
+
+/** The yard's rolling stock: which track (0 west, 1 east), from z0 to z1, and what it is. */
+export const ROLLING: { track: 0 | 1; z0: number; z1: number; kind: 'loco' | 'hopper' | 'flat' | 'boxcar' }[] = [
+  { track: 1, z0: 928, z1: 939, kind: 'loco' },
+  { track: 1, z0: 942, z1: 950, kind: 'hopper' },
+  { track: 1, z0: 953, z1: 961, kind: 'flat' },
+  { track: 0, z0: 934, z1: 943, kind: 'boxcar' },
+  { track: 0, z0: 947, z1: 956, kind: 'boxcar' },
+];
 
 /** The far side's old road: the same line as Zone-1's road, eased onto the bridge's axis at the abutment. */
 export function farRoadZ(x: number): number {

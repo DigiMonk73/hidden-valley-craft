@@ -8,7 +8,9 @@ import { inSanctuary } from '../gen/layout.ts';
 
 export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco' | 'lookout' | 'gunman' | 'rusher' | 'jaguar'
   // Zone-2's faction (docs/PHASE6.md): patrols with pistols, a sentry with a machete, the gate towers' guards.
-  | 'patrol' | 'sentry' | 'guard';
+  | 'patrol' | 'sentry' | 'guard'
+  // Zone-3's Ashen (docs/PHASE7.md): not a person any more, not an animal. Its mind is in src/entity/ashen.ts.
+  | 'ashen';
 
 export interface KindDef {
   hp: number;
@@ -43,6 +45,9 @@ export const KINDS: Record<Kind, KindDef> = {
   patrol: { hp: 40, width: 0.6, height: 1.85, walk: 1.3, run: 1.3, shy: 0, hostile: true, damage: 12, windup: 1.0, drops: [['pistol_rounds', 4], ['brass_casing', 4]] },
   sentry: { hp: 45, width: 0.6, height: 1.85, walk: 1.4, run: 4.6, shy: 0, hostile: true, damage: 14, windup: 0.7, drops: [['scrap_metal', 1], ['cordage', 1]] },
   guard: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 18, windup: 1.5, drops: [['rifle_rounds', 6]] },
+  // The Ashen: `walk` is its speed when dull (in the light), `run` when keen (in the dark); `damage` and `windup`
+  // are the dull ones (src/entity/ashen.ts has both). It carries nothing.
+  ashen: { hp: 60, width: 0.55, height: 1.95, walk: 2.4, run: 5.0, shy: 0, hostile: true, damage: 16, windup: 0.8, drops: [] },
   jaguar: { hp: 90, width: 0.85, height: 1.0, walk: 2.0, run: 7.5, shy: 0, hostile: true, damage: 22, windup: 0.55, drops: [['jaguar_pelt', 1]] },
 };
 
@@ -65,7 +70,9 @@ export const DEN_RANGE = { day: 12, night: 30 };
 
 export type Mind = 'wander' | 'flee' | 'charge' | 'stalk' | 'windup' | 'recover' | 'flank'
   // The raiders (src/entity/outpost.ts) and the jaguar's one crossing (src/entity/jaguar.ts).
-  | 'watch' | 'notice' | 'alerted' | 'aim' | 'cross' | 'stare' | 'leave';
+  | 'watch' | 'notice' | 'alerted' | 'aim' | 'cross' | 'stare' | 'leave'
+  // The Ashen (src/entity/ashen.ts): going to where a noise was, and the lunge itself.
+  | 'seek' | 'lunge';
 
 export interface Creature {
   id: number;
@@ -99,6 +106,10 @@ export interface Creature {
   leg?: number;
   /** Which of the faction's men this is (a bit), so one killed stays down until dawn. */
   squad?: number;
+  /** An Ashen: which nest is its own; whether it stands in the dark (keen) or the light (dull); seconds since it last saw or heard the player. */
+  nest?: number;
+  keen?: boolean;
+  lost?: number;
   /** A tame hen walking round her coop (its block): she keeps within LEASH of it and never climbs a fence. */
   tame?: [number, number, number];
 }

@@ -129,6 +129,17 @@
     {"name": "gunpowder", "label": "Gunpowder", "icon": "gunpowder", "stack": 64},
     {"name": "bullet_mold", "label": "Bullet mould", "icon": "bullet_mold", "stack": 1},
     {"name": "bullet", "label": "Lead bullet", "icon": "bullet", "stack": 64},
-    {"name": "cold_water", "label": "Cold water", "icon": "cold_water", "stack": 8, "food": {"thirst": 50}}
+    {"name": "cold_water", "label": "Cold water", "icon": "cold_water", "stack": 8, "food": {"thirst": 50}},
+
+    {"name": "steel_stock", "label": "Steel stock (rail and plate)", "icon": "steel_stock", "stack": 32},
+    {"name": "steel_ingot", "label": "Steel ingot", "icon": "steel_ingot", "stack": 64},
+    {"name": "turbine_parts", "label": "Turbine parts (runner and generator core)", "icon": "turbine_runner", "stack": 1},
+    {"name": "sluice_tools", "label": "Sluice tools (gate winch and keys)", "icon": "sluice_tools", "stack": 1},
+    {"name": "lathe_parts", "label": "Lathe parts (headstock, chuck, lead screw)", "icon": "lathe_parts", "stack": 4},
+    {"name": "crucible", "label": "Foundry crucible", "icon": "crucible", "stack": 1},
+    {"name": "uplink_plans", "label": "Uplink plans (Ray\u2019s drawings)", "icon": "plans_blue", "stack": 1},
+    {"name": "pistol_suppressed", "label": "Pistol, suppressed", "icon": "pistol_suppressed", "stack": 1},
+    {"name": "rifle_rebuilt", "label": "Rifle, rebuilt (new barrel, scope)", "icon": "rifle_rebuilt", "stack": 1},
+    {"name": "plate_armor", "label": "Plate armour", "icon": "plate_armor", "stack": 1}
   ]
 }

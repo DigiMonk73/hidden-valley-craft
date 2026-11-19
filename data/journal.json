@@ -94,6 +94,21 @@
       "flag": "m2_done",
       "title": "M2",
       "text": "Eggs in the morning, rabbits in the hutch, meat on the rack, a forge in the workshop that was the raiders', a bow I made myself, new seed in the ground. The valley is bigger for what I brought home."
+    },
+    {
+      "flag": "ashen_seen",
+      "title": "The Ashen",
+      "text": "Across the dam, in the road, something that was a man. Tall, thin, grey as wood ash, the head hung to one side, the arms too long. It did not turn. By day they stand in the dark places like posts and are slow and half blind; I walked past. In the dark they are not slow. The faction's word for them is on the board at the dam: cenizos."
+    },
+    {
+      "flag": "body_reached",
+      "title": "The pale stain",
+      "text": "I stood by the body I saw from across the ravine. Not shot, not torn. The pale stain round it is ash: one of them stood over it a long time. Their bare feet leave the same marks as the tracks in the mud on my side. So one of them came along our bank once, and went back."
+    },
+    {
+      "flag": "m4_done",
+      "title": "M4",
+      "text": "Steel from my own furnace. A lathe. A wheel turning in the creek, and the rigs humming day and night off it. Ray's drawings are on the table: an uplink, and something up there that still answers. The ridge tower is next."
     }
   ]
 }

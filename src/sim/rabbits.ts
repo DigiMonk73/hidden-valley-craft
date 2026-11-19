@@ -48,13 +48,13 @@ export function newDay(before: number, after: number): boolean {
   return before < after ? before < 6 && after >= 6 : before < 6 || after >= 6;
 }
 
-/** Each loaded hutch holding two or more rabbits gains one, up to eight. Returns how many were born. */
+/** Each hutch holding two or more rabbits gains one, up to eight, wherever the player is. Returns how many were born. */
 export function breedHutches(world: World): number {
   const rabbit = itemId('live_rabbit');
   let born = 0;
   for (const [key, slots] of world.containers) {
     const x = key & 2047, z = (key >> 11) & 2047, y = key >>> 22;
-    if (world.blockAt(x, y, z) !== HUTCH) continue; // not loaded, or no longer a hutch
+    if (world.blockKnown(x, y, z) !== HUTCH) continue; // no longer a hutch (it breeds whether or not its land is loaded: the days away count)
     const n = slots.reduce((s, st) => s + (st && st.id === rabbit ? st.count : 0), 0);
     if (n < 2 || n >= HUTCH_MAX) continue;
     if (addTo(slots, rabbit)) born++;

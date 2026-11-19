@@ -66,6 +66,12 @@ import { M3_STEPS, trackM3, diedOutsideM3 } from './sim/milestones.ts';
 import { CATALOG_M3, DOC_PRICE } from './sim/trade.ts';
 import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
 import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts';
+import { ZONE3, onDamCrest, onDamRoad, ravineX, highwayX } from './gen/layout.ts';
+import { M4_STEPS, trackM4, diedOutsideM4 } from './sim/milestones.ts';
+import { CATALOG_RAY, RAY_PLANS_PRICE } from './sim/trade.ts';
+import { turning, HYDRO_KW } from './sim/power.ts';
+import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
+import { isWaterId } from './world/blocks.ts';
 
 const SAVE_KEY = 'save:1';
 const KILL_LINE: Record<Creature['kind'], string> = {
@@ -75,19 +81,26 @@ const KILL_LINE: Record<Creature['kind'], string> = {
   rusher: 'The man with the machete is down. His machete is yours.', jaguar: 'The jaguar is dead. Its pelt is yours.',
   patrol: 'The patrolman is down: a few rounds and casings. Las Cruces will send another at dawn.', sentry: 'The sentry is down. Another will walk his beat tomorrow.',
   guard: 'The guard is down: his rounds are yours. The tower will be manned again at dawn.',
+  ashen: 'It is down. It carries nothing, and you don’t touch it. Others drift in by dawn.',
 };
 /** Firearms: found, never crafted (ADR-019). Damage, seconds between shots, range, and what each fires. */
-const GUNS: Record<string, { damage: number; cooldown: number; range: number; ammo: string; sound: 'rifle' | 'pistol' }> = {
+const GUNS: Record<string, { damage: number; cooldown: number; range: number; ammo: string; sound: 'rifle' | 'pistol'; quiet?: boolean }> = {
   hunting_rifle: { damage: 45, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
   raider_rifle: { damage: 40, cooldown: 1.6, range: 120, ammo: 'rifle_rounds', sound: 'rifle' },
   pistol: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol' },
+  // M4's mods, made at the lathe from found guns (docs/PHASE7.md): the suppressed pistol is heard only close by.
+  pistol_suppressed: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol', quiet: true },
+  rifle_rebuilt: { damage: 48, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
 };
+/** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
+const ASHEN_HOLDS_H = 30;
 const BOWS = new Set(['compound_bow', 'hunting_bow']);
 const BLADES = new Set(['hunting_knife', 'machete', 'spear']);
 const isBow = (id: number | undefined) => id !== undefined && BOWS.has(itemName(id));
 const isWeapon = (id: number | undefined) => id !== undefined && (BOWS.has(itemName(id)) || itemName(id) in GUNS);
 const MARCO = people.marco;
 const DOC = people.doc;
+const RAY = people.ray;
 /** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
 const MARCO_HOURS: [number, number] = [7, 18];
 const SETTINGS_KEY = 'settings';
@@ -150,8 +163,9 @@ export class Game {
   private sprinting = false;
   /** The deep band's stinger plays once a visit, when the body across the ravine comes into view. */
   private stingerVisit = false;
-  /** A rifle shot this tick, for the creatures to hear. */
+  /** A rifle shot this tick, for the creatures to hear; a suppressed one is heard only close by. */
   private shotFired = false;
+  private quietShot = false;
   private lastBlow = -Infinity;
   private lastShot = -Infinity;
   /** When the bowstring was drawn (play time), or null. */
@@ -212,6 +226,16 @@ export class Game {
       // M3 (docs/PHASE6.md).
       if (r.out[0] === itemId('pistol_rounds') || r.out[0] === itemId('rifle_rounds')) { this.flags.add('ammo_made'); this.once('ammo_toast', 'Rounds of your own: powder, a cast bullet, a casing and a primer. The casings are finite: buy or find more.', 7000); }
       if (r.out[0] === blockId('solar_array')) this.once('array_toast', 'A solar array. Set it at home in the sun: the balcony, or the cliff above it. Two run a rig day and night once there is a battery bank.', 8000);
+      // M4 (docs/PHASE7.md).
+      if (r.out[0] === blockId('crucible_furnace')) this.once('furnace_toast', 'A crucible furnace. Set it by the smelter and right-click it: steel stock and coal make steel, or your own iron does.', 8000);
+      if (r.out[0] === itemId('steel_ingot') && !this.flags.has('steel_made')) { this.flags.add('steel_made'); this.hud.toast('Steel, from your own furnace. The lathe needs four ingots, the hydro generator six.', 8000); }
+      if (r.out[0] === blockId('lathe') && !this.flags.has('lathe_built')) { this.flags.add('lathe_built'); this.hud.toast('A lathe: workshop tier 2. Set it down and right-click it: gun mods, plate armour, tools.', 8000); }
+      if (r.out[0] === itemId('pistol_suppressed') || r.out[0] === itemId('rifle_rebuilt')) {
+        this.flags.add('gun_modded');
+        this.hud.toast(r.out[0] === itemId('pistol_suppressed') ? 'The pistol, suppressed. Its shot is heard only a dozen metres off: by raiders, and by the Ashen.' : 'The rifle, rebuilt: a new barrel and a scope. It hits harder and reaches as far as the builder’s.', 8000);
+      }
+      if (r.out[0] === itemId('plate_armor')) { this.flags.add('armor2_made'); this.hud.toast('Plate armour: it stops half of every blow. Carry it in your pack.', 7000); }
+      if (r.out[0] === blockId('hydro_generator')) this.once('hydro_toast', 'The hydro generator. Set it in the valley’s creek, at the water: it makes power day and night.', 9000);
       if (r.out[0] === blockId('powder_mill')) this.once('mill_toast', 'A powder mill. Set it down and right-click it: saltpeter, charcoal and sulfur make gunpowder.', 7000);
     };
     this.screen.known = this.flags;
@@ -339,6 +363,8 @@ export class Game {
       if (cureJerky(this.world)) this.edited();
       // Las Cruces sends out new men for any killed.
       factionDawn(this.wild.faction);
+      // And others of the Ashen drift in for those put down.
+      ashenDawn(this.wild.ashen);
       // The farm's feral flock regrows by a hen a day.
       this.wild.flockLeft = Math.min(FLOCK_SIZE, this.wild.flockLeft + 1);
     }
@@ -411,9 +437,10 @@ export class Game {
     const hurt = this.vitals.hp < this.hpBefore - 0.01;
     if (hurt) this.lastHurt = this.playTime;
     this.hpBefore = this.vitals.hp;
-    const h = this.home.update(dt, this.keys.has('KeyH'), hurt);
+    const h = this.home.update(dt, this.keys.has('KeyH'), hurt || (this.home.held !== null && this.ashenOnYou()));
     if (h === 'go') this.goHome();
     else if (h === 'cancelled' && hurt) this.hud.toast('Hurt: you stop. Get clear first.');
+    else if (h === 'cancelled' && this.ashenOnYou()) this.hud.toast('Not with one of them on you');
     if (Math.floor(this.time) !== this.lastPlaces) { this.lastPlaces = Math.floor(this.time); this.tickPlaces(); }
     // Mark where the player has been, for the map table (once a second).
     if (Math.floor(this.time) !== this.lastExplore) {
@@ -483,8 +510,13 @@ export class Game {
       pv: Math.hypot(p.vx, p.vz),
       sprint: this.sprinting,
       armband: this.hotbar.count(itemId('armband')) > 0,
+      quietShot: this.quietShot,
+      // The light the Ashen live by: daylight where it reaches, or lamplight.
+      lightAt: (x, y, z) => { const l = this.world.lightAt(x, y, z); return Math.max((l >> 4) * this.sky.daylight, l & 15); },
+      mining: this.mining.active && this.mining.progress > 0,
     });
     this.shotFired = false;
+    this.quietShot = false;
     this.wildEvents(ev);
   }
 
@@ -520,6 +552,14 @@ export class Game {
         if (!e.hit) { if (e.cover) this.sound.ricochet(...e.cover); else this.sound.zip(); }
       } else if (e.kind === 'swing') this.sound.swing(...at);
     }
+    for (const e of ev.ashen) {
+      const c = e.c, at = [c.x, c.y + 1.6, c.z] as const;
+      if (e.kind === 'breath') { if (Math.hypot(c.x - this.player.x, c.z - this.player.z) < 16) this.sound.ashenBreath(...at); }
+      else if (e.kind === 'notice') { this.sound.ashenNotice(...at); this.once('ashen_noticed', 'It has heard you. Stand still, or walk away: it comes for what runs. If it comes, step back when it rears and shrieks.', 8000); }
+      else if (e.kind === 'shriek') { this.sound.ashenShriek(...at, !!c.keen); this.once('ashen_shriek', 'It rears and shrieks: it is about to throw itself at you. Step back or aside, now. When it stumbles, strike or go.', 8000); }
+      else if (e.kind === 'lunge') this.sound.ashenLunge(...at);
+      else if (e.kind === 'miss') { this.sound.ashenMiss(...at); this.once('ashen_missed', 'It missed, and stands bent over. That is your moment.', 5000); }
+    }
     for (const j of ev.jaguar) {
       const jag = this.wild.creatures.find((c) => c.kind === 'jaguar');
       if (j === 'gone') {
@@ -553,6 +593,8 @@ export class Game {
     // The outpost's raiders stay dead: once all three are, it is quiet for good.
     // Zone-2's men stay down until dawn.
     if (FACTION_KINDS.has(c.kind) && c.squad) this.wild.faction.down |= c.squad;
+    // The Ashen too stay down until dawn.
+    if (c.kind === 'ashen' && c.squad) this.wild.ashen.down |= c.squad;
     if (c.kind === 'lookout' || c.kind === 'gunman' || c.kind === 'rusher') {
       this.wild.outpost.left &= ~RAIDER_BIT[c.kind];
       if (!this.wild.outpost.left && !this.flags.has('outpost_cleared')) {
@@ -590,6 +632,7 @@ export class Game {
     if (hurtCreature(c, damage)) { this.wild.remove(c); this.takeDrops(c); }
     if (RAIDER_KINDS.has(c.kind)) alertOutpost(this.wild.creatures, this.wild.outpost);
     if (FACTION_KINDS.has(c.kind)) this.wild.alertFaction();
+    if (c.kind === 'ashen' && c.hp > 0) this.wild.provoke(c, this.player.x, this.player.z);
   }
 
   /** A left-click on a creature in reach: a blow with what is in hand. True if there was one to hit. */
@@ -624,7 +667,8 @@ export class Game {
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
       || ['bed', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
-        'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate'].includes(name);
+        'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate',
+        'logbook_desk', 'hydro_generator', 'turbine', 'old_lathe', 'foundry_crucible', 'cenizos_board'].includes(name);
   }
 
   /** Right-click with the bow or rifle in hand. True if it was handled. */
@@ -642,8 +686,8 @@ export class Game {
       if (this.playTime - this.lastShot < gun.cooldown) return true;
       if (!this.hotbar.remove(itemId(gun.ammo), 1)) { this.hud.toast(gun.ammo === 'pistol_rounds' ? 'No pistol rounds' : 'No rifle rounds'); return true; }
       this.lastShot = this.playTime;
-      this.shotFired = true;
-      if (gun.sound === 'rifle') this.sound.rifle(); else this.sound.pistol();
+      if (gun.quiet) this.quietShot = true; else this.shotFired = true;
+      if (gun.quiet) this.sound.bowRelease(); else if (gun.sound === 'rifle') this.sound.rifle(); else this.sound.pistol();
       this.shake = Math.max(this.shake, gun.sound === 'rifle' ? 0.25 : 0.15);
       const hit = this.creatureInSight(gun.range);
       if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, gun.damage);
@@ -726,6 +770,7 @@ export class Game {
     if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you.'); return; }
     diedOutside(this.flags);
     diedOutsideM3(this.flags);
+    diedOutsideM4(this.flags);
     const at = leaveLostPack(this.world, this.hotbar, p.x, p.y + 0.2, p.z);
     if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
     this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
@@ -754,6 +799,10 @@ export class Game {
       const d = this.devices, near = (a: [number, number, number]) => Math.hypot(a[0] + 0.5 - p.x, a[2] + 0.5 - p.z) < 16;
       for (const r of d.mining_rig) if (this.power.on.mining_rig && near(r)) this.sound.machine(r[0] + 0.5, r[1] + 0.5, r[2] + 0.5, 118, 0.025);
       for (const r of d.fridge) if (this.power.on.fridge && near(r)) this.sound.machine(r[0] + 0.5, r[1] + 0.5, r[2] + 0.5, 60, 0.03);
+      for (const r of d.hydro_generator) if (near(r)) this.sound.machine(r[0] + 0.5, r[1] + 0.5, r[2] + 0.5, 86, 0.03);
+      // The powerhouse's one live turbine, still humming.
+      const ph = ZONE3.powerhouse;
+      if (Math.hypot(ph.x0 + 6 - p.x, ph.z0 + 6 - p.z) < 30) this.sound.machine(ph.x0 + 6.5, p.y + 1, ph.z0 + 6.5, 50, 0.06);
       const c = ZONE2.cave.cavern;
       if (Math.hypot((c.x0 + c.x1) / 2 - p.x, (c.z0 + c.z1) / 2 - p.z) < 26) this.sound.bubble((c.x0 + c.x1) / 2, p.y - 2, (c.z0 + c.z1) / 2);
     }
@@ -761,12 +810,16 @@ export class Game {
     const head = this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z));
     const valley = inSanctuary(p.x, p.z);
     const creek = valley ? Math.min(creekDistance(p.x, p.z), Math.max(0, Math.hypot(p.x - POOL.cx, p.z - POOL.cz) - POOL.radius)) : 99;
+    const falls = SPRINGS.map((f) => ({ pos: [f.x + f.dir, (VALLEY.water + f.top) / 2, (f.z0 + f.z1) / 2] as [number, number, number], loudness: fallsLoudness(f, p.x, p.z, valley) }));
+    // Near the dam, the second roar is its spillway (the canyon's falls are a kilometre off).
+    const D = ZONE3.dam;
+    if (Math.hypot(p.x - D.spill, p.z - D.z) < 300) falls[1] = { pos: [D.spill + 0.5, 62, D.z + 5], loudness: 1 };
     this.sound.update({
       x: p.x, y: p.eyeY, z: p.z, fx, fy, fz, hour: this.hour, inValley: valley,
       open: Math.min(1, Math.max(0, ((head >> 4) - 4) / 10)), underwater: p.headInWater, creekDist: creek,
       // The valley's falls, and the canyon's (the stronger spring, a little louder); each is muffled
       // by the ridge when heard from the other side of it.
-      falls: SPRINGS.map((f) => ({ pos: [f.x + f.dir, (VALLEY.water + f.top) / 2, (f.z0 + f.z1) / 2] as [number, number, number], loudness: fallsLoudness(f, p.x, p.z, valley) })),
+      falls,
       band: ((z) => (z === 'near' || z === 'mid' || z === 'deep' ? z : 'other'))(zoneAt(p.x, p.z)),
       raiders: this.wild.outpost.left > 0,
     });
@@ -967,6 +1020,7 @@ export class Game {
     if (name === 'pale_body' || name === 'pale_legs') { this.hud.toast('You don’t touch it.', 4000); return true; }
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
     if (this.usePhase6(name)) return true;
+    if (this.usePhase7(name)) return true;
     if (name === 'computer') {
       const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
       const m1 = this.flags.has('m1_done');
@@ -974,13 +1028,15 @@ export class Game {
         ['Hot wallet (phone)', btc(this.wallet), 'btc'],
         ['Cold wallet', cold ? '2.50000000 BTC (connected, kept cold)' : 'not connected', cold ? 'btc' : 'dim'],
         ...this.powerRows(),
-        ['Satellite uplink', 'no antenna', 'dim'],
+        ['Satellite uplink', this.flags.has('uplink_plans') ? 'Ray’s plans in hand · no antenna' : 'no antenna', 'dim'],
         ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
         ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}`, this.flags.has('m2_done') ? 'btc' : ''],
         ...M2_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['M3 · power up', this.flags.has('m3_done') ? 'done ✓' : `${M3_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M3_STEPS.length}`, this.flags.has('m3_done') ? 'btc' : ''],
         ...M3_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
+        ['M4 · hydro', this.flags.has('m4_done') ? 'done ✓' : `${M4_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M4_STEPS.length}`, this.flags.has('m4_done') ? 'btc' : ''],
+        ...M4_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['Last note', '“Back before the rains.”'],
       ], 'R.’s terminal'));
       return true;
@@ -990,7 +1046,8 @@ export class Game {
       const f = this.flags;
       const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
         outpost: f.has('outpost_seen'), mine: f.has('mine_seen'), camp: f.has('camp_marker'), bridge: f.has('bridge_seen'),
-        highway: f.has('highway_seen'), ruins: f.has('ruins_seen'), cave: f.has('cave_seen'), compound: f.has('compound_seen') };
+        highway: f.has('highway_seen'), ruins: f.has('ruins_seen'), cave: f.has('cave_seen'), compound: f.has('compound_seen'),
+        dam: f.has('dam_seen'), works: f.has('zone3_entered') };
       this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z, marks), marks.route ? 'The builder’s map · the road home is marked' : 'The builder’s map · filled in where you have been'));
       return true;
     }
@@ -1024,6 +1081,7 @@ export class Game {
       });
     }
     if (this.flags.has('doc_known')) rows.push({ name: DOC.contact, status: this.flags.has('doc_called') ? 'by phone' : 'new', cls: 'btc', call: () => { const line = this.callDoc(); return line; } });
+    if (this.flags.has('ray_known')) rows.push({ name: RAY.contact, status: this.flags.has('uplink_plans') ? 'by phone · plans sent' : this.flags.has('ray_called') ? 'by phone' : 'new', cls: 'btc', call: () => this.callRay() });
     rows.push({ name: 'Mamá', status: 'no answer', cls: 'dim' }, { name: 'Lucía', status: 'no answer', cls: 'dim' }, { name: 'Dr. Alvarez', status: 'no answer', cls: 'dim' }, { name: 'Raúl (pilot)', status: 'no answer', cls: 'dim' });
     rows.push({ name: 'Signal', status: 'satellite: weak' });
     if (this.flags.has('shelter_found')) rows.push({ name: 'Wallet', status: btc(this.wallet), cls: 'btc' });
@@ -1126,6 +1184,7 @@ export class Game {
       this.once('chickens_seen', 'Feral chickens. Walk up close and right-click to catch one. Two make a pair for a coop.', 7000);
     this.tickFarPlaces();
     this.tickZone2();
+    this.tickZone3();
     // The coops' hens walk round them, as many as each holds.
     this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
@@ -1181,7 +1240,6 @@ export class Game {
     if (near(DECK_END[0], DECK_END[2], 14)) this.once('bridge_seen', 'The bridge is gone. Across the ravine, something pale lies in the undergrowth.', 8000);
     const [[ax, az], [bx, bz]] = F.tracks;
     if (near((ax + bx) / 2, (az + bz) / 2, 9)) this.once('tracks_seen', 'Tracks in the mud: two-legged, but not boots, and not paws. Days old, maybe weeks.', 9000);
-    if (p.x < F.bridge.far - 2 && zone === 'zone3') this.once('zone3_seen', 'Zone 3. The forest is silent here.', 6000);
     // The stinger: once a visit, the first time the body across the ravine comes into view.
     const b = F.body, bd = Math.hypot(p.x - b.x, p.z - b.z);
     if (bd > 130) this.stingerVisit = false;
@@ -1326,6 +1384,8 @@ export class Game {
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
       if (e.code === 'KeyQ') this.toggleFocus();
       if (e.code === 'KeyH' && !e.repeat) {
+        // Not an escape from the Ashen: with one hunting you close by, H does nothing (docs/PHASE7.md).
+        if (this.ashenOnYou() && !(this.player.flying && this.hotbar.creative)) { this.home.cancel(); this.hud.toast('Not with one of them on you'); return; }
         const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
         if (r === 'go') this.goHome();
         else if (r === 'danger') this.hud.toast('Not with danger this close');
@@ -1417,7 +1477,7 @@ export class Game {
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
       wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
       power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
-      factionDown: this.wild.faction.down,
+      factionDown: this.wild.faction.down, ashenDown: this.wild.ashen.down,
     };
   }
 
@@ -1442,6 +1502,8 @@ export class Game {
     this.wild.outpost = outpostFromSave(d.outpost);
     this.power = powerFromSave(d.power);
     this.wild.faction.down = Number.isFinite(d.factionDown) ? d.factionDown! & 31 : 0; // the men killed stay down until dawn, reload or not
+    this.wild.ashen.down = Number.isFinite(d.ashenDown) ? d.ashenDown! & ALL_ASHEN : 0;
+    this.wild.ashen.firstOut = !this.flags.has('ashen_seen');
     this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
     this.powerHour = null;
     this.devices = findDevices(this.world.edits);
@@ -1560,6 +1622,8 @@ export class Game {
       this.wild.denLeft = 3;
       this.wild.flockLeft = FLOCK_SIZE;
       this.wild.outpost = { left: ALL_RAIDERS, alert: false };
+      this.wild.faction.down = 0;
+      this.wild.ashen = { down: 0, firstOut: true };
       this.power = newPower();
       this.dose = 0;
       this.powerHour = null;
@@ -1616,10 +1680,12 @@ export class Game {
   /** Once a second: the home's power on the game clock (sleep included), the rig's pay, the fridge, the dose fading; Zone-2's toasts; M3. */
   private tickZone2(): void {
     const p = this.player, f = this.flags, Z = ZONE2;
-    const last = this.devices.solar_array;
+    const last = this.devices.solar_array, lastHydro = this.devices.hydro_generator;
     this.devices = findDevices(this.world.edits);
     // An array in the cave makes nothing: only those under open sky count.
     this.devices.solar_array = sunlit(this.devices.solar_array, (x, y, z) => (this.world.isLoaded(x, z) ? skyOf(this.world.lightAt(x, y, z)) : null), last);
+    // A generator turns only at the valley's water.
+    this.devices.hydro_generator = turning(this.devices.hydro_generator, (x, y, z) => (this.world.isLoaded(x, z) ? this.waterNear(x, y, z) : null), lastHydro);
     if (this.powerHour === null) this.powerHour = this.hour;
     const minutes = Math.floor((((this.hour - this.powerHour) % 24) + 24) % 24 * 60);
     if (minutes > 0) {
@@ -1694,7 +1760,7 @@ export class Game {
       return true;
     }
     if (name === 'mining_rig') {
-      this.hud.toast(P.on.mining_rig ? `The rig hums: ${(RIG_THS * d.mining_rig.length).toFixed(2)} TH/s. Today it has mined ${btc(P.satsToday)}.` : 'The rig is still: no power. It needs the sun, or a charged battery bank.', 6000);
+      this.hud.toast(P.on.mining_rig ? `${P.rigs > 1 ? `The farm hums: ${P.rigs} rigs,` : 'The rig hums:'} ${(RIG_THS * P.rigs).toFixed(2)} TH/s. Today ${P.rigs > 1 ? 'they have' : 'it has'} mined ${btc(P.satsToday)}.${P.rigs < d.mining_rig.length && !d.hydro_generator.length ? ' More than one rig needs a hydro generator.' : ''}` : 'The rig is still: no power. It needs the sun, or a charged battery bank.', 6000);
       return true;
     }
     if (name === 'battery_bank') { this.hud.toast(`Battery bank: ${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh.`); return true; }
@@ -1711,13 +1777,17 @@ export class Game {
   /** The computer's power lines (docs/PHASE6.md, 6). */
   private powerRows(): [string, string, string][] {
     const P = this.power, d = this.devices, n = d.mining_rig.length;
-    if (!d.solar_array.length && !n) return [['Mining', 'no rig: needs a solar array and a battery bank', 'dim']];
+    if (!d.solar_array.length && !n && !d.hydro_generator.length) return [['Mining', 'no rig: needs a solar array and a battery bank', 'dim']];
+    const hydro = d.hydro_generator.length;
     return [
+      ...(hydro ? [['Hydro', `${hydro} generator${hydro === 1 ? '' : 's'} in the creek · ${(hydro * HYDRO_KW).toFixed(2)} kW, day and night`, 'btc'] as [string, string, string]] : []),
       ['Solar', `${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} · ${P.made.toFixed(2)} kW now`, ''],
       ['Battery bank', d.battery_bank.length ? `${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh` : 'none', d.battery_bank.length ? '' : 'dim'],
-      ['Mining rig', n ? (P.on.mining_rig ? `${(RIG_THS * n).toFixed(2)} TH/s · running` : 'stopped: no power') : 'none', n && P.on.mining_rig ? 'btc' : 'dim'],
+      n > 1
+        ? ['Mining farm', P.rigs ? `${P.rigs} of ${n} rigs running · ${(RIG_THS * P.rigs).toFixed(2)} TH/s${P.rigs < n ? (hydro ? ' · short of power' : ' · more than one rig needs hydro') : ''}` : 'stopped: no power', P.rigs ? 'btc' : 'dim']
+        : ['Mining rig', n ? (P.on.mining_rig ? `${(RIG_THS * n).toFixed(2)} TH/s · running` : 'stopped: no power') : 'none', n && P.on.mining_rig ? 'btc' : 'dim'],
       ['Mined today', btc(P.satsToday), 'btc'],
-      ['Mined in all', `${btc(P.satsTotal)} (about ${btc(RIG_SATS_PER_DAY * Math.max(1, n))} a day, powered)`, 'btc'],
+      ['Mined in all', `${btc(P.satsTotal)} (about ${btc(RIG_SATS_PER_DAY * Math.max(1, hydro ? n : Math.min(n, 1)))} a day, powered)`, 'btc'],
       ['Fridge', d.fridge.length ? (P.on.fridge ? 'cold' : 'off: no power') : 'none', d.fridge.length ? '' : 'dim'],
       ['Water pump', d.water_pump.length ? (P.on.water_pump ? 'ready' : 'off: no power') : 'none', d.water_pump.length ? '' : 'dim'],
     ];
@@ -1747,6 +1817,126 @@ export class Game {
           this.wallet -= DOC_PRICE.rad; this.dose = 0;
           return DOC.rad;
         }),
+      ],
+    })));
+    return say;
+  }
+
+  // ---- Zone-3 and hydro (docs/PHASE7.md) ---------------------------------------------------------
+
+  /** Is an Ashen hunting the player close by? Then hold H does nothing. */
+  private ashenOnYou(): boolean {
+    const p = this.player;
+    return ashenOn(this.wild.creatures, p.x, p.z, ASHEN_HOLDS_H);
+  }
+
+  /** Is there water within two blocks of a block, beside it or a block below (a generator turns only there)? */
+  private waterNear(x: number, y: number, z: number): boolean {
+    for (let dy = -1; dy <= 0; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (isWaterId(this.world.blockAt(x + dx, y + dy, z + dz))) return true;
+    return false;
+  }
+
+  /** Once a second: Zone-3's places, the first time each is reached; the first Ashen; M4. */
+  private tickZone3(): void {
+    const p = this.player, f = this.flags, Z = ZONE3, D = Z.dam;
+    const near = (x: number, z: number, r: number) => Math.hypot(p.x - x, p.z - z) < r;
+    const mid = (b: { x0: number; x1: number; z0: number; z1: number }): [number, number] => [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2];
+    const zone = zoneAt(p.x, p.z);
+    this.wild.ashen.firstOut = !f.has('ashen_seen');
+    if (near(highwayX(D.z) - 4, D.z, 12)) this.once('dam_road_seen', 'A sign: PRESA RÍO SECO, and a side road west, lit. A dam, on the river.', 7000);
+    if (onDamRoad(p.x, p.z, 3) && p.x < Z.barricade.x + 14)
+      this.once('dam_seen', 'The faction’s barricade, and a board: NO PASAR · CENIZOS. “The ashen ones.” They don’t cross the dam. Beyond it is Zone 3: danger 6, and 7 in the dark. Nobody lives there. Something does.', 12000);
+    if (onDamCrest(p.x, p.z)) this.once('dam_crest', 'The dam. The river’s gorge is the ravine you know. The lights are still on: the dam still makes power. Whatever is over there does not come onto the dam.', 10000);
+    if (near(...mid(Z.control), 9)) this.once('control_seen', 'The dam’s control house. There is a logbook on the desk: right-click it.', 7000);
+    // The first Ashen: seen from the bend above, by day, standing in the road.
+    const first = this.wild.creatures.find((c) => c.kind === 'ashen' && c.post);
+    const seeOne = this.wild.creatures.find((c) => c.kind === 'ashen' && near(c.x, c.z, 60) && this.inView(c.x, c.y + 1.5, c.z));
+    if (!f.has('ashen_seen') && (first ? near(first.x, first.z, 62) && this.inView(first.x, first.y + 1.5, first.z) : !!seeOne)) {
+      this.once('ashen_seen', 'Down in the road: it was a man once. One of the Ashen. By day and in the light they are slow and half blind: walk, don’t run, keep a few metres off, and stay out of dark places. In the dark they are fast. (In your notes.)', 14000);
+      this.sound.stinger(1, (first ?? seeOne)!.x, p.y + 2, (first ?? seeOne)!.z, 0.35);
+    }
+    if (zone === 'zone3' && p.x < ravineX(p.z) - 22) {
+      const night = this.hour >= 19 || this.hour < 5.5;
+      this.once('zone3_entered', 'Zone 3. Danger 6. The street lamps still burn off the dam: keep to them.' + (night ? ' It is night: they are out, and fast. Go back, or stay in the light.' : ' By day they keep to the dark ends of the buildings.'), 10000);
+    }
+    if (near(Z.powerhouse.x0 - 3, Z.powerhouse.door + 1, 9))
+      this.once('powerhouse_seen', 'The powerhouse. One turbine still turns. Inside, by the door, under the lamps: a parts crate, a tool locker, control cabinets. The far end is dark: leave it be.', 11000);
+    if (near(Z.shop.x0 - 3, Z.shop.door + 1, 9) || near(Z.foundry.x1 + 2, Z.foundry.door + 1, 9))
+      this.once('shops_seen', 'A machine shop and a foundry. In the lit halves: lathes (mine one for its parts), racks of steel, and the foundry’s crucible (mine it). The back halves are dark.', 11000);
+    if (near(Z.signalBox.x0, Z.signalBox.z1 + 6, 14))
+      this.once('yard_seen', 'A rail yard. Rails and the flatcar’s plate mine to steel stock; the hopper wagon is full of coal; there is a crate in the first boxcar. The engine shed is dark.', 11000);
+    if (near(Z.mine.headX, Z.mine.z, 8)) this.once('mine3_seen', 'MINA SAN ROQUE. Lamps all the way down. Iron and coal are thick in the gallery’s walls. Mining is loud: watch the unlit drift at the far end.', 10000);
+    const b = ZONE1FAR.body;
+    if (near(b.x, b.z, 7)) this.once('body_reached', 'The body you saw from across the ravine. Not shot, not torn. The pale stain round it is ash: one of them stood here a long time. (In your notes.)', 10000);
+    // M4.
+    const d = this.devices;
+    const m4 = trackM4(f, p.x, p.z, { hydro: d.hydro_generator.length, rigs: this.power.rigs });
+    if (m4.length) this.edited();
+    if (m4.includes('zone3_home')) this.hud.toast('Home from across the dam, alive.', 6000);
+    if (m4.includes('hydro_built')) this.hud.toast('The generator turns. Two kilowatts, day and night: more than one rig will run now. Call Ray.', 9000);
+    if (m4.includes('farm_running')) this.hud.toast('Three rigs humming at once: a farm. The computer shows what it earns.', 7000);
+    if (m4.includes('m4_done')) this.hud.toast('M4 · hydro. The creek keeps the lights on now. Ray’s drawings are on the table: the ridge tower is next.', 10000);
+  }
+
+  /** Is a point in front of the player with nothing solid between (roughly: within the view's middle)? */
+  private inView(x: number, y: number, z: number): boolean {
+    const p = this.player, tx = x - p.x, ty = y - p.eyeY, tz = z - p.z, len = Math.hypot(tx, ty, tz) || 1;
+    const [dx, dy, dz] = p.lookDir();
+    if ((dx * tx + dy * ty + dz * tz) / len < 0.8) return false;
+    return clearShot((bx, by, bz) => this.world.blockAt(bx, by, bz), p.x, p.eyeY, p.z, tx / len, ty / len, tz / len, len - 1);
+  }
+
+  /** Right-click on Phase 7's things. True if handled. */
+  private usePhase7(name: string): boolean {
+    if (name === 'logbook_desk') {
+      if (!this.flags.has('ray_known')) { this.flags.add('ray_known'); this.edited(); this.hud.toast(RAY.logbook, 12000); }
+      else this.hud.toast('Ray’s logbook. His number is in your phone.');
+      return true;
+    }
+    if (name === 'hydro_generator') {
+      const d = this.devices.hydro_generator.length;
+      this.hud.toast(d ? `The generator turns: ${(d * HYDRO_KW).toFixed(0)} kW, day and night.` : 'The generator is still: it needs moving water. Set it in the valley’s creek, at the water’s edge.', 6000);
+      return true;
+    }
+    if (name === 'turbine') { this.hud.toast('It still turns. Eight years with no one to stop it: that is why the lamps are lit.', 6000); return true; }
+    if (name === 'old_lathe') { this.hud.toast('A lathe, seized solid. Mine it with a pickaxe for its parts: the headstock, the chuck, the lead screw.', 6000); return true; }
+    if (name === 'foundry_crucible') { this.hud.toast('The foundry’s crucible. Mine it with a pickaxe to take it home: the heart of a steel furnace.', 6000); return true; }
+    if (name === 'cenizos_board') { this.hud.toast('NO PASAR · CENIZOS. Painted by the faction. A pale figure with long arms, crossed out.', 6000); return true; }
+    return false;
+  }
+
+  /** Calling Ray: a line, the uplink plans once the generator turns, then what he sells (DESIGN.md A3: premium, buy-only). */
+  private callRay(): string {
+    const first = !this.flags.has('ray_called');
+    this.flags.add('ray_called');
+    let say = first ? RAY.first : RAY.again[Math.floor(Math.random() * RAY.again.length)];
+    // The contact-taught schematic: the uplink plans, the first call after the generator turns.
+    if (!first && this.flags.has('hydro_built') && !this.flags.has('uplink_plans')) {
+      if (this.hotbar.add(itemId('uplink_plans'), 1) > 0) say = RAY.uplinkFull;
+      else { this.flags.add('uplink_plans'); say = RAY.uplink; }
+    } else if (!first && this.flags.has('hydro_plans') && !this.flags.has('hydro_built')) say = RAY.notYet;
+    this.edited();
+    const why = { funds: RAY.funds, room: 'No room in your pack.', none: '' };
+    this.openPaper(() => this.paper.trade(() => ({
+      title: `${RAY.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can send', sellHead: null, sell: [],
+      buy: [
+        ...(this.flags.has('hydro_plans') ? [] : [{
+          icon: iconFor(itemId('uplink_plans')), label: 'Micro-hydro plans (teaches the hydro generator)', price: btc(RAY_PLANS_PRICE), button: 'Buy', can: this.wallet >= RAY_PLANS_PRICE,
+          act: () => {
+            if (this.wallet < RAY_PLANS_PRICE) return RAY.funds;
+            this.wallet -= RAY_PLANS_PRICE; this.flags.add('hydro_plans'); this.edited();
+            return RAY.plansBought;
+          },
+        }]),
+        ...CATALOG_RAY.map((lot) => ({
+          icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy', can: this.wallet >= lot.sats,
+          act: () => {
+            const r = buy(this.hotbar, this.wallet, lot);
+            if (!r.ok) return why[r.why];
+            this.wallet = r.wallet; this.edited();
+            return `Ray sends ${itemLabel(lot.id)} ×${lot.lot}.`;
+          },
+        })),
       ],
     })));
     return say;

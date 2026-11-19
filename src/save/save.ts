@@ -43,6 +43,8 @@ export interface SaveData {
   dose?: number;
   /** Zone-2's men killed since dawn, as bits (Phase 6): they stay down across a reload. Absent: none. */
   factionDown?: number;
+  /** Zone-3's Ashen put down since dawn, as bits (Phase 7): they stay down across a reload. Absent: none. */
+  ashenDown?: number;
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

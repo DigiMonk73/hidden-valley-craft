@@ -1,7 +1,7 @@
 // The map on the builder's table: the land from the layout, shown only where the player has been
 // (one cell per 32 m column), with the cave and the player marked.
 
-import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL, ZONE2, highwayX } from '../gen/layout.ts';
+import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL, ZONE2, highwayX, ZONE3, inReservoir } from '../gen/layout.ts';
 import { SCOUT_AT } from '../gen/zone1.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
 
@@ -21,7 +21,7 @@ function landColours(): Uint8ClampedArray {
       let c = zone === 'valley' ? [126, 160, 92] : zone === 'zone4' ? [168, 156, 128] : zone === 'zone3' ? [120, 138, 104] : [104, 138, 88];
       if (Math.abs(h - hx) > 6 || h > 160) c = [176, 166, 140];
       const wet = (distToValley(x, z) < VALLEY.radius && (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius || creekDistance(x, z) < 3)) ||
-        Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius || inCanyonStream(x, z, step / 2);
+        Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius || inCanyonStream(x, z, step / 2) || inReservoir(x, z);
       if (wet) c = [86, 132, 164];
       const shade = Math.max(0.6, Math.min(1.25, 0.8 + (h - 90) / 260 + (h - hx) * 0.03));
       px.set([c[0] * shade, c[1] * shade, c[2] * shade, 255], (j * N + i) * 4);
@@ -31,7 +31,7 @@ function landColours(): Uint8ClampedArray {
 }
 
 /** What the map shows beyond the land: the road home once known, and the places found. */
-export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean; highway?: boolean; ruins?: boolean; cave?: boolean; compound?: boolean }
+export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean; highway?: boolean; ruins?: boolean; cave?: boolean; compound?: boolean; dam?: boolean; works?: boolean }
 
 export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, marks: MapMarks = {}): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -79,6 +79,16 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, 
   if (marks.ruins) { mark((Z.mall.x0 + Z.mall.x1) / 2, (Z.mall.z0 + Z.mall.z1) / 2, '#3b6ea5'); mark((Z.exchange.x0 + Z.exchange.x1) / 2, (Z.exchange.z0 + Z.exchange.z1) / 2, '#3b6ea5'); }
   if (marks.cave) mark(Z.cave.mouthX, Z.cave.z, '#c8b22a');
   if (marks.compound) mark((Z.compound.x0 + Z.compound.x1) / 2, (Z.compound.z0 + Z.compound.z1) / 2, '#a3241c');
+  // Zone-3's dam road and dam, and beyond it the avenue and the works, once found (docs/PHASE7.md).
+  const Z3 = ZONE3, D = Z3.dam;
+  if (marks.dam) { ctx.fillStyle = '#5a5a5a'; ctx.fillRect(D.x1 * s, D.z * s - 0.5, (highwayX(D.z) - D.x1) * s, 1); ctx.fillStyle = '#d8d8d4'; ctx.fillRect(D.x0 * s, D.z * s - 1, (D.x1 - D.x0) * s, 2); }
+  if (marks.works) {
+    ctx.fillStyle = '#5a5a5a';
+    ctx.fillRect(Z3.avenue.x * s, D.z * s - 0.5, (D.x0 - Z3.avenue.x) * s, 1);
+    ctx.fillRect(Z3.avenue.x * s - 0.5, D.z * s, 1, (Z3.avenue.z1 - D.z) * s);
+    for (const b of [Z3.powerhouse, Z3.shop, Z3.foundry]) mark((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, '#2d5f8a');
+    mark((Z3.yard.x0 + Z3.yard.x1) / 2, Z3.yard.z0 + 30, '#6e3a22');
+  }
   // The cave, and where the player stands.
   ctx.fillStyle = '#7a1f12';
   ctx.fillRect(HOME.wallX * s - 2, VALLEY.cz * s - 2, 4, 4);

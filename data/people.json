@@ -1,5 +1,5 @@
 {
-  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2). Doc (docs/PHASE6.md, 4): a doctor somewhere up the highway, by sat-phone only; he sells services, flat per kind, and stays a character. Marco's trust 2 comes with your first run to Las Cruces.",
+  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2). Doc (docs/PHASE6.md, 4): a doctor somewhere up the highway, by sat-phone only; he sells services, flat per kind, and stays a character. Marco's trust 2 comes with your first run to Las Cruces. Ray (docs/PHASE7.md, 3): the dam's engineer, by sat-phone; he sells plans and parts at a premium, buys nothing, and gives the uplink plans once your hydro generator turns.",
   "marco": {
     "name": "Marco",
     "contact": "Marco (trader)",
@@ -35,5 +35,22 @@
     "notHurt": "“You sound fine to me. Call when you’re not.”",
     "noDose": "“No dose to treat. Keep it that way.”",
     "funds": "“The coin first, my friend. I have to eat too.”"
+  },
+  "ray": {
+    "name": "Ray",
+    "contact": "Ray (R. Quispe, engineer)",
+    "logbook": "Logbook, Presa Río Seco. The last two years of entries are in one hand: “R. Quispe, ing.” Inside the cover, a sat-phone number, and: “If the lights are still on, someone call me.” His number is in your phone now: call him from the cave.",
+    "first": "“…Quispe. Who is this? You read my logbook. Then the lights are still on. Ha. Eight years, and she still turns. I ran that dam alone for two years after, until the cenizos came up from the yards. I can’t go back. But I can sell you drawings, and parts, if you have coin. I don’t buy: I have no use for your scrap.”",
+    "again": [
+      "“Quispe. Is she still humming? Good.”",
+      "“The Seco goes underground below my dam, you know. Nobody ever found where it comes out.”",
+      "“By day they stand like posts. Walk. Never run, never shoot unless you mean to leave.”",
+      "“Stay under the lamps. I left them on for a reason.”"
+    ],
+    "plansBought": "“Micro-hydro: a runner, a generator, a penstock you can build from pipe. Put it where the water moves. You’ll need the runner and the core from my powerhouse, and the sluice tools from the locker there. Get it turning, then call me.”",
+    "notYet": "“Is it turning yet? Water through the runner, current on the meter. Then call me.”",
+    "uplink": "“It turns? Then you can build what I never could. I’m sending you drawings: a satellite uplink. There is something up there that still answers, if you ask it the right way. You’ll need an antenna, and the only one left standing is on the ridge tower, north-west, past everything. Not yet. But now you have the drawings.” (Ray’s uplink plans are in your pack.)",
+    "uplinkFull": "“I have drawings for you. Make room in your pack and call again.”",
+    "funds": "“Coin first. Engineers eat too.”"
   }
 }

@@ -67,7 +67,7 @@ Simple, short, well lit, easy to find. So in this phase:
 | **The reservoir** | the gorge north of the dam, to about z 190 | Deep water, rim to rim. |
 | **The river** | below the dam to z 864 | A plunge pool, a stream that thins, a dry bed of gravel where it sinks. |
 | **The control house** | x 597–605, z 743–750, on the crest road | One room: the engineer's desk with **Ray's logbook** (right-click), a wall of dead gauges, a window on the reservoir. Lit. |
-| **The powerhouse** | x 586–604, z 772–797 | The turbine hall. North half lit: one turbine still running (a hum, a green lamp), the **parts crate** (turbine runner, generator core), the **tool locker** (the sluice tools), two **control cabinets** (advanced electronics: boards, power supplies, graphics cards). South half dark: two dead turbine pits, railed. Penstock pipes come down the bank from the dam; the tailrace pours from its east wall into the gorge. |
+| **The powerhouse** | x 586–604, z 772–797 | The turbine hall. North half lit: one turbine still running (a hum, a green lamp), the **parts crate** (the turbine parts), the **tool locker** (the sluice tools), two **control cabinets** (advanced electronics: boards, power supplies, graphics cards). South half dark: two dead turbine pits, railed. Penstock pipes come down the bank from the dam; the tailrace pours from its east wall into the gorge. |
 | **The machine shop** | x 586–604, z 846–866 | "TALLER MECÁNICO". By the door, lit: three **lathes** (mine one for lathe parts), **steel racks** (steel stock), a tool crate. The back half is dark. |
 | **The foundry** | x 556–574, z 852–872 | "FUNDICIÓN". By the door, lit: the **crucible** (mine it: the heart of a steel furnace), firebrick stacks, casting flasks. The back is dark. |
 | **The rail yard** | x 544–575, z 902–1012 | Two tracks north–south. A **locomotive**, a **hopper wagon heaped with coal** (mine it), a **flatcar of steel plate** (mine it), two **boxcars** (one a crate of canvas, wire and hardware; one empty and dark). **Rails** mine to steel stock. The **signal box**, two storeys, a red light on its mast. Lamp posts down the platform. |
@@ -127,7 +127,7 @@ Simple, short, well lit, easy to find. So in this phase:
 - **How you meet him:** the logbook in the control house. *"Logbook, Presa Río Seco. The last entries are one hand: 'R. Quispe, ing.' On the inside cover, a sat-phone number and: 'If the lights are still on, someone call me.'"* His contact appears on the phone at home.
 - **Who he is:** the dam's engineer. He kept it running alone for two years after the Event, then left when the Ashen came up from the yards. Dry, exact, a little proud of his dam.
 - **What he does** (DESIGN.md: "premium item-priced, buy-only", and one contact-taught schematic):
-  1. **Sells the micro-hydro plans** (12 units). Buying them teaches the hydro generator's recipe.
+  1. **Sells the micro-hydro plans** (12 units). Buying them teaches the hydro generator's recipe. The plans are knowledge, not an item (the script: schematics are recipe-unlock flags), and every recipe keeps to the script's four kinds of input.
   2. **Sells parts at a premium**: steel ingots, a graphics card, a power supply, a mining board, wiring. For players who want a bigger farm than the salvage allows. He buys nothing: Marco is the only buyer.
   3. **Gives the uplink plans.** The first call after your hydro generator is turning: *"It turns? Then you can build what I never could. I'm sending you drawings: an uplink. You'll need an antenna from the ridge tower."* The item `uplink_plans` arrives, and M4's step ticks. This is the lead-in to Phase 8.
 - A unit is the trade unit, as before (25,000 sats).
@@ -139,7 +139,7 @@ Simple, short, well lit, easy to find. So in this phase:
 | Item | From |
 |---|---|
 | `steel_stock` (rail and plate) | mining rails, the flatcar's plate, the shop's steel racks |
-| `turbine_runner`, `generator_core` (the script's "turbine parts") | the powerhouse's parts crate |
+| `turbine_parts` (the script's "turbine parts": the runner and the generator core) | the powerhouse's parts crate |
 | `sluice_tools` (the script's "river-engineering tools": a gate winch and keys) | the powerhouse's tool locker |
 | `gpu`, `psu`, `mining_board` (the script's "advanced electronics") | the powerhouse's control cabinets: enough for two more rigs |
 | `lathe_parts` (headstock, chuck, lead screw) | mining a lathe in the machine shop |
@@ -155,7 +155,7 @@ Simple, short, well lit, easy to find. So in this phase:
 | crucible furnace | steel ingot ×2 | steel stock 2, coal 1 | salvage, re-melted |
 | crucible furnace | steel ingot ×1 | iron ingot 2, coal 2 | from your own iron: steel never runs out |
 | workbench | lathe | lathe parts 1, steel ingot 4, wiring 2, planks 2 | workshop tier 2 |
-| workbench | hydro generator | turbine runner 1, generator core 1, steel ingot 6, wiring 4, pipe fittings 4 (sluice tools kept) | after Ray's plans; 2 kW, day and night |
+| workbench | hydro generator | turbine parts 1, steel ingot 6, wiring 4 (sluice tools kept) | shows once Ray's plans are bought; 2 kW, day and night |
 | lathe | suppressed pistol | pistol 1, steel ingot 2, pipe fittings 1 | a found gun, modified (ADR-019) |
 | lathe | rebuilt rifle | the lookout's worn rifle 1, steel ingot 3, glass 1 | re-barrelled, a scope fitted |
 | lathe | plate armour | armour vest 1, steel ingot 4, leather 2 | tier 2: stops half of every blow |
@@ -236,3 +236,10 @@ The computer lists M4's steps with ticks under M3:
 ## Progress
 
 - **DONE: The plan and the map.** Sent to the lead for the owner's look. The layout's numbers are in `ZONE3` (`src/gen/layout.ts`); a baseline hash of the land east of the gorge is in `tests/fixtures/east-of-ravine.json` (`tools/worldhash.ts` makes and compares them).
+- **DONE: Data** (`data/*.json`): the items, blocks, recipes, Ray's catalogue and lines, the notes, with icons and textures drawn in code. The crucible furnace and the lathe are stations. A planter box counts as farmland.
+- **DONE: Power: hydro and the farm** (`src/sim/power.ts`). A generator counts only with water within two blocks of it (`turning`), as an array counts only under open sky. Rigs now run one by one as power allows; beyond the first only with a generator. The computer shows the hydro line and the farm line.
+- **DONE: The Ashen's mind, look and voice** (`src/entity/ashen.ts`, `src/render/creatures.ts`, `src/audio/audio.ts`). Each nest has a short set path out of its dark room (`ZONE3.nests[].path`), walked out and back; everything else is a straight line at what it hunts. *Why no path-finding:* the game has none, and a nest's door is one or two straight legs by design.
+  - A suppressed shot is heard at 12 m, by the Ashen and by raiders.
+  - Hold H does nothing while one hunts you within 30 m (`ashenOn`).
+- **DONE: Ray, M4 on the computer, the mods and the armour** (`src/game.ts`, `src/sim/milestones.ts`): the logbook, his calls and catalogue, the plans, the uplink plans after hydro; the eight M4 lines; the toasts for Zone-3's places; the map table's dam and works; the spillway's roar and the turbine's hum.
+- **DONE: Hutches and coops while away** (`World.blockKnown`): smokers and jerky racks too, by the same rule.
