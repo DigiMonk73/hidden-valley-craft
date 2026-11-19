@@ -115,6 +115,8 @@ const setDown = (name, k) => g(([n, k]) => {
   let y = 90; while (y > 60 && w.blockAt(x, y - 1, z) === 0) y--;
   w.setBlock(x, y, z, window.__hv.itemId(n));
   gm.hotbar.remove(window.__hv.itemId(n), 1);
+  // Ferns and grass in front would take the click, as a player would mow them first.
+  for (let dz = 1; dz <= 3; dz++) for (let dy = 0; dy < 3; dy++) { const b = window.__hv.blockName(w.blockAt(x, y + dy, z + dz)); if (/fern|grass|bromeliad|orchid|bamboo/.test(b) && b !== 'grass') w.setBlock(x, y + dy, z + dz, 0); }
   return [x, y, z];
 }, [name, k]);
 

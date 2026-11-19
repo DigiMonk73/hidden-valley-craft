@@ -27,7 +27,7 @@ const doorZ = (name: string) => Math.floor((shop(name).z0 + shop(name).z1) / 2);
 /** Where the game's things stand (their contents are in src/gen/inheritance.ts). */
 export const PHARMACY_COUNTER: [number, number, number] = [Z.mall.x0 + 5, MF, doorZ('farmacia') + 2];
 export const PHARMACY_SHELF: [number, number, number] = [Z.mall.x1 - 2, MF, doorZ('farmacia') - 3];
-export const HARDWARE_CRATE: [number, number, number] = [Z.mall.x1 - 2, MF, shop('ferreteria').z0 + 2];
+export const HARDWARE_CRATE: [number, number, number] = [Z.mall.x1 - 2, MF, shop('ferreteria').z0 + 1]; // clear of the shelves' row
 export const DISPLAY_FRIDGES: [number, number, number][] = [0, 4, 8].map((k) => [Z.mall.x1 - 2, MF, shop('supermercado').z0 + 3 + k]);
 export const CAR_BATTERIES: [number, number, number][] = [0, 1, 2, 3].map((k) => [Z.mall.x0 + 8, MF, shop('ferreteria').z0 + 5 + k]);
 export const SERVER_RACKS: [number, number, number][] = [Z.exchange.x0 + 4, Z.exchange.x0 + 8].flatMap((x) => [0, 2, 4].map((k) => [x, EF, Z.exchange.z0 + 2 + k] as [number, number, number]));
@@ -150,7 +150,7 @@ export function buildZone2(col: Uint16Array, x0: number, z0: number): void {
       for (const z of [dz - 1, dz, dz + 1]) put(m.x0 - 1, MF + 3, z, sign);
       put(m.x0 - 1, MF + 3, dz - 3, 'lantern'); put(m.x0 - 1, MF + 3, dz + 3, 'lantern');
       put(m.x0 + 6, MF + 4, dz, 'lantern'); // a lamp hung inside
-      for (let z = s.z0 + 2; z < s.z1 - 2; z += 3) if (s.name !== 'farmacia' || z < PHARMACY_COUNTER[2] - 1) put(m.x0 + 10, MF, z, 'shop_shelf');
+      for (let z = s.z0 + 2; z < s.z1 - 2; z += 3) if (s.name !== 'farmacia' || z < PHARMACY_COUNTER[2] - 1) put(m.x0 + 4, MF, z, 'shop_shelf'); // an aisle away from the back wall's fridges and crates
     }
     // The pharmacy: the counter with Doc's card, a shelf crate.
     for (let z = PHARMACY_COUNTER[2] - 1; z <= PHARMACY_COUNTER[2] + 2; z++) put(PHARMACY_COUNTER[0], MF, z, 'counter_block');

@@ -436,6 +436,11 @@ describe('Zone-2’s places, built and lit', () => {
     }
   });
 
+  it('leaves room to walk up to each thing to open or mine, from the door’s side (review: a shelf hid the crate)', () => {
+    for (const [what, p, dx] of [['hardware crate', HARDWARE_CRATE, -1], ['counter', PHARMACY_COUNTER, -1], ...DISPLAY_FRIDGES.map((f) => ['fridge', f, -1] as const), ...SERVER_RACKS.map((r) => ['rack', r, 1] as const), ...UPS_CABINETS.map((u) => ['cabinet', u, 1] as const)] as [string, [number, number, number], number][])
+      for (const k of [1, 2]) for (const dy of [0, 1]) expect(n(p[0] + dx * k, p[1] + dy, p[2]), `${what} at ${p}`).toBe('air');
+  });
+
   it('builds the exchange: six racks, three battery cabinets, a mast with its red light, all lit', () => {
     for (const r of SERVER_RACKS) expect(n(...r)).toBe('server_rack@east');
     for (const u of UPS_CABINETS) expect(n(...u)).toBe('ups_cabinet@east');
