@@ -85,7 +85,9 @@ export function standDown(creatures: Creature[], st: FactionState, px: number, p
     const q = SQUADS.find((s) => s.bit === c.squad);
     return !q || Math.hypot(px - q.anchor[0], pz - q.anchor[1]) < FACTION_FAR;
   });
-  if (!keep.some((c) => FACTION_KINDS.has(c.kind))) { st.alert = false; st.blown = false; }
+  // The visit is over once nobody is about and the player is away from every beat: only then does the alarm
+  // stand down and the armband work again (review: killing everyone in sight used to bring it back at once).
+  if (!keep.some((c) => FACTION_KINDS.has(c.kind)) && SQUADS.every((q) => Math.hypot(px - q.anchor[0], pz - q.anchor[1]) > FACTION_FAR)) { st.alert = false; st.blown = false; }
   return keep;
 }
 

@@ -41,6 +41,8 @@ export interface SaveData {
   power?: { charge: number; satsTotal: number; satsToday: number; frac: number };
   /** The radiation dose, 0–100 (Phase 6). Absent: none. */
   dose?: number;
+  /** Zone-2's men killed since dawn, as bits (Phase 6): they stay down across a reload. Absent: none. */
+  factionDown?: number;
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

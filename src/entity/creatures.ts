@@ -41,7 +41,7 @@ export const KINDS: Record<Kind, KindDef> = {
   // Zone-2's faction (docs/PHASE6.md): the same men as the outpost's, but a standing force that comes back
   // each dawn, so they carry no guns to take (ADR-019: guns stay scarce), only a few rounds and scraps.
   patrol: { hp: 40, width: 0.6, height: 1.85, walk: 1.3, run: 1.3, shy: 0, hostile: true, damage: 12, windup: 1.0, drops: [['pistol_rounds', 4], ['brass_casing', 4]] },
-  sentry: { hp: 45, width: 0.6, height: 1.85, walk: 1.4, run: 4.6, shy: 0, hostile: true, damage: 14, windup: 0.7, drops: [['scrap_metal', 2], ['cordage', 2]] },
+  sentry: { hp: 45, width: 0.6, height: 1.85, walk: 1.4, run: 4.6, shy: 0, hostile: true, damage: 14, windup: 0.7, drops: [['scrap_metal', 1], ['cordage', 1]] },
   guard: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 18, windup: 1.5, drops: [['rifle_rounds', 6]] },
   jaguar: { hp: 90, width: 0.85, height: 1.0, walk: 2.0, run: 7.5, shy: 0, hostile: true, damage: 22, windup: 0.55, drops: [['jaguar_pelt', 1]] },
 };

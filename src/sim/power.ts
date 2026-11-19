@@ -13,7 +13,7 @@ export const BANK_KWH = 12; // one bank, full
 export const LOADS = [
   { kind: 'water_pump', kw: 0.05 },
   { kind: 'fridge', kw: 0.1 },
-  { kind: 'mining_rig', kw: 0.5 },
+  { kind: 'mining_rig', kw: 0.45 },
 ] as const;
 export type DeviceKind = 'solar_array' | 'battery_bank' | 'mining_rig' | 'fridge' | 'water_pump';
 const KINDS: DeviceKind[] = ['solar_array', 'battery_bank', 'mining_rig', 'fridge', 'water_pump'];
@@ -84,11 +84,16 @@ export function stepPower(s: PowerState, d: Devices, hour: number, minutes: numb
       s.frac += (d.mining_rig.length * RIG_SATS_PER_DAY) / (24 * 60);
       const whole = Math.floor(s.frac);
       s.frac -= whole; paid += whole;
+      s.satsToday += whole; // minute by minute, so a night's sleep counts only the hours since dawn as today
     }
   }
   s.satsTotal += paid;
-  s.satsToday += paid;
   return paid;
+}
+
+/** Only arrays under open sky make power: `skyAt` gives the sky light (0–15) over a block, or null if unknown (not loaded: as last seen). */
+export function sunlit(arrays: [number, number, number][], skyAt: (x: number, y: number, z: number) => number | null, last: [number, number, number][]): [number, number, number][] {
+  return arrays.filter(([x, y, z]) => { const s = skyAt(x, y + 1, z); return s === null ? last.some((a) => a[0] === x && a[1] === y && a[2] === z) : s >= 13; });
 }
 
 /** What a load needs to run: power now, from the sun or the banks. */

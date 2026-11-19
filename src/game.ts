@@ -32,7 +32,7 @@ import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
-import { packPos } from './world/light.ts';
+import { packPos, skyOf } from './world/light.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
 import { leaveLostPack, losesPack } from './sim/death.ts';
@@ -64,7 +64,7 @@ import { blockId } from './world/blocks.ts';
 import { ZONE2 } from './gen/layout.ts';
 import { M3_STEPS, trackM3, diedOutsideM3 } from './sim/milestones.ts';
 import { CATALOG_M3, DOC_PRICE } from './sim/trade.ts';
-import { findDevices, newPower, stepPower, powerFromSave, RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
+import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
 import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts';
 
 const SAVE_KEY = 'save:1';
@@ -1265,7 +1265,7 @@ export class Game {
     }
     if (held.id === itemId('armband')) { this.hud.toast('A red armband, a white broken circle stitched on it. Whoever sent him wears the same.', 5000); return true; }
     const food = foodOf(held.id);
-    const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : 0;
+    const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
     if (food || heal) {
       if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
       this.hotbar.take();
@@ -1417,6 +1417,7 @@ export class Game {
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
       wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
       power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
+      factionDown: this.wild.faction.down,
     };
   }
 
@@ -1440,6 +1441,7 @@ export class Game {
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
     this.wild.outpost = outpostFromSave(d.outpost);
     this.power = powerFromSave(d.power);
+    this.wild.faction.down = Number.isFinite(d.factionDown) ? d.factionDown! & 31 : 0; // the men killed stay down until dawn, reload or not
     this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
     this.powerHour = null;
     this.devices = findDevices(this.world.edits);
@@ -1614,7 +1616,10 @@ export class Game {
   /** Once a second: the home's power on the game clock (sleep included), the rig's pay, the fridge, the dose fading; Zone-2's toasts; M3. */
   private tickZone2(): void {
     const p = this.player, f = this.flags, Z = ZONE2;
+    const last = this.devices.solar_array;
     this.devices = findDevices(this.world.edits);
+    // An array in the cave makes nothing: only those under open sky count.
+    this.devices.solar_array = sunlit(this.devices.solar_array, (x, y, z) => (this.world.isLoaded(x, z) ? skyOf(this.world.lightAt(x, y, z)) : null), last);
     if (this.powerHour === null) this.powerHour = this.hour;
     const minutes = Math.floor((((this.hour - this.powerHour) % 24) + 24) % 24 * 60);
     if (minutes > 0) {

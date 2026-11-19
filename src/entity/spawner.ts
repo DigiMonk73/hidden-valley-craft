@@ -8,7 +8,7 @@ const hasBlock = (n: string) => BLOCK_DEFS.some((d) => d.name === n);
 
 /** Tree crowns and trunks: a creature never stands on these; the search goes on down to the ground. */
 const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds'].map(blockId));
-import { makeCreature, KINDS, PACK_KINDS, type Creature, type Kind } from './creatures.ts';
+import { makeCreature, KINDS, PACK_KINDS, type Creature, type Kind, FACTION_KINDS } from './creatures.ts';
 import { DEN, YARD } from '../gen/zone1.ts';
 
 interface SpawnRule {
@@ -160,6 +160,7 @@ export function despawnFar(creatures: Creature[], px: number, pz: number, night 
     const d = Math.hypot(c.x - px, c.z - pz);
     if (!night && SPAWNS.some((r) => r.kind === c.kind && r.night === 'night') && d > DAWN_LEAVE) return false;
     if (c.tame) return true; // the coop's own hens: the game keeps them in step with it
+    if (FACTION_KINDS.has(c.kind)) return !inSanctuary(c.x, c.z); // Zone-2's men go in by their own rule (faction.ts: standDown)
     return d < DESPAWN && !inSanctuary(c.x, c.z);
   });
 }

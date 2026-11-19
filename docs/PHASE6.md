@@ -122,7 +122,7 @@ Simple, short, well lit, easy to find. So in this phase:
 |---|---|---|---|
 | workbench | solar array | pv panel 4, wiring 4, planks 4, nails 8 | 1 kW in full sun |
 | workbench | battery bank | battery cell 6, wiring 4, planks 2, nails 6 | 12 kWh; after a solar array |
-| workbench | mining rig | GPU 2, PSU 1, mining board 1, wiring 2 | 0.5 kW; after a battery bank |
+| workbench | mining rig | GPU 2, PSU 1, mining board 1, wiring 2 | 0.45 kW; after a battery bank |
 | workbench | fridge | fridge unit 1, wiring 2, planks 2, nails 4 | 0.1 kW; after a battery bank |
 | workbench | water pump | pump unit 1, wiring 2, pipe fittings 2, planks 2 | 0.05 kW; after a battery bank |
 | workbench | powder mill | cobble 4, planks 4, nails 6, iron ingot 2 | the script's kiln-extension |
@@ -141,14 +141,15 @@ Simple, short, well lit, easy to find. So in this phase:
 
 - **What counts:** solar arrays, battery banks, rigs, fridges and pumps placed anywhere in the sanctuary. They are found by the world's own record of what the player placed, so nothing new is saved for them.
 - **Each game minute:** the arrays make 1 kW each × the sun's height (0 at night, full at noon). The loads take theirs. A surplus charges the banks; a shortfall drains them. A load that can't be met stops: the rig first, then the fridge, then the pump.
-- **What it adds up to:** one array runs the rig by day only. Two arrays and a bank run it day and night (about 15 kWh made against 15.6 used). A third array leaves a surplus.
+- **What it adds up to:** one array runs the rig by day only. Two arrays and a bank run it, the fridge and the pump day and night (about 15.3 kWh made against 14.4 used). A third array leaves a surplus.
+- **Only arrays under open sky count:** one set in the cave makes nothing.
 - **Sleep and time away:** power is stepped through the skipped minutes, so the rig earns while you sleep.
 
 **The mining rig and the computer** (the script: "single rig, real passive income")
 - While powered, the rig earns **50,000 sats a game day** (2 units: a wound care every two days; T = 2 in the script's A4 terms), straight into the hot wallet. Slow and steady, as asked.
 - The builder's computer gets a **POWER** page: arrays and their output now, the bank's charge, each load on or off, and the rig's hashrate (0.84 TH/s while running) and what it has earned today and in all.
 
-**The fridge:** a 9-slot cold store. Powered, it turns a **water jug** into a **cold water** every game hour: thirst 50 and 3 health. *Why:* this game has no spoilage, so "preserving longer" would do nothing; a cold drink is the comfort it brings.
+**The fridge:** a 9-slot cold store. Powered, it turns a **water jug** into a **cold water** every game hour: thirst 50 and 3 health. Marco doesn't buy cold water (free water made cold is not money). *Why:* this game has no spoilage, so "preserving longer" would do nothing; a cold drink is the comfort it brings.
 
 **The water pump:** right-click it, powered, to fill every empty jug you carry, or with nothing in hand to drink your fill. The end of walking to the creek with jugs.
 
@@ -244,3 +245,13 @@ Phase 6's part: walk up the highway from the camp; the border toast; the armband
   - Trying to mine the compound's walls says why nothing happens.
 - **DONE: The faction's men** (`src/entity/faction.ts`). They use the outpost's raider mind (`src/entity/outpost.ts`), now by role: `guard` fights as the lookout, `patrol` as the pistol, `sentry` as the machete. A beat is walked while unaware. The armband is a `pass` distance in that mind: an unalerted man counts you as a stranger only within 14 m, and then looks again for 1.5 s ("¡Oye!") before the alarm; backing off past 14 m in that time lets it go. A shot, a hit or an alarm ends the disguise for the visit.
   - *Changed from the plan:* the patrols and the sentry carry no guns to take: they come back each dawn, and a gun a day would undo ADR-019's scarcity. They drop rounds, casings and scraps.
+- **DONE: The fresh review.** Each fix has a test in `tests/phase6.test.ts` ("review fixes") that fails on the code before it:
+  1. The faction's men were remade every second when the player stood 128–150 m from their beat (the wild's far-away cull took them first). They now go in only by their own rule.
+  2. The land between z 650 and 760 had changed with the new zone line. The generator now shapes it with the old line; only the game's zones use the new one.
+  3. Money without end: the men killed are now saved as down until dawn (a reload no longer brings them back); rounds have their own low resale value; the sentry carries less; cold water doesn't sell; a street light mines to scrap, not a lantern.
+  4. The armband worked again as soon as everyone in sight was down. The alarm and the disguise now reset only once the player has left Zone-2's beats.
+  5. "Mined today" counted the whole night after a sleep. It now counts from dawn.
+  6. Two arrays and a bank fell 38 minutes short before each dawn. The rig draws 0.45 kW now, so they carry it all night.
+  7. An array in the cave made power. Only arrays under open sky count now.
+  8. A light pole stood on the highway's edge, ferns grew on its dirt patches, and the parking lot raised the edge of the highway a block. The highway is clear now (a test walks it).
+  - Also from the review: cold water now gives the 3 health the plan promised.

@@ -335,13 +335,14 @@ export function zoneAt(x: number, z: number): ZoneId {
 
 /** The zone the land was shaped as: only the bowl is valley. The world generator uses this, so widening the sanctuary changes no terrain. */
 export function landZoneAt(x: number, z: number): ZoneId {
-  return inValleyBowl(x, z) ? 'valley' : zoneOutside(x, z);
+  return inValleyBowl(x, z) ? 'valley' : zoneOutside(x, z, false);
 }
 
-function zoneOutside(x: number, z: number): ZoneId {
+/** `play`: the game's zones, with faction ground starting at z 760 west of the saddle; else the land's (z 650), so no terrain changes. */
+function zoneOutside(x: number, z: number, play = true): ZoneId {
   if (x < 450 && z < 450) return 'zone4';
   if (x < ZONES.ravineX) return 'zone3';
-  if (z < ZONES.zone2Z || (z < ZONES.zone2Play && x < ZONES.saddleX)) return 'zone2';
+  if (z < ZONES.zone2Z || (play && z < ZONES.zone2Play && x < ZONES.saddleX)) return 'zone2';
   if (x >= ZONES.saddleX) {
     const inCanyon = Math.abs(x - canyonCenterX(z)) < 40 && z > CANYON.z0 && z < CANYON.z1;
     return inCanyon ? 'canyon' : 'buffer';

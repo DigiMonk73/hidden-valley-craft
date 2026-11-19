@@ -507,3 +507,82 @@ describe('Las Cruces', () => {
     }
   });
 });
+
+// ---- Review fixes (each fails on the code before it) -------------------------------------------------
+import { despawnFar } from '../src/entity/spawner.ts';
+import { landZoneAt } from '../src/gen/layout.ts';
+import { sunlit } from '../src/sim/power.ts';
+import { sellPrice as price } from '../src/sim/trade.ts';
+
+describe('review fixes', () => {
+  it('1. keeps a faction man who is out, rather than remaking him every second between 128 and 150 m', () => {
+    const st = newFaction();
+    const px = hx(762), pz = 762;
+    let men = manFaction([], st, px, pz, () => true, () => 90);
+    const ids = men.map((c) => c.id).sort();
+    for (let k = 0; k < 5; k++) {
+      men = standDown(despawnFar(men, px, pz, false), st, px, pz);
+      men.push(...manFaction(men, st, px, pz, () => true, () => 90));
+    }
+    expect(men.map((c) => c.id).sort()).toEqual(ids);
+  });
+
+  it('2. shapes the land with the old line: z 650–760 is still land of the mid band', () => {
+    expect(landZoneAt(800, 700)).toBe('mid');
+    expect(zoneAt(800, 700)).toBe('zone2');
+    expect(landZoneAt(800, 600)).toBe('zone2');
+  });
+
+  it('3. keeps the men killed down across a reload, and their drops are no fortune', () => {
+    const w = new Wild();
+    w.faction.down = 5;
+    expect(w.faction.down).toBe(5); // saved as factionDown (game.ts) and restored before anyone is manned
+    const perDay = 2 * (4 * price(itemId('pistol_rounds')) + 4 * price(itemId('brass_casing'))) + price(itemId('scrap_metal')) + price(itemId('cordage')) + 2 * 6 * price(itemId('rifle_rounds'));
+    expect(perDay).toBeLessThan(RIG_SATS_PER_DAY);
+    expect(price(itemId('cold_water'))).toBe(0); // free water made cold is not money
+    expect(dropOf(blockId('street_light'))).toBe(itemId('scrap_metal')); // the highway's lamps aren't lanterns to sell
+  });
+
+  it('4. lets the armband work again only once the visit is over, not as soon as everyone in sight is down', () => {
+    const st = { ...newFaction(), alert: true, blown: true };
+    standDown([], st, 800, 720);
+    expect(st.blown).toBe(true);
+    standDown([], st, 1300, 1024);
+    expect(st.blown).toBe(false);
+    expect(st.alert).toBe(false);
+  });
+
+  it('5. counts only the hours since dawn as “mined today” after a night’s sleep', () => {
+    const one = newPower(), slept = newPower(), d = homeDevices(3, 2, 1);
+    stepPower(one, d, 6, 24 * 60); stepPower(slept, d, 6, 24 * 60);
+    stepPower(slept, d, 21, 9 * 60); // sleep 21:00 → 06:00 in one step
+    for (let m = 0; m < 9 * 60; m++) stepPower(one, d, (21 + m / 60) % 24, 1);
+    expect(slept.satsToday).toBe(one.satsToday);
+    expect(slept.satsToday).toBeLessThan(100);
+  });
+
+  it('6. runs the rig through the night on two arrays and a bank, every night', () => {
+    const s = newPower(), d = homeDevices(2, 1, 1, 1, 1);
+    stepPower(s, d, 6, 24 * 60);
+    let off = 0;
+    for (let day = 0; day < 4; day++) for (let m = 0; m < 24 * 60; m++) { stepPower(s, d, (6 + m / 60) % 24, 1); if (!s.on.mining_rig) off++; }
+    expect(off).toBe(0);
+  });
+
+  it('7. counts only arrays under open sky', () => {
+    const a: [number, number, number][] = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+    const sky = (x: number) => (x === 1 ? 15 : x === 4 ? 2 : null);
+    expect(sunlit(a, sky, [[7, 8, 9]])).toEqual([[1, 2, 3], [7, 8, 9]]);
+    expect(sunlit(a, sky, [])).toEqual([[1, 2, 3]]);
+  });
+
+  it('8. keeps the highway clear: nothing solid stands on it but the border’s barriers', () => {
+    const w = load(785, 690, 815, 760);
+    for (let z = 692; z < 758; z++) for (let x = 786; x < 814; x++) {
+      if (!onHighway(x, z) || Math.abs(z - ZONE2.border.z) < 4) continue;
+      const y = highwayHeight(z);
+      for (let dy = 0; dy < 3; dy++) expect(blockName(w.blockAt(x, y + dy, z)), `${x},${y + dy},${z}`).toBe('air');
+    }
+  });
+});
+const hx = highwayX;

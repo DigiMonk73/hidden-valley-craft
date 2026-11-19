@@ -74,7 +74,7 @@ export function buildZone2(col: Uint16Array, x0: number, z0: number): void {
       if (!onHighway(x, z)) continue;
       const roll = r(x, 1, z), edge = Math.abs(x + 0.5 - hx) > H.halfWidth - 0.8;
       const centre = Math.abs(x + 0.5 - hx) < 0.5 && ((z % 8) + 8) % 8 < 4;
-      put(x, y - 1, z, centre ? 'road_line' : roll < 0.05 || (edge && roll < 0.2) ? 'gravel' : roll < 0.08 ? 'forest_floor' : 'road');
+      put(x, y - 1, z, centre ? 'road_line' : roll < 0.05 || (edge && roll < 0.2) ? 'gravel' : roll < 0.08 ? 'dirt' : 'road'); // dirt, not forest floor: no ferns grow on the road
       put(x, y - 2, z, 'gravel');
       clear(x, y, y + 5, z);
     }
@@ -119,10 +119,11 @@ export function buildZone2(col: Uint16Array, x0: number, z0: number): void {
   if (near(l.x0, m.x1, Math.min(l.z0, m.z0), Math.max(l.z1, m.z1), 3)) {
     // The lot: asphalt, painted bays, a light pole at each end.
     for (let z = l.z0; z < l.z1; z++) for (let x = l.x0; x < l.x1; x++) {
+      if (onHighway(x, z)) continue; // the highway keeps its own level where the lot meets it
       clear(x, MF, MF + 8, z);
       put(x, MF - 1, z, x >= l.x1 - 5 && ((z % 3) + 3) % 3 === 0 ? 'road_line' : r(x, 4, z) < 0.07 ? 'gravel' : 'road');
     }
-    for (const z of [l.z0 + 6, l.z1 - 6]) { for (let y = MF; y < MF + 4; y++) put(l.x0 + 1, y, z, 'fence_post'); put(l.x0 + 1, MF + 4, z, 'street_light'); }
+    for (const z of [l.z0 + 6, l.z1 - 6]) { const px = Math.max(l.x0 + 1, Math.ceil(highwayX(z) + H.halfWidth + 1)); for (let y = MF; y < MF + 4; y++) put(px, y, z, 'fence_post'); put(px, MF + 4, z, 'street_light'); }
     // Two wrecked cars in the bays.
     for (const [cx, cz] of [[l.x1 - 4, (m.z0 + m.z1) >> 1], [l.x1 - 4, shop('farmacia').z1 - 3]])
       for (let x = cx; x < cx + 3; x++) for (let z = cz; z < cz + 2; z++) { put(x, MF, z, (x - cx) % 2 ? 'truck_body' : 'truck_wheel'); if (x === cx + 1) put(x, MF + 1, z, 'truck_cab'); }
