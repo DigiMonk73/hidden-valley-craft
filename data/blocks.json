@@ -3,8 +3,8 @@
   "blocks": [
     { "name": "air", "label": "Air", "render": "none", "layer": "opaque", "solid": false, "opaque": false, "hardness": 0 },
     { "name": "bedrock", "label": "Basalt bedrock", "tex": "bedrock", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": -1 },
-    { "name": "limestone", "label": "Limestone", "tex": "limestone", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.45, "drop": "cobble" },
-    { "name": "limestone_mossy", "label": "Mossy limestone", "tex": "limestone_mossy", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.45, "drop": "cobble" },
+    { "name": "limestone", "label": "Limestone", "tex": "limestone", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.45 },
+    { "name": "limestone_mossy", "label": "Mossy limestone", "tex": "limestone_mossy", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.45 },
     { "name": "dirt", "label": "Dirt", "tex": "dirt", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.25 },
     { "name": "grass", "label": "Grass", "tex": { "top": "grass_top", "side": "grass_side", "bottom": "dirt" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.3, "drop": "dirt" },
     { "name": "forest_floor", "label": "Forest floor", "tex": { "top": "forest_floor_top", "side": "forest_floor_side", "bottom": "dirt" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.3, "drop": "dirt" },
