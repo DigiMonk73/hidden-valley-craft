@@ -40,8 +40,9 @@ export interface WildSenses {
   rand: () => number;
   /** How many arrows the player has room to pick up (no limit if not given). */
   arrowRoom?: () => number;
-  /** How fast the player is moving (m/s). */
+  /** How fast the player is moving (m/s), and whether they are sprinting. */
   pv?: number;
+  sprint?: boolean;
 }
 
 export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit' | 'bark' | 'snarl' | 'yip' | 'cluck'; x: number; y: number; z: number };
@@ -110,7 +111,7 @@ export class Wild {
       // Once the player has gone well away and the raiders are no longer about, the outpost stands down.
       if (!this.creatures.some((c) => RAIDER_KINDS.has(c.kind)) && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) > 130) this.outpost.alert = false;
     }
-    const senses = { px: s.px, py: s.py, pz: s.pz, pv: s.pv, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
+    const senses = { px: s.px, py: s.py, pz: s.pz, pv: s.pv, sprint: s.sprint, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
     // A gunshot anywhere near the outpost alerts all of it.
     if (this.shotHeard && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) < SHOT_HEARD && this.outpost.left) alertOutpost(this.creatures, this.outpost);
     this.shotHeard = false;
@@ -220,7 +221,7 @@ export class Wild {
 
   /** Puts a creature in the world (for tests and the play-through). Refused inside the sanctuary. */
   add(c: Creature): boolean {
-    if (inSanctuary(c.x, c.z)) return false;
+    if (inSanctuary(c.x, c.z) && !c.tame) return false; // only a tame hen lives in the valley
     this.creatures.push(c);
     return true;
   }

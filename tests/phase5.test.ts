@@ -649,3 +649,146 @@ describe('review fixes', () => {
     expect(outpostFromSave(RAIDER_BIT.rusher).left).toBe(RAIDER_BIT.rusher);
   });
 });
+
+// ---- The lead's requests for this phase (2026-11-18) -------------------------------------------------------
+import { HomeKey, HOME_HOLD, HOME_DANGER } from '../src/sim/home.ts';
+import { CATCH_REACH, hatchEggs, layEggs, syncTameHens, takeHen, hensIn, HENS_MAX, catchChicken } from '../src/sim/livestock.ts';
+import { think, TAME_LEASH } from '../src/entity/creatures.ts';
+import { healthBar, BAR_SECONDS } from '../src/render/creatures.ts';
+import { quickMove } from '../src/sim/inventory.ts';
+
+describe('hold H to head home', () => {
+  const run = (k: HomeKey, secs: number, down = true, hurtAt = -1) => {
+    let ev: string | null = null;
+    for (let t = 0; t < secs && !ev; t += 0.05) ev = k.update(0.05, down, hurtAt >= 0 && t >= hurtAt);
+    return ev;
+  };
+  it('goes home after two seconds held, not before; letting go cancels', () => {
+    const k = new HomeKey();
+    expect(k.press(60, false)).toBe('started');
+    expect(run(k, HOME_HOLD - 0.2)).toBeNull();
+    expect(k.progress).toBeGreaterThan(0.8);
+    expect(run(k, 0.5)).toBe('go');
+    expect(k.progress).toBeNull();
+    k.press(60, false);
+    expect(run(k, 1, false)).toBe('cancelled');
+  });
+  it('taking damage cancels it, and it won’t start within ten seconds of being hurt', () => {
+    const k = new HomeKey();
+    k.press(60, false);
+    expect(run(k, 3, true, 1)).toBe('cancelled');
+    expect(k.press(HOME_DANGER - 1, false)).toBe('danger');
+    expect(k.progress).toBeNull();
+    expect(k.press(HOME_DANGER + 0.1, false)).toBe('started');
+  });
+  it('flying in builder’s mode it is at once', () => {
+    expect(new HomeKey().press(0, true)).toBe('go');
+  });
+});
+
+describe('chickens can be caught by walking up (the owner, Phase 4)', () => {
+  const flat = (_x: number, y: number) => (y < 100 ? STONE : 0);
+  const approach = (sprint: boolean) => {
+    const c = makeCreature('chicken', 0.5, 100, 0.5);
+    let px = 12.5, closest = Infinity, fled = false;
+    for (let t = 0; t < 6; t += 0.05) {
+      const d = Math.hypot(px - c.x, 0.5 - c.z);
+      closest = Math.min(closest, d);
+      if (d > 1.2) px -= (sprint ? 5.6 : 4) * 0.05;
+      think(c, 0.05, { ...sense(px, 0.5), sprint }, flat, () => 0.99);
+      if (c.mind === 'flee') fled = true;
+    }
+    return { closest, fled };
+  };
+  it('a hen doesn’t run from a walking player, who gets within reach', () => {
+    const r = approach(false);
+    expect(r.fled).toBe(false);
+    expect(r.closest).toBeLessThanOrEqual(CATCH_REACH);
+    expect(CATCH_REACH).toBeGreaterThanOrEqual(3);
+  });
+  it('she does run from a sprinting one', () => {
+    expect(approach(true).fled).toBe(true);
+  });
+  it('the right-click at reach catches her', () => {
+    const inv = new Inventory(9);
+    expect(catchChicken(inv, makeCreature('chicken', 0, 100, 0))).toBe('caught');
+    expect(inv.count(itemId('live_chicken'))).toBe(1);
+  });
+});
+
+describe('damage you can read', () => {
+  it('a hurt creature shows a health bar for a few seconds, filled to its health', () => {
+    const c = makeCreature('dog', 0, 100, 0);
+    expect(healthBar(c).show).toBe(false);
+    c.hp = 11; c.hurt = 0.1;
+    expect(healthBar(c)).toEqual({ show: true, fill: 0.5 });
+    c.hurt = BAR_SECONDS + 0.1;
+    expect(healthBar(c).show).toBe(false);
+    expect(healthBar(Object.assign(makeCreature('marco', 0, 100, 0), { hurt: 0 })).show).toBe(false);
+  });
+  it('a weapon Shift-clicked out of a chest goes into a free hotbar slot', () => {
+    const inv = Inventory.starter();
+    const chest: ({ id: number; count: number } | null)[] = [{ id: itemId('hunting_rifle'), count: 1 }];
+    quickMove(chest, 0, inv.slots, 0, inv.size);
+    expect(inv.slots.findIndex((s) => s && s.id === itemId('hunting_rifle'))).toBeLessThan(9);
+  });
+});
+
+describe('raising chickens in the valley', () => {
+  // A level patch of stone at y 180 at the world's corner, with a coop on it.
+  const setup = () => {
+    const w = new World();
+    w.addColumn(0, 0, (runJob({ kind: 'gen', cx: 0, cz: 0, edits: [] }).result as GenResult).chunks);
+    for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) { w.setBlock(x, 179, z, STONE); for (let y = 180; y < 192; y++) w.setBlock(x, y, z, 0); }
+    w.setBlock(15, 180, 15, blockId('coop'));
+    const slots = w.containerAt(15, 180, 15)!;
+    return { w, slots };
+  };
+  const hen = () => itemId('live_chicken'), egg = () => itemId('egg');
+  const n = (slots: ({ id: number; count: number } | null)[], id: number) => slots.reduce((k, s) => k + (s && s.id === id ? s.count : 0), 0);
+
+  it('a pair with an egg left in hatches one hen a morning, up to eight; no egg, no chick', () => {
+    const { w, slots } = setup();
+    slots[0] = { id: hen(), count: 2 };
+    expect(hatchEggs(w)).toBe(0); // no egg left in
+    layEggs(w); // this morning's two eggs, left in
+    expect(hatchEggs(w)).toBe(1);
+    expect(n(slots, hen())).toBe(3);
+    expect(n(slots, egg())).toBe(1);
+    slots[0] = { id: hen(), count: HENS_MAX }; slots[1] = { id: egg(), count: 4 };
+    expect(hatchEggs(w)).toBe(0);
+    slots[0] = { id: hen(), count: 1 };
+    expect(hatchEggs(w)).toBe(0); // one hen alone hatches nothing
+  });
+
+  it('her hens walk round the coop, as many as it holds; picking one up takes her from its count', () => {
+    const { w, slots } = setup();
+    slots[0] = { id: hen(), count: 3 };
+    let cs = syncTameHens(w, [], 15, 15);
+    expect(cs.filter((c) => c.tame).length).toBe(3);
+    slots[0] = { id: hen(), count: 2 };
+    cs = syncTameHens(w, cs, 15, 15);
+    expect(cs.length).toBe(2);
+    expect(takeHen(w, cs[0].tame!)).toBe(true);
+    expect(hensIn(w, 15, 180, 15)).toBe(1);
+    expect(syncTameHens(w, cs, 15, 15).length).toBe(1);
+    // A tame hen may live in the valley: the wild takes her.
+    const tame = makeCreature('chicken', VALLEY.cx, 70, VALLEY.cz);
+    tame.tame = [Math.floor(VALLEY.cx), 70, Math.floor(VALLEY.cz)];
+    expect(new Wild().add(tame)).toBe(true);
+  });
+
+  it('they never wander past their leash, nor over a fence round the coop', () => {
+    const { w, slots } = setup();
+    slots[0] = { id: hen(), count: 4 };
+    const blockAt = (x: number, y: number, z: number) => w.blockAt(x, y, z);
+    const rand = makeRng(9);
+    const walk = (cs: Creature[]) => { for (let t = 0; t < 120; t += 0.05) for (const c of cs) { think(c, 0.05, { ...sense(40, 40), py: 180, playerInSanctuary: false }, blockAt, rand); expect(Math.hypot(c.x - 15.5, c.z - 15.5)).toBeLessThanOrEqual(TAME_LEASH + 0.01); } };
+    walk(syncTameHens(w, [], 15, 15));
+    // A fence ring two blocks out: they stay inside it.
+    for (let d = -2; d <= 2; d++) for (const [x, z] of [[15 + d, 13], [15 + d, 17], [13, 15 + d], [17, 15 + d]]) w.setBlock(x, 180, z, blockId('fence_post'));
+    const inside = syncTameHens(w, [], 15, 15);
+    walk(inside);
+    for (const c of inside) expect(Math.max(Math.abs(c.x - 15.5), Math.abs(c.z - 15.5))).toBeLessThan(2);
+  });
+});

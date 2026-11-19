@@ -85,7 +85,7 @@ export function trySpawn(
   for (const rule of SPAWNS) {
     if (rule.night === 'day' && night) continue;
     if (rule.night === 'night' && !night) continue;
-    const have = creatures.filter((c) => c.kind === rule.kind).length + made.filter((c) => c.kind === rule.kind).length;
+    const have = creatures.filter((c) => c.kind === rule.kind && !c.tame).length + made.filter((c) => c.kind === rule.kind).length;
     const cap = Math.min(rule.cap, limits[rule.kind] ?? Infinity);
     if (have >= cap) continue;
     let x: number, z: number;
@@ -159,6 +159,7 @@ export function despawnFar(creatures: Creature[], px: number, pz: number, night 
   return creatures.filter((c) => {
     const d = Math.hypot(c.x - px, c.z - pz);
     if (!night && SPAWNS.some((r) => r.kind === c.kind && r.night === 'night') && d > DAWN_LEAVE) return false;
+    if (c.tame) return true; // the coop's own hens: the game keeps them in step with it
     return d < DESPAWN && !inSanctuary(c.x, c.z);
   });
 }

@@ -42,7 +42,7 @@ import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
 import { CATALOG, START_WALLET, buy, sell, sellPrice, sellable, btc } from './sim/trade.ts';
 import { M1_STEPS, trackM1, diedOutside } from './sim/milestones.ts';
-import { catchChicken, layEggs, COOP, CATCH_REACH } from './sim/livestock.ts';
+import { catchChicken, layEggs, hatchEggs, syncTameHens, takeHen, COOP, CATCH_REACH } from './sim/livestock.ts';
 import { itemLabel } from './world/items.ts';
 import { iconFor } from './ui/icons.ts';
 import { drawMapScrap } from './ui/mapView.ts';
@@ -51,6 +51,7 @@ import { RAIDER_KINDS } from './entity/creatures.ts';
 import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS, outpostFromSave } from './entity/outpost.ts';
 import { makeJaguar, atCampClearing } from './entity/jaguar.ts';
 import { Focus } from './sim/focus.ts';
+import { HomeKey } from './sim/home.ts';
 import { ZONE1FAR, ZONES } from './gen/layout.ts';
 import { OUTPOST_AT, CAMP_MARKER, DECK_END, RUSTED_TRAP } from './gen/zone1far.ts';
 import { M2_STEPS, trackM2 } from './sim/milestones.ts';
@@ -131,6 +132,12 @@ export class Game {
   wild = new Wild();
   /** Focus mode: the world slowed for a careful shot (docs/PHASE5.md). */
   focus = new Focus();
+  /** Holding H to head home (the lead, 2026-11-18), and when the player was last hurt (play time). */
+  home = new HomeKey();
+  private lastHurt = -Infinity;
+  private hpBefore = 100;
+  /** Is the player sprinting this tick (a hen runs only from that)? */
+  private sprinting = false;
   /** The deep band's stinger plays once a visit, when the body across the ravine comes into view. */
   private stingerVisit = false;
   /** A rifle shot this tick, for the creatures to hear. */
@@ -289,6 +296,7 @@ export class Game {
       if (this.focus.active && !isWeapon(this.hotbar.current?.id)) this.endFocus();
       if (this.focus.update(dt) === 'ended') this.sound.focus(false);
     }
+    this.hud.setHoming(this.home.progress);
     this.hud.setFocus(this.focus.active, this.focus.level, this.focus.active || (this.focus.level < 1 && isWeapon(this.hotbar.current?.id)));
     if (this.playing) {
       this.accumulator += dt;
@@ -302,6 +310,8 @@ export class Game {
     if (newWatch(this.dayClock, this.hour) && smokeMeat(this.world)) this.edited();
     if (newDay(this.dayClock, this.hour)) {
       if (breedHutches(this.world)) { this.flags.add('hutch_bred'); this.edited(); }
+      // Eggs left in from yesterday hatch first, then this morning's are laid.
+      if (hatchEggs(this.world)) { this.hud.toast('A chick has hatched in the coop: one more hen.', 5000); this.edited(); }
       if (layEggs(this.world)) { this.flags.add('coop_laid'); this.edited(); }
       if (cureJerky(this.world)) this.edited();
       // The farm's feral flock regrows by a hen a day.
@@ -351,6 +361,7 @@ export class Game {
     }
     this.playTime += dt;
     const input = this.readInput();
+    this.sprinting = input.sprint && (input.forward !== 0 || input.strafe !== 0);
     const p = this.player;
     const px = p.x, pz = p.z, vy = p.vy;
     // In focus the world runs slow, the player's body with it; only the aim (the mouse) is quick.
@@ -369,6 +380,13 @@ export class Game {
     this.tickWild(world);
     this.tickSurvival(dt, input);
     this.tickGate(world);
+    // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
+    const hurt = this.vitals.hp < this.hpBefore - 0.01;
+    if (hurt) this.lastHurt = this.playTime;
+    this.hpBefore = this.vitals.hp;
+    const h = this.home.update(dt, this.keys.has('KeyH'), hurt);
+    if (h === 'go') this.goHome();
+    else if (h === 'cancelled' && hurt) this.hud.toast('Hurt: you stop. Get clear first.');
     if (Math.floor(this.time) !== this.lastPlaces) { this.lastPlaces = Math.floor(this.time); this.tickPlaces(); }
     // Mark where the player has been, for the map table (once a second).
     if (Math.floor(this.time) !== this.lastExplore) {
@@ -436,6 +454,7 @@ export class Game {
       rand: Math.random,
       arrowRoom: () => this.hotbar.room(itemId('arrow')),
       pv: Math.hypot(p.vx, p.vz),
+      sprint: this.sprinting,
     });
     this.shotFired = false;
     this.wildEvents(ev);
@@ -500,7 +519,8 @@ export class Game {
       this.wild.denLeft = Math.max(0, this.wild.denLeft - 1);
       if (this.wild.denLeft === 0) this.hud.toast('The last of the dogs. The farm is quiet now.', 5000);
     }
-    if (c.kind === 'chicken') this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
+    if (c.kind === 'chicken' && c.tame) takeHen(this.world, c.tame);
+    else if (c.kind === 'chicken') this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
     // The outpost's raiders stay dead: once all three are, it is quiet for good.
     if (c.kind === 'lookout' || c.kind === 'gunman' || c.kind === 'rusher') {
       this.wild.outpost.left &= ~RAIDER_BIT[c.kind];
@@ -557,7 +577,10 @@ export class Game {
       this.once('takedown', 'He never saw it coming. The others heard nothing.', 6000);
       return true;
     }
-    this.damageCreature(hit.c, meleeDamage(held));
+    const dmg = meleeDamage(held);
+    if (dmg <= 2 && !RAIDER_KINDS.has(hit.c.kind))
+      this.once('weak_hit', 'That barely hurts it. The machete, the bow or the rifle (in the vault’s armory chest) work far better.', 8000);
+    this.damageCreature(hit.c, dmg);
     return true;
   }
 
@@ -602,11 +625,20 @@ export class Game {
     const hit = this.creatureInSight(4);
     if (!hit) return false;
     if (hit.c.kind === 'marco') { this.talkToMarco(); return true; }
+    if (hit.c.kind === 'chicken' && hit.dist > CATCH_REACH && !hit.c.tame) {
+      // A grab that falls short: she scuttles off for a moment.
+      hit.c.mind = 'flee'; hit.c.timer = 3;
+      this.sound.cluck(hit.c.x, hit.c.y + 0.3, hit.c.z);
+      this.once('grab_short', 'Too far: walk right up to her (no running), then right-click.', 5000);
+      return true;
+    }
     if (hit.c.kind === 'chicken' && hit.dist <= CATCH_REACH) {
       const r = catchChicken(this.hotbar, hit.c);
       if (r === 'full') { this.hud.toast('No room in your pack for the chicken'); return true; }
       this.wild.remove(hit.c);
-      this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
+      // A tame hen leaves her coop's count; a wild one leaves the farm's flock.
+      if (hit.c.tame) takeHen(this.world, hit.c.tame);
+      else this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
       this.sound.cluck(hit.c.x, hit.c.y + 0.3, hit.c.z);
       const n = this.hotbar.count(itemId('live_chicken'));
       this.hud.toast(n >= 2 ? `${n} live chickens: a pair for a coop. Build one at the workbench.` : 'A live chicken! Catch another: a pair lays eggs in a coop.');
@@ -846,7 +878,7 @@ export class Game {
     if (placeBlock(this.world, this.hotbar, this.player, this.target)) {
       this.edited();
       this.sound.place(materialOf(id));
-      if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning.', 6000);
+      if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning. Leave an egg in and it may hatch.', 7000);
     }
   }
 
@@ -997,6 +1029,20 @@ export class Game {
     this.once('focus_used', 'Focus: the world slows for a few seconds while you aim. Q again to end it.', 5000);
   }
 
+  /** Home: back where you wake (the bed if you slept, else the balcony), with nothing lost and the hour unchanged. */
+  private goHome(): void {
+    const s = this.spawn;
+    this.endFocus();
+    this.drawing = null;
+    this.mining.active = false;
+    this.player.setPosition(s.x, s.y, s.z);
+    this.player.yaw = s.yaw;
+    this.player.pitch = 0;
+    this.player.breath = 20;
+    this.hud.toast('Home.', 2500);
+    this.edited();
+  }
+
   /** Says something the first time only. */
   private once(flag: string, line: string, ms = 5000): void {
     if (this.flags.has(flag)) return;
@@ -1023,6 +1069,8 @@ export class Game {
     if (near(YARD[0], YARD[1], 16) && this.wild.creatures.some((c) => c.kind === 'chicken' && near(c.x, c.z, 14)))
       this.once('chickens_seen', 'Feral chickens. Walk up close and right-click to catch one. Two make a pair for a coop.', 7000);
     this.tickFarPlaces();
+    // The coops' hens walk round them, as many as each holds.
+    this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
     const gained = trackM1(f, p.x, p.z, this.hotbar.count(itemId('pistol')) > 0);
     if (gained.length) this.edited();
@@ -1056,6 +1104,7 @@ export class Game {
     const p = this.player, f = this.flags, F = ZONE1FAR;
     const near = (x: number, z: number, r: number) => Math.hypot(p.x - x, p.z - z) < r;
     const zone = zoneAt(p.x, p.z);
+    if (zone !== 'valley') this.once('home_hint', 'Lost? Hold H to head home.', 5000);
     if (zone === 'mid') this.once('mid_seen', 'Zone 1, mid band: danger 3, and 4 at night. No birds here.', 5000);
     // (A few seconds' walk on from the band's edge, so the two toasts don't overlap.)
     if (near(OUTPOST_AT[0], OUTPOST_AT[1], 66) && this.wild.outpost.left && p.x > OUTPOST_AT[0] && f.has('mid_seen'))
@@ -1096,6 +1145,7 @@ export class Game {
 
   private openPaper(show: () => void): void {
     this.endFocus();
+    this.home.cancel();
     this.mining.active = false;
     this.drawing = null;
     this.keys.clear();
@@ -1179,6 +1229,7 @@ export class Game {
 
   private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null, station: Station = 'hand'): void {
     this.endFocus();
+    this.home.cancel();
     this.screen.known = this.flags;
     this.mining.active = false;
     this.drawing = null; // a bow drawn when a screen opens is let down, not loosed
@@ -1217,6 +1268,11 @@ export class Game {
       if (!this.playing) return;
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
       if (e.code === 'KeyQ') this.toggleFocus();
+      if (e.code === 'KeyH' && !e.repeat) {
+        const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
+        if (r === 'go') this.goHome();
+        else if (r === 'danger') this.hud.toast('Not with danger this close');
+      }
       if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
       if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.hud.toast(this.hotbar.creative ? 'Builder’s mode: blocks never run out' : 'Builder’s mode off'); }
       if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
@@ -1258,6 +1314,7 @@ export class Game {
 
   private pause(): void {
     this.endFocus();
+    this.home.cancel();
     this.playing = false;
     this.drawing = null;
     this.sound.suspend();
@@ -1318,6 +1375,7 @@ export class Game {
     this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
+    this.hpBefore = this.vitals.hp; // loading a hurt player is not being hurt now
     this.flags = new Set(d.flags ?? []);
     this.wallet = d.wallet ?? START_WALLET;
     this.wild.denLeft = d.den ?? 3;

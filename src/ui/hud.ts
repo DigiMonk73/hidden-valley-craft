@@ -29,6 +29,9 @@ const CSS = `
 .hv-focusbar { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); width: 120px; height: 5px; border-radius: 3px;
   background: rgba(0,0,0,.4); overflow: hidden; }
 .hv-focusbar b { display: block; height: 100%; background: #e8d48e; }
+.hv-home { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); text-align: center; font-size: 14px; text-shadow: 0 1px 3px #000; }
+.hv-home u { display: block; width: 160px; height: 6px; margin: 5px auto 0; border-radius: 3px; background: rgba(0,0,0,.45); overflow: hidden; }
+.hv-home b { display: block; height: 100%; background: #f2d68a; }
 .hv-vitals { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); display: flex; gap: 14px; font-size: 11px; }
 .hv-vital { display: flex; align-items: center; gap: 5px; text-shadow: 0 1px 2px #000; }
 .hv-vital u { display: block; width: 110px; height: 7px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; }
@@ -108,6 +111,7 @@ export class Hud {
   private breath: HTMLDivElement;
   private focusEl!: HTMLDivElement;
   private focusBar!: HTMLDivElement;
+  private homeEl!: HTMLDivElement;
   private toastEl: HTMLDivElement;
   private vitalBars: { wrap: HTMLDivElement; bar: HTMLElement }[] = [];
   private hurt!: HTMLDivElement;
@@ -164,6 +168,10 @@ export class Hud {
     this.focusBar = el('div', 'hv-focusbar', root);
     el('b', '', this.focusBar);
     this.focusBar.style.display = 'none';
+    this.homeEl = el('div', 'hv-home', root);
+    this.homeEl.textContent = 'Heading home…';
+    el('b', '', el('u', '', this.homeEl));
+    this.homeEl.style.display = 'none';
     this.toastEl = el('div', 'hv-toast', root);
     this.toastEl.style.opacity = '0';
     this.debugEl = el('div', 'hv-debug', root);
@@ -196,7 +204,8 @@ export class Hud {
     const k = [
       ['Mouse', 'look'], ['W A S D', 'walk'], ['Space', 'jump · swim up'], ['Shift', 'sprint (flying: down)'],
       ['Left click (hold)', 'mine the block you look at'], ['Right click', 'place the selected block'],
-      ['1–9 · wheel', 'choose what is in hand'], ['E', 'inventory (right-click a chest to open it)'], ['F', 'fly on / off (for exploring)'], ['G', 'builder’s mode: blocks never run out'],
+      ['1–9 · wheel', 'choose what is in hand'], ['E', 'inventory (right-click a chest to open it)'], ['Q', 'focus: slow the world for a careful shot (gun or bow in hand)'], ['H (hold)', 'lost? head home'],
+      ['F', 'fly on / off (for exploring)'], ['G', 'builder’s mode: blocks never run out'],
       ['[ and ]', 'time of day back / forward an hour'], ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
     ];
     for (const [key, what] of k) { el('b', '', keys).textContent = key; el('span', '', keys).textContent = what; }
@@ -353,6 +362,12 @@ export class Hud {
     this.focusEl.style.opacity = active ? '1' : '0';
     this.focusBar.style.display = show ? '' : 'none';
     (this.focusBar.firstChild as HTMLElement).style.width = `${Math.round(level * 100)}%`;
+  }
+
+  /** Holding H to head home: "Heading home…" and a bar filling over the two seconds; null hides it. */
+  setHoming(progress: number | null): void {
+    this.homeEl.style.display = progress === null ? 'none' : '';
+    if (progress !== null) (this.homeEl.querySelector('b') as HTMLElement).style.width = `${Math.round(progress * 100)}%`;
   }
 
   /** A red flash at the edges of the screen when hurt. */

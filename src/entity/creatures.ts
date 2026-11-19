@@ -82,7 +82,15 @@ export interface Creature {
   post?: { x: number; y: number; z: number; yaw: number };
   /** Seconds left held in a leghold trap (it can't move); below 0, seconds before a trap can take it again. */
   held?: number;
+  /** A tame hen walking round her coop (its block): she keeps within LEASH of it and never climbs a fence. */
+  tame?: [number, number, number];
 }
+
+/** Is a block solid (for code outside the entity system that places creatures). */
+export const B_SOLID_OK = (id: number): boolean => !!B_SOLID[id];
+
+/** How far a tame hen strays from her coop. */
+export const TAME_LEASH = 4;
 
 /** Medium game a leghold trap holds (DESIGN.md: deer and boar). */
 export const TRAPPABLE: ReadonlySet<Kind> = new Set<Kind>(['deer', 'boar']);
@@ -99,8 +107,10 @@ export function makeCreature(kind: Kind, x: number, y: number, z: number): Creat
 export function fits(c: Creature, x: number, y: number, z: number, blockAt: BlockAt): boolean {
   const d = KINDS[c.kind];
   const h = d.width / 2;
-  // The whole body stays out of the sanctuary, not only its middle.
-  for (const [cx, cz] of [[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h], [x, z]]) if (inSanctuary(cx, cz)) return false;
+  // The whole body stays out of the sanctuary, not only its middle. A tame hen is the one creature that
+  // lives in it (she is the player's), and she keeps within her leash of her coop instead.
+  if (c.tame) { if (Math.hypot(x - (c.tame[0] + 0.5), z - (c.tame[2] + 0.5)) > TAME_LEASH) return false; }
+  else for (const [cx, cz] of [[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h], [x, z]]) if (inSanctuary(cx, cz)) return false;
   for (let by = Math.floor(y); by <= Math.floor(y + d.height - 1e-6); by++)
     for (let bz = Math.floor(z - h); bz <= Math.floor(z + h - 1e-6); bz++)
       for (let bx = Math.floor(x - h); bx <= Math.floor(x + h - 1e-6); bx++) if (B_SOLID[blockAt(bx, by, bz)]) return false;
@@ -124,7 +134,7 @@ export function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
     const cliff = c.onGround && drop >= 4;
     const wet = isWaterId(blockAt(Math.floor(nx), Math.floor(c.y), Math.floor(nz)));
     if (!cliff && !wet && fits(c, nx, c.y, nz, blockAt)) { c.x = nx; c.z = nz; continue; }
-    if (!cliff && !wet && c.onGround && fits(c, nx, Math.floor(c.y) + 1, nz, blockAt) && fits(c, c.x, Math.floor(c.y) + 1, c.z, blockAt)) {
+    if (!cliff && !wet && c.onGround && !c.tame && fits(c, nx, Math.floor(c.y) + 1, nz, blockAt) && fits(c, c.x, Math.floor(c.y) + 1, c.z, blockAt)) {
       c.y = Math.floor(c.y) + 1; c.x = nx; c.z = nz; continue;
     }
     // Blocked: turn away next time it chooses.
@@ -137,6 +147,8 @@ export interface Senses {
   px: number; py: number; pz: number; // the player's feet
   /** How fast the player is moving (m/s): a running target is harder to hit. */
   pv?: number;
+  /** Is the player sprinting? A hen flees only from a running player (the lead, 2026-11-18). */
+  sprint?: boolean;
   playerInSanctuary: boolean;
   night: boolean;
   /** A gunshot this tick, heard within 60 m. */
@@ -212,7 +224,10 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   if (pack && !reachable && c.mind === 'flank') { c.mind = 'wander'; c.timer = 0; }
 
   // Changes of mind.
-  if (d.shy && dist < d.shy && c.mind !== 'flee') { c.mind = 'flee'; c.timer = 3 + rand() * 2; }
+  // Shy animals bolt when you come near. A hen is used to people: she runs only from a running one
+  // (or for a moment after a grab that missed), so walking up to catch her works.
+  const startled = c.kind === 'chicken' ? !!s.sprint : true;
+  if (d.shy && dist < d.shy && c.mind !== 'flee' && startled && !c.tame) { c.mind = 'flee'; c.timer = 3 + rand() * 2; }
   if (s.shot && dist < 60 && c.kind !== 'puma' && c.kind !== 'jaguar') { c.mind = d.hostile && dist < 12 ? 'charge' : 'flee'; c.timer = 4; }
   if (d.hostile && reachable) {
     if (c.kind === 'boar' && dist < 4 && (c.mind === 'wander')) { c.mind = 'charge'; c.timer = 8; }
@@ -232,7 +247,10 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
         c.goalX = c.x + Math.cos(a) * r; c.goalZ = c.z + Math.sin(a) * r;
         // Creatures with a home keep to it: dogs lie up in their den by day and range out at night;
         // chickens scratch round their yard.
-        if (c.home) {
+        if (c.tame) {
+          const ha = rand() * Math.PI * 2, hr = 1 + rand() * (TAME_LEASH - 1.2);
+          c.goalX = c.tame[0] + 0.5 + Math.cos(ha) * hr; c.goalZ = c.tame[2] + 0.5 + Math.sin(ha) * hr;
+        } else if (c.home) {
           const keep = c.kind === 'dog' ? (s.night ? 22 : 2.5) : 9;
           const ha = rand() * Math.PI * 2, hr = rand() * keep;
           c.goalX = c.home[0] + Math.cos(ha) * hr; c.goalZ = c.home[1] + Math.sin(ha) * hr;

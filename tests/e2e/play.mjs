@@ -445,6 +445,17 @@ for (let attempt = 0; attempt < 3; attempt++) {
 await page.waitForTimeout(500);
 const eggs = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('egg') ? s.count : 0), 0), coopAt);
 check('in the morning the coop has eggs', eggs === 2, `eggs ×${eggs}`);
+// The eggs are left in: another night, and one hatches. Her hens walk round the coop, one per hen.
+for (let attempt = 0; attempt < 3; attempt++) {
+  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+  if (await g(() => window.__hv.game.hour < 7)) break;
+}
+const hens3 = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
+check('an egg left in hatches: three hens in the coop', hens3 === 3, `hens ×${hens3}`);
+await g((c) => { const p = window.__hv.game.player; p.setPosition(c[0] + 0.5, c[1], c[2] + 3.5); }, coopAt);
+const walkers = await page.waitForFunction(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length === 3, null, { timeout: 300_000, polling: 300 }).then(() => true, () => false);
+check('her three hens walk round the coop', walkers, `${await g(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length)} walking`);
 
 // 8. Home alive from Zone-1, with the gate swum both ways, Marco's trust and the pistol: M1 is done.
 await page.waitForTimeout(1300);
@@ -607,8 +618,13 @@ await waitFlag('bridge_seen');
 await page.waitForFunction(() => { const p = window.__hv.game.player; p.yaw = (93 * Math.PI) / 180; p.pitch = (-7 * Math.PI) / 180; return window.__hv.game.flags.has('body_seen'); }, null, { timeout: LONG, polling: 200 }).catch(() => {});
 f5 = await flags();
 check('walks to the broken bridge, and sees the body across the ravine', f5.includes('deep_seen') && f5.includes('bridge_seen') && f5.includes('body_seen'), f5.filter((x) => /seen/.test(x)).join(' '));
-// Home to the cave, where the save checks below edit a block.
-await g(() => { const gm = window.__hv.game; gm.player.flying = false; gm.player.setPosition(1812.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = 0; });
+// Lost at the end of the road? Hold H: two seconds later you are where you wake (the bed). The save checks
+// below edit a block in the cave.
+await g(() => { const v = window.__hv.game.vitals; v.hunger = 100; v.thirst = 100; v.hp = 100; }); // nobody starving: that hurts too
+await page.keyboard.down('KeyH');
+const wentHome = await page.waitForFunction(() => { const gm = window.__hv.game, p = gm.player, s = gm.spawn; p.yaw = (93 * Math.PI) / 180; return Math.hypot(p.x - s.x, p.z - s.z) < 0.5; }, null, { timeout: LONG, polling: 100 }).then(() => true, () => false);
+await page.keyboard.up('KeyH');
+check('holding H takes you home from the broken bridge', wentHome, await g(() => { const p = window.__hv.game.player, s = window.__hv.game.spawn; return `at ${p.x.toFixed(1)},${p.z.toFixed(1)}, wakes at ${s.x.toFixed(1)},${s.z.toFixed(1)}`; }));
 await page.waitForFunction(() => window.__hv.idle(), null, { timeout: LONG, polling: 300 }).catch(() => {});
 // F3 shows the debug panel, and F3 again hides it (it used to stay up with its last text).
 await ensureLook();

@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { SKY_COLOR_GLSL } from './sky.ts';
-import type { Creature, Kind } from '../entity/creatures.ts';
+import { KINDS, type Creature, type Kind } from '../entity/creatures.ts';
 import type { Arrow } from '../entity/wild.ts';
 
 const VERT = /* glsl */ `
@@ -264,6 +264,17 @@ function box(p: Part): THREE.BufferGeometry {
 const BODY_GEOMS = new Map<Kind, THREE.BufferGeometry[]>();
 const LEG_GEOMS = new Map<Kind, THREE.BufferGeometry>();
 const GLOW_MAT = new THREE.MeshBasicMaterial({ color: '#fff6c8' });
+// The health bar shown over a creature for a few seconds after it is hit (the lead: make damage readable).
+const BAR_BACK = new THREE.MeshBasicMaterial({ color: '#1b1b1b' });
+const BAR_FILL = new THREE.MeshBasicMaterial({ color: '#d8382c' });
+const BAR_GEOM = new THREE.BoxGeometry(1, 1, 1);
+/** Seconds the bar stays up after a hit. */
+export const BAR_SECONDS = 3;
+/** How full a creature's bar is (0–1), and whether to show it: only for a while after a hit, never for people who can't be hurt. */
+export function healthBar(c: Creature): { show: boolean; fill: number } {
+  const max = KINDS[c.kind].hp;
+  return { show: c.kind !== 'marco' && c.hurt < BAR_SECONDS && c.hp > 0, fill: Math.max(0, Math.min(1, c.hp / max)) };
+}
 for (const k of Object.keys(MODELS) as Kind[]) {
   BODY_GEOMS.set(k, MODELS[k].body.map(box));
   const l = MODELS[k].leg;
@@ -278,7 +289,7 @@ const ARROW_GEOM = (() => {
 
 export interface Shared { uniforms: Record<string, THREE.IUniform> }
 
-interface View { group: THREE.Group; legs: THREE.Mesh[]; mat: THREE.ShaderMaterial; posed: { mesh: THREE.Mesh; part: Part }[] }
+interface View { group: THREE.Group; legs: THREE.Mesh[]; mat: THREE.ShaderMaterial; posed: { mesh: THREE.Mesh; part: Part }[]; bar: THREE.Group; fill: THREE.Mesh }
 
 export class CreatureRenderer {
   private views = new Map<number, View>();
@@ -318,8 +329,18 @@ export class CreatureRenderer {
       group.add(m);
       return m;
     });
+    // The health bar: a dark back and a red fill, turned to the camera each frame.
+    const bar = new THREE.Group();
+    const back = new THREE.Mesh(BAR_GEOM, BAR_BACK);
+    back.scale.set(0.8, 0.09, 0.02);
+    const fill = new THREE.Mesh(BAR_GEOM, BAR_FILL);
+    fill.scale.set(0.76, 0.06, 0.03);
+    bar.add(back, fill);
+    bar.position.y = KINDS[c.kind].height + 0.35;
+    bar.visible = false;
+    group.add(bar);
     this.scene.add(group);
-    return { group, legs, mat, posed };
+    return { group, legs, mat, posed, bar, fill };
   }
 
   /** Brings the drawn creatures and arrows in step with the wild. `lightAt` gives a block's packed light. */
@@ -345,6 +366,13 @@ export class CreatureRenderer {
       v.mat.uniforms.uLight.value.set((l >> 4) / 15, (l & 15) / 15);
       v.mat.uniforms.uHurt.value = Math.max(0, 1 - c.hurt / 0.35);
       v.group.visible = Math.hypot(c.x - eye.x, c.z - eye.z) < 160;
+      const hb = healthBar(c);
+      v.bar.visible = hb.show;
+      if (hb.show) {
+        v.bar.rotation.set(0, Math.atan2(eye.x - c.x, eye.z - c.z) - c.yaw, 0);
+        v.fill.scale.x = 0.76 * hb.fill;
+        v.fill.position.x = -0.38 * (1 - hb.fill);
+      }
     }
     for (const [id, v] of this.views) {
       if (alive.has(id)) continue;
