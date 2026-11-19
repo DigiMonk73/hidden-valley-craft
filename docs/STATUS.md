@@ -15,6 +15,8 @@ _The page to resume from. Keep it short; history lives in git._
   - **The fight:** three raiders, a first human fight, small and telegraphed. A glint and a click before every shot; cover works. A blade from behind is a silent takedown. Once cleared, the outpost stays clear.
   - **Focus mode** (Q), and the **jaguar** that crosses the camp's clearing once.
   - **M2** on the computer: the forge from the raiders' parts, the hunting bow, the smoker and jerky rack, the leghold, raised beds, quinoa and the apple slip, the coop and the hutch, the cleared outpost.
+  - **The lead's requests:** hold H to head home; chickens caught by walking up; a health bar after a hit; coops hatch hens that walk round them.
+  - **Checks:** 251 unit tests and all 71 play-through checks. The play-through now takes about 45 minutes here: in software rendering the game runs several times slower than the clock, so its Phase 5 waits are for conditions, with long limits.
 - **Review fixes (Silas)** were published as version 7. The sanctuary now covers the whole home, F3 hides the panel, and a full pack keeps the block. Checks: 193 unit tests and all 51 play-through checks. The play-through now takes about 30 minutes here; give it an hour's timeout.
 
 - **Phase 4 ("Zone-1 near band")** was merged into `main` (branch `phase4`) and published as version 6. It has the saddle, Marco's bus shelter and trading in Bitcoin, the dead scout and the pistol, the farmstead with its feral dogs and chickens, the coop, salvage, and M1. Details are in docs/PHASE4.md. Checks: 188 unit tests and all 50 play-through checks.
