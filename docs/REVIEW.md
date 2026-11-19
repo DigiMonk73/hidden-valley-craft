@@ -1,6 +1,5 @@
 # Independent review — Hidden Valley, Block Edition
 
-_**Draft in progress:** the zones, creatures and interface are still to be judged, and the play-test findings added._
 _Reviewed: `main` at `a1b0772` (Phases 0–6, published as version 9), on 2026-11-19. Phase 7 is not covered._
 _Nothing in the game was changed. This file and the pictures in `docs/review/` are the only things added._
 
@@ -15,6 +14,7 @@ _Nothing in the game was changed. This file and the pictures in `docs/review/` a
 - **Keep what is underneath.** The world, the light, the water, the way blocks load and the hard rule that nothing hostile enters the valley are well built. Nothing here needs rewriting. The valley from the pool and the home seen from the garden are good pictures by any standard.
 - **The writing is good.** The journal, the dead contacts on the phone, the body across the ravine and the tracks carry the script's tone better than I expected.
 - **What is weak is the game laid over them.** Today it is a beautiful place with a good story and almost no pressure:
+  - while you are fed, nothing that bites or shoots can kill you (a bug; an hour to fix);
   - money never runs short, so the Bitcoin rig earns less than selling iron;
   - food and water never matter;
   - the milestones are a list of ticks that can be earned out of order, or made impossible by one sale;
@@ -26,7 +26,7 @@ _Nothing in the game was changed. This file and the pictures in `docs/review/` a
 
 | Area | Grade | In one line |
 |---|---|---|
-| Bugs | **B−** | No crashes and the sanctuary holds, but saves can be lost and there are a few places to get stuck. |
+| Bugs | **C+** | No crashes, no lost or copied items, and the sanctuary holds. But saves can be lost, a fed player cannot die, and there are places to get stuck. |
 | Code | **B−** | The engine is a B+; the one big file that runs the game is a C and has no tests. |
 | Graphics and feel | **B−** | Outdoors B+; the rooms of the home, under water and the lack of a hand or tool on screen pull it down. |
 | Gameplay against the script | **C+** | Places and story are faithful (A−); stakes, money and pacing are not there yet (C). |
@@ -34,7 +34,7 @@ _Nothing in the game was changed. This file and the pictures in `docs/review/` a
 ### The five things most worth doing
 
 1. **Make saves safe** (about 13 hours). Close the four ways a valley can be lost, keep a backup copy, and save your position and health on a timer, which the game does not do today.
-2. **Give the game stakes** (about 15 hours, and several choices that are yours). Split "Survival" from "Builder's mode" so flying and time-skipping are a choice made once, not a stray key. Make money matter. Make milestones real steps that cannot be skipped or broken.
+2. **Give the game stakes** (about 16 hours, and several choices that are yours). Fix the bug that keeps a fed player alive through anything. Split "Survival" from "Builder's mode" so flying and time-skipping are a choice made once, not a stray key. Make money matter. Make milestones real steps that cannot be skipped or broken.
 3. **Rebuild the home** to your notes (about 17 hours). The plan and sketch are below.
 4. **Walk the whole world by machine and fix the traps** (about 11 hours). A test that walks every route would have caught the pit beside your path, the hole in the valley floor and the way round the "impassable" ravine.
 5. **Build the first ten minutes** (about 7 hours). The game opens with no word of who you are, what to do first, or how to eat. Put the next goal on screen.
@@ -43,13 +43,15 @@ After those, in Phase 9: a setting for weaker computers, the look under water, a
 
 ### The five worst bugs
 
-1. **A lost valley.** If the browser is slow to open its storage just once, the game quietly starts a new valley, and the next time you play your real one is overwritten.
-2. **A broken save file stops the game for good.** Loading a damaged save file or code replaces your save first and checks it second; after that the page shows "couldn't start" every time.
-3. **A pit beside the path.** One step east of the top of the path down from the balcony is a slot seven blocks deep. You cannot climb out.
-4. **One sale can end your progress.** There is exactly one pump in the world. Marco will buy it, and then the "fridge and pump" step of M3 can never be done. The same is true of several other parts.
-5. **The `[` key prints money.** It is listed in the menu as "time of day back an hour". With a mining rig running, each press pays almost a full day's Bitcoin.
+1. **A lost valley.** If the browser is slow to open its storage just once, the game quietly starts a new valley. Change anything in it, and the next time you play your real valley is overwritten.
+2. **While you are well fed, nothing can kill you.** With Food and Water above 60, a dog can bite for ever: the health bar sits empty and you stay alive. Danger outside the valley is, today, for show (`review/zero-health-alive.jpg`).
+3. **A broken save file stops the game for good.** Loading a damaged save file or code replaces your save first and checks it second; after that the page shows "couldn't start" every time, with no menu.
+4. **A pit beside the path.** One step east of the top of the path down from the balcony is a slot seven blocks deep. You cannot climb out.
+5. **One sale can end your progress.** There is exactly one pump in the world. Marco will buy it, and then the "fridge and pump" step of M3 can never be done. The same is true of several other parts.
 
-Next worst: the ravine at the end of the road, meant to be impassable, can be walked round in two minutes to the body and into Zone 3.
+Next worst:
+- The `[` key, listed in the menu as "time of day back an hour", pays almost a full day's Bitcoin per press once a mining rig runs.
+- The ravine at the end of the road, meant to be impassable, can be walked round in two minutes to the body and into Zone 3.
 
 ### The home, in a few lines
 
@@ -87,6 +89,8 @@ Costs are hours of session work. Risk is the risk of the fix.
 
 ### Worth doing now (before Phase 8)
 
+Ranked by what a player stands to lose. One exception to the order: the one-hour fix in N5a (a fed player cannot die) should go in first, because every fight in Phases 4–7 is judged wrongly while it stands.
+
 #### N1. Saves can be lost, and most play is never saved
 
 | # | What happens | Evidence | Where |
@@ -100,6 +104,7 @@ Costs are hours of session work. Risk is the risk of the fix.
 | g | **A failed write is silent.** The status line still says "Saves automatically". | Probe F4 (localStorage over quota). | `src/game.ts:1470-1473` |
 | h | Small ones, all shown: "Copy save code" after New game or Load gives the **old** valley until the next pause; "Save now" before the store opens leaves autosave off for the session; New game keeps Zone-2's dead men; a pack saved with an item on the cursor and no room grows to 37 slots for good; a mined hutch leaves its 9-slot size for the chest placed there next. | Probes G6b, G6c, G9, W3. | `src/game.ts:1404`, `:1517`, `:1545-1574`; `src/world/world.ts:74-80` |
 
+- **Confirmed in the browser as well,** by the play-tester: (a) with a 2.5 s delay put on `indexedDB.open`, the store became `localstorage`, the rifle was gone and no warning showed; (c) pasting a code holding only `{"format":…,"version":1}` gave a page error, and every reload after it showed "Hidden Valley couldn't start here… needs WebGL 2" with no menu; (f) tab A's honey was gone and tab B's salt kept.
 - **The fix, as one piece of work:**
   1. Put all saved state in one plain object with `newState`, `toSave` and `fromSave`, so `snapshot`, `applySave` and `restart` can no longer drift apart.
   2. Validate and normalise in `fromSave`: types, finite numbers, position clamped into the world. Apply an import **before** storing it. Wrap boot's load in a try/catch that starts fresh, says so, and keeps the bad bytes under a second key.
@@ -132,11 +137,11 @@ Costs are hours of session work. Risk is the risk of the fix.
 
 | # | What happens | Steps | Where | Fix, cost |
 |---|---|---|---|---|
-| a | **A 7-deep slot beside the top of the home path.** | From the balcony's north opening walk north to z≈1011.8 and step east. You land at (1798, 75, 1011) with 21 damage. 30 random 40-second escape runs never got above y 76.4. | `src/gen/terrain.ts:508-514`: the path is 3 wide (x 1795–1797), the cliff starts at x 1799, nothing fills between. | Fill between path and cliff along the first leg. 1 h. |
+| a | **A 7-deep slot beside the top of the home path** (`review/pit-by-path.jpg`: the dark gap between the paving and the cliff). | From the balcony's north opening walk north to z≈1011.8 and step east. You land at (1798, 75, 1011) with 21 damage. 30 random 40-second escape runs never got above y 76.4. | `src/gen/terrain.ts:508-514`: the path is 3 wide (x 1795–1797), the cliff starts at x 1799, nothing fills between. | Fill between path and cliff along the first leg. 1 h. |
 | b | **The "sheer" ravine can be walked round.** The far bank, the body and Zone 3 are open on foot, with no jump and no block placed. | From the road's end go south along x≈658 to z≈1085, down to the floor near (655, 42, 1174), north along the floor, up at x≈618, z 1100–1137, to the body at (597, 79, 1026). The real `Player` walked it in 140 s, and back in 138 s. | `src/gen/layout.ts:572-575`: blending gorge into slope makes a one-in-two ramp along each wall. | Make the change abrupt, or keep both walls more than one block per step; test that the far bank is unreachable. 2 h. |
 | c | **A cave shaft in the valley floor** at the south-west cliff foot, and about 20 one-block pits. | Walk east from (1633.5, 72, 1103.5): you drop into a 47-cell cave. Escape topped out at y 70.4; the rim is 72. Others: (1770, 71, 1091); 13 gaps between bushes by the outpost, such as (864, 89, 1047); (1261, 130, 1153). | `src/gen/terrain.ts:210-211`: the cave roof margin is measured from the column's highest rock, not the ground at its foot. | Measure from the lowest open surface; fill 1×1 pits two or more deep. 2–3 h. |
 | d | **That same cave runs 3–8 m past the sanctuary's line.** Inside it the game calls it buffer: a death there costs the pack, and "Lost? Hold H" appears. No hostile can reach it (a flood from outside shares no cell with it). | `nookpath` probe: `at the nook's end 1631.5,1115.5: zone buffer, a death there loses the pack: true, r = 114.3`. | `src/gen/terrain.ts:210-213`, `src/gen/layout.ts:327` | Fixed by (c), plus a test that a flood from the valley floor stays inside the sanctuary. |
-| e | **The wake point is never checked.** Three blocks stacked on it, and death or H leaves you inside rock. A 22-deep shaft under it gave 24 deaths in 30 s. | Probe `misc`. Sleeping sets the wake point to wherever you stand when you click the bed, up to 5 blocks away. | `src/game.ts:735-737`, `:941`, `:1089-1094` | On wake or H, look for a free cell with ground under it near the wake point; else the balcony. Fix the wake point at the bedside. 1.5 h. |
+| e | **The wake point is never checked.** Three blocks stacked on it, and death or H leaves you inside rock (a lower stack lifts you on top, the play-tester found). A 22-deep shaft under it gave 24 deaths in 30 s. | Probe `misc`. Sleeping sets the wake point to wherever you stand when you click the bed, up to 5 blocks away. **The bed can also be mined and carried out:** placed on the Zone-1 road and slept in, it moved the wake point to (1392.5, 99, 1028.5), and H in the valley then sent the player there with the toast "Home." | `src/game.ts:735-737`, `:941`, `:1089-1094` | On wake or H, look for a free cell with ground under it near the wake point; else the balcony. Fix the wake point at the bedside. Sleep sets it only inside the sanctuary (owner's call). 2 h. |
 | f | **The valley pool stands one block proud of its east bank:** 21 water cells with open air beside them, at x 1624–1627, z 1015–1021. | Probe `scan`. | `src/gen/terrain.ts:321-332` | Hold the ground at 70 or more within radius + 3 of the pool. 1 h. |
 | g | 24 single limestone blocks hang in the air off the valley cliffs, such as (1604, 92, 1050). The bridge deck has a hole on the road's centre line one block before its end, at (649, 82, 1022). | Probe `scan`. | `src/gen/zone1far.ts:259` | Remove orphan rock after shaping; decide the hole. 1 h. |
 
@@ -151,10 +156,11 @@ Costs are hours of session work. Risk is the risk of the fix.
 | a | **Bitcoin is never short.** The wallet starts at 5,000,000 sats. One lot of everything Marco sells, in both catalogues, costs 4,275,000. | Probe T. | `data/trade.json:4` |
 | b | **The rig is the worst earner in the game.** It makes 50,000 a day. Marco pays 25,000 for one iron ingot, and the rock inside the home's own grounds holds 1,261 iron ore. The mall roofs hold 420 panels at 37,500 each. | Probes T, W. | `data/trade.json:95,111,156` |
 | c | **One sale can lock a milestone.** One pump unit exists; Marco pays 50,000 for it. Also finite and sellable: mining boards (2), PSUs (3), GPUs (6), battery cells (12, 6 needed), bowstrings (3), primers (40). None can be bought back, made or mined. | Probes R, M. | `data/trade.json:120`, `src/gen/inheritance.ts:78` |
-| d | **Milestones tick without their real step, in any order.** "Swim out through the gate, and back home" ticks at any point outside the valley west of the gate line, or by holding H. "Take the dead scout's pistol" ticks for any pistol. M3 completes with M1 and M2 undone. No recipe checks a milestone. | Probe M: `after H-home with any pistol: gate_both, extracted, pistol_taken, m1_done`; `M3 done with M1/M2 flags absent: true`. | `src/sim/milestones.ts:24-29,103` |
+| d | **Milestones tick without their real step, in any order.** "Swim out through the gate, and back home" needs no swim: "out" is any ground outside the valley west of x 1591, and "back" is anywhere east of that line, or a press of H. "Take the dead scout's pistol" ticks for any pistol. M3 completes with M1 and M2 undone. No recipe checks a milestone. | Probe M: `after H-home with any pistol: gate_both, extracted, pistol_taken, m1_done`; `M3 done with M1/M2 flags absent: true`. | `src/sim/milestones.ts:24-29,103` |
 | e | **Dying in the valley is a free meal.** You wake at full health with hunger and thirst raised to 50 and your pack intact. Never eating costs one painless death every 15.8 minutes. | Probe S. | `src/game.ts:726,741` |
 | f | **Coal and copper inside the sanctuary:** 1,309 coal ore and 396 copper ore in the home's rock, against "coal and better ores are outside". | Probe W. | `src/gen/terrain.ts:224,236` (the valley ore rule uses the bowl, not the whole sanctuary) |
 | g | Marco pays 600,000 for a pistol and 1,000,000 for the raider rifle. Drinking a jug with a full pack destroys the empty jug; cold water never gives the jug back. | Probes T, S. | `src/sim/trade.ts:24`, `src/game.ts:1271-1272` |
+| h | **Clicking "Sell 1" quickly sells the next thing down.** The list redraws after each sale and the rows move up under the cursor. | In the browser: with 2 hides and a puma pelt, four clicks on the hides' button sold the hides, the pelt and an iron ingot. Pelts cannot be bought back. | `src/ui/paperScreen.ts:152` |
 
 - **Fixes, each small:**
   - Marco refuses milestone parts, or sells them back. 3 h.
@@ -164,29 +170,32 @@ Costs are hours of session work. Risk is the risk of the fix.
   - Wake after a valley death with the hunger and thirst you had (floor 15). 1 h.
   - Use `inSanctuary` for the ore rule. 1 h.
   - Explicit gun values; return the jug. 1 h.
+  - Keep a sold-out row in place, greyed, until the screen closes. 0.5 h.
 - **Cost:** about 12 h. **Risk:** low in code. These change how the game plays, so each is the owner's choice; I recommend all of them.
 - **What is solid here:** no buy-and-sell or buy-craft-sell loop exists. A full pack, a missing stack or an empty wallet create and lose nothing. The rig cannot run without power. Every name in the JSON files resolves.
 
-#### N5. Creatures: a sanctuary edge case, and scenes that break on real ground
+#### N5. Fights and creatures: a player who cannot die, a sanctuary edge case, and scenes that break on real ground
 
 | # | What happens | Evidence | Where | Fix, cost |
 |---|---|---|---|---|
-| a | **Born straddling the sanctuary's line.** Spawners test the centre point only. 0.3–0.9% of creatures born at the line have up to 0.45 m of body across it. Every later move is refused, so they stand rooted for good and still strike a player standing just outside. No centre was ever inside. | Probe `spawn`: `623847 spawned, centre inside 0, straddling 2015`; of 300 tested, `never moved in 60 s: 300; blows landed: 6976`. | `src/entity/spawner.ts:112-115,145` | Require `fits()` at birth in every spawner and in `Wild.add`. 1 h. |
-| b | **About 1 creature in 55 is born stuck in a tree** in the real forest. | `32101 spawned … never moved 0.3 m in 60 s: 576 (1.8%)`. | same | Same fix. |
-| c | **The warning before a blow is cut to 0.25 s near obstacles,** against a design of 0.5–0.7 s, and the gap between blows drops from 2.4 s to about 1 s. On open ground it never happens. | Probe `telegraph`, real forest: boar 3% of blows, jaguar 4%, shortest warning 0.25 s. | `src/entity/creatures.ts:159`: `c.timer = Math.min(c.timer, 0.2)` on any blocked move, for every state. | Apply it only while wandering. 1 h with a test. |
-| d | **The jaguar walks into the shed and blinks out** against its wall, 19 m from the player. | Probe `places`: 'gone' at 10.2 s at (802.5, 967.3); the shed's west wall is x 803. Needs browser to judge the look. | `src/entity/jaguar.ts:62` | Leave by `jaguarPath[2]` and on into the trees. 1 h. |
-| e | **Zone-2's sentry never walks his beat.** He marches on the spot against the wrecked truck, facing north. | `in 20 minutes he completes 0 legs (both patrols complete 130)`; stuck at (812.0, 89, 742.3). | `src/entity/faction.ts:38` | Move the beat to x 807; test every beat on real ground. 1 h. |
-| f | **At dawn, night hunters more than 24 m away are deleted in plain view.** | Probe `behaviour` 3. | `src/entity/spawner.ts:161` | Have them run and vanish out of sight. 1 h. |
-| g | **The bow cannot be loosed anywhere in the valley or home.** The arrow drops at your feet. | `valley floor, full draw: stuck=true flew 0.00 m`. | `src/entity/wild.ts:276` | Stop only arrows that started outside. 0.5 h. Owner's call. |
-| h | **A dimmer light goes dark when a brighter one near it is removed.** A smelter, kiln, stove or forge stops glowing until the area reloads. | Probe `light2`: the cell beside the smelter reads 0, should be 8; 36 cells wrong. | `src/world/light.ts:199-203`: removal zeroes a neighbour that is itself a source and never re-seeds it. | Re-seed emitting cells. 1 h. |
-| i | **A slab, stair or pipe one block across a chunk border darkens its neighbour.** | Corners 240,240,240,240 inside a chunk; 240,180,180,240 across the border. | `src/mesh/mesher.ts:219-224` | Correct border cells too. 2 h. |
+| a | **A well-fed player cannot be killed by a bite, a blow or a bullet.** A hit clamps health at 0; then, in the same tick, regeneration adds a sliver; then the death check sees a number above 0. | In the browser: 14 dog bites took health from 100 to 0.01, and the player stood alive for 200 s more; with Food at 55 the next bite killed. In a probe of the same three steps: 1,000 damage every tick for a minute, `deaths 0, lowest health seen by the death check 0.0058`. | `src/game.ts:406-407`, `:505`, `:713`; `src/sim/survival.ts:22` | Die in `wildEvents` when a hit takes health to 0, and stop regeneration for some seconds after any hit. 1 h with a test. |
+| b | **Born straddling the sanctuary's line.** Spawners test the centre point only. 0.3–0.9% of creatures born at the line have up to 0.45 m of body across it. Every later move is refused, so they stand rooted for good and still strike a player standing just outside. No centre was ever inside. | Probe `spawn`: `623847 spawned, centre inside 0, straddling 2015`; of 300 tested, `never moved in 60 s: 300; blows landed: 6976`. | `src/entity/spawner.ts:112-115,145` | Require `fits()` at birth in every spawner and in `Wild.add`. 1 h. |
+| c | **About 1 creature in 55 is born stuck in a tree** in the real forest. | `32101 spawned … never moved 0.3 m in 60 s: 576 (1.8%)`. | same | Same fix. |
+| d | **The warning before a blow is cut to 0.25 s near obstacles,** against a design of 0.5–0.7 s, and the gap between blows drops from 2.4 s to about 1 s. On open ground it never happens. | Probe `telegraph`, real forest: boar 3% of blows, jaguar 4%, shortest warning 0.25 s. | `src/entity/creatures.ts:159`: `c.timer = Math.min(c.timer, 0.2)` on any blocked move, for every state. | Apply it only while wandering. 1 h with a test. |
+| e | **The jaguar walks into the shed and blinks out** against its wall, 19 m from the player. | Probe `places`: 'gone' at 10.2 s at (802.5, 967.3); the shed's west wall is x 803. Needs browser to judge the look. | `src/entity/jaguar.ts:62` | Leave by `jaguarPath[2]` and on into the trees. 1 h. |
+| f | **Zone-2's sentry never walks his beat.** He marches on the spot against the wrecked truck, facing north. | `in 20 minutes he completes 0 legs (both patrols complete 130)`; stuck at (812.0, 89, 742.3). | `src/entity/faction.ts:38` | Move the beat to x 807; test every beat on real ground. 1 h. |
+| g | **At dawn, night hunters more than 24 m away are deleted in plain view.** | Probe `behaviour` 3. | `src/entity/spawner.ts:161` | Have them run and vanish out of sight. 1 h. |
+| h | **The bow cannot be loosed anywhere in the valley or home.** The arrow drops at your feet. | `valley floor, full draw: stuck=true flew 0.00 m`. | `src/entity/wild.ts:276` | Stop only arrows that started outside. 0.5 h. Owner's call. |
+| i | **A dimmer light goes dark when a brighter one near it is removed.** A smelter, kiln, stove or forge stops glowing until the area reloads. | Probe `light2`: the cell beside the smelter reads 0, should be 8; 36 cells wrong. | `src/world/light.ts:199-203`: removal zeroes a neighbour that is itself a source and never re-seeds it. | Re-seed emitting cells. 1 h. |
+| j | **A slab, stair or pipe one block across a chunk border darkens its neighbour.** | Corners 240,240,240,240 inside a chunk; 240,180,180,240 across the border. | `src/mesh/mesher.ts:219-224` | Correct border cells too. 2 h. |
 
 - **Not verified in play, likely:**
   - 15% of spawns in the forest have a clear line to the player, 6% within 40 m, with no sight check.
   - A player three blocks up is untouchable by every melee kind (`creatures.ts:203`).
   - Any reload wipes a fight: creatures are not saved, so raiders return at full health and the jaguar, whose flag is set when it appears, is gone for good with its pelt.
-- **Cost:** about 10 h. **Risk:** low.
-- **The pattern:** every behaviour test runs on flat stub ground. Each of (c), (d) and (e) appears only with real blocks. Add: `fits()` true at birth on real columns; every beat and scripted path completes on real terrain; wind-up length among obstacles.
+- **Also shown in the browser:** right-clicking a crop with a block in hand replaces the crop with the block, with no harvest and no message (`src/sim/interact.ts:40-51`). 0.5 h.
+- **Cost:** about 11 h. **Risk:** low.
+- **The pattern:** every behaviour test runs on flat stub ground. Each of (d), (e) and (f) appears only with real blocks. And no test, in Node or in the play-through, lets the player be killed by a creature: the play-through keeps health topped up through the hook. Add: `fits()` true at birth on real columns; every beat and scripted path completes on real terrain; wind-up length among obstacles.
 
 #### N6. The first ten minutes
 
@@ -201,6 +210,12 @@ Costs are hours of session work. Risk is the risk of the fix.
   7. **Solar arrays** must be at home under open sky; said once. Have an array say "no sky" when used. 0.5 h.
   8. **Smoker, jerky rack and hutch** give no hint what goes in, or that they act at dawn only while you are near.
   9. **Sleep works only after 17:00.**
+  10. **Holding H while drowning** says "Not with danger this close", and then you drown. A swimmer who stops in the tunnel drifts to the valley mouth, stays on the bottom and drowns there (inside the sanctuary, so nothing is lost).
+  11. **The safe's keypad ignores typed digits;** only clicks work.
+  12. **Esc on the pause menu does not resume.** Clicking outside a window does not close it. Nothing can be dropped on the ground.
+  13. **Digging beside water** turns each dug block to water, so the pool creeps inland.
+  14. **The menu counted "87 blocks changed"** before anything was mined or placed: crop growth is counted.
+  15. **From the waking spot, nothing points to the way down:** walking forward ends at the railing. Not checked with mouse-look.
 - **Against "simple, short, well lit, easy to find":** the tunnel, the camp trail, the highway and the ruins pass. Marco, Doc and the safe do not.
 - **Cost:** about 7 h. **Risk:** low.
 
@@ -223,7 +238,7 @@ See [The home redesign](#the-home-redesign). 17 h. Scheduled after Phase 7 merge
 
 #### N9. A decision before Zone-3's enemies: there is no pathfinding
 
-- **What is there:** creatures steer straight at their goal with a one-block step-up (`src/entity/creatures.ts:131-155`). `PLAN.md` lists A*; it was never built. Raiders work because they stand at posts. The stuck sentry (N5e) is the first sign.
+- **What is there:** creatures steer straight at their goal with a one-block step-up (`src/entity/creatures.ts:131-155`). `PLAN.md` lists A*; it was never built. Raiders work because they stand at posts. The stuck sentry (N5f) is the first sign.
 - **Why now:** Ashen that hunt inside machine shops, a dam or a tower will pin on the first wall.
 - **Two ways:** a local, throttled grid search with sanctuary cells blocked (1–2 days, medium risk); or keep Phase 7 and 8 enemies outdoors or at posts, as now (no cost).
 - **Recommendation:** the second for Phase 7 as it is being built, and the first before Phase 8 only if Zone-4 needs enemies indoors.
@@ -254,7 +269,7 @@ See [The home redesign](#the-home-redesign). 17 h. Scheduled after Phase 7 merge
 
 - **The load, measured:** at the default 256 m from the balcony the game draws 2.41 million quads (4.8 million triangles) in 1,125 draw calls. At the maximum 384 m: 8.8 million triangles, 2,044 draw calls. 38–40% of quads sit in chunks wholly 8 m or more below ground.
 - **No low setting exists:** the menu cannot go below 224 m (`src/game.ts:1389`), and the renderer uses anti-aliasing at pixel ratio up to 2 (`src/render/renderer.ts:179-180`).
-- **Memory:** vertex data is 193 MB at the default and 353 MB at maximum, and three.js keeps a CPU copy as well. Voxel data adds 100–260 MB. About 1 GB at 384 m. In headless Chromium here the page reached 3 GB.
+- **Memory:** vertex data is 193 MB at the default and 353 MB at maximum, and three.js keeps a CPU copy as well. Voxel data adds 100–260 MB. About 1 GB at 384 m. In software rendering here a page's renderer process reached 3–8 GB while the JavaScript heap stayed at about 123 MB; that is probably this machine's starved software GPU and was not attributed, so measure it on a real one.
 - **Hitches while walking:** joining a new column's light runs on the main thread with no budget: median 11–14 ms, 95th percentile 26–42 ms, and about 19 columns arrive per chunk crossed (`src/world/world.ts:195`).
 - **Loading is tied to the frame rate:** results are pumped once per frame (`src/game.ts:302-303`), so a slow GPU also loads the world slowly. Seen here: at under 1 frame a second the far valley never finished loading.
 - **If workers are blocked** in the published frame, one column takes 45–85 ms against a 6 ms budget: about 38 s of blocked page to fill 256 m. **The owner can check this now:** F3's first line reads `workers ×N` or `main-thread`.
@@ -310,7 +325,7 @@ See [Graphics and feel](#graphics-and-feel) for the place-by-place judgement.
 #### E5. Tests worth having by then
 
 1. A streamer walk with a synchronous fake executor: 2 km, every chunk drawn, meshes removed on unload, edits surviving reload, a failing job neither looping nor leaving a hole.
-2. Seeded random edits across chunk seams with mixed light strengths: incremental light equal to fresh. `PLAN.md` promised it; three hand-picked cases exist, which is how N5h survived.
+2. Seeded random edits across chunk seams with mixed light strengths: incremental light equal to fresh. `PLAN.md` promised it; three hand-picked cases exist, which is how N5i survived.
 3. A five-minute smoke test in a sandboxed frame (memory store, main-thread executor, free look). `PLAN.md` promised these pages; none exist.
 4. A mesh budget at fixed viewpoints, so a terrain change that doubles the triangles fails.
 5. Declare `playwright` in `package.json`; the play-through needs it and does not say so.
@@ -328,17 +343,19 @@ See [Graphics and feel](#graphics-and-feel) for the place-by-place judgement.
 | Splitting `layout.ts` or `textures.ts` | Long, but flat and well tested. |
 | Lint, `noUncheckedIndexedAccess` | `tsc` strict with zero `any` is already the useful bar. |
 | A full fluid simulation | A refill rule for still water and a flow texture are enough. |
-| A*, for wildlife in open forest | Straight steering reads fine outdoors; fix the stuck births (N5a, b) instead. |
+| A*, for wildlife in open forest | Straight steering reads fine outdoors; fix the stuck births (N5b, c) instead. |
 
 ---
 
 ## The four areas
 
-### Bugs — B−
+### Bugs — C+
 
-The base is honest. I found no crash in play, no way to duplicate or lose an item, and no hostile inside the valley in about 700,000 spawns on real terrain. Every move a creature makes after birth is checked against the sanctuary. Light and meshing are exact across chunk borders but for two narrow cases. The grade is held down by three things. Saves have four ways to lose a valley, and ordinary play (position, health, time) is not saved unless a block or item changed. Three places trap a walking player, one of them a step from the home path, and the ravine that the script calls impassable is not. And the debug keys left in the menu make money and safety free. All of it is fixable in days, and almost all of it would have been caught by two tests that do not exist: one that runs the real `Game` through a save and a load, and one that walks the generated world.
+The base is honest. I found no crash in play, no way to duplicate or lose an item, and no hostile inside the valley in about 700,000 spawns on real terrain. Every move a creature makes after birth is checked against the sanctuary. Light and meshing are exact across chunk borders but for two narrow cases. The grade is held down by four things. Saves have four ways to lose a valley, and ordinary play (position, health, time) is not saved unless a block or item changed. A player with food and water above 60 cannot be killed by anything that bites or shoots, so the fights the game is built round have no outcome. Three places trap a walking player, one of them a step from the home path, and the ravine that the script calls impassable is not. And the debug keys left in the menu make money and safety free. All of it is fixable in days, and almost all of it would have been caught by three tests that do not exist: one that runs the real `Game` through a save and a load, one that walks the generated world, and one that lets a creature hit the player until the player dies.
 
 ### Code — B− (engine B+, game layer C)
+
+The engine underneath is better than most hobby voxel code: strict TypeScript with no `any`, pure world, light, mesh and sim modules, and about 300 unit tests that run the real generator and the real rules. The layer that makes it a game is one class of 1,791 lines that cannot be built outside a browser. So the wiring between the tested parts (saving, dying, trading, milestones) has no tests, and that is where most of this review's bugs are. Numbers and text that the project's own rules say belong in data are in code. Nothing here needs a rewrite: six small extractions, done between phases, would bring it to a B+.
 
 - **Solid:**
   - Strict TypeScript, zero `any`, a clean type check in about a second.
@@ -348,7 +365,7 @@ The base is honest. I found no crash in play, no way to duplicate or lose an ite
   - Saves go by block name; storage never throws.
 - **Fragile, in order of future pain:**
   1. `src/game.ts` (N10).
-  2. Content and numbers in TypeScript, against the project's own rule: gun stats (`game.ts:80-84`), heal amounts (`:1268`), the safe's code (`:865`), creature stats (`creatures.ts:27-49`), the spawn table (`spawner.ts:21-29`), about 125 lines of player-facing text as string literals.
+  2. Content and numbers in TypeScript, against the project's own rule: gun stats (`game.ts:80-84`), heal amounts (`:1268`), the safe's code (`:865`), creature stats (`creatures.ts:27-49`), the spawn table (`spawner.ts:21-29`), 126 toast lines of player-facing text as string literals.
   3. No pathfinding (N9).
   4. Adding content is a scatter of edits. Phase 6 touched 26 source files. A creature kind touches 8; a zone about 12; a milestone needs a new `trackMn` and a copy-pasted block in the computer screen (`game.ts:978-983`).
   5. Failure paths (N8).
@@ -362,24 +379,33 @@ The base is honest. I found no crash in play, no way to duplicate or lose an ite
 
 ### Graphics and feel — B−
 
+Outdoors the game is already good, and in places striking: the falls and pool, the lit cave mouth above the garden, the sunset behind the waterfall from the balcony, the saddle with its smoke column, the faction's banners at the border. Every landmark reads at a glance and sits where the script puts it, and the interface is clean and its own. What reads as cheap is close to the player: rooms that are bare boxes with one-block furniture, a signature swim with no water look, creatures as flat-coloured boxes, lamps as orange squares, nights outside that are simply black, and nothing in the player's hand. That is a few days of work, not a new renderer.
+
 Judged from pictures at several times of day. The standard is "as good as a top block game, in a browser", with an original look.
 
 | Place | Good | Cheap or unclear | To fix |
 |---|---|---|---|
 | **The valley pool and falls** (`review/valley-pool.jpg`) | The best picture in the game: stepped, mossy karst, a falls with mist at its foot, sand at the water's edge. | Water is a flat sheet; the pool stands a block proud on one bank (N3f). | E2.8 |
 | **The home from the garden** (`review/home-from-garden.jpg`) | The lit mouth in the cliff over the crop rows is exactly the script's picture. | — | — |
-| **The balcony view** (`review/balcony-sunset.jpg`) | Sunset colour, block clouds and morning mist all read well. | The far wall is flat slabs until its columns load, and holes of sky show meanwhile. | E2.5 |
+| **The balcony view** (`review/balcony-sunset.jpg`) | Sunset colour, block clouds and morning mist all read well. | The far wall is flat slabs until its columns load, and holes of sky show meanwhile (`review/loading-holes.jpg`). | E2.5 |
 | **The balcony itself** (`review/balcony-now.jpg`) | Solid railing, one gap, as the script says. | A paved rectangle with one black cube for a stove. | N7 |
 | **The living room** (`review/fireplace-now.jpg`) | Rug, books and lantern light are warm. | A 14 × 18 box of one wall texture; the fireplace is a single block. | N7 |
-| **Workshop, pantry, vault** (`review/workshop-now.jpg`, `review/vault-now.jpg`) | — | Dark; stations are small cubes on a far wall; the "vault" is a rock closet with ore in its wall. | N7 |
+| **Workshop, pantry, vault** (`review/workshop-now.jpg`) | — | Dark; stations are small cubes on a far wall; the "vault" is a rock closet with ore in its wall. | N7 |
 | **The tunnel** (`review/tunnel.jpg`) | Short, lit, impossible to get lost in. | No water look at all; lamps are flat orange squares. | E2.2, E2.3 |
 | **The canyon falls** | Readable. | A sheer wall with regular moss stripes reads as made, not grown. | 1 h |
-| **Night** | Stars, a moon, fireflies. | The valley is nearly black; the home does not glow from afar. | E2.3 |
+| **The old road and the buffer** (`review/road-start.jpg`) | The cracked road through cloud forest, with the tower faint on the skyline, is clear wayfinding with no interface. | One tree shape everywhere; the morpho tree's butterflies are a few specks. | E2.6 |
+| **The saddle and Zone 1** (`review/saddle.jpg`, `review/bus-shelter.jpg`) | The cattle grid, the smoke column, the shelter with its lantern and timetable, Marco, the scout with his lamp, the farm's laundry line, the camp's lodge: each reads at a glance, and each is where the script puts it. | Hills beyond about 160 m are large flat blocks. | E2.5 |
+| **The outpost** (`review/outpost.jpg`) | Sandbags, cookfire, flag, the lookout on the roof. Lit and readable at night. | The smoke is a stack of grey boxes when near. | 1 h |
+| **Zone 2** (`review/zone2-border.jpg`, `review/ruins.jpg`) | The banners with the broken circle; the strip mall with its car park and rusted cars; the walled compound with its gate and towers; the sulfur-rimmed hot spring. | Large plain concrete walls; the cave is a plain box. | 2 h |
+| **Creatures and people** (`review/wildlife.jpg`) | Legs swing; a hit flashes; people have hats and colours; raiders show a glint before a shot. | Flat-coloured boxes with no texture: a deer is a brown box on sticks. | 4–6 h for pixel-art skins and a head that turns |
+| **Night in the valley** | Stars, a moon, fireflies. | Nearly black; the home does not glow from afar. | E2.3 |
+| **Night outside** (`review/road-night.jpg`) | The outpost, the shelter and Zone 2 are lit. | The buffer road is black: you cannot see it. The headlamp in the kit does nothing, and nothing carried gives light. | A light at the player when the headlamp or a lantern is carried: 2–3 h |
 | **In hand** | — | Nothing is drawn. | E2.1 |
-
-_The road, the zones, the creatures and the interface are judged in the next commit of this file, with their pictures._
+| **Interface** (`review/menu.jpg`) | Clean, calm and its own: dark glass panels for the pack and the terminal, parchment for the journal and the map. Nothing looks like Minecraft. The journal reads well. | Prices show as `0.00025000 BTC`, which nobody can compare at a glance; trade rows wrap unevenly; messages draw over open screens; "Limestone rubble" appears twice in the make list; the menu says "Phase 0"; no goal is shown in play. | Show prices in thousands of sats; hold messages while a screen is open; N6 for the goal. 2 h |
 
 ### Gameplay against the script — C+ (places and story A−, systems C)
+
+As a place and a story this follows the script closely, landmark for landmark, and the writing is good. As a game it has drifted from the script's central idea: that the valley is safe, and the outside is dangerous enough that coming home feels earned. Outside cannot kill a fed player. A rifle from the first minute ends every human in one shot. The road is a quarter of the length the script asks for. Money, food and the milestones ask nothing. The owner's verdict that the gameplay has been impressive is fair for what a tour of it shows: the pieces are all there and each one works. What is missing is the pressure that makes them matter, and that is tuning and a handful of rules, not new systems.
 
 #### What is faithful
 
