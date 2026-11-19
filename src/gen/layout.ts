@@ -464,9 +464,16 @@ export function outsideHeight(x: number, z: number): number {
     const flat = farPad(x, z, natural);
     if (flat !== null) return flat;
   }
+  // The dam road (docs/PHASE7.md) leaves the highway's west side: it keeps its own level up to the asphalt.
+  if (onDamRoad(x, z) && !onHighway(x, z)) return damRoadHeight(x);
   // Zone-2's places (docs/PHASE6.md): the old highway north from the camp, and the level pads it serves.
   if (x > 690 && x < 900 && z > 400 && z < 960) {
     const flat = zone2Pad(x, z, natural);
+    if (flat !== null) return flat;
+  }
+  // Zone-3's places (docs/PHASE7.md): the dam road's shoulders, the avenue, the far road and the pads.
+  if (x > 480 && x < 815 && z > 150 && z < 1045) {
+    const flat = zone3Pad(x, z, natural);
     if (flat !== null) return flat;
   }
   if (onRoadX) {
@@ -512,6 +519,9 @@ function headwallX(z: number): number {
 }
 
 /** The land outside the valley before anything is built on it. `fine` adds the small bumps (not under the road). */
+/** Where the dam stands across the ravine (the centre line of its crest road), north of Zone-2's border. */
+const DAM_Z = 752;
+
 function naturalHeight(x: number, z: number, fine: boolean): number {
   // Large regions, west of the valley along the road.
   let base: number;
@@ -522,8 +532,9 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
     // Zone-1 basin: sloping gently down from the saddle toward the ravine.
     base = mix(84, 110, smoothstep(ZONES.midX - 40, ZONES.saddleX, x)); // meets the buffer's 110 at the saddle
   } else {
-    // West of the ravine: Zone-3's river plain.
-    base = 76;
+    // West of the ravine: Zone-3's river plain. North of the dam the land stands higher, so the reservoir
+    // has a west shore (docs/PHASE7.md); below the dam it falls away to the plain.
+    base = mix(76, 86, smoothstep(DAM_Z + 44, DAM_Z - 6, z));
   }
   // Two ridges frame the saddle and the road through the buffer and Zone-1.
   for (const rz of [876, 1176]) {
@@ -790,4 +801,220 @@ function zone2Pad(x: number, z: number, natural: number): number | null {
     // The road's shoulders ease into the land, as the old road's do.
     ?? (Math.abs(x + 0.5 - highwayX(z)) < Z.highway.halfWidth + 3.5 && z <= Z.highway.z0 && z >= Z.highway.z1
       ? Math.round(mix(highwayHeight(z), natural, smoothstep(Z.highway.halfWidth, Z.highway.halfWidth + 3.5, Math.abs(x + 0.5 - highwayX(z))))) : null);
+}
+
+// ---------------------------------------------------------------------------------------
+// Zone-3, the industrial river (docs/PHASE7.md). The ravine at the end of Zone-1's road is the gorge of
+// a river, the Río Seco. A dam stands across it just inside Zone-2; its crest is the way over. From its
+// west end an avenue runs south along the river's west bank, past the powerhouse, the machine shops and
+// the rail yard, to the old road's far end at the broken bridge. Boxes are [x0, x1) × [z0, z1).
+// ---------------------------------------------------------------------------------------
+
+export const ZONE3 = {
+  /** The dam road: west off the highway, four wide, to the dam's east end. Its centre line is z. */
+  damRoad: { z: DAM_Z, halfWidth: 2 },
+  /**
+   * The dam: `crest` is the walking height of its deck, `water` the reservoir's surface (the top water block
+   * is water − 1). x0 … x1 − 1 is the concrete, from one rim of the gorge to the other (filled in below).
+   */
+  dam: { z: DAM_Z, crest: 83, water: 79, x0: 0, x1: 0, spill: 0 },
+  /** The faction's barricade on the dam road, just short of the dam: they don't cross. */
+  barricade: { x: 0 },
+  /** The avenue: from the bend west of the dam, south to the old road. Its centre line is x. */
+  avenue: { x: 580, halfWidth: 2, z0: DAM_Z, z1: 0 },
+  /** The dam's control house, on the crest road's north side at the west end: the engineer's logbook. */
+  control: { x0: 597, x1: 605, z0: 743, z1: 750 },
+  /** The powerhouse, between the avenue and the gorge: the turbine hall. Its door faces the avenue. */
+  powerhouse: { x0: 586, x1: 604, z0: 772, z1: 797 },
+  /** The machine shop (east of the avenue) and the foundry (west of it). */
+  shop: { x0: 586, x1: 604, z0: 846, z1: 866 },
+  foundry: { x0: 556, x1: 574, z0: 852, z1: 872 },
+  /** The rail yard, west of the avenue: two tracks north–south (their centre columns), the signal box. */
+  yard: { x0: 544, x1: 575, z0: 902, z1: 1012, tracks: [553, 562] },
+  signalBox: { x0: 568, x1: 573, z0: 906, z1: 911, height: 9 },
+  /** The mine: a lit trail west across the yard at z, the adit's head, a decline west to the gallery, a dark drift north. */
+  mine: { z: 972, headX: 530, depth: 18, gallery: { x0: 494, x1: 512, z0: 966, z1: 979 }, drift: { x: 498, z0: 952, z1: 966 } },
+  /** The old road on the far side of the broken bridge: west from the abutment past the level crossing. */
+  farRoad: { west: 538 },
+  /** The river below the dam: a plunge pool, then a stream that thins and sinks into the limestone at `sink`. */
+  river: { pool: 9, sink: DAM_Z + 112 },
+  /** Where the first Ashen stands, in the road by day, seen from the bend above (docs/PHASE7.md). */
+  firstAshen: { x: 580.5, z: 812.5 },
+  /**
+   * Where the Ashen keep by day: the dark ends of the buildings, a boxcar, the mine's unlit drift. `n` of
+   * them at each (never more than two), `under`: below ground, where it is always dark.
+   */
+  nests: [
+    { name: 'powerhouse', x: 598.5, z: 792.5, n: 2, under: false },
+    { name: 'shop', x: 599.5, z: 861.5, n: 2, under: false },
+    { name: 'foundry', x: 560.5, z: 867.5, n: 1, under: false },
+    { name: 'boxcar', x: 553.5, z: 948.5, n: 2, under: false },
+    { name: 'drift', x: 498.5, z: 955.5, n: 2, under: true },
+  ],
+};
+
+/** The far side's old road: the same line as Zone-1's road, eased onto the bridge's axis at the abutment. */
+export function farRoadZ(x: number): number {
+  return mix(roadZ(x), ZONE1FAR.bridge.z + 0.5, smoothstep(596, 612, x));
+}
+
+/** Is (x, z) on the old road's far side, from the broken bridge's far abutment west past the rail crossing? */
+export function onFarRoad(x: number, z: number, margin = 0): boolean {
+  return x >= ZONE3.farRoad.west && x < ZONE1FAR.bridge.far - 3 && Math.abs(z + 0.5 - farRoadZ(x)) < ROAD.halfWidth + margin;
+}
+
+/** Is (x, z) on the dam road, from the highway west to the dam's east end? */
+export function onDamRoad(x: number, z: number, margin = 0): boolean {
+  const r = ZONE3.damRoad;
+  return x >= ZONE3.dam.x1 && x < highwayX(r.z) + ZONE2.highway.halfWidth && Math.abs(z + 0.5 - r.z) < r.halfWidth + margin;
+}
+
+/** Is (x, z) on the dam's deck (between the parapets)? */
+export function onDamCrest(x: number, z: number): boolean {
+  const d = ZONE3.dam;
+  return x >= d.x0 && x < d.x1 && Math.abs(z + 0.5 - d.z) < ZONE3.damRoad.halfWidth;
+}
+
+/** Is (x, z) on the avenue: the crest road from the dam's west end to the bend, then south to the old road? */
+export function onAvenue(x: number, z: number, margin = 0): boolean {
+  const a = ZONE3.avenue, d = ZONE3.dam;
+  const h = a.halfWidth + margin;
+  if (x >= a.x - h && x < d.x0 && Math.abs(z + 0.5 - d.z) < h) return true; // the crest road, dam → bend
+  return Math.abs(x + 0.5 - a.x) < h && z >= d.z - h && z < a.z1;
+}
+
+/** Eases a line of heights so no step is more than one block, and rounds them. */
+function eased(raw: number[], pinFirst: boolean): number[] {
+  const out = raw.map((v) => Math.round(v));
+  if (pinFirst) for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i - 1] - 1, Math.min(out[i - 1] + 1, out[i]));
+  else for (let i = out.length - 2; i >= 0; i--) out[i] = Math.max(out[i + 1] - 1, Math.min(out[i + 1] + 1, out[i]));
+  return out;
+}
+const smoothed = (raw: number[], w: number) => raw.map((_, i) => { let s = 0, n = 0; for (let k = -w; k <= w; k++) { const v = raw[i + k]; if (v !== undefined) { s += v; n++; } } return s / n; });
+
+let damRoadHeights: number[] | null = null;
+/** The dam road's walking height at x: the lie of the land smoothed, from the dam's crest up to the highway. */
+export function damRoadHeight(x: number): number {
+  const d = ZONE3.dam, z = ZONE3.damRoad.z, x1 = Math.ceil(highwayX(z)) + 4;
+  if (!damRoadHeights) {
+    const raw: number[] = [];
+    for (let xx = d.x1; xx <= x1; xx++) raw.push(naturalHeight(xx, z, false));
+    const hw = highwayHeight(z), edge = highwayX(z) - ZONE2.highway.halfWidth;
+    const sm = smoothed(raw, 10).map((v, i) => {
+      const xx = d.x1 + i;
+      const v1 = mix(d.crest, v, smoothstep(d.x1 + 2, d.x1 + 22, xx)); // level with the crest at the dam
+      return mix(v1, hw, smoothstep(edge - 22, edge - 2, xx)); // and with the highway at the junction
+    });
+    damRoadHeights = eased(sm, true);
+  }
+  return damRoadHeights[Math.max(0, Math.min(damRoadHeights.length - 1, Math.floor(x) - d.x1))];
+}
+
+let avenueHeights: number[] | null = null;
+/** The avenue's walking height at z: level with the crest at the bend, then down the lie of the land to the old road. */
+export function avenueHeight(z: number): number {
+  const a = ZONE3.avenue, d = ZONE3.dam;
+  if (!avenueHeights) {
+    const raw: number[] = [];
+    for (let zz = a.z0; zz <= a.z1 + 4; zz++) raw.push(naturalHeight(a.x, zz, false));
+    const end = roadHeight(a.x);
+    const sm = smoothed(raw, 10).map((v, i) => {
+      const zz = a.z0 + i;
+      const v1 = mix(d.crest, v, smoothstep(a.z0 + 4, a.z0 + 26, zz));
+      return mix(v1, end, smoothstep(a.z1 - 20, a.z1 - 4, zz));
+    });
+    avenueHeights = eased(sm, true);
+  }
+  return avenueHeights[Math.max(0, Math.min(avenueHeights.length - 1, Math.floor(z) - a.z0))];
+}
+
+/** The far road's walking height at x: the land's lie along it, as Zone-1's road. */
+export function farRoadHeight(x: number): number {
+  return roadHeight(x);
+}
+
+/** The floor of each Zone-3 place: the avenue's height beside it. */
+export const zone3Floor = {
+  get control() { return ZONE3.dam.crest; },
+  get powerhouse() { return avenueHeight((ZONE3.powerhouse.z0 + ZONE3.powerhouse.z1) / 2); },
+  get shop() { return avenueHeight((ZONE3.shop.z0 + ZONE3.shop.z1) / 2); },
+  get foundry() { return avenueHeight((ZONE3.foundry.z0 + ZONE3.foundry.z1) / 2); },
+  get yard() { return avenueHeight((ZONE3.yard.z0 + ZONE3.yard.z1) / 2); },
+};
+
+/** Is (x, z) on the mine's trail, from the avenue west across the yard to the adit's head (three wide)? */
+export function onMineTrail(x: number, z: number): boolean {
+  const m = ZONE3.mine;
+  return Math.abs(z - m.z) <= 1 && x >= m.headX && x < ZONE3.avenue.x - ZONE3.avenue.halfWidth;
+}
+
+/** Is (x, z) in the reservoir: the gorge north of the dam, where the land lies under the water's surface? */
+export function inReservoir(x: number, z: number): boolean {
+  const d = ZONE3.dam;
+  if (z >= d.z - ZONE3.damRoad.halfWidth - 1 || z < 150 || Math.abs(x - ravineX(z)) >= 27) return false;
+  return outsideHeight(x, z) < d.water;
+}
+
+/**
+ * The river below the dam at (x, z): 'pool' in the plunge pool at the spillway's foot, 'stream' along the
+ * gorge floor, 'bed' on its last dry stretch of gravel where the water has sunk into the limestone; else null.
+ */
+export function riverBelowDam(x: number, z: number): 'pool' | 'stream' | 'bed' | null {
+  const d = ZONE3.dam, r = ZONE3.river, foot = d.z + ZONE3.damRoad.halfWidth + 1;
+  if (z < foot || z > r.sink + 8) return null;
+  const dx = Math.abs(x + 0.5 - ravineX(z));
+  if (z < foot + r.pool * 2 && Math.hypot(dx, z + 0.5 - (foot + r.pool)) < r.pool) return 'pool';
+  const t = (z - foot) / (r.sink - foot);
+  const half = 2.6 - 1.6 * Math.min(1, t);
+  if (t <= 1 && dx < half) return 'stream';
+  if (t > 0.8 && dx < half + 1.2 && z <= r.sink + 6) return 'bed';
+  return null;
+}
+
+/** The level ground round Zone-3's places, blended into the land; null elsewhere. */
+function zone3Pad(x: number, z: number, natural: number): number | null {
+  const Z = ZONE3, d = Z.dam, a = Z.avenue;
+  const box = (x0: number, x1: number, z0: number, z1: number, floor: number, blend: number) => {
+    const dx = Math.max(x0 - x, x - (x1 - 1), 0), dz = Math.max(z0 - z, z - (z1 - 1), 0), dd = Math.hypot(dx, dz);
+    return dd < blend ? Math.round(mix(floor, natural, smoothstep(0, blend, dd))) : null;
+  };
+  // The reservoir's shores never dip under its surface.
+  if (z < d.z - 3 && z > 150) {
+    const rd = Math.abs(x - ravineX(z));
+    if (rd >= 22 && rd < 44 && natural < d.water + 2) return d.water + 2;
+  }
+  if (z > 1045 || z < 730 || x < 480) return null;
+  if (x >= d.x1) {
+    // East of the gorge: only the dam road's shoulders.
+    const r = Z.damRoad, across = Math.abs(z + 0.5 - r.z);
+    if (x < highwayX(r.z) - ZONE2.highway.halfWidth && across < r.halfWidth + 3.5) return Math.round(mix(damRoadHeight(x), natural, smoothstep(r.halfWidth, r.halfWidth + 3.5, across)));
+    return null;
+  }
+  if (onAvenue(x, z)) return x >= a.x + a.halfWidth ? d.crest : avenueHeight(z);
+  if (onFarRoad(x, z)) return farRoadHeight(x);
+  if (onMineTrail(x, z)) return zone3Floor.yard;
+  const p = Z.powerhouse, s = Z.shop, f = Z.foundry, y = Z.yard, c = Z.control, m = Z.mine;
+  const edge = a.x + a.halfWidth, wedge = a.x - a.halfWidth;
+  return box(c.x0 - 2, c.x1 + 2, c.z0 - 2, d.z - a.halfWidth, zone3Floor.control, 5)
+    ?? box(edge, p.x1 + 2, p.z0 - 3, p.z1 + 3, zone3Floor.powerhouse, 5)
+    ?? box(edge, s.x1 + 2, s.z0 - 3, s.z1 + 3, zone3Floor.shop, 5)
+    ?? box(f.x0 - 2, wedge, f.z0 - 3, f.z1 + 3, zone3Floor.foundry, 5)
+    ?? box(y.x0, wedge, y.z0, y.z1, zone3Floor.yard, 6)
+    ?? box(m.headX - 3, m.headX + 3, m.z - 3, m.z + 4, zone3Floor.yard, 4)
+    // The crest road and the avenue ease into the land, as the old road does.
+    ?? (x >= a.x + a.halfWidth && x < d.x0 && Math.abs(z + 0.5 - d.z) < a.halfWidth + 3.5 ? Math.round(mix(d.crest, natural, smoothstep(a.halfWidth, a.halfWidth + 3.5, Math.abs(z + 0.5 - d.z)))) : null)
+    ?? (z >= d.z - a.halfWidth && z < a.z1 && Math.abs(x + 0.5 - a.x) < a.halfWidth + 3.5 ? Math.round(mix(avenueHeight(z), natural, smoothstep(a.halfWidth, a.halfWidth + 3.5, Math.abs(x + 0.5 - a.x)))) : null)
+    ?? (x >= Z.farRoad.west && x < ZONE1FAR.bridge.far - 3 && Math.abs(z + 0.5 - farRoadZ(x)) < ROAD.halfWidth + 3.5
+      ? Math.round(mix(farRoadHeight(x), natural, smoothstep(ROAD.halfWidth, ROAD.halfWidth + 3.5, Math.abs(z + 0.5 - farRoadZ(x))))) : null);
+}
+
+{
+  // The dam spans the gorge from rim to rim at its line; the spillway is over the river's centre.
+  const d = ZONE3.dam, c = ravineX(d.z);
+  d.x0 = Math.floor(c - 28);
+  d.x1 = Math.ceil(c + 28);
+  d.spill = Math.round(c);
+  ZONE3.barricade.x = d.x1 + 12;
+  // The avenue ends at the old road's far side.
+  ZONE3.avenue.z1 = Math.round(farRoadZ(ZONE3.avenue.x)) + ROAD.halfWidth;
 }
