@@ -706,7 +706,7 @@ export const ZONE2 = {
   cave: { mouthX: 848, z: 661, depth: 13, cavern: { x0: 862, x1: 880, z0: 652, z1: 672 } },
   /** Radiation hotspots: small, ringed by warning signs. r is the radius where the dose begins. */
   hotspots: [
-    { name: 'van', x: 806, z: 700, r: 6, rate: 3 }, // a wrecked clinic van in the lot, its source cracked open
+    { name: 'van', x: 809, z: 698, r: 5, rate: 3 }, // a wrecked clinic van in the lot, its source cracked open
     { name: 'pond', x: 760, z: 719, r: 5, rate: 2 }, // the drainage pond behind the exchange, where fallout washed down
   ],
 };

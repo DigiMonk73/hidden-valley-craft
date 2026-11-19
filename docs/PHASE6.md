@@ -191,9 +191,9 @@ The Phase 5 review found the outpost dim at night from 40 m: only the cookfire a
 
 The one play-through took about 45 minutes here. It is split into standalone parts that each set their own scene through `window.__hv`, each under about 25 minutes, and a small runner that runs them one after another:
 - `tests/e2e/play-valley.mjs`: home, the valley, the way out (Phases 0–3);
-- `tests/e2e/play-outside.mjs`: Zone-1 near, mid and deep (Phases 4–5);
+- `tests/e2e/play-near.mjs` and `play-mid.mjs`: Zone-1 near, then mid and deep (Phases 4 and 5: together they took over 25 minutes);
 - `tests/e2e/play-zone2.mjs`: Phase 6;
-- `tests/e2e/run-all.mjs`: runs them in turn and sums the checks.
+- `tests/e2e/play.mjs`: runs them in turn and sums the checks.
 
 Phase 6's part: walk up the highway from the camp; the border toast; the armband passing a patrol at a distance, and the challenge up close; the radiation signs, the hiss, the dose meter; salvage panels, a rack and the cave's crusts; build the array, bank and rig at home and see the computer's POWER page earn; call Doc and treat the dose; make rounds; buy from Marco.
 
@@ -228,4 +228,19 @@ Phase 6's part: walk up the highway from the camp; the border toast; the armband
 
 ## Progress
 
-- **DONE: The plan and the map.**
+- **DONE: The plan and the map.** Sent to the lead for the owner's look.
+- **DONE: The outpost at night** (`src/gen/zone1far.ts`): lamp posts at the yard's four corners, lamps on the east and west walls, two on the lookout's platform, one on the back wall's crates and one on the stripped pickup. A test checks the block light at each side of the building, the yard's corners and the platform (≥ 8 of 15) and fails on the old outpost.
+- **DONE: The play-through in parts** (`tests/e2e/`): `lib.mjs` holds the shared set-up and helpers; `play-valley.mjs` (36 checks, 14 minutes here), `play-near.mjs` (Phase 4), `play-mid.mjs` (Phase 5), `play-zone2.mjs`; `play.mjs` now runs them in turn and sums the checks (`PARTS=` picks some). *Why `play.mjs` is the runner:* README and AGENTS.md already name it as the play-through.
+- **DONE: Data** (`data/*.json`): the items, blocks, recipes and trade above, with icons and textures drawn in code. The recipe chain gates through `learn` flags (`array_built`, `bank_built`). Marco's M3 catalogue (`catalogM3`), Doc's fees (`doc`) and the rig's pay (`rigSatsPerDay`) are in `data/trade.json`.
+- **DONE: Power, the rig, the fridge and the pump** (`src/sim/power.ts`). The devices are found in the world's edits each second, so nothing new is saved for them; the banks' charge and the rig's tallies are (`power` in the save). Power runs on the game clock, so a night's sleep runs it too. The computer lists the arrays, the bank, the rig's hashrate, what it has mined, the fridge and the pump. Machines hum at home.
+- **DONE: Radiation and Doc** (`src/sim/radiation.ts`, the HUD's dose meter, `data/people.json`). The health bar shows the part the dose takes away in yellow-and-black stripes. Doc's call opens his services in the trade view, with no selling column.
+- **DONE: Ammunition**: the powder mill, gunpowder, the bullet mould and bullets at the forge, rounds at the workbench.
+- **DONE: M3 on the computer, Marco's trust 2 and guns.**
+- **DONE (ahead of the owner's go, built against the proposed map): the land** (`src/gen/zone2.ts`). *Why not wait:* everything else that didn't depend on it was done, and every block is placed from `ZONE2` in `layout.ts`, so a change the owner asks for moves it with the layout. If the owner changes the map, the places move; the code stays.
+  - The highway, the sign at the camp and the "LAS CRUCES" board under the camp's marker on the old road; the border's barriers and flags; the strip mall (three shops, signs, doors, windows, roof panels, the lot with its bays, light poles and two wrecks); the exchange (six racks, three UPS cabinets, cable trays, roof panels, the mast with its red light); the two rings (dead ground, eight signs each, tape; the van and the lead casket; the pond); the cave (trail, bank, timbered decline lit every four blocks, saltpeter walls, the cavern with its hot pool rimmed with sulfur, the vent fenced at the top, a plank walk, lamps); Las Cruces (walls, the steel gate, the painted marks, two towers with platforms, sandbags, searchlights and flags, a warehouse, a water tower, a fire and lamps inside).
+  - The steam plume rises from the vent (the smoke column's renderer, white and lower).
+  - The map table marks the highway, the ruins, the cave and the compound once found.
+  - The containers' contents are in `src/gen/inheritance.ts`: six racks hold six GPUs, three PSUs and two mining boards (one rig and a spare); three cabinets hold twelve cells (a bank needs six).
+  - Trying to mine the compound's walls says why nothing happens.
+- **DONE: The faction's men** (`src/entity/faction.ts`). They use the outpost's raider mind (`src/entity/outpost.ts`), now by role: `guard` fights as the lookout, `patrol` as the pistol, `sentry` as the machete. A beat is walked while unaware. The armband is a `pass` distance in that mind: an unalerted man counts you as a stranger only within 14 m, and then looks again for 1.5 s ("¡Oye!") before the alarm; backing off past 14 m in that time lets it go. A shot, a hit or an alarm ends the disguise for the visit.
+  - *Changed from the plan:* the patrols and the sentry carry no guns to take: they come back each dawn, and a gun a day would undo ADR-019's scarcity. They drop rounds, casings and scraps.

@@ -133,6 +133,25 @@ const DRAW: Record<string, (i: Icon) => void> = {
   slip: (i) => { i.line(3, 13, 12, 4, '#6e4a2a', 1); i.line(9, 7, 12, 6, '#5e9b3c'); i.disc(12, 4, 1, '#76b24c'); i.rect(3, 12, 3, 2, '#c8a96a'); },
   apple: (i) => { i.disc(8, 9, 5, '#b8322a'); i.disc(6, 7, 1, '#e86a5a'); i.line(8, 4, 9, 2, '#5e3c20'); i.rect(9, 2, 3, 1, '#5e9b3c'); },
   journal: (i) => { i.rect(3, 2, 10, 12, '#6b3e26'); i.rect(4, 3, 8, 10, '#7d4a2e'); i.rect(12, 2, 1, 12, '#e8dcc0'); i.line(5, 6, 10, 6, '#c9a227'); },
+  // Zone-2's salvage, power and ammunition (docs/PHASE6.md).
+  pv_panel: (i) => { i.rect(2, 3, 12, 10, '#1d3354'); for (const x of [2, 6, 10, 13]) i.line(x, 3, x, 12, '#b9c2c9'); for (const y of [3, 8, 12]) i.line(2, y, 13, y, '#b9c2c9'); i.line(3, 4, 5, 6, '#6f8fb8'); },
+  wiring: (i) => { for (let k = 0; k < 3; k++) for (let a = 0; a < 24; a++) { const t = (a / 24) * Math.PI * 2; i.set(8 + Math.cos(t) * (5 - k), 8 + Math.sin(t) * (5 - k), k === 1 ? '#e08a4e' : '#c06c3a'); } i.line(12, 11, 15, 14, '#2b2b2b'); },
+  pipe_fittings: (i) => { i.rect(2, 6, 8, 3, '#b8683a'); i.rect(8, 6, 3, 8, '#b8683a'); i.rect(1, 5, 2, 5, '#9a5a30'); i.rect(7, 12, 5, 2, '#9a5a30'); i.line(3, 6, 9, 6, '#e08a4e'); },
+  scrap_lead: (i) => { i.rect(3, 8, 10, 5, '#5e646a'); i.rect(4, 7, 8, 1, '#7d848a'); i.line(4, 12, 11, 9, '#41464b'); i.set(10, 8, '#9aa0a6'); },
+  battery_cell: (i) => { i.rect(5, 3, 6, 11, '#2b6a3a'); i.rect(5, 3, 6, 2, '#c9d0d6'); i.rect(7, 2, 2, 1, '#c9d0d6'); i.rect(6, 8, 4, 1, '#e0e0e0'); i.rect(7, 7, 2, 3, '#e0e0e0'); },
+  gpu: (i) => { i.rect(1, 4, 14, 8, '#2c2e33'); i.disc(5, 8, 2, '#55595e'); i.disc(11, 8, 2, '#55595e'); i.set(5, 8, '#16181a'); i.set(11, 8, '#16181a'); i.rect(2, 12, 10, 1, '#c9a227'); i.set(14, 5, '#39ff6a'); },
+  psu: (i) => { i.rect(2, 3, 12, 10, '#3a3d42'); i.disc(8, 8, 3, '#55595e'); for (let k = -3; k <= 3; k += 2) i.line(5, 8 + k, 11, 8 + k, '#2a2c2f'); i.rect(12, 4, 2, 2, '#1d1d1d'); i.line(13, 13, 15, 15, '#d63031'); },
+  mining_board: (i) => { i.rect(2, 2, 12, 12, '#1f6b3a'); for (const [x, y] of [[4, 4], [9, 4], [4, 9], [9, 9]]) i.rect(x, y, 3, 3, '#1d1d1d'); i.line(2, 8, 13, 8, '#c9a227'); i.line(8, 2, 8, 13, '#c9a227'); },
+  fridge_unit: (i) => { i.disc(6, 10, 3, '#2b2b2b'); i.disc(6, 10, 1, '#55595e'); for (let y = 2; y < 13; y += 2) i.line(10, y, 14, y, '#b8683a'); i.line(10, 2, 10, 12, '#9a5a30'); i.line(14, 2, 14, 12, '#9a5a30'); },
+  pump_unit: (i) => { i.rect(2, 5, 7, 7, '#2d6a9a'); i.disc(11, 9, 3, '#5e646a'); i.disc(11, 9, 1, '#2b2b2b'); i.rect(10, 3, 2, 3, '#b8683a'); i.rect(13, 8, 3, 2, '#b8683a'); },
+  brass_casing: (i) => { for (const x of [3, 7, 11]) { i.rect(x, 5, 3, 8, '#c9a227'); i.set(x + 1, 5, '#3a2a10'); i.rect(x, 12, 3, 1, '#9a7a1a'); } },
+  primer: (i) => { for (const [x, y] of [[4, 5], [10, 5], [7, 10], [12, 11], [3, 11]]) { i.disc(x, y, 1, '#c9a227'); i.set(x, y, '#b8703c'); } },
+  saltpeter: (i) => { i.disc(8, 10, 5, '#ecebe4'); i.disc(6, 8, 2, '#ffffff'); i.disc(10, 11, 1, '#d8d6cc'); i.set(9, 6, '#ffffff'); },
+  sulfur: (i) => { i.disc(8, 10, 5, '#e8d23a'); i.disc(6, 8, 2, '#f2e66a'); i.disc(10, 11, 1, '#c8b22a'); i.set(9, 6, '#fff69a'); },
+  gunpowder: (i) => { i.disc(8, 11, 5, '#2f2f30'); i.disc(7, 9, 2, '#454547'); for (const [x, y] of [[5, 12], [10, 10], [8, 13], [11, 12]]) i.set(x, y, '#68686b'); },
+  bullet_mold: (i) => { i.line(2, 14, 7, 9, WOOD, 2); i.line(4, 15, 9, 10, WOOD_D, 1); i.rect(8, 3, 6, 7, IRON); i.line(11, 3, 11, 9, '#6b655e'); i.disc(11, 6, 1, '#3a3632'); },
+  bullet: (i) => { for (const x of [4, 9]) { i.rect(x, 7, 3, 6, '#7d848a'); i.disc(x + 1, 6, 1, '#7d848a'); i.set(x + 1, 5, '#9aa0a6'); } },
+  cold_water: (i) => { i.rect(4, 5, 8, 9, '#a8d8ec'); i.rect(6, 2, 4, 3, '#d0d6da'); i.rect(4, 5, 8, 2, '#d4eef8'); i.set(5, 9, '#ffffff'); i.set(10, 11, '#ffffff'); i.set(7, 12, '#ffffff'); },
 };
 
 export function hasIcon(name: string): boolean { return name in DRAW; }

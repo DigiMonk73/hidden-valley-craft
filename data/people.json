@@ -1,5 +1,5 @@
 {
-  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2).",
+  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2). Doc (docs/PHASE6.md, 4): a doctor somewhere up the highway, by sat-phone only; he sells services, flat per kind, and stays a character. Marco's trust 2 comes with your first run to Las Cruces.",
   "marco": {
     "name": "Marco",
     "contact": "Marco (trader)",
@@ -16,6 +16,24 @@
     "callWaiting": "“I said I would be there, and I will. By the bus shelter, by day.”",
     "trust": "Marco nods slowly. He trusts you a little now (trust 1).",
     "strike": "Marco steps back, hands up. “Easy, friend. Easy.”",
-    "bye": "Marco tips his hat and goes back to the road."
+    "bye": "Marco tips his hat and goes back to the road.",
+    "trust2": "“You’ve been up to Las Cruces and come back. Not many do. Now I can sell you real things: guns, rounds. Don’t tell anyone where you got them.” (Marco trusts you more now: trust 2.)"
+  },
+  "doc": {
+    "name": "Doc",
+    "contact": "Doc (Dr. Ibáñez)",
+    "card": "A card on the counter: “Dr. R. Ibáñez — médico. Sat-phone.” A number underneath, in pen. His number is in your phone now: call him from the cave.",
+    "first": "“Ibáñez. Who gave you this num… the pharmacy card. Of course. I’m a doctor, or I was. I can talk you through what your kit can do, if you can pay. Coin. Flat fee, whatever it is.”",
+    "again": [
+      "“Ibáñez. Tell me where it hurts.”",
+      "“You again. Good: it means you’re alive.”",
+      "“Keep out of the yellow signs, my friend. I can’t make you new blood.”",
+      "“I’m listening. Slowly, please. The line is bad.”"
+    ],
+    "wound": "“Clean it, pack it, close it. There. Rest a day and don’t fall off anything.”",
+    "rad": "“Iodine first, then the blue sachets: the whole box, with water, over the hour. It binds what you breathed and ate. Your blood will thank you.”",
+    "notHurt": "“You sound fine to me. Call when you’re not.”",
+    "noDose": "“No dose to treat. Keep it that way.”",
+    "funds": "“The coin first, my friend. I have to eat too.”"
   }
 }

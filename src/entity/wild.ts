@@ -5,12 +5,13 @@
 
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
-import { think, hurt, KINDS, PACK_KINDS, RAIDER_KINDS, TRAPPABLE, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
+import { think, hurt, KINDS, PACK_KINDS, RAIDER_KINDS, FACTION_KINDS, TRAPPABLE, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
+import { manFaction, standDown, newFaction, PASS, type FactionState } from './faction.ts';
 import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, SHOT_HEARD, type OutpostState, type RaiderEvent } from './outpost.ts';
 import { thinkJaguar } from './jaguar.ts';
 import { LEGHOLD, HOLD_SECONDS } from '../sim/preserve.ts';
 import { OUTPOST_AT } from '../gen/zone1far.ts';
-import { trySpawn, despawnFar, denPack, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
+import { trySpawn, despawnFar, denPack, groundAt, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
 import { snared, snareNear } from '../sim/rabbits.ts';
 
 export const WILD_HZ = 20;
@@ -43,6 +44,8 @@ export interface WildSenses {
   /** How fast the player is moving (m/s), and whether they are sprinting. */
   pv?: number;
   sprint?: boolean;
+  /** Does the player carry the scout's armband (Zone-2's men take them for one of theirs, from afar)? */
+  armband?: boolean;
 }
 
 export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit' | 'bark' | 'snarl' | 'yip' | 'cluck'; x: number; y: number; z: number };
@@ -86,6 +89,8 @@ export class Wild {
   flockLeft = FLOCK_SIZE;
   /** The outpost: which of its raiders are alive (saved), and whether it is alerted. */
   outpost: OutpostState = { left: ALL_RAIDERS, alert: false };
+  /** Zone-2's faction: who is down until dawn, whether they are alerted, whether the armband is seen through. */
+  faction: FactionState = newFaction();
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
@@ -108,16 +113,30 @@ export class Wild {
       this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded, { chicken: this.flockLeft }));
       this.creatures.push(...denPack(this.creatures, s.px, s.pz, this.denLeft, s.rand, s.blockAt, s.loaded));
       this.creatures.push(...manOutpost(this.creatures, this.outpost, s.px, s.pz, s.loaded));
+      this.creatures = standDown(this.creatures, this.faction, s.px, s.pz);
+      this.creatures.push(...manFaction(this.creatures, this.faction, s.px, s.pz, s.loaded, (x, z) => groundAt(x, z, s.blockAt)));
       // Once the player has gone well away and the raiders are no longer about, the outpost stands down.
       if (!this.creatures.some((c) => RAIDER_KINDS.has(c.kind)) && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) > 130) this.outpost.alert = false;
     }
     const senses = { px: s.px, py: s.py, pz: s.pz, pv: s.pv, sprint: s.sprint, playerInSanctuary: inSanctuary(s.px, s.pz), night: s.night, shot: this.shotHeard };
     // A gunshot anywhere near the outpost alerts all of it.
     if (this.shotHeard && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) < SHOT_HEARD && this.outpost.left) alertOutpost(this.creatures, this.outpost);
+    // And near any of Zone-2's men, all of them: the disguise is over for this visit.
+    if (this.shotHeard && this.creatures.some((c) => FACTION_KINDS.has(c.kind) && Math.hypot(s.px - c.x, s.pz - c.z) < SHOT_HEARD)) this.alertFaction();
     this.shotHeard = false;
     for (const c of [...this.creatures]) {
       if (!s.loaded(c.x, c.z)) continue; // its ground isn't there: it waits
       const before: Mind = c.mind;
+      if (FACTION_KINDS.has(c.kind)) {
+        const alertBefore = this.faction.alert;
+        for (const e of thinkRaider(c, STEP, senses, this.faction, s.blockAt, s.rand, s.armband && !this.faction.blown ? PASS : 0)) {
+          ev.raiders.push(e);
+          if (e.kind === 'shot' && e.hit) ev.hits.push({ damage: e.damage, by: c.kind });
+          if (e.kind === 'blow') ev.hits.push({ damage: e.damage, by: c.kind });
+        }
+        if (this.faction.alert && !alertBefore) this.alertFaction();
+        continue;
+      }
       if (RAIDER_KINDS.has(c.kind)) {
         const alertBefore = this.outpost.alert;
         for (const e of thinkRaider(c, STEP, senses, this.outpost, s.blockAt, s.rand)) {
@@ -202,9 +221,11 @@ export class Wild {
       if (hit) {
         ev.sounds.push({ kind: 'hit', x: hit.x, y: hit.y + KINDS[hit.kind].height / 2, z: hit.z });
         // An arrow in a raider who hasn't seen you does three times its harm; a kill so is silent.
-        const unseen = RAIDER_KINDS.has(hit.kind) && !this.outpost.alert && hit.mind === 'watch';
+        const faction = FACTION_KINDS.has(hit.kind);
+        const unseen = (RAIDER_KINDS.has(hit.kind) && !this.outpost.alert && hit.mind === 'watch') || (faction && !this.faction.alert && hit.mind === 'watch');
         if (hurt(hit, unseen ? a.damage * 3 : a.damage)) { ev.kills.push(hit); this.remove(hit); if (unseen) ev.silent++; }
         if (RAIDER_KINDS.has(hit.kind) && (!unseen || hit.hp > 0)) alertOutpost(this.creatures, this.outpost);
+        if (faction && (!unseen || hit.hp > 0)) this.alertFaction();
         // The arrow drops where the animal was, to be picked up again.
         a.x = hit.x; a.y = hit.y + 0.2; a.z = hit.z; a.stuck = true; a.age = 0;
         keep.push(a);
@@ -215,6 +236,12 @@ export class Wild {
       keep.push(a);
     }
     this.arrows = keep;
+  }
+
+  /** Raises Zone-2's alarm: every man of the faction about turns to the fight, and the armband hides nothing. */
+  alertFaction(): void {
+    alertOutpost(this.creatures, this.faction, FACTION_KINDS);
+    this.faction.blown = true;
   }
 
   remove(c: Creature): void { this.creatures = this.creatures.filter((o) => o !== c); }
@@ -228,7 +255,7 @@ export class Wild {
 
   count(kind: Kind): number { return this.creatures.filter((c) => c.kind === kind).length; }
 
-  clear(): void { this.creatures = []; this.arrows = []; this.outpost.alert = false; }
+  clear(): void { this.creatures = []; this.arrows = []; this.outpost.alert = false; this.faction.alert = false; this.faction.blown = false; }
 }
 
 /**

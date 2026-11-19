@@ -9,6 +9,8 @@ import { GARDEN, VALLEY, ZONE1, SADDLE, ZONE1FAR } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, APPLE_TREE } from './gen/zone1.ts';
 import { POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, CAMP_AT } from './gen/zone1far.ts';
 import { manOutpost } from './entity/outpost.ts';
+import { ZONE2 } from './gen/layout.ts';
+import * as Z2 from './gen/zone2.ts';
 import { makeJaguar } from './entity/jaguar.ts';
 import { groundAt } from './entity/spawner.ts';
 import type { Kind } from './entity/creatures.ts';
@@ -53,7 +55,8 @@ function start(data: unknown): void {
       setHour: (h: number) => { game.hour = h; },
       spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),
       /** Zone-1's places (docs/PHASE4.md, docs/PHASE5.md), for setting scenes. */
-      places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE },
+      places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE,
+        ZONE2, Z2: { GATE_X: Z2.GATE_X, TOWER_POSTS: Z2.TOWER_POSTS, PHARMACY_COUNTER: Z2.PHARMACY_COUNTER, HARDWARE_CRATE: Z2.HARDWARE_CRATE, SERVER_RACKS: Z2.SERVER_RACKS, UPS_CABINETS: Z2.UPS_CABINETS, DISPLAY_FRIDGES: Z2.DISPLAY_FRIDGES, HOT_POOL: Z2.HOT_POOL, CAVE_FLOOR: Z2.CAVE_FLOOR, COMPOUND_FLOOR: Z2.COMPOUND_FLOOR } },
       /** Puts the outpost's living raiders at their posts now (screenshots and checks run with spawning off). */
       manOutpost: () => {
         const w = game.wild, p = game.player;

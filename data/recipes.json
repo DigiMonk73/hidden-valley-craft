@@ -1,5 +1,5 @@
 {
-  "_comment": "What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery, forge (M2). learn: a flag the player must have earned before it shows (the leghold, learned from the camp's trap). At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug).",
+  "_comment": "What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery, forge (M2), powder_mill (M3). learn: a flag the player must have earned before it shows (the leghold, learned from the camp's trap). At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug).",
   "recipes": [
     { "station": "hand", "out": ["planks", 4], "in": [["log", 1]] },
     { "station": "hand", "out": ["stick", 4], "in": [["planks", 2]] },
@@ -71,6 +71,20 @@
     { "station": "stove", "out": ["stew", 1], "in": [["potato", 1], ["corn", 1], ["tomato", 1], ["herbs", 1]] },
     { "station": "stove", "out": ["coffee", 3], "in": [["coffee_beans", 3], ["water_jug", 1]], "returns": [["empty_jug", 1]] },
     { "station": "stove", "out": ["rice", 2], "in": [["corn", 2], ["salt", 1]] },
-    { "station": "stove", "out": ["beans_cooked", 2], "in": [["bean_pod", 3], ["water_jug", 1]], "returns": [["empty_jug", 1]] }
+    { "station": "stove", "out": ["beans_cooked", 2], "in": [["bean_pod", 3], ["water_jug", 1]], "returns": [["empty_jug", 1]] },
+
+    {"station": "workbench", "out": ["solar_array", 1], "in": [["pv_panel", 4], ["wiring", 4], ["planks", 4], ["nails", 8]]},
+    {"station": "workbench", "out": ["battery_bank", 1], "in": [["battery_cell", 6], ["wiring", 4], ["planks", 2], ["nails", 6]], "learn": "array_built"},
+    {"station": "workbench", "out": ["mining_rig", 1], "in": [["gpu", 2], ["psu", 1], ["mining_board", 1], ["wiring", 2]], "learn": "bank_built"},
+    {"station": "workbench", "out": ["fridge", 1], "in": [["fridge_unit", 1], ["wiring", 2], ["planks", 2], ["nails", 4]], "learn": "bank_built"},
+    {"station": "workbench", "out": ["water_pump", 1], "in": [["pump_unit", 1], ["wiring", 2], ["pipe_fittings", 2], ["planks", 2]], "learn": "bank_built"},
+    {"station": "workbench", "out": ["powder_mill", 1], "in": [["cobble", 4], ["planks", 4], ["nails", 6], ["iron_ingot", 2]]},
+    {"station": "powder_mill", "out": ["gunpowder", 2], "in": [["saltpeter", 2], ["charcoal", 1], ["sulfur", 1]]},
+    {"station": "forge", "out": ["bullet_mold", 1], "in": [["iron_ingot", 2], ["stick", 1]]},
+    {"station": "forge", "out": ["bullet", 8], "in": [["scrap_lead", 1], ["charcoal", 1], ["bullet_mold", 0]]},
+    {"station": "forge", "out": ["bullet", 8], "in": [["scrap_lead", 1], ["coal", 1], ["bullet_mold", 0]]},
+    {"station": "workbench", "out": ["pistol_rounds", 4], "in": [["gunpowder", 1], ["brass_casing", 4], ["bullet", 4], ["primer", 4]]},
+    {"station": "workbench", "out": ["rifle_rounds", 4], "in": [["gunpowder", 2], ["brass_casing", 4], ["bullet", 4], ["primer", 4]]},
+    {"station": "workbench", "out": ["rain_awning", 2], "in": [["planks", 2], ["canvas", 1]]}
   ]
 }

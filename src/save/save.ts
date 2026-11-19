@@ -37,6 +37,10 @@ export interface SaveData {
   flock?: number;
   /** Which of the outpost's raiders are alive, as bits: lookout 1, pistol 2, machete 4 (Phase 5). Absent: all three. */
   outpost?: number;
+  /** Power at home: the banks' charge (kWh) and the rig's earnings (Phase 6). Absent: nothing built yet. */
+  power?: { charge: number; satsTotal: number; satsToday: number; frac: number };
+  /** The radiation dose, 0–100 (Phase 6). Absent: none. */
+  dose?: number;
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

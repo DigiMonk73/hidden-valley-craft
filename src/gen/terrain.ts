@@ -15,6 +15,7 @@ import {
 import { HOME_CHESTS } from './inheritance.ts';
 import { buildZone1 } from './zone1.ts';
 import { buildZone1Far } from './zone1far.ts';
+import { buildZone2, zone2Place } from './zone2.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -99,6 +100,8 @@ function caveExcluded(x: number, y: number, z: number): boolean {
   if (y > 55 && inCanyonStream(x, z, 4)) return true;
   // Nor open under Zone-1's mid and deep places: the outpost, the mine, the camp, the bridge's ends.
   if (y > 60 && farPlace(x, z)) return true;
+  // Nor open under Zone-2's places: the highway, the ruins, the compound, the hot-spring cave (docs/PHASE6.md).
+  if (y > 55 && zone2Place(x, z)) return true;
   return false;
 }
 
@@ -164,6 +167,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   placeBufferPlaces(col, x0, z0);
   buildZone1(col, x0, z0);
   buildZone1Far(col, x0, z0);
+  buildZone2(col, x0, z0);
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
@@ -660,6 +664,8 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   const F = ZONE1FAR, o = F.outpost;
   if (Math.hypot(x - (o.x0 + o.x1) / 2, z - (o.z0 + o.z1) / 2) < 32) return null;
   if (brushTrailDist(x, z) < 8 || farPlace(x, z)) return null;
+  // Zone-2's highway, its places and the clearing round them.
+  if (zone2Place(x, z)) return null;
   if (onCampTrail(x, z) || onCampTrail(x - 3, z) || onCampTrail(x + 3, z)) return null;
   if (Math.abs(x - ravineX(z)) < RAVINE_HALF + 2 && Math.abs(z - F.bridge.z) < 70) return null;
   // A break in the canopy over the body, so it lies in daylight (DESIGN.md: the one high-contrast thing).

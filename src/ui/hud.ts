@@ -38,6 +38,9 @@ const CSS = `
 .hv-vital u b { display: block; height: 100%; transition: width .25s; }
 .hv-vital.low { animation: hv-pulse 1s infinite; }
 @keyframes hv-pulse { 50% { opacity: .45; } }
+.hv-vital u { position: relative; }
+.hv-vital u i { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(135deg, rgba(240,200,40,.75) 0 3px, rgba(20,20,20,.75) 3px 6px); }
+.hv-dose span { color: #f2c81c; }
 .hv-hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(160, 20, 10, .55)); }
 .hv-toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
@@ -111,6 +114,9 @@ export class Hud {
   private breath: HTMLDivElement;
   private focusEl!: HTMLDivElement;
   private focusBar!: HTMLDivElement;
+  private doseWrap!: HTMLElement;
+  private doseBar!: HTMLElement;
+  private capEl!: HTMLElement;
   private homeEl!: HTMLDivElement;
   private toastEl: HTMLDivElement;
   private vitalBars: { wrap: HTMLDivElement; bar: HTMLElement }[] = [];
@@ -159,6 +165,14 @@ export class Hud {
       b.style.background = color;
       this.vitalBars.push({ wrap: w, bar: b });
     }
+    // Radiation (docs/PHASE6.md): the dose, amber; and on the health bar, striped, the part the dose takes away.
+    this.capEl = el('i', '', this.vitalBars[0].bar.parentElement as HTMLElement);
+    this.capEl.style.width = '0';
+    this.doseWrap = el('div', 'hv-vital hv-dose', vit);
+    el('span', '', this.doseWrap).textContent = '☢ Dose';
+    this.doseBar = el('b', '', el('u', '', this.doseWrap));
+    this.doseBar.style.background = '#f2a81c';
+    this.doseWrap.style.display = 'none';
     this.hurt = el('div', 'hv-hurt', root);
     this.label = el('div', 'hv-label', root);
     this.breath = el('div', 'hv-breath', root);
@@ -355,6 +369,13 @@ export class Hud {
       bar.style.width = `${Math.round(v)}%`;
       wrap.classList.toggle('low', v < 20);
     });
+  }
+
+  /** The radiation dose (0–100) and the health it leaves (the cap); shown in Zone-2 or while there is a dose. */
+  setDose(dose: number, cap: number, show: boolean): void {
+    this.doseWrap.style.display = show ? '' : 'none';
+    this.doseBar.style.width = `${Math.round(dose)}%`;
+    this.capEl.style.width = `${Math.max(0, 100 - cap)}%`;
   }
 
   /** Focus mode: a dark vignette while it runs, and a small bar for what is left (or how far it has come back). */
