@@ -513,7 +513,8 @@ check('the lookout sees you on the road and shouts the alarm', alerted, (await r
 const aimed = await page.waitForFunction(() => { const gm = window.__hv.game; gm.vitals.hp = 100; return gm.wild.creatures.some((c) => c.kind === 'lookout' && c.mind === 'aim'); }, null, { timeout: LONG, polling: 50 }).then(() => true, () => false);
 check('he aims before he fires: the glint and the click come first', aimed, (await raiders()).join(' '));
 
-// 2. Cover works: behind a wall the lookout's next shot misses.
+// 2. Cover works: behind a wall the lookout can't shoot you. He holds his aim, waiting for you to show
+// yourself (a hidden player is never shot, and stepping out gives a moment's warning again).
 await g(([x, z]) => {
   const gm = window.__hv.game, w = gm.world, p = gm.player;
   p.setPosition(x, p.y, z); p.yaw = Math.PI / 2;
@@ -521,18 +522,21 @@ await g(([x, z]) => {
   for (let dz = -3; dz <= 3; dz++) for (let y = y0; y < y0 + 4; y++) w.setBlock(x - 2, y, z + dz, window.__hv.itemId('cobble'));
   gm.streamer.markUrgentAround(x - 2, y0, z);
   gm.vitals.hp = 100;
-  window.__cover = { shots: 0, hp: 100, last: '' };
+  window.__cover = { t0: gm.time, hp: 100, shots: 0, last: '' };
   clearInterval(window.__coverT);
   window.__coverT = setInterval(() => {
     const l = gm.wild.creatures.find((c) => c.kind === 'lookout'), s = window.__cover;
     if (l && s.last === 'aim' && l.mind === 'recover') s.shots++;
     if (l) s.last = l.mind;
-    if (!s.shots) s.hp = Math.min(s.hp, gm.vitals.hp);
+    // (The scene is the lookout's: the machete is held at his post, so only the rifle's shot is in question.)
+    const r = gm.wild.creatures.find((c) => c.kind === 'rusher');
+    if (r && r.post) { r.x = r.post.x; r.z = r.post.z; r.vx = r.vz = 0; r.mind = 'alerted'; r.timer = 1; }
+    s.hp = Math.min(s.hp, gm.vitals.hp);
   }, 5);
 }, [P.OUTPOST_AT[0] + 26.5, 1024.5]);
-await page.waitForFunction(() => window.__cover.shots >= 1, null, { timeout: LONG, polling: 100 }).catch(() => {});
-const cover = await g(() => { clearInterval(window.__coverT); return window.__cover; });
-check('behind a wall the lookout’s shot misses: cover works', cover.shots >= 1 && cover.hp === 100, `shots ${cover.shots}, health ${cover.hp}`);
+await page.waitForFunction(() => window.__hv.game.time - window.__cover.t0 > 5, null, { timeout: LONG, polling: 200 }).catch(() => {});
+const cover = await g(() => { clearInterval(window.__coverT); const l = window.__hv.game.wild.creatures.find((c) => c.kind === 'lookout'); return { ...window.__cover, mind: l?.mind }; });
+check('behind a wall the lookout can’t hit you: he holds his aim, waiting', cover.hp === 100 && cover.shots === 0, `health ${cover.hp}, shots ${cover.shots}, lookout ${cover.mind}`);
 
 // 3. Start again unseen (the outpost stands down), on the roof behind the lookout (as up the crates at the
 // back): a blade, a silent takedown.
