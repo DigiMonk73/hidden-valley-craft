@@ -3,7 +3,7 @@
 // Pure: built in a worker from the same layout the terrain comes from.
 
 import { WORLD_X, WORLD_Z } from '../world/constants.ts';
-import { VALLEY, POOL, CANYON_POOL, inCanyonStream, surfaceHeight, zoneAt, distToValley, creekDistance, type ZoneId } from './layout.ts';
+import { VALLEY, POOL, CANYON_POOL, inCanyonStream, surfaceHeight, landZoneAt, distToValley, creekDistance, type ZoneId } from './layout.ts';
 import { blockId, B_FACE_TEX } from '../world/blocks.ts';
 
 const tex = (name: string, face: number) => B_FACE_TEX[blockId(name) * 6 + face];
@@ -49,7 +49,7 @@ export function buildFarLand(): FarMesh {
       const g = ground[k];
       const at = (di: number, dj: number) => ground[Math.min(M - 1, Math.max(0, j + dj)) * N + Math.min(N - 1, Math.max(0, i + di))];
       const slope = Math.max(Math.abs(at(1, 0) - g), Math.abs(at(-1, 0) - g), Math.abs(at(0, 1) - g), Math.abs(at(0, -1) - g));
-      const zone = zoneAt(x, z);
+      const zone = landZoneAt(x, z);
       const inValley = distToValley(x, z) < VALLEY.radius - 6;
       const water = (inValley && (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius || creekDistance(x, z) < 2.5)) ||
         Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) < CANYON_POOL.radius || inCanyonStream(x, z, 0.5);

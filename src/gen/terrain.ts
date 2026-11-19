@@ -8,7 +8,7 @@ import { Simplex, hash3, rand3 } from '../core/noise.ts';
 import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, CANYON_POOL, TUNNEL, MOUTH_BASINS, GARDEN, SPRINGS, SPRING_OPENING, type Falls,
   GATE, TUNNEL_LAMPS, MOUTH_LAMPS, ROAD, PLACES, RAMP_HALF_WIDTH,
-  distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inSanctuary, zoneAt, canyonCenterX,
+  distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inValleyBowl, landZoneAt, canyonCenterX,
   roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack, basinFloor,
   ZONE1FAR, onCampTrail, brushTrailDist, ravineX, RAVINE_HALF,
 } from './layout.ts';
@@ -203,7 +203,7 @@ function carveCaves(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
     for (let lx = 0; lx < CS; lx++) {
       const x = x0 + lx, z = z0 + lz;
       const top = tops[lz * CS + lx];
-      const roofKeep = inSanctuary(x, z) ? 9 : 6; // caves under the valley floor stay well below it
+      const roofKeep = inValleyBowl(x, z) ? 9 : 6; // caves under the valley floor stay well below it
       for (let y = 8; y < top - roofKeep; y++) {
         const va = sample(a, lx, y, lz), vb = sample(b, lx, y, lz);
         if (va * va + vb * vb < 0.0065 && !caveExcluded(x, y, z)) col[ci(lx, y, lz)] = AIR;
@@ -217,8 +217,8 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
     for (let lx = 0; lx < CS; lx++) {
       const x = x0 + lx, z = z0 + lz;
       const top = tops[lz * CS + lx];
-      const valley = inSanctuary(x, z);
-      const zone = zoneAt(x, z);
+      const valley = inValleyBowl(x, z);
+      const zone = landZoneAt(x, z);
       const near = zone === 'near';
       // The mid band's deeper rock holds twice the coal and iron (docs/PHASE5.md).
       const rich = zone === 'mid' ? 2 : 1;
@@ -288,11 +288,11 @@ function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array
       const valley = d < VALLEY.radius - 4;
       const canyonFloor = !valley && Math.abs(x - canyonCenterX(z)) < 20 && top <= VALLEY.floor + 3;
       // Zone-1's near band is old farmland gone semi-feral: grass, not forest floor.
-      let topBlock = valley || zoneAt(x, z) === 'near' ? GRASS : FOREST;
+      let topBlock = valley || landZoneAt(x, z) === 'near' ? GRASS : FOREST;
       let fill = DIRT;
       let depth = valley ? 4 : 3;
       if (canyonFloor) { topBlock = rand3(x, top, z, SEED) < 0.5 ? GRAVEL : SAND; fill = GRAVEL; depth = 2; }
-      else if (zoneAt(x, z) === 'deep' || (x < ZONES_RAVINE_FAR && x > 560)) {
+      else if (landZoneAt(x, z) === 'deep' || (x < ZONES_RAVINE_FAR && x > 560)) {
         // The deep band: the wettest ground, moss and mud under the dense canopy.
         const r = rand3(x, top, z, SEED + 3);
         topBlock = wet > 0.1 ? (r < 0.25 ? MUD : MOSS) : r < 0.12 ? MUD : FOREST;
@@ -328,7 +328,7 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
         return false;
       };
 
-      if (inSanctuary(x, z)) {
+      if (inValleyBowl(x, z)) {
         pool(POOL, VALLEY.floor);
         // The creek: a narrow channel of water, with mud and clay banks.
         const cd = creekDistance(x, z) + 0.6 * detail.noise2(x / 5, z / 5);
@@ -346,7 +346,7 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
       }
 
       // The canyon pool's overflow: a shallow stream along the floor that thins and sinks into the gravel.
-      if (!inSanctuary(x, z) && top <= VALLEY.floor + 3 && Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) > CANYON_POOL.radius - 2) {
+      if (!inValleyBowl(x, z) && top <= VALLEY.floor + 3 && Math.hypot(x - CANYON_POOL.cx, z - CANYON_POOL.cz) > CANYON_POOL.radius - 2) {
         const st = canyonStreamAt(x, z);
         const sd = st.dist + 0.5 * detail.noise2(x / 5, z / 5);
         const half = 1.9 - 1.2 * st.t;
@@ -637,7 +637,7 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   const z = gz * TREE_CELL + ((h >>> 3) & 7);
   const roll = ((h >>> 6) & 1023) / 1024;
   const d = distToValley(x, z);
-  const zone = zoneAt(x, z);
+  const zone = landZoneAt(x, z);
   if (d > VALLEY.radius - 12 && d < VALLEY.radius + 22) return null; // the cliff band
   if (x > HOME_BOUNDS.x0 - 50 && Math.abs(z - VALLEY.cz) < 40 && d < VALLEY.radius) return null; // the view from the balcony
   if (x >= GARDEN.x0 - 3 && x < GARDEN.x1 + 3 && z >= GARDEN.z0 - 3 && z < GARDEN.z1 + 3) return null;
@@ -719,7 +719,7 @@ function placeTrees(col: Uint16Array, x0: number, z0: number): void {
       const g = t.ground;
       if (t.kind === 'broadleaf') {
         // A cloud-forest canopy tree: tall trunk, broad flat crown, epiphytes on top.
-        const valley = zoneAt(t.x, t.z) === 'valley';
+        const valley = landZoneAt(t.x, t.z) === 'valley';
         const height = (valley ? 7 : 9) + Math.floor(r(8) * (valley ? 5 : 7));
         const crown = 3.2 + r(16) * 2.6;
         const thick = crown > 5;
@@ -763,7 +763,7 @@ function placeTrees(col: Uint16Array, x0: number, z0: number): void {
         const stalks = 3 + Math.floor(r(8) * 5);
         for (let s = 0; s < stalks; s++) {
           const sx = t.x + Math.floor(r(s * 3 + 4) * 4) - 1, sz = t.z + Math.floor(r(s * 3 + 5) * 4) - 1;
-          const ground = zoneAt(sx, sz) === 'valley' ? valleyFloorHeight(sx, sz) : outsideHeight(sx, sz);
+          const ground = landZoneAt(sx, sz) === 'valley' ? valleyFloorHeight(sx, sz) : outsideHeight(sx, sz);
           const h = 4 + Math.floor(r(s * 3 + 6) * 6);
           for (let y = ground; y < ground + h; y++) set(sx, y, sz, BAMBOO, false);
         }

@@ -15,6 +15,7 @@ _The page to resume from. Keep it short; history lives in git._
   - **The fight:** three raiders, a first human fight, small and telegraphed. A glint and a click before every shot; cover works. A blade from behind is a silent takedown. Once cleared, the outpost stays clear.
   - **Focus mode** (Q), and the **jaguar** that crosses the camp's clearing once.
   - **M2** on the computer: the forge from the raiders' parts, the hunting bow, the smoker and jerky rack, the leghold, raised beds, quinoa and the apple slip, the coop and the hutch, the cleared outpost.
+- **Review fixes (Silas)** were published as version 7. The sanctuary now covers the whole home, F3 hides the panel, and a full pack keeps the block. Checks: 193 unit tests and all 51 play-through checks. The play-through now takes about 30 minutes here; give it an hour's timeout.
 
 - **Phase 4 ("Zone-1 near band")** was merged into `main` (branch `phase4`) and published as version 6. It has the saddle, Marco's bus shelter and trading in Bitcoin, the dead scout and the pistol, the farmstead with its feral dogs and chickens, the coop, salvage, and M1. Details are in docs/PHASE4.md. Checks: 188 unit tests and all 50 play-through checks.
   - The play-through's safe step failed once on mouse capture; it passed on the rerun.
@@ -48,7 +49,7 @@ _The page to resume from. Keep it short; history lives in git._
 
   Left open on purpose: the puma has no "from cover" stalking yet, and a hutch only breeds while its chunk is loaded.
 - **The published page:** https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, private to the owner, with `capabilities: {downloads: true}` and `source-bundle.json` beside it. To update it, republish `out/page/hidden-valley.html` to that URL.
-- **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (private), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
+- **Where the code lives:** https://github.com/DigiMonk73/hidden-valley-craft (public), branch `main`, pushed 2026-11-17. The working copy is `/home/user/hidden-valley-blocks`. Push after every finished step.
 
 ## What Phase 1 adds
 

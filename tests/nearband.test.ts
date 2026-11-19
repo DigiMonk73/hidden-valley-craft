@@ -150,7 +150,8 @@ describe('Marco', () => {
 
   it('never stands in the valley: his body refuses it like any creature’s', () => {
     const rand = makeRng(2);
-    const m = makeCreature('marco', VALLEY.cx + VALLEY.radius + 8.8, 100, VALLEY.cz);
+    // The west edge: east of the valley at this latitude is the builder's home, sanctuary too.
+    const m = makeCreature('marco', VALLEY.cx - VALLEY.radius - 8.8, 100, VALLEY.cz);
     for (let t = 0; t < 200; t++) think(m, 0.05, senses(VALLEY.cx, VALLEY.cz), flat, rand);
     expect(inSanctuary(m.x, m.z)).toBe(false);
   });

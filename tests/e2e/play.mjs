@@ -437,7 +437,9 @@ const inCoop = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n
 check('the pair goes into the coop', inCoop === 2, `chickens in the coop ×${inCoop}`);
 for (let attempt = 0; attempt < 3; attempt++) {
   await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
-    (gm) => { gm.hour = 21; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+    // The clock is set once, before aiming: setting it again while waiting could put a slept night back to
+    // 21:00, and a second sleep lays a second morning's eggs.
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
 await page.waitForTimeout(500);
@@ -608,6 +610,15 @@ check('walks to the broken bridge, and sees the body across the ravine', f5.incl
 // Home to the cave, where the save checks below edit a block.
 await g(() => { const gm = window.__hv.game; gm.player.flying = false; gm.player.setPosition(1812.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = 0; });
 await page.waitForFunction(() => window.__hv.idle(), null, { timeout: LONG, polling: 300 }).catch(() => {});
+// F3 shows the debug panel, and F3 again hides it (it used to stay up with its last text).
+await ensureLook();
+await page.keyboard.press('F3');
+await page.waitForTimeout(400);
+const debugOn = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display !== 'none');
+await page.keyboard.press('F3');
+await page.waitForTimeout(400);
+const debugOff = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display === 'none');
+check('F3 shows the debug panel and hides it again', debugOn && debugOff, `on ${debugOn}, off ${debugOff}`);
 
 // Mine a block next to it and leave the hole, then save and reload.
 const t2 = { x: target.x, y: target.y, z: target.z + 1 };

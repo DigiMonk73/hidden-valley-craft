@@ -307,13 +307,33 @@ export function distToValley(x: number, z: number): number {
   return Math.hypot(x - VALLEY.cx, z - VALLEY.cz);
 }
 
-/** The sanctuary covers the valley inside its rim plus a margin, at every height. */
-export function inSanctuary(x: number, z: number): boolean {
+/** The valley's bowl: inside its rim plus a margin. The land and its water are shaped by this. */
+export function inValleyBowl(x: number, z: number): boolean {
   return distToValley(x, z) < VALLEY.radius + 8;
 }
 
+/** The builder's home: its rooms run from the cliff face deep into the east rock, past the bowl's edge. */
+export const HOME_GROUNDS = { x0: 1786, x1: 1842, z0: 998, z1: 1050 };
+
+/**
+ * The sanctuary: the valley's bowl and the builder's home, at every height (on, in and under the rock).
+ * Nothing hostile spawns, walks, targets or is knocked into it, and a death here costs nothing.
+ */
+export function inSanctuary(x: number, z: number): boolean {
+  return inValleyBowl(x, z) || (x >= HOME_GROUNDS.x0 && x < HOME_GROUNDS.x1 && z >= HOME_GROUNDS.z0 && z < HOME_GROUNDS.z1);
+}
+
+/** The zone for play (danger, spawning, toasts): the sanctuary is the valley. */
 export function zoneAt(x: number, z: number): ZoneId {
-  if (inSanctuary(x, z)) return 'valley';
+  return inSanctuary(x, z) ? 'valley' : zoneOutside(x, z);
+}
+
+/** The zone the land was shaped as: only the bowl is valley. The world generator uses this, so widening the sanctuary changes no terrain. */
+export function landZoneAt(x: number, z: number): ZoneId {
+  return inValleyBowl(x, z) ? 'valley' : zoneOutside(x, z);
+}
+
+function zoneOutside(x: number, z: number): ZoneId {
   if (x < 450 && z < 450) return 'zone4';
   if (x < ZONES.ravineX) return 'zone3';
   if (z < ZONES.zone2Z) return 'zone2';

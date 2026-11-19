@@ -29,7 +29,8 @@ describe('the sanctuary rule', () => {
 
   it('no ground inside the valley counts as somewhere to stand', () => {
     expect(groundAt(VALLEY.cx, VALLEY.cz, flat)).toBeNull();
-    expect(groundAt(VALLEY.cx + VALLEY.radius + 30, VALLEY.cz, flat)).toBe(100);
+    // The west edge: east of the valley at this latitude is the builder's home, sanctuary too.
+    expect(groundAt(VALLEY.cx - VALLEY.radius - 30, VALLEY.cz, flat)).toBe(100);
   });
 
   it('a creature stands on the forest floor, never on top of a tree', () => {
@@ -54,7 +55,9 @@ describe('the sanctuary rule', () => {
     const edge = VALLEY.radius + 8;
     for (const kind of Object.keys(KINDS) as Kind[]) {
       for (let trial = 0; trial < 40; trial++) {
-        const a = rand() * Math.PI * 2;
+        let a = rand() * Math.PI * 2;
+        // A start beside the builder's home (sanctuary too, past the bowl's edge) moves to the far side.
+        if (inSanctuary(VALLEY.cx + Math.cos(a) * (edge + 0.6), VALLEY.cz + Math.sin(a) * (edge + 0.6))) a += Math.PI;
         const c = makeCreature(kind, VALLEY.cx + Math.cos(a) * (edge + 0.6), 100, VALLEY.cz + Math.sin(a) * (edge + 0.6));
         // The player stands inside (hostiles must give up) or just outside on the far side (shy ones flee inward).
         const inside = trial % 2 === 0;
@@ -85,7 +88,8 @@ describe('the sanctuary rule', () => {
     expect(w.add(makeCreature('deer', VALLEY.cx, 100, VALLEY.cz))).toBe(false);
     const stray = makeCreature('deer', VALLEY.cx + 20, 100, VALLEY.cz);
     expect(despawnFar([stray], VALLEY.cx + 20, VALLEY.cz)).toHaveLength(0);
-    const a = { x: VALLEY.cx + VALLEY.radius + 20, y: 105, z: VALLEY.cz, vx: -40, vy: 0, vz: 0, damage: 20, stuck: false, age: 0 };
+    // Shot from the west, toward the valley (east of it at this latitude is the builder's home, sanctuary too).
+    const a = { x: VALLEY.cx - VALLEY.radius - 20, y: 105, z: VALLEY.cz, vx: 40, vy: 0, vz: 0, damage: 20, stuck: false, age: 0 };
     for (let t = 0; t < 40 && !a.stuck; t++) stepArrow(a, 0.05, (_x, y) => (y < 50 ? STONE : AIR));
     expect(a.stuck).toBe(true);
     expect(inSanctuary(a.x, a.z)).toBe(false);

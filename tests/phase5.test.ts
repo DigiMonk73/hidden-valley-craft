@@ -402,7 +402,8 @@ describe('the sanctuary rule, with the raiders and the jaguar', () => {
       expect(fits(makeCreature(kind, VALLEY.cx, 100, VALLEY.cz), VALLEY.cx, 100, VALLEY.cz, flat)).toBe(false);
       expect(new Wild().add(makeCreature(kind, VALLEY.cx + 10, 100, VALLEY.cz))).toBe(false);
       for (let trial = 0; trial < 30; trial++) {
-        const a = rand() * Math.PI * 2;
+        // The west half: the east edge at the home's latitude is the home, sanctuary too (main, bf57d3f).
+        const a = Math.PI * (0.6 + rand() * 0.8);
         const c = makeCreature(kind, VALLEY.cx + Math.cos(a) * (edge + 0.6), 100, VALLEY.cz + Math.sin(a) * (edge + 0.6));
         c.post = { x: c.x, y: 100, z: c.z, yaw: 0 };
         c.mind = kind === 'jaguar' ? 'charge' : trial % 2 ? 'alerted' : 'charge'; c.timer = 10;
