@@ -6,6 +6,7 @@ import { itemId } from '../world/items.ts';
 import type { Stack } from '../sim/inventory.ts';
 import { BARN_CRATES, SCOUT_AT } from './zone1.ts';
 import { RAIDER_CRATE, LODGE_CHEST } from './zone1far.ts';
+import { PHARMACY_SHELF, HARDWARE_CRATE, SERVER_RACKS, UPS_CABINETS, LEAD_CASKET } from './zone2.ts';
 
 export const CHEST_SLOTS = 27;
 
@@ -68,7 +69,21 @@ export const ZONE1_MID_CHESTS: HomeChest[] = [
   ] },
 ];
 
-const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS, ...ZONE1_MID_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
+// Zone-2's ruins (docs/PHASE6.md): the hardware store's stock, the pharmacy's shelf, the exchange's racks and
+// battery cabinets, and the cracked lead casket in the clinic van (scrap lead, in the radiation's heart).
+// Six racks hold six GPUs, three PSUs and two mining boards: a rig's worth and a spare (a second rig is M4's).
+const rack = (k: number): [string, number][] => [['gpu', 1], ...(k % 2 === 0 ? [['psu', 1] as [string, number]] : []), ...(k === 1 || k === 4 ? [['mining_board', 1] as [string, number]] : []), ['wiring', 2]];
+export const ZONE2_CHESTS: HomeChest[] = [
+  { x: HARDWARE_CRATE[0], y: HARDWARE_CRATE[1], z: HARDWARE_CRATE[2], title: 'Hardware store: the stock', items: [
+    ['pump_unit', 1], ['wiring', 8], ['pipe_fittings', 6], ['nails', 32], ['brass_casing', 40], ['primer', 40],
+  ] },
+  { x: PHARMACY_SHELF[0], y: PHARMACY_SHELF[1], z: PHARMACY_SHELF[2], title: 'Pharmacy shelf', items: [['bandage', 6], ['first_aid_kit', 1]] },
+  ...SERVER_RACKS.map(([x, y, z], k) => ({ x, y, z, title: 'Server rack', items: rack(k) })),
+  ...UPS_CABINETS.map(([x, y, z]) => ({ x, y, z, title: 'UPS battery cabinet', items: [['battery_cell', 4]] as [string, number][] })),
+  { x: LEAD_CASKET[0], y: LEAD_CASKET[1], z: LEAD_CASKET[2] + 1, title: 'A cracked lead casket', items: [['scrap_lead', 8]] },
+];
+
+const byPos = new Map([...HOME_CHESTS, ...ZONE1_CHESTS, ...ZONE1_MID_CHESTS, ...ZONE2_CHESTS].map((c) => [`${c.x},${c.y},${c.z}`, c]));
 
 export function homeChestAt(x: number, y: number, z: number): HomeChest | undefined {
   return byPos.get(`${x},${y},${z}`);

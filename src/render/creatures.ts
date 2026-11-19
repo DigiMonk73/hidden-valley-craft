@@ -81,6 +81,32 @@ function raider(bandana: string, extra: Part[]): Model {
   };
 }
 const ARM = '#465030', HAND = '#a77a55', GUN = '#2a2a2a', STOCK = '#5a4632';
+// Each raider's weapon shows its threat; the aim is a pose you can see.
+const PARTS_LOOKOUT: Part[] = [
+  // At rest: the rifle held across the body. Aiming: raised to the shoulder, and the scope glints.
+  { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['aim'] },
+  { size: [0.06, 0.08, 0.9], at: [0.05, 1.1, -0.2], color: GUN, not: ['aim'] },
+  { size: [0.12, 0.12, 0.5], at: [0.18, 1.42, -0.25], color: ARM, when: ['aim'] },
+  { size: [0.07, 0.09, 1.1], at: [0.1, 1.5, -0.45], color: GUN, when: ['aim'] },
+  { size: [0.08, 0.12, 0.3], at: [0.1, 1.44, 0.0], color: STOCK, when: ['aim'] },
+  { size: [0.1, 0.1, 0.06], at: [0.1, 1.6, -0.62], color: '#fff6c8', when: ['aim'], glow: true },
+];
+const PARTS_GUNMAN: Part[] = [
+  // A pistol at his side; raised at arm's length to aim.
+  { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['aim'] },
+  { size: [0.06, 0.14, 0.2], at: [0.28, 0.78, -0.06], color: GUN, not: ['aim'] },
+  { size: [0.12, 0.12, 0.6], at: [0.22, 1.38, -0.3], color: ARM, when: ['aim'] },
+  { size: [0.12, 0.12, 0.1], at: [0.22, 1.38, -0.62], color: HAND, when: ['aim'] },
+  { size: [0.06, 0.12, 0.24], at: [0.22, 1.44, -0.72], color: GUN, when: ['aim'] },
+];
+const PARTS_RUSHER: Part[] = [
+  // A machete low in his hand; raised high before the blow.
+  { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['windup'] },
+  { size: [0.05, 0.55, 0.1], at: [0.28, 0.6, -0.08], color: '#b8c0c6', not: ['windup'] },
+  { size: [0.12, 0.5, 0.14], at: [0.28, 1.65, 0.05], color: ARM, when: ['windup'] },
+  { size: [0.05, 0.6, 0.1], at: [0.28, 2.15, 0.08], color: '#b8c0c6', when: ['windup'] },
+];
+
 
 /** The four kinds, in metres from the feet. The head is toward −z (the way yaw 0 faces). */
 const MODELS: Record<Kind, Model> = {
@@ -198,30 +224,13 @@ const MODELS: Record<Kind, Model> = {
     leg: { size: [0.17, 0.82, 0.19], color: '#33363c', hips: [[-0.1, 0.82, 0], [0.1, 0.82, 0]] },
   },
   // Zone-1's mid band (docs/PHASE5.md). Each raider's weapon shows its threat; the aim is a pose you can see.
-  lookout: raider('#7a2a20', [
-    // At rest: the rifle held across the body. Aiming: raised to the shoulder, and the scope glints.
-    { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['aim'] },
-    { size: [0.06, 0.08, 0.9], at: [0.05, 1.1, -0.2], color: GUN, not: ['aim'] },
-    { size: [0.12, 0.12, 0.5], at: [0.18, 1.42, -0.25], color: ARM, when: ['aim'] },
-    { size: [0.07, 0.09, 1.1], at: [0.1, 1.5, -0.45], color: GUN, when: ['aim'] },
-    { size: [0.08, 0.12, 0.3], at: [0.1, 1.44, 0.0], color: STOCK, when: ['aim'] },
-    { size: [0.1, 0.1, 0.06], at: [0.1, 1.6, -0.62], color: '#fff6c8', when: ['aim'], glow: true },
-  ]),
-  gunman: raider('#2a2a2a', [
-    // A pistol at his side; raised at arm's length to aim.
-    { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['aim'] },
-    { size: [0.06, 0.14, 0.2], at: [0.28, 0.78, -0.06], color: GUN, not: ['aim'] },
-    { size: [0.12, 0.12, 0.6], at: [0.22, 1.38, -0.3], color: ARM, when: ['aim'] },
-    { size: [0.12, 0.12, 0.1], at: [0.22, 1.38, -0.62], color: HAND, when: ['aim'] },
-    { size: [0.06, 0.12, 0.24], at: [0.22, 1.44, -0.72], color: GUN, when: ['aim'] },
-  ]),
-  rusher: raider('#a3241c', [
-    // A machete low in his hand; raised high before the blow.
-    { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['windup'] },
-    { size: [0.05, 0.55, 0.1], at: [0.28, 0.6, -0.08], color: '#b8c0c6', not: ['windup'] },
-    { size: [0.12, 0.5, 0.14], at: [0.28, 1.65, 0.05], color: ARM, when: ['windup'] },
-    { size: [0.05, 0.6, 0.1], at: [0.28, 2.15, 0.08], color: '#b8c0c6', when: ['windup'] },
-  ]),
+  lookout: raider('#7a2a20', PARTS_LOOKOUT),
+  gunman: raider('#2a2a2a', PARTS_GUNMAN),
+  rusher: raider('#a3241c', PARTS_RUSHER),
+  // Zone-2's faction (docs/PHASE6.md): the same men, a grey bandana; the guard's rifle, the patrol's pistol, the sentry's machete.
+  guard: raider('#5d5d55', PARTS_LOOKOUT),
+  patrol: raider('#5d5d55', PARTS_GUNMAN),
+  sentry: raider('#5d5d55', PARTS_RUSHER),
   jaguar: { // heavier than the puma: a golden coat with black rosettes, a broad head, a long dark-ringed tail
     body: [
       { size: [0.5, 0.48, 1.25], at: [0, 0.78, 0.05], color: '#c9973c' },

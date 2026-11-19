@@ -665,4 +665,29 @@ export class Sound {
     this.chirp(p, t, 320, 260, 0.9, 0.035, 'sawtooth');
     this.chirp(p, t + 0.95, 280, 340, 0.6, 0.025, 'sawtooth');
   }
+
+  /**
+   * The Geiger counter (docs/PHASE6.md, 3): random dry clicks and a faint hiss, quickening with `rate`
+   * (0 out of earshot … 1 at a hotspot's heart). Called every frame with the frame's seconds.
+   */
+  geiger(rate: number, dt: number): void {
+    if (!this.ctx || rate <= 0) return;
+    const clicks = rate * rate * 60 * dt + 1.5 * rate * dt; // clicks expected this frame
+    for (let n = clicks; n > 0; n--) if (Math.random() < Math.min(1, n)) this.burst(0.012, 'highpass', 4200, 0.8, 0.22 + 0.2 * rate, Math.random() * dt);
+    if (Math.random() < dt * 2) this.burst(0.5, 'highpass', 6000, 0.5, 0.025 * rate);
+  }
+
+  /** A machine at home: the rig's fans, the fridge's compressor, the pump. A short positioned hum. */
+  machine(x: number, y: number, z: number, freq: number, gain: number): void {
+    if (!this.ctx) return;
+    this.chirp(this.at(x, y, z), this.ctx.currentTime, freq, freq * 1.02, 1.1, gain, 'sawtooth');
+  }
+
+  /** The hot spring: bubbling under steam, from where it is. */
+  bubble(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    for (let i = 0; i < 3 + Math.floor(Math.random() * 4); i++) this.chirp(p, t + i * 0.09 + Math.random() * 0.05, 300 + Math.random() * 500, 700 + Math.random() * 400, 0.05, 0.06);
+    this.noiseAt(p, t, 0.9, 'highpass', 2500, 0.6, 0.05, 0.2);
+  }
 }

@@ -32,6 +32,7 @@ import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
+import { packPos, skyOf } from './world/light.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
 import { leaveLostPack, losesPack } from './sim/death.ts';
@@ -47,7 +48,8 @@ import { itemLabel } from './world/items.ts';
 import { iconFor } from './ui/icons.ts';
 import { drawMapScrap } from './ui/mapView.ts';
 import people from '../data/people.json' with { type: 'json' };
-import { RAIDER_KINDS } from './entity/creatures.ts';
+import { RAIDER_KINDS, FACTION_KINDS, isMan } from './entity/creatures.ts';
+import { factionDawn } from './entity/faction.ts';
 import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS, outpostFromSave } from './entity/outpost.ts';
 import { makeJaguar, atCampClearing } from './entity/jaguar.ts';
 import { Focus } from './sim/focus.ts';
@@ -59,6 +61,11 @@ import { smokeMeat, cureJerky, newWatch, learnLeghold, LEGHOLD_LESSON, LEGHOLD }
 import { pickApple, isFarmland, sows, NEW_CROPS } from './sim/farming.ts';
 import { itemName } from './world/items.ts';
 import { blockId } from './world/blocks.ts';
+import { ZONE2 } from './gen/layout.ts';
+import { M3_STEPS, trackM3, diedOutsideM3 } from './sim/milestones.ts';
+import { CATALOG_M3, DOC_PRICE } from './sim/trade.ts';
+import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
+import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts';
 
 const SAVE_KEY = 'save:1';
 const KILL_LINE: Record<Creature['kind'], string> = {
@@ -66,6 +73,8 @@ const KILL_LINE: Record<Creature['kind'], string> = {
   dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '',
   lookout: 'The lookout is down. His rifle and his rounds are yours.', gunman: 'The man with the pistol is down. His pistol and rounds are yours.',
   rusher: 'The man with the machete is down. His machete is yours.', jaguar: 'The jaguar is dead. Its pelt is yours.',
+  patrol: 'The patrolman is down: a few rounds and casings. Las Cruces will send another at dawn.', sentry: 'The sentry is down. Another will walk his beat tomorrow.',
+  guard: 'The guard is down: his rounds are yours. The tower will be manned again at dawn.',
 };
 /** Firearms: found, never crafted (ADR-019). Damage, seconds between shots, range, and what each fires. */
 const GUNS: Record<string, { damage: number; cooldown: number; range: number; ammo: string; sound: 'rifle' | 'pistol' }> = {
@@ -78,6 +87,7 @@ const BLADES = new Set(['hunting_knife', 'machete', 'spear']);
 const isBow = (id: number | undefined) => id !== undefined && BOWS.has(itemName(id));
 const isWeapon = (id: number | undefined) => id !== undefined && (BOWS.has(itemName(id)) || itemName(id) in GUNS);
 const MARCO = people.marco;
+const DOC = people.doc;
 /** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
 const MARCO_HOURS: [number, number] = [7, 18];
 const SETTINGS_KEY = 'settings';
@@ -146,6 +156,15 @@ export class Game {
   private lastShot = -Infinity;
   /** When the bowstring was drawn (play time), or null. */
   private drawing: number | null = null;
+  /** Power at home (docs/PHASE6.md): the banks' charge and the rig's earnings, and the devices found placed. */
+  power: PowerState = newPower();
+  private devices: Devices = findDevices(new Map());
+  /** The game hour power was last run to (null: not yet, so nothing is back-dated). */
+  private powerHour: number | null = null;
+  /** The radiation dose, 0–100 (docs/PHASE6.md, 3). */
+  dose = 0;
+  private doseToasted = false;
+  private wallToast = -Infinity;
   /** Where the player wakes after a death or a night's sleep. */
   spawn = { x: 0, y: 0, z: 0, yaw: 0 };
   private coffeeUntil = 0;
@@ -190,6 +209,10 @@ export class Game {
       this.sound.place('wood');
       // M2's workshop extension: the forge, made from the outpost's parts.
       if (r.out[0] === blockId('forge')) { this.flags.add('forge_made'); this.hud.toast('The forge, and a tool rack with it. Set the forge in the workshop: it gets more iron from scrap.', 7000); }
+      // M3 (docs/PHASE6.md).
+      if (r.out[0] === itemId('pistol_rounds') || r.out[0] === itemId('rifle_rounds')) { this.flags.add('ammo_made'); this.once('ammo_toast', 'Rounds of your own: powder, a cast bullet, a casing and a primer. The casings are finite: buy or find more.', 7000); }
+      if (r.out[0] === blockId('solar_array')) this.once('array_toast', 'A solar array. Set it at home in the sun: the balcony, or the cliff above it. Two run a rig day and night once there is a battery bank.', 8000);
+      if (r.out[0] === blockId('powder_mill')) this.once('mill_toast', 'A powder mill. Set it down and right-click it: saltpeter, charcoal and sulfur make gunpowder.', 7000);
     };
     this.screen.known = this.flags;
     this.screen.onFull = () => this.hud.toast('No room in your pack for that');
@@ -314,6 +337,8 @@ export class Game {
       if (hatchEggs(this.world)) { this.hud.toast('A chick has hatched in the coop: one more hen.', 5000); this.edited(); }
       if (layEggs(this.world)) { this.flags.add('coop_laid'); this.edited(); }
       if (cureJerky(this.world)) this.edited();
+      // Las Cruces sends out new men for any killed.
+      factionDawn(this.wild.faction);
       // The farm's feral flock regrows by a hen a day.
       this.wild.flockLeft = Math.min(FLOCK_SIZE, this.wild.flockLeft + 1);
     }
@@ -337,6 +362,7 @@ export class Game {
     // HUD.
     this.hud.updateHotbar(this.hotbar);
     this.hud.setVitals(this.vitals.hp, this.vitals.hunger, this.vitals.thirst, !this.hotbar.creative);
+    this.hud.setDose(this.dose, healthCap(this.dose), !this.hotbar.creative && (this.dose > 0.05 || zoneAt(p.x, p.z) === 'zone2'));
     // The bow's draw shows on the same bar as mining; switching away from the bow lets the string down.
     if (this.drawing !== null && !isBow(this.hotbar.current?.id)) this.drawing = null;
     this.hud.setMining(this.drawing !== null ? drawOf(this.playTime - this.drawing) : this.mining.active ? this.mining.progress : 0);
@@ -379,6 +405,7 @@ export class Game {
     this.wasInWater = p.inWater;
     this.tickWild(world);
     this.tickSurvival(dt, input);
+    this.tickRadiation(world);
     this.tickGate(world);
     // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
     const hurt = this.vitals.hp < this.hpBefore - 0.01;
@@ -455,6 +482,7 @@ export class Game {
       arrowRoom: () => this.hotbar.room(itemId('arrow')),
       pv: Math.hypot(p.vx, p.vz),
       sprint: this.sprinting,
+      armband: this.hotbar.count(itemId('armband')) > 0,
     });
     this.shotFired = false;
     this.wildEvents(ev);
@@ -482,6 +510,7 @@ export class Game {
     for (const e of ev.raiders) {
       const c = e.c, at = [c.x, c.y + 1.6, c.z] as const;
       if (e.kind === 'notice') this.once('raider_notice', 'A raider has turned your way. Get out of his sight before he shouts.', 5000);
+      else if (e.kind === 'challenge') { this.sound.shout(...at); this.hud.toast('“¡Oye! ¿Y tú quién eres?” He’s looking closer at your armband. Back off, now, or fight.', 4000); }
       else if (e.kind === 'shout') { this.sound.shout(...at); this.once('outpost_alert', 'They have seen you! Every shot comes after an aim: when you see a glint or hear a click, get behind something solid.', 8000); }
       else if (e.kind === 'aim') {
         this.sound.click(...at);
@@ -522,6 +551,8 @@ export class Game {
     if (c.kind === 'chicken' && c.tame) takeHen(this.world, c.tame);
     else if (c.kind === 'chicken') this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
     // The outpost's raiders stay dead: once all three are, it is quiet for good.
+    // Zone-2's men stay down until dawn.
+    if (FACTION_KINDS.has(c.kind) && c.squad) this.wild.faction.down |= c.squad;
     if (c.kind === 'lookout' || c.kind === 'gunman' || c.kind === 'rusher') {
       this.wild.outpost.left &= ~RAIDER_BIT[c.kind];
       if (!this.wild.outpost.left && !this.flags.has('outpost_cleared')) {
@@ -558,6 +589,7 @@ export class Game {
     this.sound.hit(c.x, c.y + 0.5, c.z);
     if (hurtCreature(c, damage)) { this.wild.remove(c); this.takeDrops(c); }
     if (RAIDER_KINDS.has(c.kind)) alertOutpost(this.wild.creatures, this.wild.outpost);
+    if (FACTION_KINDS.has(c.kind)) this.wild.alertFaction();
   }
 
   /** A left-click on a creature in reach: a blow with what is in hand. True if there was one to hit. */
@@ -569,7 +601,7 @@ export class Game {
     this.lastBlow = this.playTime;
     // A blade on a raider who hasn't seen you: a silent takedown (docs/PHASE5.md).
     const held = this.hotbar.current?.id;
-    if (silentTakedown(hit.c, this.wild.outpost, held !== undefined && BLADES.has(itemName(held)))) {
+    if (silentTakedown(hit.c, FACTION_KINDS.has(hit.c.kind) ? this.wild.faction : this.wild.outpost, held !== undefined && BLADES.has(itemName(held)))) {
       this.sound.hit(hit.c.x, hit.c.y + 1, hit.c.z);
       hit.c.hp = 0;
       this.wild.remove(hit.c);
@@ -578,7 +610,7 @@ export class Game {
       return true;
     }
     const dmg = meleeDamage(held);
-    if (dmg <= 2 && !RAIDER_KINDS.has(hit.c.kind))
+    if (dmg <= 2 && !isMan(hit.c.kind))
       this.once('weak_hit', 'That barely hurts it. The machete, the bow or the rifle (in the vault’s armory chest) work far better.', 8000);
     this.damageCreature(hit.c, dmg);
     return true;
@@ -591,7 +623,8 @@ export class Game {
     const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
-      || ['bed', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge'].includes(name);
+      || ['bed', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
+        'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate'].includes(name);
   }
 
   /** Right-click with the bow or rifle in hand. True if it was handled. */
@@ -692,6 +725,7 @@ export class Game {
     this.mining.active = false;
     if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you.'); return; }
     diedOutside(this.flags);
+    diedOutsideM3(this.flags);
     const at = leaveLostPack(this.world, this.hotbar, p.x, p.y + 0.2, p.z);
     if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
     this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
@@ -714,6 +748,15 @@ export class Game {
   private updateSound(): void {
     if (!this.sound.started) return;
     const p = this.player;
+    // Phase 6: the Geiger counter near a hotspot; the machines at home, now and then; the hot spring.
+    this.sound.geiger(clickRate(p.x, p.z), this.frameDt);
+    if (Math.random() < this.frameDt * 0.9) {
+      const d = this.devices, near = (a: [number, number, number]) => Math.hypot(a[0] + 0.5 - p.x, a[2] + 0.5 - p.z) < 16;
+      for (const r of d.mining_rig) if (this.power.on.mining_rig && near(r)) this.sound.machine(r[0] + 0.5, r[1] + 0.5, r[2] + 0.5, 118, 0.025);
+      for (const r of d.fridge) if (this.power.on.fridge && near(r)) this.sound.machine(r[0] + 0.5, r[1] + 0.5, r[2] + 0.5, 60, 0.03);
+      const c = ZONE2.cave.cavern;
+      if (Math.hypot((c.x0 + c.x1) / 2 - p.x, (c.z0 + c.z1) / 2 - p.z) < 26) this.sound.bubble((c.x0 + c.x1) / 2, p.y - 2, (c.z0 + c.z1) / 2);
+    }
     const [fx, fy, fz] = p.lookDir();
     const head = this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z));
     const valley = inSanctuary(p.x, p.z);
@@ -777,7 +820,11 @@ export class Game {
     if (!m.active || !t) { m.progress = 0; return; }
     if (t.x !== m.x || t.y !== m.y || t.z !== m.z) { m.x = t.x; m.y = t.y; m.z = t.z; m.progress = 0; }
     const seconds = mineSeconds(t.id, this.hotbar.current?.id ?? 0);
-    if (seconds < 0) return; // bedrock and other unbreakables
+    if (seconds < 0) {
+      // Las Cruces' walls: say why nothing happens (docs/PHASE6.md: the compound can't be taken in this phase).
+      if (/^compound_|^steel_gate|^searchlight/.test(blockName(t.id)) && this.playTime - this.wallToast > 6) { this.wallToast = this.playTime; this.hud.toast('Reinforced concrete and steel. Your tools won’t touch it.'); }
+      return; // bedrock and other unbreakables
+    }
     m.progress += seconds === 0 ? 1 : dt / seconds;
     this.digTimer -= dt;
     if (this.digTimer <= 0) { this.sound.dig(materialOf(t.id)); this.digTimer = 0.24; }
@@ -919,18 +966,21 @@ export class Game {
     }
     if (name === 'pale_body' || name === 'pale_legs') { this.hud.toast('You don’t touch it.', 4000); return true; }
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
+    if (this.usePhase6(name)) return true;
     if (name === 'computer') {
       const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
       const m1 = this.flags.has('m1_done');
       this.openPaper(() => this.paper.computer([
         ['Hot wallet (phone)', btc(this.wallet), 'btc'],
         ['Cold wallet', cold ? '2.50000000 BTC (connected, kept cold)' : 'not connected', cold ? 'btc' : 'dim'],
-        ['Mining', 'no rig: needs a solar array and battery bank', 'dim'],
+        ...this.powerRows(),
         ['Satellite uplink', 'no antenna', 'dim'],
         ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
         ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}`, this.flags.has('m2_done') ? 'btc' : ''],
         ...M2_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
+        ['M3 · power up', this.flags.has('m3_done') ? 'done ✓' : `${M3_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M3_STEPS.length}`, this.flags.has('m3_done') ? 'btc' : ''],
+        ...M3_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['Last note', '“Back before the rains.”'],
       ], 'R.’s terminal'));
       return true;
@@ -939,7 +989,8 @@ export class Game {
     if (name === 'map_table') {
       const f = this.flags;
       const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
-        outpost: f.has('outpost_seen'), mine: f.has('mine_seen'), camp: f.has('camp_marker'), bridge: f.has('bridge_seen') };
+        outpost: f.has('outpost_seen'), mine: f.has('mine_seen'), camp: f.has('camp_marker'), bridge: f.has('bridge_seen'),
+        highway: f.has('highway_seen'), ruins: f.has('ruins_seen'), cave: f.has('cave_seen'), compound: f.has('compound_seen') };
       this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z, marks), marks.route ? 'The builder’s map · the road home is marked' : 'The builder’s map · filled in where you have been'));
       return true;
     }
@@ -958,17 +1009,21 @@ export class Game {
     const rows: { name: string; status: string; cls?: string; call?: () => string }[] = [];
     if (this.flags.has('shelter_found')) {
       rows.push({
-        name: MARCO.contact, status: this.flags.has('marco_trust1') ? 'trust 1' : 'new', cls: 'btc',
+        name: MARCO.contact, status: this.flags.has('marco_trust2') ? 'trust 2' : this.flags.has('marco_trust1') ? 'trust 1' : 'new', cls: 'btc',
         call: () => {
+          // Trust 2: the first call after coming home from Las Cruces (docs/PHASE6.md, 7).
+          const trust2 = this.flags.has('zone2_home') && this.flags.has('marco_trust1') && !this.flags.has('marco_trust2');
+          if (trust2) this.flags.add('marco_trust2');
           const night = this.hour < MARCO_HOURS[0] || this.hour >= MARCO_HOURS[1];
           const waiting = this.flags.has('marco_meeting');
           this.flags.add('marco_meeting');
           this.flags.delete('marco_seen');
           this.edited();
-          return waiting ? MARCO.callWaiting : night ? MARCO.callNight : MARCO.callDay;
+          return (trust2 ? MARCO.trust2 + ' ' : '') + (waiting ? MARCO.callWaiting : night ? MARCO.callNight : MARCO.callDay);
         },
       });
     }
+    if (this.flags.has('doc_known')) rows.push({ name: DOC.contact, status: this.flags.has('doc_called') ? 'by phone' : 'new', cls: 'btc', call: () => { const line = this.callDoc(); return line; } });
     rows.push({ name: 'Mamá', status: 'no answer', cls: 'dim' }, { name: 'Lucía', status: 'no answer', cls: 'dim' }, { name: 'Dr. Alvarez', status: 'no answer', cls: 'dim' }, { name: 'Raúl (pilot)', status: 'no answer', cls: 'dim' });
     rows.push({ name: 'Signal', status: 'satellite: weak' });
     if (this.flags.has('shelter_found')) rows.push({ name: 'Wallet', status: btc(this.wallet), cls: 'btc' });
@@ -987,16 +1042,17 @@ export class Game {
     };
     const why = { funds: 'Not enough in your wallet.', room: 'No room in your pack.', none: 'You have none of that.' };
     this.openPaper(() => this.paper.trade(() => ({
-      title: `${MARCO.name} · ${this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
+      title: `${MARCO.name} · ${this.flags.has('marco_trust2') ? 'trust 2' : this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
       say,
       wallet: btc(this.wallet),
-      buy: CATALOG.map((lot) => ({
+      buy: [...CATALOG, ...(this.flags.has('marco_trust2') ? CATALOG_M3 : [])].map((lot) => ({
         icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy',
         can: this.wallet >= lot.sats,
         act: () => {
           const r = buy(this.hotbar, this.wallet, lot);
           if (!r.ok) return why[r.why];
           this.wallet = r.wallet;
+          if (CATALOG_M3.includes(lot)) this.flags.add('marco_guns');
           return dealt() || `Bought ${itemLabel(lot.id)} ×${lot.lot}.`;
         },
       })),
@@ -1069,6 +1125,7 @@ export class Game {
     if (near(YARD[0], YARD[1], 16) && this.wild.creatures.some((c) => c.kind === 'chicken' && near(c.x, c.z, 14)))
       this.once('chickens_seen', 'Feral chickens. Walk up close and right-click to catch one. Two make a pair for a coop.', 7000);
     this.tickFarPlaces();
+    this.tickZone2();
     // The coops' hens walk round them, as many as each holds.
     this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
@@ -1208,7 +1265,7 @@ export class Game {
     }
     if (held.id === itemId('armband')) { this.hud.toast('A red armband, a white broken circle stitched on it. Whoever sent him wears the same.', 5000); return true; }
     const food = foodOf(held.id);
-    const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : 0;
+    const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
     if (food || heal) {
       if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
       this.hotbar.take();
@@ -1359,6 +1416,8 @@ export class Game {
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
       wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
+      power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
+      factionDown: this.wild.faction.down,
     };
   }
 
@@ -1381,6 +1440,11 @@ export class Game {
     this.wild.denLeft = d.den ?? 3;
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
     this.wild.outpost = outpostFromSave(d.outpost);
+    this.power = powerFromSave(d.power);
+    this.wild.faction.down = Number.isFinite(d.factionDown) ? d.factionDown! & 31 : 0; // the men killed stay down until dawn, reload or not
+    this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
+    this.powerHour = null;
+    this.devices = findDevices(this.world.edits);
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
@@ -1496,6 +1560,10 @@ export class Game {
       this.wild.denLeft = 3;
       this.wild.flockLeft = FLOCK_SIZE;
       this.wild.outpost = { left: ALL_RAIDERS, alert: false };
+      this.power = newPower();
+      this.dose = 0;
+      this.powerHour = null;
+      this.devices = findDevices(new Map());
       this.explored = new Uint8Array(64 * 64);
       this.hour = 16.5;
       this.dayClock = 16.5;
@@ -1527,6 +1595,161 @@ export class Game {
       if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
       if (typeof s.vol === 'number') { this.sound.volume = s.vol; this.hud.settingsInputs.vol.value = String(s.vol); }
     } catch { /* bad settings are ignored */ }
+  }
+
+  // ---- Zone-2 and power (docs/PHASE6.md) ----------------------------------------------------------
+
+  /** Each tick: the dose climbs while standing in a hotspot's ring, and caps health (it fades on the game clock). */
+  private tickRadiation(dt: number): void {
+    const p = this.player;
+    if (this.hotbar.creative || p.flying) return;
+    const before = this.dose;
+    this.dose = stepDose(this.dose, p.x, p.z, dt, 0);
+    const cap = healthCap(this.dose);
+    if (this.vitals.hp > cap) this.vitals.hp = cap;
+    if (this.dose > before && this.dose > 0.5 && !this.doseToasted) {
+      this.doseToasted = true;
+      this.once('dose_seen', 'Your dose is rising: see the meter. It caps your health until it fades, or Doc treats it. Step back outside the signs.', 9000);
+    }
+  }
+
+  /** Once a second: the home's power on the game clock (sleep included), the rig's pay, the fridge, the dose fading; Zone-2's toasts; M3. */
+  private tickZone2(): void {
+    const p = this.player, f = this.flags, Z = ZONE2;
+    const last = this.devices.solar_array;
+    this.devices = findDevices(this.world.edits);
+    // An array in the cave makes nothing: only those under open sky count.
+    this.devices.solar_array = sunlit(this.devices.solar_array, (x, y, z) => (this.world.isLoaded(x, z) ? skyOf(this.world.lightAt(x, y, z)) : null), last);
+    if (this.powerHour === null) this.powerHour = this.hour;
+    const minutes = Math.floor((((this.hour - this.powerHour) % 24) + 24) % 24 * 60);
+    if (minutes > 0) {
+      const from = this.powerHour;
+      const paid = stepPower(this.power, this.devices, from, minutes);
+      if (paid) { this.wallet += paid; this.edited(); }
+      this.dose = Math.max(0, this.dose - (4 * minutes) / 60 / 24);
+      // Each whole hour a powered fridge turns one water jug in it to cold water.
+      const hours = Math.floor(from + minutes / 60) - Math.floor(from);
+      if (hours > 0 && this.power.on.fridge) {
+        for (const [x, y, z] of this.devices.fridge) {
+          const slots = this.world.containers.get(packPos(x, y, z));
+          if (!slots) continue;
+          for (let h = 0; h < hours; h++) {
+            const k = slots.findIndex((st) => st && st.id === itemId('water_jug'));
+            if (k < 0) break;
+            const st = slots[k]!;
+            st.count--;
+            if (st.count <= 0) slots[k] = null;
+            const cold = slots.findIndex((o) => o && o.id === itemId('cold_water') && o.count < 8);
+            if (cold >= 0) slots[cold]!.count++;
+            else { const free = slots.findIndex((o) => !o); if (free >= 0) slots[free] = { id: itemId('cold_water'), count: 1 }; else { st.count++; break; } }
+            this.edited();
+          }
+        }
+      }
+      this.powerHour = (from + minutes / 60) % 24;
+    }
+    // Zone-2's places, the first time each is reached.
+    const near = (x: number, z: number, r: number) => Math.hypot(p.x - x, p.z - z) < r;
+    const zone = zoneAt(p.x, p.z);
+    const camp = ZONE1FAR.camp;
+    if (near((camp.x0 + camp.x1) / 2, camp.z0 - 2, 12))
+      this.once('highway_seen', 'A highway sign: CARRETERA 4 · LAS CRUCES. The name on the scout’s map scrap. The old highway runs north, lit.', 8000);
+    if (zone === 'zone2' && p.x < ZONES.saddleX) {
+      const armband = this.hotbar.count(itemId('armband')) > 0;
+      this.once('zone2_seen', 'Zone 2: faction ground. Danger 5. Their patrols shoot strangers.' + (armband ? ' From a distance, the scout’s armband will pass you for one of theirs. Don’t let them close.' : ' The scout’s armband might pass you for one of theirs, from a distance.'), 11000);
+    }
+    if (near((Z.mall.x0 + Z.mall.x1) / 2, (Z.mall.z0 + Z.mall.z1) / 2, 30) || near((Z.exchange.x0 + Z.exchange.x1) / 2, (Z.exchange.z0 + Z.exchange.z1) / 2, 26))
+      this.once('ruins_seen', 'The ruins. Panels on the roofs, copper in the walls, a server room in the exchange, fridges in the supermarket. Mine them, and open the cabinets and crates. A pharmacy at the end.', 11000);
+    if (nearHotspot(p.x, p.z)) this.once('rad_near', 'A hiss, and clicking: radiation. Stay outside the yellow signs.', 7000);
+    const gx = (Z.compound.x0 + Z.compound.x1) / 2;
+    if (near(gx, Z.compound.z1, 145) && p.z > Z.compound.z1 && Math.abs(p.x - gx) < 30)
+      this.once('compound_seen', 'The broken circle, painted over a gate: the same mark as the scout’s armband. This is who sent him: Las Cruces. Their walls are reinforced concrete, and the towers are manned.', 11000);
+    if (near(Z.cave.mouthX, Z.cave.z, 10)) this.once('cave_seen', 'A cave, lit by the raiders’ lamps. Steam from below: a hot spring. White saltpeter crusts the walls, and sulfur rims the pool: mine both, for gunpowder.', 10000);
+    // M3.
+    const d = this.devices;
+    const m3 = trackM3(f, p.x, p.z, { arrays: d.solar_array.length, banks: d.battery_bank.length, fridges: d.fridge.length, pumps: d.water_pump.length, rigSats: this.power.satsTotal });
+    if (m3.length) this.edited();
+    if (m3.includes('array_built')) this.hud.toast('The array is wired in. Now a battery bank (battery cells from the exchange) can store its power for the night.', 8000);
+    if (m3.includes('bank_built')) this.hud.toast('A battery bank: power day and night. The rig, the fridge and the pump can be made now.', 8000);
+    if (m3.includes('rig_earned')) this.hud.toast('The rig has mined its first sats. The computer shows what it earns.', 7000);
+    if (m3.includes('zone2_home')) this.hud.toast('Home from Las Cruces, alive. Marco may have heard: call him.', 7000);
+    if (m3.includes('m3_done')) this.hud.toast('M3 · power up. The valley hums now, day and night.', 9000);
+  }
+
+  /** Right-click on Phase 6's things. True if handled. */
+  private usePhase6(name: string): boolean {
+    const P = this.power, d = this.devices;
+    if (name === 'water_pump') {
+      if (!P.on.water_pump) { this.hud.toast('The pump is dead: no power. It needs the sun, or a charged battery bank.'); return true; }
+      const empties = this.hotbar.count(itemId('empty_jug'));
+      if (empties > 0) {
+        this.hotbar.remove(itemId('empty_jug'), empties);
+        const left = this.hotbar.add(itemId('water_jug'), empties);
+        if (left) this.hotbar.add(itemId('empty_jug'), left);
+        this.sound.splash();
+        this.hud.toast(`The pump runs: ${empties - left} jug${empties - left === 1 ? '' : 's'} filled.`);
+        this.edited();
+      } else if (this.vitals.thirst < 99) { this.vitals.thirst = 100; this.sound.splash(); this.hud.toast('You drink your fill from the pump.'); }
+      else this.hud.toast('The pump: right-click with empty jugs to fill them, or to drink.');
+      return true;
+    }
+    if (name === 'mining_rig') {
+      this.hud.toast(P.on.mining_rig ? `The rig hums: ${(RIG_THS * d.mining_rig.length).toFixed(2)} TH/s. Today it has mined ${btc(P.satsToday)}.` : 'The rig is still: no power. It needs the sun, or a charged battery bank.', 6000);
+      return true;
+    }
+    if (name === 'battery_bank') { this.hud.toast(`Battery bank: ${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh.`); return true; }
+    if (name === 'solar_array') { this.hud.toast(`Solar: ${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} making ${P.made.toFixed(1)} kW now.`); return true; }
+    if (name === 'pharmacy_counter') {
+      if (!this.flags.has('doc_known')) { this.flags.add('doc_known'); this.edited(); this.hud.toast(DOC.card, 10000); }
+      else this.hud.toast('Doc’s card. His number is in your phone.');
+      return true;
+    }
+    if (name === 'compound_wall' || name === 'compound_mark' || name === 'steel_gate') { this.hud.toast('Reinforced concrete and steel. Your tools won’t touch it.'); return true; }
+    return false;
+  }
+
+  /** The computer's power lines (docs/PHASE6.md, 6). */
+  private powerRows(): [string, string, string][] {
+    const P = this.power, d = this.devices, n = d.mining_rig.length;
+    if (!d.solar_array.length && !n) return [['Mining', 'no rig: needs a solar array and a battery bank', 'dim']];
+    return [
+      ['Solar', `${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} · ${P.made.toFixed(2)} kW now`, ''],
+      ['Battery bank', d.battery_bank.length ? `${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh` : 'none', d.battery_bank.length ? '' : 'dim'],
+      ['Mining rig', n ? (P.on.mining_rig ? `${(RIG_THS * n).toFixed(2)} TH/s · running` : 'stopped: no power') : 'none', n && P.on.mining_rig ? 'btc' : 'dim'],
+      ['Mined today', btc(P.satsToday), 'btc'],
+      ['Mined in all', `${btc(P.satsTotal)} (about ${btc(RIG_SATS_PER_DAY * Math.max(1, n))} a day, powered)`, 'btc'],
+      ['Fridge', d.fridge.length ? (P.on.fridge ? 'cold' : 'off: no power') : 'none', d.fridge.length ? '' : 'dim'],
+      ['Water pump', d.water_pump.length ? (P.on.water_pump ? 'ready' : 'off: no power') : 'none', d.water_pump.length ? '' : 'dim'],
+    ];
+  }
+
+  /** Calling Doc: a line, then his services, priced flat per kind (DESIGN.md A3). */
+  private callDoc(): string {
+    const first = !this.flags.has('doc_called');
+    this.flags.add('doc_called');
+    this.edited();
+    const say = first ? DOC.first : DOC.again[Math.floor(Math.random() * DOC.again.length)];
+    const svc = (label: string, price: number, act: () => string) => ({
+      icon: iconFor(itemId('first_aid_kit')), label, price: btc(price), button: 'Ask', can: this.wallet >= price,
+      act: () => { if (this.wallet < price) return DOC.funds; const r = act(); this.edited(); return r; },
+    });
+    this.openPaper(() => this.paper.trade(() => ({
+      title: `${DOC.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can talk you through', sellHead: null, sell: [],
+      buy: [
+        svc(`Wound care (health back to ${healthCap(this.dose)})`, DOC_PRICE.wound, () => {
+          const cap = healthCap(this.dose);
+          if (this.vitals.hp >= cap - 0.5) return DOC.notHurt;
+          this.wallet -= DOC_PRICE.wound; this.vitals.hp = cap; this.hpBefore = cap;
+          return DOC.wound;
+        }),
+        svc(`Rad treatment (your dose: ${Math.round(this.dose)})`, DOC_PRICE.rad, () => {
+          if (this.dose < 0.5) return DOC.noDose;
+          this.wallet -= DOC_PRICE.rad; this.dose = 0;
+          return DOC.rad;
+        }),
+      ],
+    })));
+    return say;
   }
 
   // ---- Debug and test hooks --------------------------------------------------------------------

@@ -1,7 +1,7 @@
 // The map on the builder's table: the land from the layout, shown only where the player has been
 // (one cell per 32 m column), with the cave and the player marked.
 
-import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL } from '../gen/layout.ts';
+import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL, ZONE2, highwayX } from '../gen/layout.ts';
 import { SCOUT_AT } from '../gen/zone1.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
 
@@ -31,7 +31,7 @@ function landColours(): Uint8ClampedArray {
 }
 
 /** What the map shows beyond the land: the road home once known, and the places found. */
-export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean }
+export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean; highway?: boolean; ruins?: boolean; cave?: boolean; compound?: boolean }
 
 export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, marks: MapMarks = {}): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -73,6 +73,12 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, 
   if (marks.mine) mark(F.mine.x, F.mine.z, '#3a3a3a');
   if (marks.camp) { mark((F.camp.x0 + F.camp.x1) / 2, (F.camp.z0 + F.camp.z1) / 2, '#3e5a2e'); ctx.fillStyle = '#3e5a2e'; ctx.fillRect(F.campHead.x * s - 0.5, F.camp.z1 * s, 1, (F.campHead.z - F.camp.z1) * s); }
   if (marks.bridge) mark(F.bridge.near, F.bridge.z, '#6e6c66');
+  // Zone-2's highway and places, once found (docs/PHASE6.md).
+  const Z = ZONE2;
+  if (marks.highway) { ctx.fillStyle = '#5a5a5a'; for (let z = Z.highway.z1; z <= Z.highway.z0; z += 2) ctx.fillRect(highwayX(z) * s - 0.6, z * s, 1.2, 2 * s); }
+  if (marks.ruins) { mark((Z.mall.x0 + Z.mall.x1) / 2, (Z.mall.z0 + Z.mall.z1) / 2, '#3b6ea5'); mark((Z.exchange.x0 + Z.exchange.x1) / 2, (Z.exchange.z0 + Z.exchange.z1) / 2, '#3b6ea5'); }
+  if (marks.cave) mark(Z.cave.mouthX, Z.cave.z, '#c8b22a');
+  if (marks.compound) mark((Z.compound.x0 + Z.compound.x1) / 2, (Z.compound.z0 + Z.compound.z1) / 2, '#a3241c');
   // The cave, and where the player stands.
   ctx.fillStyle = '#7a1f12';
   ctx.fillRect(HOME.wallX * s - 2, VALLEY.cz * s - 2, 4, 4);

@@ -29,12 +29,13 @@ in float vDist;
 in float vAlpha;
 in float vShade;
 uniform float uDaylight;
+uniform vec3 uColor;
 uniform vec3 uSkyLight;
 uniform float uFogNear, uFogFar;
 out vec4 outColor;
 ${SKY_COLOR_GLSL}
 void main() {
-  vec3 col = vec3(0.5, 0.49, 0.48) * vShade * max(uSkyLight * uDaylight, vec3(0.06));
+  vec3 col = uColor * vShade * max(uSkyLight * uDaylight, vec3(0.06));
   float fog = pow(smoothstep(uFogNear, uFogFar, vDist), 0.8) * 0.55;
   col = mix(col, skyColor(normalize(vWorld - cameraPosition)), fog);
   outColor = vec4(col, vAlpha * (0.35 + 0.65 * uDaylight));
@@ -44,22 +45,29 @@ const PUFFS = 28;
 const HEIGHT = 70; // how high the column rises before it thins out
 const RISE = 1.6; // m/s
 
+/** A column's look: grey smoke over the outpost; white steam from the hot spring's vent (docs/PHASE6.md). */
+export interface ColumnLook { color: [number, number, number]; height: number; rise: number; size: number; drift: number }
+const SMOKE: ColumnLook = { color: [0.5, 0.49, 0.48], height: HEIGHT, rise: RISE, size: 1, drift: 26 };
+export const STEAM: ColumnLook = { color: [0.9, 0.91, 0.93], height: 34, rise: 2.4, size: 0.55, drift: 8 };
+
 export class SmokeColumn {
   readonly mesh: THREE.InstancedMesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
   private alpha: THREE.InstancedBufferAttribute;
   private base: THREE.Vector3;
   private m = new THREE.Matrix4();
+  private look: ColumnLook;
 
-  constructor() {
+  constructor(at?: [number, number, number], look: ColumnLook = SMOKE) {
     const s = ZONE1.smoke;
-    this.base = new THREE.Vector3(s.x + 0.5, outsideHeight(s.x, s.z) + 6, s.z + 0.5);
+    this.look = look;
+    this.base = at ? new THREE.Vector3(...at) : new THREE.Vector3(s.x + 0.5, outsideHeight(s.x, s.z) + 6, s.z + 0.5);
     const g = new THREE.BoxGeometry(1, 1, 1);
     this.alpha = new THREE.InstancedBufferAttribute(new Float32Array(PUFFS), 1);
     g.setAttribute('aAlpha', this.alpha);
     const mat = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false,
       uniforms: {
-        uDaylight: { value: 1 }, uSkyLight: { value: new THREE.Color(1, 1, 1) }, uFogNear: { value: 300 }, uFogFar: { value: 1400 },
+        uDaylight: { value: 1 }, uColor: { value: new THREE.Color(...look.color) }, uSkyLight: { value: new THREE.Color(1, 1, 1) }, uFogNear: { value: 300 }, uFogFar: { value: 1400 },
         uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
         uSunGlow: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       },
@@ -72,10 +80,11 @@ export class SmokeColumn {
 
   /** Moves the puffs up the column: each rises, grows and drifts east with the wind, then starts again. */
   update(time: number): void {
+    const L = this.look;
     for (let k = 0; k < PUFFS; k++) {
-      const h = (time * RISE + (k * HEIGHT) / PUFFS) % HEIGHT, t = h / HEIGHT;
-      const size = 3.5 + t * 10 + (k % 3) * 0.8;
-      const drift = t * t * 26 + Math.sin(time * 0.3 + k) * 1.2;
+      const h = (time * L.rise + (k * L.height) / PUFFS) % L.height, t = h / L.height;
+      const size = (3.5 + t * 10 + (k % 3) * 0.8) * L.size;
+      const drift = t * t * L.drift + Math.sin(time * 0.3 + k) * 1.2;
       this.m.makeScale(size, size * 0.8, size);
       this.m.setPosition(this.base.x + drift + ((k * 7) % 3) - 1, this.base.y + h, this.base.z + Math.sin(k * 1.7) * 1.4);
       this.mesh.setMatrixAt(k, this.m);

@@ -112,6 +112,17 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
     for (let y = OF; y < OF + 5; y++) put(o.x0 - 2, y, o.z0 - 2, 'fence_post');
     put(o.x0 - 2, OF + 3, o.z0 - 3, 'faction_flag@east');
     put(o.x0 - 2, OF + 4, o.z0 - 3, 'faction_flag@east');
+    // Lit at night from every side (docs/PHASE6.md, 10): lamp posts at the yard's corners, a lantern on
+    // the lookout's platform and one on the back wall's crates.
+    for (const [x, z] of [[o.x0 - 3, o.z0 - 6], [o.x1 + 2, o.z0 - 6], [o.x0 - 3, o.z1], [o.x1 + 2, o.z1]]) {
+      for (let y = OF; y < OF + 3; y++) put(x, y, z, 'fence_post');
+      put(x, OF + 3, z, 'lantern');
+    }
+    put(o.x1 - 2, OF + 4, o.z0 + 1, 'lantern');
+    put(o.x1 - 2, OF + 4, o.z1 - 2, 'lantern');
+    put(o.x0 + 8, OF + 2, o.z1, 'lantern');
+    put(o.x0 - 1, OF + 2, (o.z0 + o.z1) >> 1, 'lantern'); // on the west wall
+    put(o.x1, OF + 2, (o.z0 + o.z1) >> 1, 'lantern'); // and the east
   }
   // The stripped pickup on the road's north shoulder: cover by the road.
   const hk = F.hulk, hh = roadHeight((hk.x0 + hk.x1) >> 1);
@@ -121,6 +132,7 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
     clear(x, hh, hh + 5, z);
     put(x, hh, z, (x - hk.x0) % 4 === 0 ? 'scrap_heap' : 'truck_body');
     if (x - hk.x0 <= 1 || z === hk.z0) put(x, hh + 1, z, 'truck_body');
+    if (x === hk.x0 + 2 && z === hk.z0) put(x, hh + 2, z, 'lantern'); // a lamp left on the pickup's roof
   }
 
   // ---- The old mine: a timbered decline south from the road, lit all the way, to a chamber of iron and coal.

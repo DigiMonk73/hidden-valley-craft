@@ -14,9 +14,14 @@ const UNIT: number = data.unit;
 /** What Marco sells: the item, how many come in a lot, and the lot's price in satoshis. */
 export const CATALOG: Lot[] = data.catalog.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));
 
+/** What Marco adds once he trusts you (trust 2, after your first run to Las Cruces): guns and rounds (docs/PHASE6.md, 7). */
+export const CATALOG_M3: Lot[] = data.catalogM3.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));
+/** Doc's flat fee for each service, in satoshis (DESIGN.md A3: service-priced, wound care is the anchor P_wc). */
+export const DOC_PRICE = { wound: Math.round(data.doc.wound * UNIT), rad: Math.round(data.doc.rad * UNIT) };
+
 const VALUE = new Map<number, number>();
 for (const [name, v] of Object.entries(data.value)) VALUE.set(itemId(name), v * UNIT);
-for (const c of data.catalog) if (!VALUE.has(itemId(c.item))) VALUE.set(itemId(c.item), (c.price / c.lot) * UNIT);
+for (const c of [...data.catalog, ...data.catalogM3]) if (!VALUE.has(itemId(c.item))) VALUE.set(itemId(c.item), (c.price / c.lot) * UNIT);
 
 /** What Marco pays for one of an item (half its value), or 0 if he doesn't want it. */
 export function sellPrice(id: number): number {
@@ -25,7 +30,7 @@ export function sellPrice(id: number): number {
 }
 
 /** Every name in the trade data is a real item (checked by a test, so a typo fails the build's checks). */
-export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...Object.keys(data.value)]; }
+export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...Object.keys(data.value)]; }
 export const tradeNamesValid = (): boolean => tradeNames().every(hasItem);
 
 export type TradeResult = { ok: true; wallet: number } | { ok: false; why: 'funds' | 'room' | 'none' };

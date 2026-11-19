@@ -34,7 +34,8 @@ const CSS = `
 `;
 
 export interface TradeRow { icon: string; label: string; price: string; button: string; can: boolean; act: () => string }
-export interface TradeView { title: string; say: string; wallet: string; buy: TradeRow[]; sell: TradeRow[] }
+/** buyHead / sellHead: the columns' headings (Doc sells services: his column is his, and there is no selling: null hides it). */
+export interface TradeView { title: string; say: string; wallet: string; buy: TradeRow[]; sell: TradeRow[]; buyHead?: string; sellHead?: string | null }
 
 export class PaperScreen {
   private wrap: HTMLDivElement;
@@ -156,8 +157,8 @@ export class PaperScreen {
         }
         grid.append(c);
       };
-      col('Buy from him', v.buy, 'Nothing today.');
-      col('Sell to him (half price)', v.sell, 'You carry nothing he wants.');
+      col(v.buyHead ?? 'Buy from him', v.buy, 'Nothing today.');
+      if (v.sellHead !== null) col(v.sellHead ?? 'Sell to him (half price)', v.sell, 'You carry nothing he wants.');
       p.append(grid);
       this.footer(p);
     };

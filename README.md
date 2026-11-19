@@ -50,6 +50,11 @@ Then, in a second terminal:
 node tests/e2e/play.mjs
 ```
 
+The play-through is in parts, each a standalone script that sets its own scene and runs in about 15–25
+minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `play-mid.mjs` (Zone-1) and `play-zone2.mjs`
+(Zone-2 and power). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
+tests/e2e/play.mjs` runs only some, and `node tests/e2e/play-zone2.mjs` runs one directly.
+
 ```bash
 RD=8 node tools/shot.mjs
 ```
@@ -72,7 +77,8 @@ npm run map
 node --experimental-strip-types tools/texsheet.ts
 ```
 
-`npm run map` draws the world layout as a picture; the second command draws every block texture
+`npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
+tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`); the second command draws every block texture
 side by side.
 
 ## How it is built

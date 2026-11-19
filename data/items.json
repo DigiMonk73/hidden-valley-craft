@@ -110,6 +110,25 @@
     { "name": "seeds_quinoa", "label": "Quinoa seed", "icon": "seeds", "stack": 64 },
     { "name": "quinoa", "label": "Quinoa", "icon": "quinoa", "stack": 64, "food": { "hunger": 7 } },
     { "name": "apple_slip", "label": "Apple grafting slip", "icon": "slip", "stack": 16 },
-    { "name": "apple", "label": "Apple", "icon": "apple", "stack": 64, "food": { "hunger": 9, "thirst": 4 } }
+    { "name": "apple", "label": "Apple", "icon": "apple", "stack": 64, "food": { "hunger": 9, "thirst": 4 } },
+
+    {"name": "pv_panel", "label": "Salvaged solar panel", "icon": "pv_panel", "stack": 16},
+    {"name": "wiring", "label": "Copper wiring", "icon": "wiring", "stack": 64},
+    {"name": "pipe_fittings", "label": "Pipe fittings", "icon": "pipe_fittings", "stack": 32},
+    {"name": "scrap_lead", "label": "Scrap lead", "icon": "scrap_lead", "stack": 32},
+    {"name": "battery_cell", "label": "Battery cell", "icon": "battery_cell", "stack": 16},
+    {"name": "gpu", "label": "Graphics card (GPU)", "icon": "gpu", "stack": 8},
+    {"name": "psu", "label": "Power supply (PSU)", "icon": "psu", "stack": 8},
+    {"name": "mining_board", "label": "Mining board", "icon": "mining_board", "stack": 8},
+    {"name": "fridge_unit", "label": "Fridge unit (compressor and coils)", "icon": "fridge_unit", "stack": 4},
+    {"name": "pump_unit", "label": "Pump unit (motor and impeller)", "icon": "pump_unit", "stack": 4},
+    {"name": "brass_casing", "label": "Brass casing", "icon": "brass_casing", "stack": 64},
+    {"name": "primer", "label": "Primer", "icon": "primer", "stack": 64},
+    {"name": "saltpeter", "label": "Saltpeter", "icon": "saltpeter", "stack": 64},
+    {"name": "sulfur", "label": "Sulfur", "icon": "sulfur", "stack": 64},
+    {"name": "gunpowder", "label": "Gunpowder", "icon": "gunpowder", "stack": 64},
+    {"name": "bullet_mold", "label": "Bullet mould", "icon": "bullet_mold", "stack": 1},
+    {"name": "bullet", "label": "Lead bullet", "icon": "bullet", "stack": 64},
+    {"name": "cold_water", "label": "Cold water", "icon": "cold_water", "stack": 8, "food": {"thirst": 50}}
   ]
 }

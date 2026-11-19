@@ -7,7 +7,7 @@ import { itemId } from '../world/items.ts';
 import { blockName, BLOCK_DEFS } from '../world/blocks.ts';
 import type { Inventory, Stack } from './inventory.ts';
 
-export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge';
+export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge' | 'powder_mill';
 
 /** `learn`: a flag that must be earned before the recipe shows (the leghold, learned at the camp). */
 export interface Recipe { station: Station; out: [number, number]; in: [number, number][]; returns: [number, number][]; learn?: string }
@@ -23,7 +23,7 @@ export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
 }));
 
 export const STATION_LABEL: Record<Station, string> = {
-  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge',
+  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill',
 };
 
 /** Which station a block is, if any. The fireplace cooks like the stove. */
@@ -37,6 +37,7 @@ export function stationOf(block: number): Station | null {
     case 'stove': case 'fireplace': return 'stove';
     case 'tannery_rack': return 'tannery';
     case 'forge': return 'forge';
+    case 'powder_mill': return 'powder_mill';
     default: return null;
   }
 }

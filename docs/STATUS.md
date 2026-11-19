@@ -4,6 +4,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **Phase 6 ("Zone-2 and power", M3) is built on branch `phase6`**, waiting for the lead's review and the owner's look at the map. Details and progress are in docs/PHASE6.md; the map is docs/phase6-map.png.
+  - **Places:** the old highway north from the hunting camp, lit; the border; the ruins (a strip mall with a pharmacy, a hardware store and a supermarket, and a telephone exchange with a red-lit mast); two marked radiation rings; the hot-spring cave (saltpeter, sulfur, a steam plume); Las Cruces, the faction's walled compound, which can't be taken yet. Zone-2 now begins at z 760 west of the saddle.
+  - **People:** patrols, a sentry and two tower guards (1–3 a group, back each dawn); the scout's armband passes you at a distance. Doc, by phone, treats wounds and radiation.
+  - **M3:** solar arrays, battery banks, the mining rig (its hashrate and earnings on the computer), the fridge and the pump, gunpowder and rounds, Marco's trust 2 and guns.
+  - **The outpost** is lit at night now. **The play-through** is in four parts run by `tests/e2e/play.mjs`.
+
 - **Phase 5 ("Zone-1 mid and deep")** was merged into `main` (branch `phase5`) and published as version 8. It has the raider outpost (telegraphed shots, cover, stealth takedowns), focus mode (Q), the old mine, the hunting camp and the jaguar, the broken bridge with the body and the tracks, M2, hold H to go home, and chickens raised in coops. Details are in docs/PHASE5.md.
   - Checks: 251 unit tests and 70 of 71 play-through checks. The one miss, F3, was the test's timing: it now waits for a drawn frame, and F3 was checked directly in the browser.
   - The play-through takes about 45 minutes here.

@@ -6,7 +6,9 @@
 import { B_SOLID, isWaterId } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 
-export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco' | 'lookout' | 'gunman' | 'rusher' | 'jaguar';
+export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco' | 'lookout' | 'gunman' | 'rusher' | 'jaguar'
+  // Zone-2's faction (docs/PHASE6.md): patrols with pistols, a sentry with a machete, the gate towers' guards.
+  | 'patrol' | 'sentry' | 'guard';
 
 export interface KindDef {
   hp: number;
@@ -36,11 +38,21 @@ export const KINDS: Record<Kind, KindDef> = {
   lookout: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 18, windup: 1.5, drops: [['raider_rifle', 1], ['rifle_rounds', 10]] },
   gunman: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 12, windup: 1.0, drops: [['pistol', 1], ['pistol_rounds', 8]] },
   rusher: { hp: 45, width: 0.6, height: 1.85, walk: 1.5, run: 4.6, shy: 0, hostile: true, damage: 14, windup: 0.7, drops: [['machete', 1]] },
+  // Zone-2's faction (docs/PHASE6.md): the same men as the outpost's, but a standing force that comes back
+  // each dawn, so they carry no guns to take (ADR-019: guns stay scarce), only a few rounds and scraps.
+  patrol: { hp: 40, width: 0.6, height: 1.85, walk: 1.3, run: 1.3, shy: 0, hostile: true, damage: 12, windup: 1.0, drops: [['pistol_rounds', 4], ['brass_casing', 4]] },
+  sentry: { hp: 45, width: 0.6, height: 1.85, walk: 1.4, run: 4.6, shy: 0, hostile: true, damage: 14, windup: 0.7, drops: [['scrap_metal', 1], ['cordage', 1]] },
+  guard: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 18, windup: 1.5, drops: [['rifle_rounds', 6]] },
   jaguar: { hp: 90, width: 0.85, height: 1.0, walk: 2.0, run: 7.5, shy: 0, hostile: true, damage: 22, windup: 0.55, drops: [['jaguar_pelt', 1]] },
 };
 
 /** The outpost's three raiders: people, not game, but hostile. */
 export const RAIDER_KINDS: ReadonlySet<Kind> = new Set<Kind>(['lookout', 'gunman', 'rusher']);
+/** Zone-2's faction: they come back each dawn (src/entity/faction.ts). */
+export const FACTION_KINDS: ReadonlySet<Kind> = new Set<Kind>(['patrol', 'sentry', 'guard']);
+/** Every armed man: each fights in one of the outpost's three ways (src/entity/outpost.ts). */
+export const ROLE: Partial<Record<Kind, 'lookout' | 'gunman' | 'rusher'>> = { lookout: 'lookout', gunman: 'gunman', rusher: 'rusher', guard: 'lookout', patrol: 'gunman', sentry: 'rusher' };
+export const isMan = (k: Kind): boolean => k in ROLE;
 
 /** Kinds that hunt as a pack, each from its own side (docs/PHASE4.md, "The flank"). */
 export const PACK_KINDS: ReadonlySet<Kind> = new Set<Kind>(['dog', 'coyote']);
@@ -82,6 +94,11 @@ export interface Creature {
   post?: { x: number; y: number; z: number; yaw: number };
   /** Seconds left held in a leghold trap (it can't move); below 0, seconds before a trap can take it again. */
   held?: number;
+  /** A faction patrol's beat: the points it walks round, and the one it is heading for (docs/PHASE6.md). */
+  route?: [number, number][];
+  leg?: number;
+  /** Which of the faction's men this is (a bit), so one killed stays down until dawn. */
+  squad?: number;
   /** A tame hen walking round her coop (its block): she keeps within LEASH of it and never climbs a fence. */
   tame?: [number, number, number];
 }

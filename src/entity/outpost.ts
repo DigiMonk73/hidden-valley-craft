@@ -9,7 +9,7 @@
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 import { POSTS, OUTPOST_AT } from '../gen/zone1far.ts';
-import { makeCreature, moveBody, canSee, KINDS, RAIDER_KINDS, STRIKE_HEIGHT, type Creature, type Kind, type Senses } from './creatures.ts';
+import { makeCreature, moveBody, canSee, KINDS, RAIDER_KINDS, ROLE, isMan, STRIKE_HEIGHT, type Creature, type Kind, type Senses } from './creatures.ts';
 
 type BlockAt = (x: number, y: number, z: number) => number;
 
@@ -49,11 +49,15 @@ export interface OutpostState {
 }
 
 export type RaiderEvent =
-  | { kind: 'notice' | 'shout' | 'aim' | 'swing'; c: Creature }
+  | { kind: 'notice' | 'challenge' | 'shout' | 'aim' | 'swing'; c: Creature }
   | { kind: 'shot'; c: Creature; hit: boolean; damage: number; cover: [number, number, number] | null }
   | { kind: 'blow'; c: Creature; damage: number };
 
-const isRaider = (k: Kind): k is 'lookout' | 'gunman' | 'rusher' => RAIDER_KINDS.has(k);
+const isRaider = (k: Kind): boolean => isMan(k);
+/** How a man fights: as the outpost's lookout (a rifle from a height), its pistol, or its machete. Zone-2's faction fight the same three ways. */
+const roleOf = (c: Creature): 'lookout' | 'gunman' | 'rusher' => ROLE[c.kind]!;
+/** A faction man's second look at a stranger who comes close wearing the armband (docs/PHASE6.md). */
+export const CHALLENGE = 1.5;
 
 /** The raiders still alive who are not about: each at his post, if the land there is loaded. */
 export function manOutpost(creatures: Creature[], st: OutpostState, px: number, pz: number, loaded: (x: number, z: number) => boolean): Creature[] {
@@ -88,9 +92,9 @@ const angleDiff = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b),
 /** Can this raider see the player now: in range, in his field of view, nothing solid between? */
 export function raiderSees(c: Creature, s: Senses, alert: boolean, blockAt: BlockAt): boolean {
   if (!isRaider(c.kind) || s.playerInSanctuary) return false;
-  const dist = Math.hypot(s.px - c.x, s.pz - c.z);
-  if (dist > SIGHT[c.kind][alert ? 1 : 0]) return false;
-  if (!alert && angleDiff(bearing(c.x, c.z, s.px, s.pz), c.post?.yaw ?? c.yaw) > (c.kind === 'lookout' ? LOOKOUT_CONE : GROUND_CONE)) return false;
+  const dist = Math.hypot(s.px - c.x, s.pz - c.z), role = roleOf(c);
+  if (dist > SIGHT[role][alert ? 1 : 0]) return false;
+  if (!alert && angleDiff(bearing(c.x, c.z, s.px, s.pz), c.post?.yaw ?? c.yaw) > (role === 'lookout' ? LOOKOUT_CONE : GROUND_CONE)) return false;
   return canSee(c, s, blockAt) || canSee(c, { ...s, py: s.py + 0.45 }, blockAt); // the chest, or the head
 }
 
@@ -113,26 +117,35 @@ function firstSolid(c: Creature, s: Senses, blockAt: BlockAt): [number, number, 
 }
 
 /**
- * One step of a raider's mind. `st` is the outpost's shared state: one raider raising the alarm alerts
- * them all. Returns what happened (sounds to play, shots to land).
+ * One step of a raider's mind. `st` is the outpost's (or the faction's) shared state: one raising the alarm
+ * alerts them all. `pass`: a faction man takes a stranger wearing the armband for one of his own beyond this
+ * distance, and looks again closer (0: no disguise). Returns what happened (sounds to play, shots to land).
  */
-export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState, blockAt: BlockAt, rand: () => number): RaiderEvent[] {
+export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState, blockAt: BlockAt, rand: () => number, pass = 0): RaiderEvent[] {
   if (!isRaider(c.kind)) return [];
   const ev: RaiderEvent[] = [];
-  const d = KINDS[c.kind];
+  const d = KINDS[c.kind], role = roleOf(c);
   c.hurt += dt;
   c.timer -= dt;
   const dist = Math.hypot(s.px - c.x, s.pz - c.z);
-  const sees = raiderSees(c, s, st.alert, blockAt);
+  // In the armband, unalerted, a man doesn't count you as a stranger until you are close.
+  const sees = raiderSees(c, s, st.alert, blockAt) && !(pass > 0 && !st.alert && dist > pass);
   const face = () => { c.yaw = bearing(c.x, c.z, s.px, s.pz); };
   if (st.alert && (c.mind === 'watch' || c.mind === 'notice')) { c.mind = 'alerted'; c.timer = 0.3; }
   let toX = 0, toZ = 0, speed = 0;
 
   switch (c.mind) {
     case 'watch':
+      // On a beat (a faction patrol), he walks it, looking where he goes.
+      if (c.route && c.route.length) {
+        const [gx, gz] = c.route[c.leg ?? 0];
+        toX = gx - c.x; toZ = gz - c.z; speed = d.walk;
+        if (Math.hypot(toX, toZ) < 0.8) c.leg = ((c.leg ?? 0) + 1) % c.route.length;
+        if (Math.hypot(toX, toZ) > 0.01) c.yaw = Math.atan2(-toX, -toZ);
+        c.post = { x: c.x, y: c.y, z: c.z, yaw: c.yaw };
+      } else if (c.post) c.yaw = c.post.yaw + (role === 'lookout' ? 0.5 * Math.sin(c.goalX += dt * 0.35) : 0);
       // At his post, unaware. The lookout's gaze sweeps the road slowly.
-      if (c.post) c.yaw = c.post.yaw + (c.kind === 'lookout' ? 0.5 * Math.sin(c.goalX += dt * 0.35) : 0);
-      if (sees) { c.mind = 'notice'; c.timer = NOTICE; face(); ev.push({ kind: 'notice', c }); }
+      if (sees) { c.mind = 'notice'; c.timer = pass ? CHALLENGE : NOTICE; face(); ev.push({ kind: pass ? 'challenge' : 'notice', c }); }
       break;
     case 'notice':
       // He turns his head: if he still sees you when the moment's up, he shouts.
@@ -145,7 +158,7 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
     case 'alerted':
       if (sees) face();
       if (c.timer > 0) break;
-      if (c.kind === 'rusher') { if ((sees || dist < SIGHT.rusher[1]) && fromPost(c, s) < LEASH) { c.mind = 'charge'; c.timer = CHASE_SECONDS; } }
+      if (role === 'rusher') { if ((sees || dist < SIGHT.rusher[1]) && fromPost(c, s) < LEASH) { c.mind = 'charge'; c.timer = CHASE_SECONDS; } }
       else if (sees) { c.mind = 'aim'; c.timer = d.windup; ev.push({ kind: 'aim', c }); }
       break;
     case 'aim':
@@ -154,17 +167,17 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
       if (sees) face();
       // Hidden mid-aim, he holds the shot: whoever steps back out gets a moment's warning again.
       else c.timer = Math.max(c.timer, REACQUIRE);
-      if (c.timer <= 0 && (c.kind === 'lookout' || c.kind === 'gunman')) {
+      if (c.timer <= 0 && (role === 'lookout' || role === 'gunman')) {
         const cover = sees ? null : firstSolid(c, s, blockAt);
-        const hit = sees && !s.playerInSanctuary && rand() < hitChance(c.kind, dist, s.pv ?? 0);
+        const hit = sees && !s.playerInSanctuary && rand() < hitChance(role, dist, s.pv ?? 0);
         ev.push({ kind: 'shot', c, hit, damage: d.damage, cover });
-        c.mind = 'recover'; c.timer = COOLDOWN[c.kind];
+        c.mind = 'recover'; c.timer = COOLDOWN[role];
       }
       break;
     case 'recover':
       if (sees) face();
-      if (c.kind === 'rusher') { toX = -(s.px - c.x); toZ = -(s.pz - c.z); speed = d.walk; }
-      if (c.timer <= 0) { c.mind = c.kind === 'rusher' ? 'charge' : 'alerted'; c.timer = c.kind === 'rusher' ? 10 : 0; }
+      if (role === 'rusher') { toX = -(s.px - c.x); toZ = -(s.pz - c.z); speed = d.walk; }
+      if (c.timer <= 0) { c.mind = role === 'rusher' ? 'charge' : 'alerted'; c.timer = role === 'rusher' ? 10 : 0; }
       break;
     case 'charge': {
       // The rusher runs at you; near, he raises the machete (the warning) before the blow.
@@ -187,7 +200,7 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
       c.mind = st.alert ? 'alerted' : 'watch';
   }
   // The gun raiders keep to their posts; the rusher, once the fight is over, walks back to his.
-  if (c.kind === 'rusher' && c.mind === 'alerted' && c.post && Math.hypot(c.post.x - c.x, c.post.z - c.z) > 0.6) {
+  if (role === 'rusher' && c.mind === 'alerted' && c.post && Math.hypot(c.post.x - c.x, c.post.z - c.z) > 0.6) {
     toX = c.post.x - c.x; toZ = c.post.z - c.z; speed = d.walk;
   }
   const len = Math.hypot(toX, toZ);
@@ -197,14 +210,14 @@ export function thinkRaider(c: Creature, dt: number, s: Senses, st: OutpostState
   c.vx += (toX * want - c.vx) * k;
   c.vz += (toZ * want - c.vz) * k;
   moveBody(c, dt, blockAt);
-  if (c.kind === 'rusher') c.stride += Math.hypot(c.vx, c.vz) * dt * 3;
+  if (role === 'rusher' || c.route) c.stride += Math.hypot(c.vx, c.vz) * dt * 3;
   return ev;
 }
 
 /** Raises the alarm: every raider at the outpost turns to the fight. */
-export function alertOutpost(creatures: Creature[], st: OutpostState): void {
+export function alertOutpost(creatures: Creature[], st: OutpostState, kinds: ReadonlySet<Kind> = RAIDER_KINDS): void {
   st.alert = true;
-  for (const c of creatures) if (RAIDER_KINDS.has(c.kind) && (c.mind === 'watch' || c.mind === 'notice')) { c.mind = 'alerted'; c.timer = 0.3; }
+  for (const c of creatures) if (kinds.has(c.kind) && (c.mind === 'watch' || c.mind === 'notice')) { c.mind = 'alerted'; c.timer = 0.3; }
 }
 
 /**
@@ -212,5 +225,5 @@ export function alertOutpost(creatures: Creature[], st: OutpostState): void {
  * the others are not told. Anything else is a fight.
  */
 export function silentTakedown(c: Creature, st: OutpostState, blade: boolean): boolean {
-  return RAIDER_KINDS.has(c.kind) && !st.alert && c.mind === 'watch' && blade;
+  return isMan(c.kind) && !st.alert && c.mind === 'watch' && blade;
 }

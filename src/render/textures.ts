@@ -843,6 +843,155 @@ DRAW.apple_leaves = (c) => {
   for (let k = 0; k < 4; k++) { const x = 1 + Math.floor(c.rng() * 14), y = 1 + Math.floor(c.rng() * 14); c.set(x, y, hex('#c0302a')); c.set(x + 1, y, hex('#a82820')); }
 };
 
+// ---- Zone-2 and power (docs/PHASE6.md) -------------------------------------------------------
+const frame = (c: Canvas16, col: RGB) => { for (let k = 0; k < TEX; k++) { c.set(k, 0, col); c.set(k, 15, col); c.set(0, k, col); c.set(15, k, col); } };
+/** The broken circle of the scout's armband, white (or `col`), centred, radius r. */
+const brokenCircle = (c: Canvas16, col: RGB, r0 = 3.2, r1 = 5.2) => {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5), a = Math.atan2(y - 7.5, x - 7.5);
+    if (d > r0 && d < r1 && !(a > 0.3 && a < 1.0)) c.set(x, y, col);
+  }
+};
+/** Photovoltaic cells: dark blue squares in a silver grid, a glint in one corner. */
+DRAW.pv_cells = (c) => {
+  c.noise(hex('#1d3354'), 6, [hex('#223c63'), hex('#18304d')], 0.3);
+  for (const k of [0, 5, 10, 15]) for (let j = 0; j < TEX; j++) { c.set(k, j, hex('#b9c2c9')); c.set(j, k, hex('#b9c2c9')); }
+  for (let k = 0; k < 4; k++) c.set(2 + k, 2 + k, hex('#6f8fb8'));
+};
+DRAW.battery_bank = (c) => {
+  c.noise(hex('#5b6066'), 5);
+  frame(c, hex('#3a3e42'));
+  for (const y of [3, 7, 11]) for (let x = 2; x < 14; x++) c.set(x, y, hex('#2c2f33'));
+  for (const [x, y] of [[3, 2], [3, 6], [3, 10]]) c.set(x, y, hex('#3ee05a'));
+  for (let x = 6; x < 13; x++) c.set(x, 14, x < 11 ? hex('#3ee05a') : hex('#2c2f33')); // the charge gauge
+};
+DRAW.rig_top = (c) => { c.noise(hex('#2a2c2e'), 4); for (const x of [2, 6, 10]) for (let y = 2; y < 14; y++) c.set(x, y, hex('#4d5258')); };
+/** Graphics cards side by side on an open frame, each with two fans, one LED lit. */
+DRAW.mining_rig = (c) => {
+  c.noise(hex('#26282b'), 4);
+  for (const x0 of [1, 9]) {
+    for (let y = 3; y < 13; y++) for (let x = x0; x < x0 + 6; x++) c.set(x, y, hex('#3a3d42'));
+    for (const cy of [5, 10]) for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y <= 5) c.set(x0 + 3 + x, cy + y, (x + y) & 1 ? hex('#16181a') : hex('#55595e'));
+    c.set(x0 + 5, 3, hex('#39ff6a'));
+  }
+};
+DRAW.fridge_side = (c) => { c.noise(hex('#dfe2e4'), 4); for (let y = 0; y < TEX; y++) c.set(15, y, hex('#b8bcc0')); };
+DRAW.fridge_front = (c) => { c.noise(hex('#e8eaec'), 3); for (let x = 0; x < TEX; x++) c.set(x, 6, hex('#9aa0a6')); for (const y of [2, 3, 4, 9, 10, 11, 12]) c.set(13, y, hex('#7d8790')); };
+DRAW.pump_top = (c) => { c.noise(hex('#2d6a9a'), 5); c.set(7, 7, hex('#cfd6dc')); c.set(8, 8, hex('#cfd6dc')); };
+DRAW.pump_side = (c) => {
+  c.noise(hex('#2d6a9a'), 5);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 7.5, y - 9) < 4) c.set(x, y, hex('#24597f'));
+  for (let x = 0; x < TEX; x++) c.set(x, 2, hex('#c06c3a'));
+  c.set(12, 4, hex('#3ee05a'));
+};
+DRAW.powder_mill_top = (c) => {
+  c.noise(hex('#8f897c'), 6);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 5) c.set(x, y, d < 3 ? hex('#2e2a26') : hex('#6d665b')); }
+  c.set(7, 7, hex('#d8d0b8')); c.set(8, 6, hex('#e6c84a'));
+};
+DRAW.powder_mill = (c) => { c.noise(hex('#9d978a'), 6); for (const y of [4, 10]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#5e5a52')); for (let x = 3; x < 13; x++) c.set(x, 7, hex('#6b4423')); };
+DRAW.awning = (c) => { c.noise(hex('#c9b98a'), 6); for (let x = 0; x < TEX; x += 4) for (let y = 0; y < TEX; y++) { c.set(x, y, hex('#3e7a6a')); c.set(x + 1, y, hex('#3e7a6a')); } };
+/** Asphalt with a dashed yellow centre line down the middle. */
+DRAW.road_line = (c) => { DRAW.road(c); for (let y = 0; y < 10; y++) for (const x of [7, 8]) c.set(x, y, c.rng() < 0.85 ? hex('#d9b43a') : hex('#a88c34')); };
+/** A concrete barrier painted with the faction's broken circle, in red. */
+DRAW.barrier_mark = (c) => { DRAW.concrete(c); brokenCircle(c, hex('#b0281e'), 3, 5.3); };
+/** The green highway sign: a white border, an arrow up, two lines of white letters. */
+DRAW.highway_sign = (c) => {
+  c.noise(hex('#1f6b3a'), 4);
+  frame(c, hex('#e8efe8'));
+  const W = hex('#f2f5f2');
+  for (let y = 2; y < 7; y++) c.set(7, y, W), c.set(8, y, W);
+  c.set(6, 3, W); c.set(9, 3, W); c.set(5, 4, W); c.set(10, 4, W);
+  for (const row of [9, 12]) for (let x = 2; x < 14; x++) if (x % 4 !== 1 && c.rng() < 0.9) { c.set(x, row, W); c.set(x, row + 1, W); }
+};
+DRAW.cruces_board = (c) => { boardText(c, hex('#8a6a42'), hex('#f0e8d0')); for (let y = 2; y < 6; y++) { c.set(13, y, hex('#f0e8d0')); } c.set(12, 3, hex('#f0e8d0')); c.set(14, 3, hex('#f0e8d0')); };
+DRAW.guard_rail = (c) => { c.noise(hex('#a9b0b5'), 6, RUST, 0.15); for (let x = 0; x < TEX; x++) { c.shade(x, 7, 0.75); c.shade(x, 8, 1.15); } };
+/** A cable tray: a perforated steel channel carrying bundled copper cable. */
+DRAW.cable_tray = (c) => {
+  c.noise(hex('#8e969c'), 5);
+  for (let y = 2; y < 14; y += 3) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#c06c3a')); c.set(x, y + 1, hex('#e08a4e')); }
+  for (let x = 1; x < TEX; x += 4) c.set(x, 0, hex('#5a6066'));
+};
+DRAW.copper_pipe = (c) => { c.noise(hex('#b8683a'), 7, [hex('#3e8a6a')], 0.08); for (let y = 0; y < TEX; y++) { c.shade(4, y, 1.25); c.shade(11, y, 1.25); } for (const y of [5, 12]) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.7); };
+DRAW.car_battery = (c) => { c.noise(hex('#2b2b2b'), 4); for (let x = 1; x < 15; x++) c.set(x, 4, hex('#c0392b')); for (let x = 3; x < 7; x++) c.set(x, 8, hex('#d9d9d9')); };
+DRAW.car_battery_top = (c) => { c.noise(hex('#333333'), 4); c.set(3, 3, hex('#c0392b')); c.set(4, 3, hex('#c0392b')); c.set(11, 3, hex('#9aa0a6')); c.set(12, 3, hex('#9aa0a6')); };
+/** A supermarket display fridge: glass doors, dark and empty behind, a dead price strip. */
+DRAW.display_fridge = (c) => {
+  c.noise(hex('#d8dcdf'), 3);
+  for (const x0 of [1, 8]) for (let y = 2; y < 15; y++) for (let x = x0; x < x0 + 6; x++) c.set(x, y, (x + y) % 7 === 0 ? hex('#6f8794') : hex('#2b3a42'));
+  for (let x = 0; x < TEX; x++) c.set(x, 1, hex('#3b6ea5'));
+};
+DRAW.shop_shelf = (c) => { c.noise(hex('#a9aeb2'), 5, RUST, 0.06); for (const y of [0, 5, 10, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#6f767c')); };
+DRAW.counter = (c) => { c.noise(hex('#e6e2d6'), 4); for (let x = 0; x < TEX; x++) c.set(x, 2, hex('#2e8a4a')); };
+/** The counter's top: and on it, Doc's white card. */
+DRAW.counter_top = (c) => { c.noise(hex('#cfc8b6'), 4); for (let y = 6; y < 10; y++) for (let x = 5; x < 11; x++) c.set(x, y, hex('#fbfbf6')); c.set(6, 7, hex('#2e8a4a')); for (let x = 7; x < 10; x++) c.set(x, 8, hex('#7a7a7a')); };
+DRAW.counter_top_plain = (c) => { c.noise(hex('#cfc8b6'), 4); };
+/** A green cross on white: a pharmacy anywhere. */
+DRAW.pharmacy_sign = (c) => { c.noise(hex('#f2f2ee'), 3); frame(c, hex('#2e8a4a')); for (let y = 3; y < 13; y++) for (let x = 6; x < 10; x++) { c.set(x, y, hex('#1fb34a')); c.set(y, x, hex('#1fb34a')); } };
+/** A spanner and a hammer crossed, white on orange. */
+DRAW.hardware_sign = (c) => { c.noise(hex('#c8641e'), 5); frame(c, hex('#7a3a10')); for (let k = 3; k < 13; k++) { c.set(k, k, hex('#fbf3e8')); c.set(15 - k, k, hex('#fbf3e8')); } c.set(3, 2, hex('#fbf3e8')); c.set(2, 3, hex('#fbf3e8')); c.set(11, 2, hex('#fbf3e8')); c.set(13, 2, hex('#fbf3e8')); c.set(12, 2, hex('#fbf3e8')); };
+/** A shopping cart, white on blue. */
+DRAW.market_sign = (c) => {
+  c.noise(hex('#2c5a9c'), 4); frame(c, hex('#1c3c6c'));
+  const W = hex('#f5f7fa');
+  for (let x = 4; x < 13; x++) { c.set(x, 5, W); c.set(x, 9, W); }
+  for (let y = 5; y < 10; y++) { c.set(4 + ((y - 5) >> 1), y, W); c.set(12, y, W); }
+  c.set(2, 4, W); c.set(3, 4, W); c.set(5, 11, W); c.set(11, 11, W);
+};
+/** A telephone handset, white on grey-blue. */
+DRAW.exchange_sign = (c) => {
+  c.noise(hex('#4a5a6a'), 4); frame(c, hex('#2c3640'));
+  const W = hex('#eef2f5');
+  for (let x = 4; x < 12; x++) c.set(x, 5, W);
+  for (const x of [3, 4, 11, 12]) for (let y = 6; y < 9; y++) c.set(x, y, W);
+  for (let y = 9; y < 12; y++) for (let x = 6; x < 10; x++) c.set(x, y, W);
+};
+/** A server rack's front: rows of 1U servers, little green and amber lights. */
+DRAW.server_rack = (c) => {
+  c.noise(hex('#1c1d20'), 3);
+  frame(c, hex('#3a3c40'));
+  for (let y = 2; y < 14; y += 2) { for (let x = 2; x < 14; x++) c.set(x, y, hex('#2c2e33')); c.set(12, y, c.rng() < 0.6 ? hex('#3ee05a') : hex('#e0a526')); }
+};
+DRAW.ups_cabinet = (c) => { c.noise(hex('#3c4148'), 4); frame(c, hex('#24282d')); for (let y = 3; y < 13; y += 3) for (let x = 3; x < 13; x++) c.set(x, y, hex('#2a2e33')); for (let x = 3; x < 8; x++) c.set(x, 14, hex('#e0a526')); c.set(12, 14, hex('#c0392b')); };
+DRAW.mast = (c) => { c.clearAlpha(); for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#9aa0a6')); c.set(15, y, hex('#9aa0a6')); c.set(y, y, hex('#7d8790')); c.set(15 - y, y, hex('#7d8790')); } for (let x = 0; x < TEX; x++) c.set(x, 0, hex('#9aa0a6')); };
+DRAW.red_beacon = (c) => { c.noise(hex('#ff3b2e'), 10); c.set(6, 6, hex('#ffd0c8')); c.set(7, 6, hex('#ffd0c8')); };
+DRAW.street_light = (c) => { c.noise(hex('#4a4d50'), 4); for (let x = 3; x < 13; x++) for (let y = 10; y < 15; y++) c.set(x, y, hex('#fff3c8')); };
+/** A white van gone grey, a faded red cross on the side, rust at the seams. */
+DRAW.van_body = (c) => {
+  c.noise(hex('#cfd2cf'), 6, RUST, 0.06);
+  for (let y = 5; y < 11; y++) for (let x = 6; x < 10; x++) { c.set(x, y, hex('#b84a42')); c.set(y, x, hex('#b84a42')); }
+  for (let x = 0; x < TEX; x++) c.shade(x, 15, 0.7);
+};
+DRAW.lead_casket = (c) => { c.noise(hex('#5e646a'), 6); for (let y = 0; y < TEX; y++) c.set(y, 7 + ((y * 3) % 3), hex('#2a2d30')); };
+DRAW.lead_casket_top = (c) => { c.noise(hex('#666c72'), 6); DRAW.rad_sign_mark(c); };
+/** The trefoil in black on yellow. */
+DRAW.rad_sign_mark = (c) => {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5), a = (Math.atan2(y - 7.5, x - 7.5) + Math.PI * 2) % ((Math.PI * 2) / 3);
+    if (d < 1.4 || (d > 2.4 && d < 6 && a > 0.35 && a < 1.75)) c.set(x, y, hex('#141414'));
+  }
+};
+DRAW.rad_sign = (c) => { c.noise(hex('#f2c81c'), 6); frame(c, hex('#141414')); DRAW.rad_sign_mark(c); };
+DRAW.hazard_tape = (c) => {
+  c.clearAlpha();
+  for (const y of [6, 7, 8]) for (let x = 0; x < TEX; x++) c.set(x, y, ((x + y) >> 1) % 2 ? hex('#f2c81c') : hex('#1a1a1a'));
+};
+/** Grey, dead ground: ash and a few dry stalks, no green. */
+DRAW.dead_soil = (c) => { c.noise(hex('#7a7468'), 9, [hex('#8a8476'), hex('#5e5a52'), hex('#9c9688')], 0.3); for (let k = 0; k < 4; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#b8a878')); };
+/** Saltpeter: white, fuzzy crystals crusting the limestone. */
+DRAW.saltpeter_crust = (c) => { limestone(c); c.blobs(9, [hex('#f6f4ee'), hex('#ecebe4'), hex('#ffffff')], [1, 2.4], hex('#ffffff')); };
+/** Sulfur: bright yellow crust, a little green, on dark wet rock. */
+DRAW.sulfur_crust = (c) => { c.noise(hex('#5a5448'), 7); c.blobs(10, [hex('#e8d23a'), hex('#d4bc2a'), hex('#f2e66a')], [1, 2.6], hex('#fff69a')); };
+/** Grey, smooth, poured in place: shuttering lines and tie holes. */
+DRAW.reinforced_concrete = (c) => {
+  c.noise(hex('#8c8c88'), 5, [hex('#7c7c78'), hex('#9a9a96')], 0.2);
+  for (let x = 0; x < TEX; x++) c.shade(x, 0, 0.8);
+  for (const [x, y] of [[3, 4], [12, 4], [3, 11], [12, 11]]) c.set(x, y, hex('#4a4a46'));
+};
+DRAW.wall_mark = (c) => { DRAW.reinforced_concrete(c); brokenCircle(c, hex('#ece6d8'), 3.6, 6.4); };
+DRAW.steel_gate = (c) => { c.noise(hex('#5a5f64'), 5, RUST, 0.12); for (let x = 0; x < TEX; x += 4) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.7); for (const y of [3, 12]) for (let x = 0; x < TEX; x++) c.shade(x, y, 1.2); };
+DRAW.searchlight = (c) => { c.noise(hex('#3a3d40'), 4); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 7.5, y - 7.5) < 5) c.set(x, y, hex('#fffbe6')); };
+
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */
 export function drawTexture(name: string): Uint8ClampedArray {
   const c = new Canvas16(name);
