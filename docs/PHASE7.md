@@ -61,16 +61,16 @@ Simple, short, well lit, easy to find. So in this phase:
 
 | Place | Where | What is there |
 |---|---|---|
-| **The dam road** | z 750–753, from the highway (x 800) west to the dam (x 663) | Cracked asphalt four wide, lamp posts every 24 m, the sign at the junction. |
+| **The dam road** | z 750–753, from the highway (x 800) west to the dam (x 663) | Cracked asphalt four wide, lamp posts every 24 m (the faction's side: lit as their highway is), the sign at the junction. |
 | **The barricade** | x 675 | Sandbags and barriers in a chicane, a faction flag, the board "NO PASAR · CENIZOS", a lantern. |
-| **The dam** | x 606–663, z 749–754; crest at y 83, water at y 79 | Concrete from the gorge's floor (y 42) to the crest, stepped on its downstream face. A deck four wide between parapets, a lamp every 10 m. In the middle, the spillway: water pouring 36 m into a plunge pool. |
+| **The dam** | x 606–663, z 749–754; crest at y 83, water at y 79 | Concrete from the gorge's floor (y 42) to the crest, stepped on its downstream face. A deck four wide between parapets, a lamp every 6 m. In the middle, the spillway: water pouring 36 m into a plunge pool. |
 | **The reservoir** | the gorge north of the dam, to about z 190 | Deep water, rim to rim. |
 | **The river** | below the dam to z 864 | A plunge pool, a stream that thins, a dry bed of gravel where it sinks. |
 | **The control house** | x 597–605, z 743–750, on the crest road | One room: the engineer's desk with **Ray's logbook** (right-click), a wall of dead gauges, a window on the reservoir. Lit. |
-| **The powerhouse** | x 586–604, z 772–797 | The turbine hall. North half lit: one turbine still running (a hum, a green lamp), the **parts crate** (the turbine parts), the **tool locker** (the sluice tools), two **control cabinets** (advanced electronics: boards, power supplies, graphics cards). South half dark: two dead turbine pits, railed. Penstock pipes come down the bank from the dam; the tailrace pours from its east wall into the gorge. |
-| **The machine shop** | x 586–604, z 846–866 | "TALLER MECÁNICO". By the door, lit: three **lathes** (mine one for lathe parts), **steel racks** (steel stock), a tool crate. The back half is dark. |
-| **The foundry** | x 556–574, z 852–872 | "FUNDICIÓN". By the door, lit: the **crucible** (mine it: the heart of a steel furnace), firebrick stacks, casting flasks. The back is dark. |
-| **The rail yard** | x 544–575, z 902–1012 | Two tracks north–south. A **locomotive**, a **hopper wagon heaped with coal** (mine it), a **flatcar of steel plate** (mine it), two **boxcars** (one a crate of canvas, wire and hardware; one empty and dark). **Rails** mine to steel stock. The **signal box**, two storeys, a red light on its mast. Lamp posts down the platform. |
+| **The powerhouse** | x 586–604, z 772–797 | The turbine hall. North half, lit, through the door: one turbine still running (a hum, green lamps), the **parts crate** (the turbine parts), the **tool locker** (the sluice tools), two **control cabinets** (advanced electronics: boards, a power supply, graphics cards), a seized turbine. South half, behind a wall, dark, through its own open roller door: another seized turbine. Penstock pipes come down the bank from the dam; the tailrace pours from its east wall down into the gorge. |
+| **The machine shop** | x 586–604, z 846–866 | "TALLER MECÁNICO". Through the door, lit: three **lathes** (mine one for lathe parts), **steel racks** (steel stock), a stores crate. The back half is walled off and dark, behind its own roller door. |
+| **The foundry** | x 556–574, z 852–872 | "FUNDICIÓN". Through the door, lit: the **crucible** (mine it: the heart of a steel furnace), the old furnace's shell, firebrick stacks. The back half is walled off and dark. |
+| **The rail yard** | x 544–575, z 902–1012 | Ballast and cinders; two tracks north–south. A **locomotive**, a **hopper wagon heaped with coal** (mine it), a **flatcar of steel plate** (mine it), two **boxcars** (one with a crate of canvas, wire and hardware in its open door). **Rails** mine to steel stock. The **engine shed** over the west track's north end, open at its south end, dark at the back. The **signal box**, two storeys, a red light on its mast. Lamp posts down the platform. |
 | **The mine** | trail west at z 972 to the adit at x 530; the gallery x 494–512, 18 m down | "MINA SAN ROQUE". A timbered decline lit every four blocks, a gallery whose walls are thick with **iron and coal**. Off its far end, an **unlit drift** north: nothing in it but two Ashen. |
 | **The far road** | the old road, from the bridge's far abutment (x 612) west to x 538 | Asphalt again, past the body's rise, across the tracks at a **level crossing** with two red lights. Beyond it the road is gone to forest. |
 
@@ -105,11 +105,11 @@ Simple, short, well lit, easy to find. So in this phase:
 4. A hit: 16 dull, 24 keen (the vest and armour reduce it as usual).
 - 60 health. Blades, arrows and bullets all work; nothing is silent on them (they don't keep watch the way men do).
 
-**How many:** nine in the whole zone, in five nests of one or two (the pale dots on the map). **Never more than three hunt you at once**: a fourth that notices you only watches until one of the three is down or gives up. Killed ones stay down until the next dawn, like the faction's men; others drift in.
+**How many:** nine in the whole zone, in five nests of one or two (the pale dots on the map): the dark halves of the powerhouse, the machine shop and the foundry, the engine shed, and the mine's drift. **Never more than three hunt you at once**: a fourth that notices you only watches until one of the three is down or gives up. Killed ones stay down until the next dawn, like the faction's men; others drift in.
 
-**By day:** they stay in their dark places. One is out in the road the first time (the scripted first sight); after that, by day, the avenue is empty unless a shot or a sprint brings them to their doors. A careful player walks the avenue, keeps to the lit halves of the buildings, and never meets one closer than its doorway.
+**By day:** they stay in their dark rooms, each with a wall between it and the lit half you work in. One is out in the road the first time (the scripted first sight); after that, by day, the avenue is empty unless a shot or a sprint brings them out through their own doors. A careful player walks the avenue, works in the lit halves, and never meets one.
 
-**By night:** they come out and wander within 30 m of their nests, between the lamps. The lit avenue is still the way through, but they cross it.
+**By night:** they come out and wander within 14 m of their doors, which open onto the avenue's verges. The avenue itself is lit end to end, so one that steps onto it is dull while it stands there: the road is still the way through, and the dark either side of it is theirs.
 
 **Underground** (the mine's drift, natural caves): always dark, so always keen. The lit decline and gallery make them dull if they come in.
 

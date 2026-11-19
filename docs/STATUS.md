@@ -4,6 +4,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **Phase 7 ("Zone-3 and hydro", M4) is built on branch `phase7`**, waiting for the lead's review and the owner's look at the map. Details and progress are in docs/PHASE7.md; the map is docs/phase7-map.png.
+  - **Places:** the ravine is the gorge of a river. A lit side road leaves the highway 10 m inside Zone-2 ("PRESA RÍO SECO") for a dam across it; the faction's barricade stops short of it. Over the dam, one lit avenue runs south past the control house, the powerhouse, the machine shop and the foundry, the rail yard and its mine, to the old road's far side at the broken bridge, where Phase 5's body lies.
+  - **The Ashen:** nine, in five nests in the dark halves of the buildings, the engine shed and the mine's unlit drift. Dull in daylight and lamplight (slow, half blind), keen in the dark (fast). They hear running, mining and shots. One attack, a telegraphed lunge you step out of. Never more than three hunt; never on the dam, east of the gorge or in the sanctuary. Hold H does nothing with one hunting close by.
+  - **M4:** steel (the crucible furnace), the lathe, a hydro generator in the creek (2 kW day and night), a farm of rigs (beyond the first only on hydro), the suppressed pistol, the rebuilt rifle, plate armour, Ray by phone with his plans and then the uplink plans.
+  - **Small fixes:** hutches, coops, smokers and jerky racks work while their land is not loaded; the strip mall's lot no longer stands above the highway.
+  - **The land east of the gorge** is unchanged but for the dam road's five columns (`tools/worldhash.ts`, `tests/fixtures/east-of-ravine.json`).
 - **Phase 6 ("Zone-2 and power, M3")** was merged into `main` (branch `phase6`) and published as version 9.
   - It was built to the map shown to the owner (docs/phase6-map.png); no changes came back before it was done.
   - Checks: 302 unit tests, and all 110 checks in the four play-through parts (`tests/e2e/play.mjs` runs them in turn; `PARTS=` picks some), about an hour here.

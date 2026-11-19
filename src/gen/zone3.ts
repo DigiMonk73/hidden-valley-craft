@@ -298,7 +298,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     // The engine shed: open at its south end, dark at the back.
     shed(E, YF, 6, 'cinder_block', (x, y, z) => z === E.z1 - 1 && Math.abs(x - TB) <= 2 && y < 5);
     for (let z = E.z0 + 1; z < E.z1; z++) { put(TB, YF - 1, z, 'gravel'); put(TB, YF, z, 'rail'); }
-    put(TB, YF, E.z0 + 1, 'cinder_block'); put(TB, YF, Y.z0 + 2, AIR); put(TB, YF + 1, Y.z0 + 2, 'cinder_block');
+    put(TB, YF, E.z0 + 1, 'cinder_block'); // the buffer stop at the back of the shed
     for (const [dx, dz] of [[0, 0], [1, -1], [-1, 1], [0, 1]]) { const sx = Math.floor(Z.nests[3].x) + dx, sz = Math.floor(Z.nests[3].z) + dz; if (sx !== TB) put(sx, YF, sz, 'pale_stain'); }
     // The signal box: a brick base, a glazed cabin over it, a mast with a red light.
     const sb = Z.signalBox;
