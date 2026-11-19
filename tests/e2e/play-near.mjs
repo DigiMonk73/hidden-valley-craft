@@ -3,7 +3,7 @@
 // Needs the build served: npx vite preview --port 4173. Run on its own, or all parts with: node tests/e2e/play.mjs
 import { start } from './lib.mjs';
 
-const { page, g, check, useAt, closeScreens, walkWest, P, flags, finish } = await start();
+const { page, g, check, ensureLook, keepAlive, useAt, closeScreens, walkWest, P, flags, finish } = await start();
 // The scene part 1 leaves behind: the rifle from the armory and its rounds, a cooked steak to sell, and the
 // gate swum both ways (part 1 checks the swim itself).
 await g(() => {
