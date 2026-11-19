@@ -1019,6 +1019,9 @@ function zone3Pad(x: number, z: number, natural: number): number | null {
     ?? box(edge, p.x1 + 2, p.z0 - 3, p.z1 + 3, zone3Floor.powerhouse, 5)
     ?? box(edge, s.x1 + 2, s.z0 - 3, s.z1 + 3, zone3Floor.shop, 5)
     ?? box(f.x0 - 2, wedge, f.z0 - 3, f.z1 + 3, zone3Floor.foundry, 5)
+    // The yard is level, but its last six metres beside the avenue grade to the avenue's own height, so no
+    // bank stands between the two (the avenue dips a block or two along the yard's length).
+    ?? (x >= wedge - 6 && x < wedge && z >= y.z0 - 6 && z < y.z1 + 6 ? Math.round(mix(avenueHeight(z), box(y.x0, wedge, y.z0, y.z1, zone3Floor.yard, 6) ?? natural, smoothstep(0, 6, wedge - 0.5 - x))) : null)
     ?? box(y.x0, wedge, y.z0, y.z1, zone3Floor.yard, 6)
     ?? box(m.headX - 3, m.headX + 3, m.z - 3, m.z + 4, zone3Floor.yard, 4)
     // The crest road and the avenue ease into the land, as the old road does.

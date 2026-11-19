@@ -718,6 +718,14 @@ export class Sound {
     this.noiseAt(p, t + 0.75, 0.6, 'bandpass', 700, 1.5, 0.05, 0.2);
   }
 
+  /** A bare foot on the road as it runs at you: a soft slap, quicker and harder when it is keen. */
+  ashenStep(x: number, y: number, z: number, keen: boolean): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.noiseAt(p, t, 0.05, 'lowpass', keen ? 520 : 340, 0.9, keen ? 0.2 : 0.12);
+    this.noiseAt(p, t + 0.012, 0.03, 'bandpass', 1900, 2, keen ? 0.07 : 0.04);
+  }
+
   /** It has noticed something: a short, climbing rattle. */
   ashenNotice(x: number, y: number, z: number): void {
     if (!this.ctx) return;

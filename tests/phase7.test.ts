@@ -105,6 +105,32 @@ describe('Zone-3’s layout', () => {
 import baseline from './fixtures/east-of-ravine.json' with { type: 'json' };
 import { hashColumn } from '../tools/worldhash.ts';
 
+import rim from './fixtures/east-rim.json' with { type: 'json' };
+import { hashRim } from '../tools/worldhash.ts';
+
+describe('the gorge’s east rim', () => {
+  // The column the gorge shares with its east rim (x 640–671) cannot be hashed whole: the gorge itself changed
+  // (the reservoir, the dam). Its rim, 22 m and more east of the centre line, is hashed row by row instead
+  // (tests/fixtures/east-rim.json, made on main before Phase 7 with tools/worldhash.ts --rim).
+  it('is as earlier phases made it, but for the reservoir’s shore and the dam’s east end (trees and caves were cut from all of it, down to the river’s sink)', () => {
+    const now = hashRim(), was = rim as Record<string, number>;
+    const d = ZONE3.dam;
+    const changed = Object.keys(was).map(Number).filter((z) => was[z] !== now[z]);
+    expect(changed.length).toBeGreaterThan(0); // the reservoir is there
+    // North of the reservoir's head and south of the dam's stepped face, not a block differs.
+    for (const z of changed) expect(z > 150 && z < d.z + 26, `row z ${z} changed`).toBe(true);
+    // And above the dam only rows where the shore had to be raised to hold the water, or lies under it.
+    for (const z of changed) {
+      if (z >= d.z - 8) continue;
+      let touched = false;
+      // (From two blocks inside the rim's line: a cave no longer cut under the water's edge changes the moss on the rock beside it.)
+      for (let x = 640; x < 672 && !touched; x++) { const rd = x - ravineX(z); if (rd >= 20 && rd < 44 && outsideHeight(x, z) <= d.water + 2) touched = true; }
+      expect(touched, `row z ${z}: no shore here, yet it changed`).toBe(true);
+    }
+    expect(changed.length).toBeLessThan(300);
+  });
+});
+
 describe('the land of earlier phases', () => {
   /** The only columns east of x 672 that Phase 7 may change: the dam road's corridor (the lot's kerb, smoothed, lies in its last two). */
   const MAY_CHANGE = new Set(['21,23', '22,23', '23,23', '24,23', '25,23']);
@@ -326,7 +352,7 @@ describe('M4 · hydro', () => {
 import { makeCreature, fits, KINDS, type Creature } from '../src/entity/creatures.ts';
 import {
   thinkAshen, ashenSenses, ashenGround, manAshen, standDownAshen, ashenDawn, ashenHear, provokeAshen, ashenOn, isHunting, newAshen, nestFloor,
-  DULL, KEEN, SLOTS, ALL_ASHEN, MAX_HUNTING, STUMBLE, LUNGE_FROM, LEASH, type AshenSenses, type AshenEvent,
+  DULL, KEEN, DAZZLED, SLOTS, ALL_ASHEN, MAX_HUNTING, STUMBLE, LUNGE_FROM, LEASH, type AshenSenses, type AshenEvent,
 } from '../src/entity/ashen.ts';
 import { Wild } from '../src/entity/wild.ts';
 import { HomeKey } from '../src/sim/home.ts';
@@ -451,9 +477,33 @@ describe('the Ashen: dull in the light, keen in the dark', () => {
 
   it('in the dark sees 20 m all round and hears a walk at 7 m', () => {
     const c = ashenAt(YX, YZ);
-    expect(see(c, YX, YZ + 19, { pv: 0 }, true)).toBe('seen'); // behind it, standing still
-    expect(see(c, YX, YZ + 21, { pv: 0 }, true)).toBe(null);
-    expect(see(c, YX + 7, YZ, { pv: 4 }, true)).toBe('heard');
+    const dark = { lightAt: () => 2 }; // night, away from the lamps: the player in the dark too
+    expect(see(c, YX, YZ + 19, { pv: 0, ...dark }, true)).toBe('seen'); // behind it, standing still
+    expect(see(c, YX, YZ + 21, { pv: 0, ...dark }, true)).toBe(null);
+    expect(see(c, YX + 7, YZ, { pv: 4, ...dark }, true)).toBe('heard');
+  });
+
+  it('from the dark sees someone standing in light only from close: daylight and lamps are the player’s cover (it saw 20 m out of a dark bay into the road)', () => {
+    const c = ashenAt(YX, YZ);
+    const pool = (x: number, _y: number, z: number) => (Math.hypot(x - YX, z - YZ) < 3 ? 2 : 15); // it stands in the dark; all round is lit
+    expect(see(c, YX, YZ + 19, { lightAt: pool }, true)).toBe(null);
+    expect(see(c, YX, YZ + DAZZLED + 1, { lightAt: pool }, true)).toBe(null);
+    expect(see(c, YX, YZ + DAZZLED - 1, { lightAt: pool }, true)).toBe('seen');
+    // Once it is hunting you it keeps you in view further, light or no.
+    expect(ashenSenses(c, senses(YX, YZ + 15, { lightAt: pool }), true, true, flat(FLOOR))).toBe('seen');
+  });
+
+  it('hears a walk or a pick only with nothing solid between; running carries through a wall (they heard both through the wall that parts a building)', () => {
+    const c = ashenAt(YX, YZ);
+    const walled = (x: number, y: number, z: number) => (y < FLOOR || (z === YZ + 3 && y < FLOOR + 5) ? STONE : 0);
+    const dark = { lightAt: () => 2 };
+    const hear = (o: Partial<AshenSenses>, blockAt: (x: number, y: number, z: number) => number) => ashenSenses(c, senses(YX + 0.5, YZ + 6.5, { ...dark, ...o }), true, false, blockAt);
+    expect(hear({ pv: 4 }, flat(FLOOR))).toBe('heard');
+    expect(hear({ mining: true }, flat(FLOOR))).toBe('heard');
+    expect(hear({ pv: 4 }, walled)).toBe(null);
+    expect(hear({ mining: true }, walled)).toBe(null);
+    expect(hear({ pv: 4, mining: true }, walled)).toBe(null);
+    expect(hear({ pv: 5.6, sprint: true }, walled)).toBe('heard');
   });
 
   it('takes its temper from the light where it stands: a lamp’s pool makes it dull at night', () => {
@@ -636,6 +686,73 @@ describe('the Ashen: packs, noise, and coming back', () => {
     expect(manAshen([], seen, f.x, f.z - 40, false, () => true, floor).some((c) => c.post)).toBe(false);
   });
 
+  it('the first one does not stand in the road all night: at dusk it roams like the rest, and at dawn it goes in (it stood there for good)', () => {
+    const c = ashenAt(YX, YZ); // posted, out of its nest
+    const far = () => senses(YX + 70, YZ, { night: true, lightAt: () => 2 });
+    run(c, far, 1);
+    expect(c.post).toBeUndefined();
+    run(c, () => senses(YX + 70, YZ), 90); // day again, the player well away
+    const n = ZONE3.nests[3];
+    expect(Math.hypot(c.x - n.x, c.z - n.z)).toBeLessThan(2);
+  });
+
+  it('one stuck on its way home slips back only unseen: never into a nest the player stands at (it measured to itself, not the nest)', () => {
+    const n = ZONE3.nests[3], bx = 553, bz = 944; // boxed in south of the shed, 35 m from its nest
+    const box = (x: number, y: number, z: number) => y < FLOOR + 4 && Math.max(Math.abs(x - bx), Math.abs(z - bz)) === 2;
+    const screen = (_x: number, y: number, z: number) => y < FLOOR + 4 && z === 920; // a wall between the box and the nest
+    const stuck = () => { const c = makeCreature('ashen', bx + 0.5, FLOOR, bz + 0.5); c.nest = 3; c.squad = 1; c.leg = 0; c.lost = 41; return c; };
+    const step = (c: Creature, px: number, pz: number, blockAt: (x: number, y: number, z: number) => number) => { for (let k = 0; k < 20; k++) thinkAshen(c, 1 / 20, senses(px, pz), 0, blockAt, makeRng(1)); };
+    const home = (c: Creature) => Math.hypot(c.x - n.x, c.z - n.z) < 2;
+    const boxed = (x: number, y: number, z: number) => (y < FLOOR || box(x, y, z) ? STONE : 0);
+    const hidden = (x: number, y: number, z: number) => (y < FLOOR || box(x, y, z) || screen(x, y, z) ? STONE : 0);
+    // The player stands at the nest, 35 m from it: it does not appear beside them.
+    let c = stuck();
+    step(c, n.x, n.z + 1, boxed);
+    expect(home(c)).toBe(false);
+    // The player 15 m off, walls between them and it, but the nest in plain view: it stays.
+    c = stuck();
+    step(c, bx + 15.5, bz + 0.5, boxed);
+    expect(home(c)).toBe(false);
+    // The same, the nest hidden too: it slips home (it used to wait until the player was 30 m off).
+    c = stuck();
+    step(c, bx + 15.5, bz + 0.5, hidden);
+    expect(home(c)).toBe(true);
+    // Too near, walls or no: it stays.
+    c = stuck();
+    step(c, bx + 6.5, bz + 0.5, hidden);
+    expect(home(c)).toBe(false);
+    // Far from both, in the open: it slips home as before.
+    c = stuck();
+    step(c, bx + 40.5, bz + 40.5, boxed);
+    expect(home(c)).toBe(true);
+  });
+
+  it('one killed by an arrow is down from that moment: the roll-call in the same update does not put another in its place', () => {
+    const w = new Wild();
+    const n = ZONE3.nests[1], ground = flat(nestFloor(1));
+    w.ashen.firstOut = false;
+    const s = (o: object = {}) => ({ px: n.x - 6, py: nestFloor(1), pz: n.z, night: false, shot: false, blockAt: ground, loaded: () => true, rand: makeRng(5), lightAt: () => 15, ...o });
+    w.update(0.05, s()); // the roll-call: the nests near are manned
+    const pair = w.creatures.filter((c) => c.kind === 'ashen' && c.nest === 1);
+    expect(pair.length).toBe(2);
+    const target = pair[0];
+    target.hp = 1;
+    w.arrows.push({ x: target.x - 1.5, y: target.y + 1, z: target.z, vx: 40, vy: 0, vz: 0, damage: 20, stuck: false, age: 0 });
+    const ev = w.update(1.5, s()); // thirty steps at once (a slow frame): the arrow lands, and a roll-call follows
+    expect(ev.kills).toContain(target);
+    expect(w.ashen.down & target.squad!).toBe(target.squad);
+    expect(w.creatures.filter((c) => c.kind === 'ashen' && c.squad === target.squad).length).toBe(0);
+  });
+
+  it('is heard coming: a footfall each stride while it runs at you, none while it stands', () => {
+    const c = ashenAt(YX, YZ);
+    c.post = undefined; c.mind = 'charge';
+    const steps = run(c, () => senses(YX, YZ - 30), 2).filter((e) => e.kind === 'step').length;
+    expect(steps).toBeGreaterThanOrEqual(3);
+    const d = ashenAt(YX, YZ);
+    expect(run(d, () => senses(YX + 60, YZ), 5).filter((e) => e.kind === 'step')).toEqual([]);
+  });
+
   it('carries nothing, and is no animal to trap or scare with a shot', () => {
     expect(KINDS.ashen.drops).toEqual([]);
     expect(KINDS.ashen.hostile).toBe(true);
@@ -725,15 +842,19 @@ describe('the strip mall’s lot', () => {
 import { load } from './load.ts';
 import { blockName, B_SOLID, isWaterId } from '../src/world/blocks.ts';
 import { blockOf, skyOf } from '../src/world/light.ts';
-import { zone3Floor, onFarRoad as farRoad, onDamCrest } from '../src/gen/layout.ts';
+import { zone3Floor, onFarRoad as farRoad, onDamCrest, ROLLING } from '../src/gen/layout.ts';
 import * as Z3 from '../src/gen/zone3.ts';
 import { initialContents } from '../src/gen/inheritance.ts';
 import { floorNear } from '../src/entity/wild.ts';
 import { LIGHT_KEEN } from '../src/entity/ashen.ts';
 
+/** Zone-3 west of the gorge with the dam and its road, generated and lit once for the tests below. */
+let worksWorld: World | null = null;
+const works = (): World => (worksWorld ??= load(488, 738, 700, 1036));
+
 describe('Zone-3’s places, built and lit', () => {
   const Z = ZONE3, D = Z.dam, A = Z.avenue;
-  const w = load(488, 738, 700, 1036);
+  const w = works();
   const name = (x: number, y: number, z: number) => blockName(w.blockAt(x, y, z));
   const base = (x: number, y: number, z: number) => name(x, y, z).split('@')[0];
   const lamp = (x: number, y: number, z: number) => blockOf(w.lightAt(x, y, z));
@@ -1005,5 +1126,189 @@ describe('the Ashen in the real buildings', () => {
     }
     expect(noticed).toBe(true);
     expect(out, 'it came out through its bay').toBe(true);
+  });
+});
+
+describe('the Ashen and a careful player, in the real land (the review’s walk)', () => {
+  const Z = ZONE3, A = Z.avenue, D = Z.dam;
+  const w = works();
+  const blockAt = (x: number, y: number, z: number) => w.blockAt(x, y, z);
+  const noonLight = (x: number, y: number, z: number) => { const l = w.lightAt(x, y, z); return Math.max(skyOf(l), blockOf(l)); };
+  const nine = () => {
+    const st = newAshen(); st.firstOut = false;
+    const all: Creature[] = [];
+    for (const n of Z.nests) all.push(...manAshen(all, st, n.x, n.z, false, (x, z) => w.isLoaded(x, z), (x, y, z) => floorNear(x, y, z, blockAt)));
+    return all;
+  };
+  const sense = (px: number, py: number, pz: number, o: Partial<AshenSenses> = {}): AshenSenses => ({ px, py, pz, pv: 0, sprint: false, playerInSanctuary: false, night: false, shot: false, lightAt: noonLight, ...o });
+  const tick = (all: Creature[], s: AshenSenses, rand: () => number, into: AshenEvent[]) => {
+    for (const c of all) into.push(...thinkAshen(c, 1 / 20, s, all.filter((o) => o !== c && isHunting(o)).length, blockAt, rand).filter((e) => e.kind === 'notice'));
+  };
+
+  it('walking the avenue by day, in any lane or on either kerb, wakes none of the nine (the dark bays saw 20 m into the road)', () => {
+    for (const lane of [A.x - 3.5, A.x - 1.5, A.x - 0.5, A.x + 0.5, A.x + 1.5]) {
+      const all = nine(), rand = makeRng(11), ev: AshenEvent[] = [];
+      expect(all.length).toBe(9);
+      for (let z = D.z + 4; z < A.z1 - 3; z += WALK / 20) tick(all, sense(lane, outsideHeight(Math.floor(lane), Math.floor(z)), z, { pv: WALK }), rand, ev);
+      expect(ev.map((e) => `nest ${e.c.nest} noticed`), `lane x ${lane}`).toEqual([]);
+    }
+  });
+
+  it('standing in the road outside a dark bay is safe by day; walking into the dark is what wakes them', () => {
+    const P = Z.powerhouse, PF = zone3Floor.powerhouse, n = Z.nests[0];
+    let all = nine(), ev: AshenEvent[] = [];
+    const rand = makeRng(12);
+    for (let k = 0; k < 20 * 20; k++) tick(all, sense(P.x0 - 2.5, PF, n.z), rand, ev);
+    expect(ev).toEqual([]);
+    // In through the roller door, toward the ash on the floor: they have you before you are among them.
+    all = nine(); ev = [];
+    let at = Infinity;
+    for (let x = P.x0 - 2.5; x < n.x - 1 && !ev.length; x += WALK / 20) { tick(all, sense(x, PF, n.z, { pv: WALK }), rand, ev); at = n.x - x; }
+    expect(ev.length).toBeGreaterThan(0);
+    expect(at).toBeGreaterThan(4);
+  });
+
+  it('in the lit halves, walking every open floor and working a pick anywhere wakes nothing behind the wall (the back rows and two steel racks used to)', () => {
+    const halves: [typeof Z.shop, number, number][] = [[Z.powerhouse, zone3Floor.powerhouse, Z3.POWER_SPLIT], [Z.shop, zone3Floor.shop, Z3.SHOP_SPLIT], [Z.foundry, zone3Floor.foundry, Z3.FOUNDRY_SPLIT]];
+    const all = nine(), rand = makeRng(13), ev: AshenEvent[] = [];
+    let cells = 0;
+    for (const [b, floor, split] of halves) for (let z = b.z0 + 1; z < split; z++) for (let x = b.x0 + 1; x < b.x1 - 1; x++) {
+      if (B_SOLID[w.blockAt(x, floor, z)] || B_SOLID[w.blockAt(x, floor + 1, z)]) continue;
+      cells++;
+      for (let k = 0; k < 16; k++) tick(all, sense(x + 0.5, floor, z + 0.5, { pv: WALK, mining: k >= 8 }), rand, ev);
+    }
+    expect(cells).toBeGreaterThan(300);
+    expect(ev.map((e) => `nest ${e.c.nest} noticed`)).toEqual([]);
+  });
+});
+
+describe('the review’s faults in the land', () => {
+  const Z = ZONE3, A = Z.avenue, D = Z.dam, Y = Z.yard, YF = zone3Floor.yard;
+  const w = works();
+  const name = (x: number, y: number, z: number) => blockName(w.blockAt(x, y, z)).split('@')[0];
+  const lamp = (x: number, y: number, z: number) => blockOf(w.lightAt(x, y, z));
+
+  it('leaves no bank between the avenue and the rail yard: from the road’s edge to the tracks no step is over one block (two and three stood at the signal box and the south end)', () => {
+    for (let z = Y.z0 - 4; z < Y.z1 + 4; z++) for (let x = Y.tracks[1] + 2; x < A.x - A.halfWidth; x++) {
+      expect(Math.abs(outsideHeight(x, z) - outsideHeight(x + 1, z)), `step at ${x},${z}`).toBeLessThanOrEqual(1);
+      if (x < A.x - A.halfWidth - 1) expect(Math.abs(outsideHeight(x, z) - outsideHeight(x, z + 1)), `step at ${x},${z} southward`).toBeLessThanOrEqual(1);
+    }
+    // The signal box's door is on the yard's level.
+    const sb = Z.signalBox;
+    expect(outsideHeight(sb.x1, sb.z0 + 2)).toBe(YF);
+  });
+
+  it('walls the avenue’s edge where it comes down above the powerhouse’s forecourt (a drop of three to five blocks was open)', () => {
+    let walled = 0;
+    for (let z = D.z + A.halfWidth; z < Z.powerhouse.door; z++) for (const px of [A.x - A.halfWidth - 1, A.x + A.halfWidth]) {
+      const road = outsideHeight(A.x, z);
+      if (outsideHeight(px, z) > road - 2) continue;
+      walled++;
+      const at = name(px, road, z);
+      expect(at === 'dam_parapet' || at === 'fence_post' || at === 'arc_lamp', `the edge at ${px},${z}: ${at}`).toBe(true);
+      expect(B_SOLID[w.blockAt(px, road - 1, z)], `the wall under it at ${px},${z}`).toBe(1);
+    }
+    expect(walled).toBeGreaterThan(6);
+    // The powerhouse's door is not walled off.
+    for (const z of [Z.powerhouse.door, Z.powerhouse.door + 1]) expect(B_SOLID[w.blockAt(A.x + A.halfWidth, zone3Floor.powerhouse, z)]).toBe(0);
+  });
+
+  it('keeps the crest road’s lamps out of the control house’s front wall (one stood in it, beside the door)', () => {
+    const c = Z.control, CF = zone3Floor.control;
+    for (let x = c.x0; x < c.x1; x++) for (let y = CF; y < CF + 4; y++) {
+      const at = name(x, y, c.z1 - 1);
+      expect(at === 'concrete' || at === 'glass' || at === 'air', `the wall at ${x},${y}: ${at}`).toBe(true);
+    }
+    // The road in front of it is still lit.
+    for (let x = c.x0; x < c.x1; x++) expect(lamp(x, CF + 1, D.z)).toBeGreaterThanOrEqual(LIGHT_KEEN);
+  });
+
+  it('runs the tailrace level out of the hall and then down: its water never climbs the bank (it rose three blocks over the rim)', () => {
+    const tz = Z3.LIVE_TURBINE[2] + 1, PF = zone3Floor.powerhouse;
+    let last = PF, wet = 0;
+    for (let x = Z.powerhouse.x1; x < Math.round(ravineX(tz)) - 2; x++) {
+      let top = -1;
+      for (let y = PF + 6; y > 40 && top < 0; y--) if (isWaterId(w.blockAt(x, y, tz))) top = y;
+      if (top < 0) continue;
+      wet++;
+      expect(top, `the water at x ${x}`).toBeLessThanOrEqual(last);
+      last = top;
+    }
+    expect(wet).toBeGreaterThan(10);
+    expect(last).toBeLessThan(60); // it reaches the gorge's floor
+  });
+
+  it('hangs every ceiling lamp from the roof by a rod (forty hung in the air)', () => {
+    let lamps = 0;
+    for (const [b, floor, high, split] of [[Z.powerhouse, zone3Floor.powerhouse, 7, Z3.POWER_SPLIT], [Z.shop, zone3Floor.shop, 6, Z3.SHOP_SPLIT], [Z.foundry, zone3Floor.foundry, 6, Z3.FOUNDRY_SPLIT]] as const)
+      for (let z = b.z0 + 1; z < split; z++) for (let x = b.x0 + 1; x < b.x1 - 1; x++) for (let y = floor + 2; y < floor + high; y++) {
+        if (name(x, y, z) !== 'lantern') continue;
+        lamps++;
+        for (let yy = y + 1; yy < floor + high; yy++) expect(name(x, yy, z), `over the lamp at ${x},${y},${z}`).toBe('fence_post');
+        expect(name(x, floor + high, z)).toBe('shed_roof');
+      }
+    expect(lamps).toBeGreaterThan(30);
+  });
+
+  it('lights the boxcar’s crate and the coal wagon at night too (they stood in the dark)', () => {
+    const [cx, cy, cz] = Z3.BOXCAR_CRATE;
+    expect(lamp(cx + 1, cy, cz)).toBeGreaterThanOrEqual(LIGHT_KEEN); // where you stand to open it
+    const hop = ROLLING.find((r) => r.kind === 'hopper')!;
+    expect(lamp(Y.tracks[1] + 2, YF + 1, (hop.z0 + hop.z1) >> 1)).toBeGreaterThanOrEqual(LIGHT_KEEN);
+    // The engine shed stays dark at the back, lamps or no: the nest is still a nest.
+    const n = Z.nests[3];
+    expect(lamp(Math.floor(n.x), YF + 1, Math.floor(n.z))).toBeLessThan(LIGHT_KEEN);
+  });
+
+  it('gives the signal box a way up: an outside stair to a door in the cabin, no step over one block (there was none)', () => {
+    const sb = Z.signalBox;
+    for (let k = 0; k < 5; k++) {
+      const x = sb.x1 - k;
+      expect(B_SOLID[w.blockAt(x, YF + k, sb.z1)], `step ${k}`).toBe(1);
+      for (let y = YF + k + 1; y < YF + k + 3; y++) expect(B_SOLID[w.blockAt(x, y, sb.z1)], `headroom over step ${k}`).toBe(0);
+    }
+    expect(outsideHeight(sb.x1 + 1, sb.z1)).toBeGreaterThanOrEqual(YF - 1); // the foot of the stair is reached from the yard
+    // From the top step (its top at the cabin's floor) north through the door.
+    for (const y of [YF + 5, YF + 6]) { expect(B_SOLID[w.blockAt(sb.x0 + 1, y, sb.z1 - 1)]).toBe(0); expect(B_SOLID[w.blockAt(sb.x0 + 1, y, sb.z1 - 2)]).toBe(0); }
+    expect(name(sb.x0 + 1, YF + 4, sb.z1 - 1)).toBe('planks');
+  });
+});
+
+import { liveFromSave } from '../src/sim/power.ts';
+import { Player } from '../src/sim/player.ts';
+
+describe('the review’s faults in saving and loading', () => {
+  it('after a reload away from home, a generator on dry ground still makes nothing: only what was turning when saved counts (all did)', () => {
+    const dry: [number, number, number] = [1650, 72, 1040], wet: [number, number, number] = [1652, 70, 1044], roofed: [number, number, number] = [1660, 71, 1030], open: [number, number, number] = [1662, 80, 1030];
+    const found = { ...home({}), hydro_generator: [dry, wet], solar_array: [roofed, open], mining_rig: [[1655, 71, 1035] as [number, number, number]] };
+    const live = liveFromSave(found, { solar: [open], hydro: [wet] });
+    expect(live.hydro_generator).toEqual([wet]);
+    expect(live.solar_array).toEqual([open]);
+    expect(live.mining_rig).toEqual(found.mining_rig);
+    // Its land not loaded, each counts as last seen: the dry one stays out.
+    expect(turning(found.hydro_generator, () => null, live.hydro_generator)).toEqual([wet]);
+    // An older save has no list: nothing counts until its land is seen (and nothing breaks).
+    for (const old of [undefined, null, 3, {}, { hydro: 'x' }]) {
+      const l = liveFromSave(found, old);
+      expect(l.hydro_generator).toEqual([]);
+      expect(l.solar_array).toEqual([]);
+    }
+    // Seen again at home, the wet one turns whatever the save said.
+    expect(turning(found.hydro_generator, (x) => x === wet[0], [])).toEqual([wet]);
+  });
+
+  it('a save made where the land has since risen does not leave the player inside rock: they are set on the surface (the west bank above the dam rose five to ten blocks)', () => {
+    const rock = (_x: number, y: number, _z: number) => (y < 90 ? STONE : 0);
+    const p = new Player();
+    p.setPosition(560.5, 82, 700.5);
+    expect(p.liftOut(rock, 180)).toBe(true);
+    expect(p.y).toBe(90);
+    // Standing free, nothing happens; nor under a roof with room to stand.
+    expect(p.liftOut(rock, 180)).toBe(false);
+    const q = new Player();
+    q.setPosition(560.5, 82, 700.5);
+    const cave = (_x: number, y: number, _z: number) => (y < 82 || y > 86 ? STONE : 0);
+    expect(q.liftOut(cave, 180)).toBe(false);
+    expect(q.y).toBe(82);
   });
 });

@@ -257,7 +257,12 @@ export class Wild {
         // An arrow in a raider who hasn't seen you does three times its harm; a kill so is silent.
         const faction = FACTION_KINDS.has(hit.kind);
         const unseen = (RAIDER_KINDS.has(hit.kind) && !this.outpost.alert && hit.mind === 'watch') || (faction && !this.faction.alert && hit.mind === 'watch');
-        if (hurt(hit, unseen ? a.damage * 3 : a.damage)) { ev.kills.push(hit); this.remove(hit); if (unseen) ev.silent++; }
+        if (hurt(hit, unseen ? a.damage * 3 : a.damage)) {
+          ev.kills.push(hit); this.remove(hit); if (unseen) ev.silent++;
+          // Down until dawn from this moment: the next step's roll-call must not find the place empty and fill it.
+          if (hit.squad && faction) this.faction.down |= hit.squad;
+          if (hit.squad && hit.kind === 'ashen') this.ashen.down |= hit.squad;
+        }
         if (RAIDER_KINDS.has(hit.kind) && (!unseen || hit.hp > 0)) alertOutpost(this.creatures, this.outpost);
         if (faction && (!unseen || hit.hp > 0)) this.alertFaction();
         if (hit.kind === 'ashen' && hit.hp > 0) this.provoke(hit, s.px, s.pz);

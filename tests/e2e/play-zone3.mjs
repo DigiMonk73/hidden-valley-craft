@@ -84,8 +84,25 @@ await gameSeconds(6);
 const stopped = await g(() => ({ ax: window.__hunter.x, hp: window.__hv.game.vitals.hp, px: window.__hv.game.player.x }));
 check('it comes to the dam’s end and stops: it never steps onto the deck, and the player on it is unharmed', stopped.ax < D.x0 - 1 && stopped.ax > D.x0 - 14 && stopped.hp === 100, JSON.stringify(stopped));
 
-// ---- The salvage, by day, from the lit halves (the Ashen kept in for the rest: their part is checked above) ---
-await g(() => { const gm = window.__hv.game; gm.wild.ashen.down = 511; gm.wild.creatures = gm.wild.creatures.filter((c) => c.kind !== 'ashen'); });
+// ---- The avenue by day with every one of them in its nest: walked down its middle, past the dark bays ---------
+// (The review's walk: the bays used to see 20 m out into the road. Any mind but 'wander' from here on is counted.)
+await g(() => {
+  const gm = window.__hv.game;
+  gm.wild.ashen.down = 0; gm.wild.ashen.firstOut = false; gm.hour = 11; gm.vitals.hp = 100;
+  gm.wild.creatures = gm.wild.creatures.filter((c) => c.kind !== 'ashen');
+  window.__woke = 0;
+  window.__watch = setInterval(() => { if (gm.wild.creatures.some((c) => c.kind === 'ashen' && c.mind !== 'wander')) window.__woke++; }, 40);
+});
+const nests = () => g(() => window.__hv.game.wild.creatures.filter((c) => c.kind === 'ashen' && !c.post).length);
+await standAt(A.x + 0.5, Z.powerhouse.door - 6, Math.PI);
+await page.waitForFunction(() => window.__hv.game.wild.creatures.filter((c) => c.kind === 'ashen').length >= 5, null, { timeout: LONG, polling: 200 }).catch(() => {});
+const pastPower = await walkTo(Math.PI, (p, z) => p.z > z, Z.powerhouse.z1 + 4);
+await standAt(A.x + 0.5, Z.shop.door - 4, Math.PI);
+const pastShops = await walkTo(Math.PI, (p, z) => p.z > z, Z.foundry.z1 + 4);
+const walk = await g(() => ({ woke: window.__woke, minds: window.__hv.game.wild.creatures.filter((c) => c.kind === 'ashen').map((c) => c.mind).join(' ') }));
+check('the avenue by day, down its middle past the powerhouse’s, the shop’s and the foundry’s dark bays, all of them in: none stirs', pastPower && pastShops && walk.woke === 0 && (await nests()) >= 5, JSON.stringify(walk));
+
+// ---- The salvage, by day, from the lit halves, with them in their nests behind the walls ----------------------
 await standAt(Z.powerhouse.x0 - 3.5, Z.powerhouse.door + 1, -Math.PI / 2);
 check('at the powerhouse door: the toast says what is inside, under the lamps, and to leave the dark end be', await waitFlag('powerhouse_seen'));
 const openFrom = (c, dx, dz, yaw, pitch = -0.45) => useAt(([c, dx, dz, yaw, pitch]) => { const gm = window.__hv.game; gm.player.setPosition(c[0] + 0.5 + dx, c[1], c[2] + 0.5 + dz); gm.player.yaw = yaw; gm.player.pitch = pitch; },
@@ -122,6 +139,8 @@ await mine(Z3.FOUNDRY_CRUCIBLE, 0, 1.8);
 check('the foundry’s crucible is mined and carried off', (await count('crucible')) === 1);
 await standAt(A.x + 0.5, Z.signalBox.z1 + 4, Math.PI);
 check('at the rail yard: the toast says rails and plate for steel, a wagon of coal, and that the engine shed is dark', await waitFlag('yard_seen'));
+const salvage = await g(() => { clearInterval(window.__watch); return { woke: window.__woke, about: window.__hv.game.wild.creatures.filter((c) => c.kind === 'ashen').length }; });
+check('all of it taken by day from the lit halves, crates opened and a pick at work, with them behind the walls: none stirred', salvage.woke === 0 && salvage.about >= 5, JSON.stringify(salvage));
 check('the works are reached; not home yet, so M4’s run is not ticked', (await flags()).includes('works_reached') && !(await flags()).includes('zone3_home'));
 await g(() => { const gm = window.__hv.game; gm.vitals.hp = 100; gm.player.setPosition(gm.spawn.x || 1796.5, gm.spawn.y || 82, gm.spawn.z || 1024.5); });
 check('home alive from across the dam: M4’s run is done', await waitFlag('zone3_home'), (await flags()).slice(-6).join(' '));

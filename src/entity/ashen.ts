@@ -1,6 +1,8 @@
 // The Ashen (docs/PHASE7.md, 2): the people of the industrial river, changed by the pathogen eight years ago.
 // Light decides what one is: in daylight or a lamp's pool it is dull (slow, half blind); in the dark it is
-// keen (fast, and it sees all round). It hears running, mining and gunshots. Its one attack is a lunge,
+// keen (fast, and it sees all round). Out of the dark it sees poorly into light: someone standing in daylight
+// or under a lamp it sees only from close. It hears running and gunshots through walls, a walk or a pick only
+// with nothing solid between. Its one attack is a lunge,
 // always telegraphed: it stops, rears and shrieks, then throws itself three metres the way it was facing;
 // step back or aside and it misses and stumbles. Never more than three hunt at once.
 // The rules that hold: nothing here spawns, walks, sees or lunges into the sanctuary; Ashen ground is Zone-3
@@ -19,6 +21,8 @@ export interface Temper { sight: number; cone: number; hearSprint: number; hearW
 export const DULL: Temper = { sight: 6, cone: (60 * Math.PI) / 180, hearSprint: 16, hearWalk: 0, hearMine: 8, speed: KINDS.ashen.walk, windup: KINDS.ashen.windup, damage: KINDS.ashen.damage };
 /** Keen: in the dark. It sees far, all round; hears a walk; faster than a walk, slower than a sprint. */
 export const KEEN: Temper = { sight: 20, cone: Math.PI, hearSprint: 24, hearWalk: 8, hearMine: 10, speed: KINDS.ashen.run, windup: 0.6, damage: 24 };
+/** From the dark it is dazzled by light: a player standing in light is seen only this near (as a dull one sees). */
+export const DAZZLED = DULL.sight;
 /** Once it is hunting, it keeps track of a player in plain view this far off, dull or keen. */
 export const HUNT_SIGHT = 16;
 /** How far a gunshot is heard, and a suppressed one. */
@@ -51,7 +55,7 @@ export const isHunting = (c: Creature): boolean => c.kind === 'ashen' && HUNTING
 export interface AshenSenses extends Senses {
   /** The light where a body stands, 0–15: the brighter of the daylight reaching it and lamplight. */
   lightAt: (x: number, y: number, z: number) => number;
-  /** Is the player mining (a pick on rock carries)? */
+  /** Is the player mining (a pick on rock carries, where nothing solid is between)? */
   mining?: boolean;
 }
 
@@ -63,7 +67,7 @@ export interface AshenState {
 }
 export function newAshen(): AshenState { return { down: 0, firstOut: true }; }
 
-export type AshenEvent = { kind: 'notice' | 'shriek' | 'lunge' | 'miss' | 'breath'; c: Creature } | { kind: 'hit'; c: Creature; damage: number };
+export type AshenEvent = { kind: 'notice' | 'shriek' | 'lunge' | 'miss' | 'breath' | 'step'; c: Creature } | { kind: 'hit'; c: Creature; damage: number };
 
 /** One Ashen's place: its nest, which of the nest's it is, and its bit in `down`. */
 export interface Slot { bit: number; nest: number; k: number }
@@ -102,14 +106,36 @@ export function ashenSenses(c: Creature, s: AshenSenses, keen: boolean, hunting:
   if (s.playerInSanctuary) return null;
   const t = keen ? KEEN : DULL;
   const dist = Math.hypot(s.px - c.x, s.pz - c.z), dy = Math.abs(s.py - c.y);
-  let hear = s.sprint ? t.hearSprint : (s.pv ?? 0) > 1 ? t.hearWalk : 0;
-  if (s.mining) hear = Math.max(hear, t.hearMine);
-  if (dist < hear && dy < 10) return 'heard';
-  const sight = hunting ? Math.max(t.sight, HUNT_SIGHT) : t.sight;
+  // Running carries through walls. A walk or a pick is heard only where nothing solid stands between.
+  if (s.sprint && dist < t.hearSprint && dy < 10) return 'heard';
+  const quiet = Math.max((s.pv ?? 0) > 1 && !s.sprint ? t.hearWalk : 0, s.mining ? t.hearMine : 0);
+  let clear: boolean | null = null;
+  const inLine = () => (clear ??= canSee(c, s, blockAt) || canSee(c, { ...s, py: s.py + 0.45 }, blockAt));
+  if (dist < quiet && dy < 10 && inLine()) return 'heard';
+  // Sight. From the dark, someone standing in light is seen only from close: the bright road outside a dark
+  // bay door, the lamps' pools at night, the lit half of a building.
+  let sight = t.sight;
+  if (keen && s.lightAt(Math.floor(s.px), Math.floor(s.py + 1), Math.floor(s.pz)) >= LIGHT_KEEN) sight = DAZZLED;
+  if (hunting) sight = Math.max(sight, HUNT_SIGHT);
   if (dist > sight || dy > 12) return null;
   if (!hunting && !keen && angleDiff(bearing(c.x, c.z, s.px, s.pz), c.yaw) > t.cone) return null;
-  return canSee(c, s, blockAt) || canSee(c, { ...s, py: s.py + 0.45 }, blockAt) ? 'seen' : null;
+  return inLine() ? 'seen' : null;
 }
+
+/** Is the straight line from the player's eyes to a point clear of solid blocks? */
+function playerSees(s: Senses, x: number, y: number, z: number, blockAt: BlockAt): boolean {
+  const ax = s.px, ay = s.py + 1.6, az = s.pz;
+  const n = Math.ceil(Math.hypot(x - ax, y - ay, z - az) / 0.2);
+  for (let k = 1; k < n; k++) {
+    const t = k / n;
+    if (B_SOLID[blockAt(Math.floor(ax + (x - ax) * t), Math.floor(ay + (y - ay) * t), Math.floor(az + (z - az) * t))]) return false;
+  }
+  return true;
+}
+/** How near the player may be to an Ashen (and to its nest) for it to slip home unseen, with walls between. */
+export const SLIP_BEHIND_WALLS = 10;
+/** And with nothing between: only from this far off. */
+export const SLIP_OPEN = 30;
 
 /** Is the straight line at walking height from a body to (x, z) clear of solid blocks? */
 function lineClear(c: Creature, x: number, z: number, blockAt: BlockAt): boolean {
@@ -170,13 +196,23 @@ export function thinkAshen(c: Creature, dt: number, s: AshenSenses, others: numb
     case 'wander': {
       if (sensed) { c.mind = 'notice'; c.timer = NOTICE; face(); ev.push({ kind: 'notice', c }); break; }
       // The first one stands out in the road, its back to the dam, until something moves it.
+      // (By night it is one of the others: it roams, and at dawn goes in.)
+      if (c.post && s.night) { c.post = undefined; c.goalX = c.x; c.goalZ = c.z; c.timer = 0; }
       if (c.post) { c.yaw = c.post.yaw + 0.12 * Math.sin((c.goalX += dt * 0.5)); break; }
       const roam = s.night && !nest.under;
       if (!roam) {
         // By day (and always underground) it keeps to its dark place, and sways there.
         c.lost = (c.lost ?? 0) + dt;
         if (goIn(1.6)) { speed = 0; c.lost = 0; c.yaw += 0.25 * dt * Math.sin((c.goalZ += dt * 0.4)); }
-        else if (c.lost > 40 && dist > 30) { [c.x, c.z] = c.home ?? [nest.x, nest.z]; c.y = nestFloor(c.nest ?? 0); c.leg = 0; c.lost = 0; } // stuck on the way: it slips back unseen
+        else if (c.lost > 40) {
+          // Stuck on the way (it has no path-finding): it slips back unseen. Only when the player can see
+          // neither it nor its nest: far from both, or nearer with walls between.
+          const [hx, hz] = c.home ?? [nest.x, nest.z], hy = nestFloor(c.nest ?? 0);
+          const near = Math.min(dist, Math.hypot(s.px - hx, s.pz - hz));
+          if (near > SLIP_OPEN || (near > SLIP_BEHIND_WALLS && !playerSees(s, c.x, c.y + 1.5, c.z, blockAt) && !playerSees(s, hx, hy + 1.5, hz, blockAt))) {
+            c.x = hx; c.z = hz; c.y = hy; c.leg = 0; c.lost = 0;
+          }
+        }
         break;
       }
       // By night it comes out and wanders round its door, between the lamps.
@@ -264,7 +300,10 @@ export function thinkAshen(c: Creature, dt: number, s: AshenSenses, others: numb
   moveBody(c, dt, blockAt);
   if (c.mind !== 'wander') c.timer = timer; // a wall ends a wander's leg, not a wind-up or a stumble
   if (!ashenGround(c.x, c.z) && c.mind !== 'wander') giveUp();
+  // Bare feet on the road as it comes: each footfall of a hunting one is heard (and, in the dark, raises ash).
+  const strides = Math.floor(c.stride / Math.PI);
   c.stride += Math.hypot(c.vx, c.vz) * dt * 3;
+  if (c.mind === 'charge' && Math.floor(c.stride / Math.PI) !== strides) ev.push({ kind: 'step', c });
   // A dry breath now and then while it stands unaware: the warning that one is near.
   if ((c.mind === 'wander' || c.mind === 'seek') && rand() < dt / 5) ev.push({ kind: 'breath', c });
   return ev;

@@ -46,6 +46,8 @@ const [TB, TA] = Y.tracks; // the west track (through the engine shed) and the e
 const stock = (kind: string, n = 0) => ROLLING.filter((r) => r.kind === kind)[n];
 /** The first boxcar's crate, in its open door on the platform side. */
 export const BOXCAR_CRATE: [number, number, number] = [TB + 1, YF + 1, (stock('boxcar').z0 + stock('boxcar').z1) >> 1];
+/** The lamps by the boxcar's crate and by the coal wagon. */
+export const YARD_LAMPS: [number, number][] = [[TB + 3, BOXCAR_CRATE[2] + 2], [TA + 3, (stock('hopper').z0 + stock('hopper').z1) >> 1]];
 /** The spillway's foot, for its roar and spray. */
 export const SPILLWAY_AT: [number, number, number] = [D.spill + 0.5, 43, PAR_S + 1.5];
 /** The level crossing's two red lights (the mark seen from the broken bridge). */
@@ -54,9 +56,16 @@ export const CROSSING_LIGHTS: [number, number][] = [[TA + 4, Math.round(farRoadZ
 /** Round Zone-3's places (with a margin), where caves don't cut and trees don't grow. */
 export function zone3Place(x: number, z: number): boolean {
   if (x > 830 || x < 470 || z > 1050 || z < 140) return false;
-  // The gorge that holds the reservoir, the dam and the river below it.
-  // (Its east side only as far as the cut itself: the land east of the gorge stays as earlier phases made it.)
-  if (z < Z.river.sink + 14 && x - ravineX(z) < 25 && x - ravineX(z) > -32) return true;
+  // The gorge that holds the reservoir, the dam and the river below it. East of its centre line only what
+  // the water needs: the reservoir and its shore where the land was raised to hold it, the dam's abutment,
+  // and below the dam the river's own bed. The gorge's east wall above the water, and all the land east of
+  // it, stay as earlier phases made them (tests/fixtures/east-rim.json).
+  const rd = x - ravineX(z);
+  if (z < Z.river.sink + 14 && rd > -32) {
+    if (z >= D.z + 26) { if (rd < 6) return true; }
+    else if (rd < 6) return true;
+    else if (rd < 28 && z > 150 && (z > D.z - 8 || outsideHeight(x, z) <= D.water + 2)) return true;
+  }
   if (onDamRoad(x, z, 6)) return true;
   if (x >= D.x1) return false;
   if (onAvenue(x, z, 7) || onFarRoad(x, z, 5) || onMineTrail(x, z - 3) || onMineTrail(x, z + 3) || onMineTrail(x, z)) return true;
@@ -84,6 +93,8 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     for (let y = g; y < g + h; y++) put(x, y, z, 'fence_post');
     put(x, g + h, z, lamp);
   };
+  /** A ceiling lamp on its rod: the lantern at y, hung from the roof at `roof`. */
+  const hang = (x: number, y: number, z: number, roof: number) => { put(x, y, z, 'lantern'); for (let yy = y + 1; yy < roof; yy++) put(x, yy, z, 'fence_post'); };
   const asphalt = (x: number, y: number, z: number, k: number) => { const roll = r(x, k, z); put(x, y, z, roll < 0.1 ? 'gravel' : roll < 0.14 ? 'dirt' : 'road'); };
   /** A shed: walls, a roof of tin, an earth floor of concrete, hollow. `open(x, y, z)` says where a wall is left out. */
   const shed = (b: { x0: number; x1: number; z0: number; z1: number }, floor: number, high: number, wall: string, open: (x: number, y: number, z: number) => boolean, split = -1) => {
@@ -221,7 +232,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     // High windows on the avenue side of the lit half.
     for (let z = P.z0 + 2; z < POWER_SPLIT - 1; z += 2) if (z < P.door - 1 || z > P.door + 2) put(P.x0, PF + 4, z, 'glass');
     for (const z of [P.door - 1, P.door, P.door + 1, P.door + 2]) put(P.x0 - 1, PF + 4, z, z === P.door - 1 || z === P.door + 2 ? 'lantern' : 'powerhouse_sign@west');
-    for (let z = P.z0 + 2; z < POWER_SPLIT - 1; z += 3) for (let x = P.x0 + 2; x < P.x1 - 1; x += 4) if (get(x, PF + 4, z) === AIR || get(x, PF + 4, z) === -1) put(x, PF + 4, z, 'lantern');
+    for (let z = P.z0 + 2; z < POWER_SPLIT - 1; z += 3) for (let x = P.x0 + 2; x < P.x1 - 1; x += 4) if (get(x, PF + 4, z) === AIR || get(x, PF + 4, z) === -1) hang(x, PF + 4, z, PF + 7);
     // The turbines along the gorge side: the first still turning, two seized, in the dark.
     for (const [tz, live] of [[LIVE_TURBINE[2], true], [P.z0 + 8, false], [POWER_SPLIT + 2, false]] as const)
       for (let dz = 0; dz < 3; dz++) for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) put(LIVE_TURBINE[0] + dx, PF + dy, tz + dz, live ? 'turbine' : 'turbine_dead');
@@ -235,14 +246,15 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     for (const px of [P.x1 - 6, P.x1 - 3]) for (let z = PAR_S + 1; z < P.z0; z++) { const g = outsideHeight(px, z); put(px, g, z, 'penstock'); put(px, g + 1, z, 'penstock'); clear(px, g + 2, g + 5, z); }
     // The tailrace: out of the hall's gorge side and down the bank to the river.
     {
-      const tz = LIVE_TURBINE[2] + 1;
+      // Water never runs uphill: where the bank stands above the channel, the channel is cut through it.
+      const tz = LIVE_TURBINE[2] + 1, level = PF - 1;
       let prev = PF;
       for (let x = P.x1; x < Math.round(ravineX(tz)) - 2; x++) {
         const g = outsideHeight(x, tz);
-        if (g >= PF - 1) { put(x, g - 1, tz, WATER); put(x, g - 2, tz, 'concrete'); clear(x, g, g + 3, tz); }
-        else if (g > 42) for (let y = g; y < Math.min(prev, PF - 1); y++) put(x, y, tz, FALLING_WATER);
+        if (g - 1 >= level) { put(x, level, tz, WATER); put(x, level - 1, tz, 'concrete'); clear(x, level + 1, g + 3, tz); }
+        else if (g > 42) for (let y = g; y <= Math.min(prev - 1, level); y++) put(x, y, tz, FALLING_WATER);
         else put(x, g - 1, tz, WATER);
-        prev = g;
+        prev = Math.min(g, level + 1);
       }
     }
   }
@@ -253,7 +265,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     shed(S, SF, 6, 'cinder_block', (x, y, z) => x === S.x0 && ((z >= S.door && z < S.door + 2 && y < 3) || (z >= S.bay && z < S.bay + 4 && y < 4)), SHOP_SPLIT);
     for (let z = S.z0 + 2; z < SHOP_SPLIT - 1; z += 2) if (z < S.door - 1 || z > S.door + 2) put(S.x0, SF + 4, z, 'glass');
     for (const z of [S.door - 1, S.door, S.door + 1, S.door + 2]) put(S.x0 - 1, SF + 4, z, z === S.door - 1 || z === S.door + 2 ? 'lantern' : 'taller_sign@west');
-    for (let z = S.z0 + 2; z < SHOP_SPLIT - 1; z += 3) for (let x = S.x0 + 2; x < S.x1 - 1; x += 4) put(x, SF + 4, z, 'lantern');
+    for (let z = S.z0 + 2; z < SHOP_SPLIT - 1; z += 3) for (let x = S.x0 + 2; x < S.x1 - 1; x += 4) hang(x, SF + 4, z, SF + 6);
     for (const l of OLD_LATHES) put(...l, 'old_lathe');
     for (const k of STEEL_RACKS) put(...k, 'steel_rack');
     put(...SHOP_CRATE, 'stock_crate');
@@ -267,7 +279,7 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     shed(F, FF, 6, 'cinder_block', (x, y, z) => x === F.x1 - 1 && ((z >= F.door && z < F.door + 2 && y < 3) || (z >= F.bay && z < F.bay + 4 && y < 4)), FOUNDRY_SPLIT);
     for (let z = F.z0 + 2; z < FOUNDRY_SPLIT - 1; z += 2) if (z < F.door - 1 || z > F.door + 2) put(F.x1 - 1, FF + 4, z, 'glass');
     for (const z of [F.door - 1, F.door, F.door + 1, F.door + 2]) put(F.x1, FF + 4, z, z === F.door - 1 || z === F.door + 2 ? 'lantern' : 'fundicion_sign@east');
-    for (let z = F.z0 + 2; z < FOUNDRY_SPLIT - 1; z += 3) for (let x = F.x0 + 2; x < F.x1 - 1; x += 4) put(x, FF + 4, z, 'lantern');
+    for (let z = F.z0 + 2; z < FOUNDRY_SPLIT - 1; z += 3) for (let x = F.x0 + 2; x < F.x1 - 1; x += 4) hang(x, FF + 4, z, FF + 6);
     put(...FOUNDRY_CRUCIBLE, 'foundry_crucible');
     // The old furnace's shell and stacks of firebrick.
     for (let dz = 0; dz < 3; dz++) for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) if (!(dx === 1 && dz === 2 && dy < 2)) put(F.x0 + 2 + dx, FF + dy, F.z0 + 1 + dz, 'firebrick');
@@ -310,6 +322,9 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
       for (let y = YF + 5; y < YF + 7; y++) put(x, y, z, edge ? 'glass' : AIR);
       put(x, YF + 7, z, 'shed_roof');
     }
+    // The way up: an outside stair along the south wall to a door in the cabin (a place to look the yard over from).
+    for (let k = 0; k < 5; k++) { const sx = sb.x1 - k; for (let y = Math.min(outsideHeight(sx, sb.z1), YF) - 1; y <= YF + k; y++) put(sx, y, sb.z1, 'planks'); clear(sx, YF + k + 1, YF + k + 4, sb.z1); }
+    put(sb.x0 + 1, YF + 5, sb.z1 - 1, AIR); put(sb.x0 + 1, YF + 6, sb.z1 - 1, AIR);
     put(sb.x0 + 2, YF + 5, sb.z0 + 2, 'lantern');
     for (let y = YF; y < YF + sb.height; y++) put(sb.x0 - 1, y, sb.z1, 'fence_post');
     put(sb.x0 - 1, YF + sb.height, sb.z1, 'red_beacon');
@@ -340,6 +355,8 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
       }
     }
     put(...BOXCAR_CRATE, 'stock_crate');
+    // A lamp by the boxcar's open door and one by the coal wagon: nothing to take stands in the dark at night.
+    for (const [lx, lz] of YARD_LAMPS) { for (let y = YF; y < YF + 3; y++) put(lx, y, lz, 'fence_post'); put(lx, YF + 3, lz, 'arc_lamp'); }
     // The level crossing where the old road meets the tracks: a cross and a red light each side.
     for (const [lx, lz] of CROSSING_LIGHTS) { const g = outsideHeight(lx, lz); put(lx, g, lz, 'fence_post'); put(lx, g + 1, lz, 'fence_post'); put(lx, g + 2, lz, 'red_beacon'); put(lx, g + 3, lz, 'crossing_sign'); }
   }
@@ -406,13 +423,26 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
       clear(x, y, y + 5, z);
       if (Y.tracks.includes(x)) put(x, y, z, 'rail');
     }
-    for (let lx = Z.farRoad.west + 4; lx < b.far - 4; lx += LAMP_EVERY) { if (Y.tracks.some((t) => Math.abs(lx - t) < 2) || CROSSING_LIGHTS.some(([cx]) => Math.abs(cx - lx) < 2)) continue; lampPost(lx, Math.round(farRoadZ(lx)) + (Math.floor(lx / LAMP_EVERY) % 2 ? -ROAD.halfWidth - 1 : ROAD.halfWidth), 2); }
+    for (let lx = Z.farRoad.west + 4; lx < b.far - 4; lx += LAMP_EVERY) { if (Y.tracks.some((t) => Math.abs(lx - t) < 2) || CROSSING_LIGHTS.some(([cx]) => Math.abs(cx - lx) < 2)) continue;
+      // Each lamp two above the road beside it, whatever the verge does.
+      const lz = Math.round(farRoadZ(lx)) + (Math.floor(lx / LAMP_EVERY) % 2 ? -ROAD.halfWidth - 1 : ROAD.halfWidth), g = outsideHeight(lx, lz), top = outsideHeight(lx, Math.floor(farRoadZ(lx))) + 2;
+      for (let y = Math.min(g, top - 1); y < top; y++) put(lx, y, lz, 'fence_post');
+      put(lx, top, lz, 'arc_lamp');
+    }
     // Where it ends: a barrier, and the forest beyond.
     for (let z = Math.floor(farRoadZ(Z.farRoad.west)) - 2; z <= Math.floor(farRoadZ(Z.farRoad.west)) + 1; z++) put(Z.farRoad.west - 1, outsideHeight(Z.farRoad.west - 1, z), z, 'concrete_barrier@east');
   }
 
   // Last, so nothing built above clears them away: the avenue's and the crest road's lamps.
   if (near(A.x - 4, D.x0, D.z - 4, A.z1, 3)) {
+    // Where the avenue comes down from the crest above the powerhouse's forecourt, the ground beside it lies
+    // two blocks and more below: a retaining wall with a parapet on it, so there is no drop to walk off.
+    for (let z = D.z + HALF; z < P.door; z++) for (const px of [A.x - HALF - 1, A.x + HALF]) {
+      const road = outsideHeight(A.x, z), g = outsideHeight(px, z);
+      if (g > road - 2) continue;
+      for (let y = g; y < road; y++) put(px, y, z, 'concrete');
+      put(px, road, z, 'dam_parapet');
+    }
     // A lamp every eight metres, either side in turn, at head height: their pools meet, so the whole way is lit
     // (and anything that steps into it is in the light).
     for (let z = D.z + 6; z < A.z1 - 2; z += LAMP_EVERY) {
@@ -422,6 +452,10 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
       put(px, top, z, 'arc_lamp');
     }
     lampPost(A.x - HALF - 1, D.z - HALF - 1, 2); // the bend
-    for (let x = A.x + 6; x < D.x0 - 2; x += LAMP_EVERY) lampPost(x, ((x - A.x - 6) / LAMP_EVERY) % 2 < 1 ? PAR_N : PAR_S, 2);
+    // The crest road's lamps, either side in turn; never in the control house's front wall (one used to stand in it, beside the door).
+    for (let x = A.x + 6; x < D.x0 - 2; x += LAMP_EVERY) {
+      const north = ((x - A.x - 6) / LAMP_EVERY) % 2 < 1 && !(x >= Z.control.x0 - 1 && x <= Z.control.x1);
+      lampPost(x, north ? PAR_N : PAR_S, 2);
+    }
   }
 }

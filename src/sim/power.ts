@@ -120,6 +120,17 @@ export function turning(gens: [number, number, number][], waterNear: (x: number,
   return gens.filter(([x, y, z]) => { const w = waterNear(x, y, z); return w === null ? last.some((a) => a[0] === x && a[1] === y && a[2] === z) : w; });
 }
 
+/**
+ * After a load: of the arrays and generators found placed, only those that were making power when the game
+ * was saved count, until their land is loaded and looked at again. (All of them used to count: a generator
+ * on dry ground turned after a save and reload away from home.) An older save has no list: none count yet.
+ */
+export function liveFromSave(found: Devices, live: unknown): Devices {
+  const o = (live && typeof live === 'object' ? live : {}) as { solar?: unknown; hydro?: unknown };
+  const was = (list: unknown) => (a: [number, number, number]) => Array.isArray(list) && list.some((b) => Array.isArray(b) && b[0] === a[0] && b[1] === a[1] && b[2] === a[2]);
+  return { ...found, solar_array: found.solar_array.filter(was(o.solar)), hydro_generator: found.hydro_generator.filter(was(o.hydro)) };
+}
+
 /** What a load needs to run: power now, from the sun or the banks. */
 export function powered(s: PowerState, kind: 'mining_rig' | 'fridge' | 'water_pump'): boolean { return s.on[kind]; }
 

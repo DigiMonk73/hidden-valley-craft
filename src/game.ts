@@ -31,7 +31,7 @@ import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, cl
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
-import { CS } from './world/constants.ts';
+import { CS, WORLD_Y } from './world/constants.ts';
 import { packPos, skyOf } from './world/light.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
@@ -69,7 +69,7 @@ import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts'
 import { ZONE3, onDamCrest, onDamRoad, ravineX, highwayX } from './gen/layout.ts';
 import { M4_STEPS, trackM4, diedOutsideM4 } from './sim/milestones.ts';
 import { CATALOG_RAY, RAY_PLANS_PRICE } from './sim/trade.ts';
-import { turning, HYDRO_KW } from './sim/power.ts';
+import { turning, liveFromSave, HYDRO_KW } from './sim/power.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
 
@@ -94,6 +94,8 @@ const GUNS: Record<string, { damage: number; cooldown: number; range: number; am
 };
 /** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
 const ASHEN_HOLDS_H = 30;
+/** What a running Ashen kicks up. */
+const ASH_DUST = blockId('pale_stain');
 const BOWS = new Set(['compound_bow', 'hunting_bow']);
 const BLADES = new Set(['hunting_knife', 'machete', 'spear']);
 const isBow = (id: number | undefined) => id !== undefined && BOWS.has(itemName(id));
@@ -193,6 +195,8 @@ export class Game {
   private target: RayHit | null = null;
   private playing = false;
   private ready = false;
+  /** A save was just loaded: once its land is in, check the player isn't inside rock. */
+  private checkBuried = false;
   private accumulator = 0;
   private last = 0;
   private time = 0;
@@ -334,6 +338,9 @@ export class Game {
       this.hud.setLoading(done, total);
       if (this.streamer.settledAround(p.x, p.z, r)) {
         this.ready = true;
+        // A save from before the land changed may stand inside rock: set them on the surface, once.
+        if (this.checkBuried && !p.flying && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
+        this.checkBuried = false;
         this.hud.setReady(false);
         if (this.opts.test) this.hud.showMenu(false);
       }
@@ -555,9 +562,15 @@ export class Game {
     for (const e of ev.ashen) {
       const c = e.c, at = [c.x, c.y + 1.6, c.z] as const;
       if (e.kind === 'breath') { if (Math.hypot(c.x - this.player.x, c.z - this.player.z) < 16) this.sound.ashenBreath(...at); }
-      else if (e.kind === 'notice') { this.sound.ashenNotice(...at); this.once('ashen_noticed', 'It has heard you. Stand still, or walk away: it comes for what runs. If it comes, step back when it rears and shrieks.', 8000); }
+      else if (e.kind === 'notice') { this.sound.ashenNotice(...at); this.once('ashen_noticed', 'It has noticed you. Don’t run: it comes for what runs. Walk back into the light, out of its sight: from the dark it sees poorly into light. If it comes, step back when it rears and shrieks.', 8000); }
       else if (e.kind === 'shriek') { this.sound.ashenShriek(...at, !!c.keen); this.once('ashen_shriek', 'It rears and shrieks: it is about to throw itself at you. Step back or aside, now. When it stumbles, strike or go.', 8000); }
       else if (e.kind === 'lunge') this.sound.ashenLunge(...at);
+      else if (e.kind === 'step') {
+        if (Math.hypot(c.x - this.player.x, c.z - this.player.z) > 32) continue;
+        this.sound.ashenStep(c.x, c.y + 0.1, c.z, !!c.keen);
+        // Running in the dark it leaves ash in the air behind it.
+        if (c.keen) this.renderer.particles.burst(ASH_DUST, Math.floor(c.x), Math.floor(c.y), Math.floor(c.z), 0.5);
+      }
       else if (e.kind === 'miss') { this.sound.ashenMiss(...at); this.once('ashen_missed', 'It missed, and stands bent over. That is your moment.', 5000); }
     }
     for (const j of ev.jaguar) {
@@ -1478,6 +1491,7 @@ export class Game {
       wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
       power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
       factionDown: this.wild.faction.down, ashenDown: this.wild.ashen.down,
+      live: { solar: this.devices.solar_array, hydro: this.devices.hydro_generator },
     };
   }
 
@@ -1490,6 +1504,7 @@ export class Game {
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
     this.player.flying = d.player.flying;
+    this.checkBuried = true;
     this.hour = d.hour;
     this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
@@ -1506,7 +1521,8 @@ export class Game {
     this.wild.ashen.firstOut = !this.flags.has('ashen_seen');
     this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
     this.powerHour = null;
-    this.devices = findDevices(this.world.edits);
+    // Arrays and generators count as they did when saved (in the sun, at the water) until their land is seen again.
+    this.devices = liveFromSave(findDevices(this.world.edits), d.live);
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };

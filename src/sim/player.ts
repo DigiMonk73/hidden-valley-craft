@@ -134,6 +134,19 @@ export class Player {
     return this.obstacleTop(x, y, z, blockAt) > -Infinity;
   }
 
+  /**
+   * A save made before the land changed can stand inside rock (docs/PHASE7.md: Zone-3's west bank rose).
+   * Called once when a loaded save's land has come in: lifts a buried player straight up to the first open
+   * space. Returns whether it moved them. (Day to day, `move` climbs two blocks at most, by design.)
+   */
+  liftOut(blockAt: BlockAt, ceiling: number): boolean {
+    if (!this.collides(this.x, this.y, this.z, blockAt)) return false;
+    for (let y = Math.floor(this.y) + 1; y <= ceiling; y++) {
+      if (!this.collides(this.x, y, this.z, blockAt)) { this.y = y; this.vy = 0; return true; }
+    }
+    return false;
+  }
+
   /** True if a block at (bx, by, bz) would overlap the player's body. */
   intersectsBlock(bx: number, by: number, bz: number): boolean {
     return bx + 1 > this.x - WIDTH / 2 && bx < this.x + WIDTH / 2 && by + 1 > this.y && by < this.y + HEIGHT && bz + 1 > this.z - WIDTH / 2 && bz < this.z + WIDTH / 2;

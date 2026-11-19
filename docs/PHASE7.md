@@ -52,7 +52,10 @@ Simple, short, well lit, easy to find. So in this phase:
 - **The ravine is the river's gorge.** *Why:* PLAN.md's map puts Zone-3's "river · dam" against the ravine and has the dam reached from Zone-2. A dam across the gorge that already parts Zone-1 from Zone-3 is one landmark that does three jobs: the crossing, the river, and the source of the turbine parts.
 - **The river sinks.** Below the dam the river runs 110 m down the gorge and goes underground into the limestone, as the valley's creek and the canyon's stream do. *Why:* the gorge at the broken bridge stays dry, exactly as Phase 5 built it (a stream there would also break a fall into the gorge, which must stay deadly). And it leaves a quiet answer to where the valley's hidden river comes from. Ray says it: "The Seco goes underground below my dam. Nobody ever found where it comes out."
 - **The dam sits at z 752**, 10 m inside Zone-2 (which begins at z 760). *Why:* the shortest walk that is still "from Zone-2".
-- **The reservoir's west shore is raised.** North of the dam the land west of the gorge now stands at about 86 instead of 76, so the water has a bank. Below the dam it falls to the old plain. Nothing east of the gorge changes but the dam road's corridor (four columns) and the strip mall's lot (the small fix below); a hash of every column east of x 672 is kept in `tests/fixtures/east-of-ravine.json` and checked.
+- **The reservoir's west shore is raised.** North of the dam the land west of the gorge now stands at about 86 instead of 76, so the water has a bank. Below the dam it falls to the old plain. East of the gorge three things change, and nothing else:
+  - the dam road's corridor and the strip mall's lot (the small fix below): five columns in all. A hash of every column east of x 672 is kept in `tests/fixtures/east-of-ravine.json` and checked;
+  - the reservoir's east shore, from its head (z 186) to the dam: where the gorge's rim lay under the water's level it is raised to two blocks above it, in a band 22–44 m east of the centre line (234 cells). *Why:* without a bank the water would stand as a wall beside lower ground. The rim cannot be hashed by whole columns (the gorge shares them), so it is hashed row by row in `tests/fixtures/east-rim.json`: no row north of the reservoir or south of the dam's face differs;
+  - the dam's east abutment, where the dam meets the rim.
 - **No fight is needed for M4.** Every thing to bring home can be reached by day by a careful player without waking an Ashen. Killing them gives nothing: they carry nothing, and you don't touch them.
 - **Infection is left out.** The script lists an infection treatment among Doc's services. *Why not now:* it would be a second "your health is capped until treated" meter beside radiation's, and the Ashen are already new. It can come with Zone-4's medicine.
 - **The compound is still closed.** Nothing in M4 needs it.
@@ -90,6 +93,8 @@ Simple, short, well lit, easy to find. So in this phase:
 - **Light decides everything.** Each Ashen is *dull* or *keen* by the light where it stands: daylight or a lamp's pool (light 7 or more) makes it dull; the dark makes it keen. Night outside the lamps, the back of a shed and anywhere underground are dark.
 - **Dull** (day, open ground, under a lamp): it stands and sways, or shuffles. It sees a walking player only within **6 m, in front of it**. It hears: a sprinting player within 16 m, mining within 8 m.
 - **Keen** (dark): it sees **20 m all round**, hears a walk at 8 m, mining at 10 m and a sprint at 24 m.
+- **From the dark it sees poorly into light** (added after the review). Someone standing in daylight or in a lamp's pool is seen by a keen one only within 6 m. *Why:* each nest looks straight out of its open bay at the avenue 18 m away, so a walker in the road was seen at noon by something they could not see. The rule makes the script's promise hold everywhere at once: by day in the open, and at night under the lamps, a careful player is not seen from afar. Step into the dark and you are seen at 20 m.
+- **Walls stop quiet sounds** (added after the review). A walk or a pick is heard only with nothing solid between; running and gunshots carry through walls. *Why:* they heard a walk and a pick through the wall that parts each building, so the lit halves were not quiet.
 - **A gunshot** is heard at 70 m, by any of them: they come to **where the shot was fired**, not to you. Moving on after a shot is the defence. (The suppressed pistol of M4 is heard at 12 m.)
 
 **How they move:**
@@ -153,6 +158,7 @@ Simple, short, well lit, easy to find. So in this phase:
 |---|---|---|---|
 | workbench | crucible furnace | crucible 1, cobble 8, clay 4, iron ingot 2 | advanced smelting: its own station, set by the smelter |
 | crucible furnace | steel ingot ×2 | steel stock 2, coal 1 | salvage, re-melted |
+| crucible furnace | steel ingot ×2 | steel stock 2, charcoal 2 | the same with your own charcoal, so steel does not wait on finding coal |
 | crucible furnace | steel ingot ×1 | iron ingot 2, coal 2 | from your own iron: steel never runs out |
 | workbench | lathe | lathe parts 1, steel ingot 4, wiring 2, planks 2 | workshop tier 2 |
 | workbench | hydro generator | turbine parts 1, steel ingot 6, wiring 4 (sluice tools kept) | shows once Ray's plans are bought; 2 kW, day and night |
@@ -207,7 +213,7 @@ The computer lists M4's steps with ticks under M3:
 
 **Unit tests**
 - The dam road and the avenue never step more than a block; the crest is level and walled; every place is built and lit; no cave cuts under them; the reservoir never spills over its shores; the gorge at the broken bridge is dry and as deep as before.
-- The world east of x 672 hashes the same as before, but for the dam road's and the lot's columns.
+- The world east of x 672 hashes the same as before, but for the dam road's and the lot's columns. The gorge's east rim west of x 672 hashes the same row by row, but for the reservoir's shore and the dam's end.
 - Zero Ashen spawns in the sanctuary over 100,000 tries; none walks, sees, lunges or is knocked in; none steps onto the dam or east of the gorge.
 - Dull by day and under a lamp, keen in the dark: sight, hearing and speed for each. A walking player 7 m behind a dull one is not noticed. A shot draws them to where it was fired.
 - The lunge: lands on a player who stands still, misses one who steps back, and leaves the Ashen open.
@@ -217,6 +223,7 @@ The computer lists M4's steps with ticks under M3:
 - Each M4 recipe resolves and gates; each M4 step ticks; Ray's plans arrive only after hydro.
 - Hutches and coops breed and lay while unloaded, capped.
 - Old saves load: Ashen, hydro and new flags default.
+- The review's walk, in the real land: every lane of the avenue by day with all nine in their nests; every open floor of the three lit halves, walking and with a pick at work. None notices.
 
 **Screenshots** from a first-time player's eye: the sign at the highway; the dam from the barricade; the avenue from the bend with the first Ashen; an Ashen close, rearing; the powerhouse's lit half; the yard and the signal box at night; the level crossing from the broken bridge at night.
 
@@ -245,8 +252,23 @@ The computer lists M4's steps with ticks under M3:
 - **DONE: Hutches and coops while away** (`World.blockKnown`): smokers and jerky racks too, by the same rule.
 - **DONE: the land** (`src/gen/zone3.ts`), built to the map. **The owner saw the map and the layout summary and said "go ahead with the map"** (through the lead, 2026-11-19); the land had been built against it meanwhile, every block placed from `ZONE3` in `layout.ts`. Every place is where the map shows it. Inside the yard's box one building was added after the map was first drawn (the engine shed, below); the map in the repo shows it.
   - The dam road with its sign and the barricade; the dam (stepped downstream face, parapets, the spillway, a lamp every six metres); the reservoir; the plunge pool, the stream and its dry bed; the control house; the avenue; the powerhouse (penstocks, the tailrace down the bank), the machine shop and the foundry; the yard (ballast, two tracks, the engine shed, the signal box, a locomotive, a coal hopper, a flatcar of plate, two boxcars, the crossing); the mine; the far road.
-  - *Changed from the plan:* each building's dark half is **walled off** from its lit half and has its own open roller door. *Why:* in one open hall an Ashen at the dark end saw a player at the lit end (20 m, all round), so the lit half was not safe by day. Now nothing in a lit half wakes them but a sprint; mining a lathe or the crucible is out of their hearing (8 m dull, 10 m keen).
+  - *Changed from the plan:* each building's dark half is **walled off** from its lit half and has its own open roller door. *Why:* in one open hall an Ashen at the dark end saw a player at the lit end (20 m, all round), so the lit half was not safe by day. Now nothing in a lit half wakes them but a sprint: the wall stops the sound of a walk or a pick (see the review's fixes below).
   - *Changed from the plan:* the yard's nest is the **engine shed**, not a boxcar (a boxcar is one block wide inside).
   - *Changed from the plan:* the avenue has a lamp **every eight metres**, at head height, either side in turn, so their pools meet: its centre line is never darker than 7 of 15, and an Ashen that steps onto it at night is dull while it stands there. Lamps 24 m apart left it nearly all dark (light falls off a block at a time). The dam's deck and the far road are lit the same way.
   - A new opaque roof block (`shed_roof`): the thin tin roof lets daylight through, which made every "dark" room bright.
 - **DONE: The strip mall's lot.** The highway is raised a block beside the lot's south end (z 739–748), so the lot is never above it; the road's own step is just past the lot. *Why not the north end too:* there the highway is a block above the lot, which reads as a kerb down into a car park; lowering the highway there would put the same step in front of the exchange.
+- **DONE: The fresh review, and its fixes.** A reviewer that did not write the code checked `git diff main...phase7` by running things. No crash and no break in M4's chain; twelve findings. Each fix has a test that fails on the code before it (19 new tests, all failing there).
+  1. **Walking the avenue by day woke the nests through their open bays** (keen sight, 20 m, straight out of the dark). *Fix:* from the dark they see someone in light only within 6 m (above). The test walks five lanes with all nine in.
+  2. **The first-notice toast said "stand still"**, which gets a player in the dark hit. It now says: don't run, walk back into the light.
+  3. **A walk and a pick were heard through the dividing walls.** *Fix:* walls stop quiet sounds (above).
+  4. **A two- to three-block bank stood between the avenue and the rail yard**, and a three- to five-block drop was open beside the avenue above the powerhouse. *Fix:* the yard's last six metres grade to the avenue's height; a retaining wall with a parapet runs along the drop.
+  5. **A generator on dry ground counted as turning after a save and reload away from home** (solar arrays in a cave the same, since Phase 6). *Fix:* the save keeps which arrays and generators were making power; after a load only those count until their land is seen again.
+  6. **A lamp post stood in the control house's front wall.** Moved across the road.
+  7. **Land east of the gorge had changed outside the fixture's reach.** Trees and caves were being cut from a strip 25 m east of the centre line down to the river's sink; now only where the reservoir, its shore and the dam are. What remains changed is listed under "Design calls" and pinned by `tests/fixtures/east-rim.json`.
+  8. **Things the plan listed and the build lacked:** the sound of bare feet and the ash when one runs (now there); the charcoal steel recipe (now in the table); lamps by the boxcar's crate and the coal wagon at night (now there); a way up the signal box (an outside stair to a door in the cabin).
+  9. **The Ashen's bookkeeping:** one stuck on its way home now slips back only when the player can see neither it nor its nest (it measured to itself only, so it could appear in a nest beside the player); the first one no longer stands in the road all night; one killed by an arrow is down from that moment (the same step's roll-call could put another in its place; Zone-2's men too).
+  10. **Looks:** the tailrace no longer runs uphill over the gorge's rim; the ceiling lamps hang from the roof by rods; the electric lamps have a dark hood and cage (by day they read as pale heads on posts).
+  11. **The economy, for the lead to weigh, not changed:** the gallery holds about 200 iron ore and 200 coal ore, and the yard 257 rails. At Marco's prices that is roughly 310 units of trade, by day, in the light, against 2 a day from a rig and a starting wallet of 200.
+  12. **A save made on the west bank north of the dam loaded inside rock** (that bank rose 5–10 blocks). *Fix:* once a loaded save's land is in, a buried player is set on the surface, with a toast.
+  - *Left as it is:* now and then (2 of 27 nights in the review's runs) an Ashen ends the night in another building's dark half. It walks or slips home once the player is out of its sight and ten metres off; until then it stands in the dark there and behaves as one in a nest.
+
