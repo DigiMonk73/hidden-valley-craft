@@ -99,7 +99,7 @@ check('home alive from the ruins at Las Cruces: M3’s run is done', await waitF
 // The rest of a run's salvage is put in the pack here (each kind is found as checked above).
 await g(() => {
   const h = window.__hv.game.hotbar, id = window.__hv.itemId;
-  for (const [n, k] of [['pv_panel', 8], ['wiring', 16], ['planks', 24], ['nails', 32], ['battery_cell', 6], ['gpu', 2], ['psu', 1], ['mining_board', 1], ['pipe_fittings', 2]]) h.add(id(n), k);
+  for (const [n, k] of [['pv_panel', 8], ['wiring', 20], ['planks', 24], ['nails', 32], ['battery_cell', 6], ['gpu', 2], ['psu', 1], ['mining_board', 1], ['pipe_fittings', 2]]) h.add(id(n), k);
 });
 
 /** Opens a station or thing at (x, y, z) from 2.8 m south of it, looking north. */
@@ -143,12 +143,12 @@ await make('Water pump');
 const built = { rig: await count('mining_rig'), fridge: await count('fridge'), pump: await count('water_pump') };
 check('the rig, the fridge and the pump are made once the bank is built', built.rig === 1 && built.fridge === 1 && built.pump === 1, JSON.stringify(built));
 await closeScreens();
+const wallet0 = await g(() => window.__hv.game.wallet);
 const rigAt = await setDown('mining_rig', 3);
 await setDown('fridge', 4);
 const pumpAt = await setDown('water_pump', 5);
 
 // 3. By day the rig runs and earns: its first sats tick M3's step and land in the wallet.
-const wallet0 = await g(() => window.__hv.game.wallet);
 await g(() => { window.__hv.game.hour = 11; });
 check('the rig earns its first sats while the sun shines', await waitFlag('rig_earned'), await g(() => JSON.stringify(window.__hv.game.power)));
 check('what it earns goes into the hot wallet', (await g(() => window.__hv.game.wallet)) > wallet0);
