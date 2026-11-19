@@ -4,6 +4,16 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **Phase 7** is being built by a phase session on branch `phase7` (Fable 5.2 at High effort; the owner asked for that model and effort for sub-sessions from 2026-11-19).
+- **A full independent review** (code, look, gameplay, script) runs read-only on branch `review` and writes `docs/REVIEW.md`. Apply what it finds after Phase 7 merges, before Phase 8.
+- **The owner's notes on the home** (2026-11-19), to do as its own job after Phase 7 merges, using the review's redesign proposal:
+  - a grander fireplace;
+  - a stove that looks like a larger cooking stove;
+  - a bedroom section;
+  - better furniture;
+  - true patio furniture, placed properly on the balcony.
+- **The repo rename** to hidden-valley-blocks: the owner does it after Phase 7 or when home; then point the remote and the docs at the new name.
+
 - **Phase 6 ("Zone-2 and power, M3")** was merged into `main` (branch `phase6`) and published as version 9.
   - It was built to the map shown to the owner (docs/phase6-map.png); no changes came back before it was done.
   - Checks: 302 unit tests, and all 110 checks in the four play-through parts (`tests/e2e/play.mjs` runs them in turn; `PARTS=` picks some), about an hour here.
