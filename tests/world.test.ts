@@ -26,7 +26,8 @@ describe('generator', () => {
     const balcony = generateColumn(1796 >> 5, 1024 >> 5);
     expect(balcony[ci(1796 & 31, HOME.floor - 1, 1024 & 31)]).toBe(blockId('stone_bricks'));
     expect(balcony[ci(1796 & 31, HOME.floor, 1024 & 31)]).toBe(AIR);
-    expect(col[ci(1808 & 31, 87, 1024 & 31)]).toBe(blockId('lantern'));
+    expect(col[ci(1805 & 31, 87, 1026 & 31)]).toBe(blockId('beam')); // a ceiling beam…
+    expect(col[ci(1805 & 31, 86, 1026 & 31)]).toBe(blockId('lantern')); // …and the lantern hung from it
   });
 
   it('fills the pool with water and keeps the valley floor at its height', () => {
@@ -45,8 +46,8 @@ describe('light', () => {
     const col = generateColumn(1808 >> 5, 1024 >> 5);
     const light = lightColumn(col);
     expect(light[ci(1808 & 31, 191, 1024 & 31)] >> 4).toBe(15);
-    expect(light[ci(1808 & 31, 87, 1024 & 31)] & 15).toBe(15); // the lantern itself
-    expect(light[ci(1808 & 31, 84, 1024 & 31)] & 15).toBeGreaterThan(10); // near it
+    expect(light[ci(1805 & 31, 86, 1026 & 31)] & 15).toBe(15); // the lantern itself
+    expect(light[ci(1805 & 31, 84, 1026 & 31)] & 15).toBeGreaterThan(10); // near it
   });
 
   it('keeps light right when a block is placed and removed (incremental equals fresh)', () => {

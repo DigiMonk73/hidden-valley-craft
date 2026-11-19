@@ -29,7 +29,8 @@ import { Look } from './platform/look.ts';
 import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData } from './save/save.ts';
+import { HOME_FIT } from './gen/home.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS } from './world/constants.ts';
 import { packPos, skyOf } from './world/light.ts';
@@ -93,6 +94,8 @@ const MARCO_HOURS: [number, number] = [7, 18];
 const SETTINGS_KEY = 'settings';
 const REACH = 5;
 const STEP = 1 / 60;
+/** Said when the stored valley is from before the home was rebuilt (docs/HOME.md). */
+export const EARLIER_BUILD = 'This valley was made by an earlier build. A fresh one has been started.';
 const SPAWN = { x: HOME.wallX - 3.5, y: HOME.floor, z: 1024.5, yaw: Math.PI / 2, pitch: -0.06 };
 
 export interface BootOptions {
@@ -262,7 +265,11 @@ export class Game {
       const stored = bytes ? await decodeSave(bytes) : null;
       const pendingBytes = readPending();
       const pending = pendingBytes ? await decodeSave(pendingBytes) : null;
-      const data = pending && (!stored || pending.savedAt > stored.savedAt) ? pending : stored;
+      const newest = pending && (!stored || pending.savedAt > stored.savedAt) ? pending : stored;
+      // A valley from before the home was rebuilt is not opened: its chests, bed and rooms are elsewhere now.
+      const earlier = !!newest && fromEarlierLayout(newest);
+      const data = earlier ? null : newest;
+      if (earlier) this.hud.toast(EARLIER_BUILD, 12000);
       if (data) { this.applySave(data); resumed = true; }
       if (data === pending && pending) this.editCount++; // still to be written to the main store
       else clearPending();
@@ -310,6 +317,7 @@ export class Game {
       this.hud.setLoading(done, total);
       if (this.streamer.settledAround(p.x, p.z, r)) {
         this.ready = true;
+        if (!this.opts.cam) this.settleIn();
         this.hud.setReady(false);
         if (this.opts.test) this.hud.showMenu(false);
       }
@@ -623,7 +631,8 @@ export class Game {
     const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
-      || ['bed', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
+      || blockName(t.id).startsWith('wardrobe_upper') || /^door_wood/.test(blockName(t.id))
+      || ['bed', 'bed_head', 'bed_foot', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
         'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate'].includes(name);
   }
 
@@ -729,6 +738,26 @@ export class Game {
     const at = leaveLostPack(this.world, this.hotbar, p.x, p.y + 0.2, p.z);
     if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
     this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
+  }
+
+  /**
+   * Once the world has loaded round the player: if a wall or a piece of furniture now stands where they (or the place
+   * they wake) were saved, move to a safe spot. A save must never strand its player in rock.
+   */
+  private settleIn(): void {
+    const p = this.player, at = (x: number, y: number, z: number) => this.world.blockAt(x, y, z);
+    const s = this.spawn;
+    // The balcony's own spot is never checked here: it is in a part of the world that may not have loaded yet.
+    const balcony = s.x === SPAWN.x && s.y === SPAWN.y && s.z === SPAWN.z;
+    if (!balcony && this.world.isLoaded(Math.floor(s.x), Math.floor(s.z)) && !p.fitsAt(s.x, s.y, s.z, at)) this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    if (!p.shutIn(at)) return;
+    const flying = p.flying;
+    p.setPosition(this.spawn.x, this.spawn.y, this.spawn.z);
+    p.yaw = this.spawn.yaw; p.pitch = 0; p.flying = flying;
+    this.ready = false; // load the world there before play goes on
+    this.hud.setLoadingVisible();
+    this.hud.toast('Something stands where you were. You are back at the cave.', 6000);
+    this.edited();
   }
 
   /** You wake where you last slept (or on the balcony). */
@@ -859,6 +888,8 @@ export class Game {
     let t = this.target;
     // The scout lies across two blocks: his legs open his pockets too.
     if (blockName(t.id).startsWith('scout_legs') && this.world.containerAt(t.x - 1, t.y, t.z)) t = { ...t, x: t.x - 1, id: this.world.blockAt(t.x - 1, t.y, t.z) };
+    // A wardrobe is two blocks high: its top opens the same doors.
+    if (blockName(t.id).startsWith('wardrobe_upper') && blockName(this.world.blockAt(t.x, t.y - 1, t.z)).startsWith('wardrobe_lower')) t = { ...t, y: t.y - 1, id: this.world.blockAt(t.x, t.y - 1, t.z) };
     const chest = this.world.containerAt(t.x, t.y, t.z);
     if (chest && blockName(t.id).startsWith('wall_safe') && !this.flags.has('safe_open')) {
       this.openPaper(() => this.paper.keypad('Wall safe', (code) => {
@@ -929,16 +960,22 @@ export class Game {
     }
   }
 
-  /** The builder's things: bed, bookshelves, computer, phone, map table. True if one was used. */
+  /** The builder's things: the bed (any of its blocks), bookshelves, computer, phone, map table. True if one was used. */
   private useFurniture(x: number, y: number, z: number, id: number): boolean {
     const name = BLOCK_DEFS[id]?.base ?? blockName(id);
-    if (name === 'bed') {
+    if (name === 'bed' || name === 'bed_head' || name === 'bed_foot') {
       if (this.hour < 17 && this.hour >= 6) { this.hud.toast('You can sleep from five in the evening'); return true; }
       // A night's sleep (up to thirteen hours) moves the garden on as if those hours had passed.
       const hours = (6 - this.hour + 24) % 24;
       growWhileAway(this.world, this.player.x, this.player.z, hours, Math.random);
       this.hour = 6;
-      this.spawn = { x: this.player.x, y: this.player.y, z: this.player.z, yaw: this.player.yaw };
+      // The builder's own bed: you wake at its foot, facing the window and the valley. Any other bed: where you stood.
+      if (HOME_FIT.bed.some(([bx, by, bz]) => bx === x && by === y && bz === z)) {
+        this.spawn = { ...HOME.wake };
+        this.player.setPosition(HOME.wake.x, HOME.wake.y, HOME.wake.z);
+        this.player.yaw = HOME.wake.yaw;
+        this.player.pitch = 0;
+      } else this.spawn = { x: this.player.x, y: this.player.y, z: this.player.z, yaw: this.player.yaw };
       this.vitals.hp = Math.min(100, this.vitals.hp + 30);
       this.vitals.hunger = Math.max(0, this.vitals.hunger - 10);
       this.vitals.thirst = Math.max(0, this.vitals.thirst - 10);
@@ -1409,7 +1446,7 @@ export class Game {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
-      format: SAVE_FORMAT, version: SAVE_VERSION, savedAt: new Date().toISOString(), hour: this.hour,
+      format: SAVE_FORMAT, version: SAVE_VERSION, layout: WORLD_LAYOUT, savedAt: new Date().toISOString(), hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.carried().toSave(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
@@ -1522,6 +1559,7 @@ export class Game {
   private async loadBytes(bytes: Uint8Array | null): Promise<void> {
     const d = bytes ? await decodeSave(bytes) : null;
     if (!d) { this.hud.toast('That isn’t a Hidden Valley save'); return; }
+    if (fromEarlierLayout(d)) { this.hud.toast('That save was made by an earlier build, before the home was rebuilt. It can’t be opened in this one; your valley here is untouched.', 9000); return; }
     // Stamp it with this computer's clock, so it compares fairly with saves made here afterwards.
     d.savedAt = new Date().toISOString();
     await this.store.set(SAVE_KEY, await encodeSave(d));

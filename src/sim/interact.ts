@@ -64,9 +64,12 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
  */
 export function toggleDoor(world: World, x: number, y: number, z: number, occupied: (x: number, y: number, z: number) => boolean = () => false): boolean | 'blocked' {
   const from = world.blockAt(x, y, z);
-  const m = blockName(from).match(/^(steel_door)(_open)?(@\w+)?$/);
+  const door = (id: number) => blockName(id).match(/^(steel_door|door_wood_r|door_wood)(_open)?(@\w+)?$/);
+  const m = door(from);
   if (!m) return false;
-  const next = blockId(m[1] + (m[2] ? '' : '_open') + (m[3] ?? ''));
+  // A double door's two leaves (door_wood and door_wood_r) open and shut together.
+  const family = (name: string) => name.replace(/_r$/, '');
+  const swung = (id: number) => { const d = door(id)!; return blockId(d[1] + (d[2] ? '' : '_open') + (d[3] ?? '')); };
   // The door's parts: the same block, joined up, down and sideways (a few blocks at most).
   const parts: [number, number, number][] = [];
   const seen = new Set<string>();
@@ -74,13 +77,14 @@ export function toggleDoor(world: World, x: number, y: number, z: number, occupi
   while (stack.length && parts.length < 8) {
     const [a, b, c] = stack.pop()!;
     const k = `${a},${b},${c}`;
-    if (seen.has(k) || world.blockAt(a, b, c) !== from) continue;
+    const part = door(world.blockAt(a, b, c));
+    if (seen.has(k) || !part || family(part[1]) !== family(m[1]) || part[2] !== m[2] || part[3] !== m[3]) continue;
     seen.add(k);
     parts.push([a, b, c]);
     for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) stack.push([a + dx, b + dy, c + dz]);
   }
   const shutting = !!m[2];
   if (shutting && parts.some(([a, b, c]) => occupied(a, b, c))) return 'blocked'; // never shut on someone
-  for (const [a, b, c] of parts) world.setBlock(a, b, c, next);
+  for (const [a, b, c] of parts) world.setBlock(a, b, c, swung(world.blockAt(a, b, c)));
   return true;
 }

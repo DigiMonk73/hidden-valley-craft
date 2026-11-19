@@ -10,10 +10,12 @@ import { PHARMACY_SHELF, HARDWARE_CRATE, SERVER_RACKS, UPS_CABINETS, LEAD_CASKET
 
 export const CHEST_SLOTS = 27;
 
-export interface HomeChest { x: number; y: number; z: number; title: string; items: [string, number][]; safe?: boolean }
+/** `block`: what holds it, where that is not a chest (the bedroom's wardrobe, placed by src/gen/home.ts). */
+export interface HomeChest { x: number; y: number; z: number; title: string; items: [string, number][]; safe?: boolean; block?: string }
 
 export const HOME_CHESTS: HomeChest[] = [
-  { x: 1813, y: 82, z: 1016, title: 'Linen chest', items: [
+  // The bedroom's wardrobe holds what the linen chest held.
+  { x: 1806, y: 82, z: 1041, title: 'Wardrobe: linen and lamps', block: 'wardrobe_lower', items: [
     ['builders_journal', 1], ['bandage', 8], ['poultice', 6], ['lantern', 8], ['glass', 16],
   ] },
   { x: 1830, y: 82, z: 1007, title: 'Tool wall', items: [

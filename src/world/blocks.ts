@@ -23,6 +23,8 @@ interface BlockSource {
   hardness: number;
   drop?: string; // a block or item name
   boxes?: Box[]; // for render "model"
+  /** A texture for each box, in the boxes' order, where it differs from the block's own (null: the block's). */
+  boxTex?: (Tex | null)[];
   facing?: boolean; // placed facing the player: expands into four blocks (name, name@east, @south, @west)
   collideTop?: number; // collision height in sixteenths if not the boxes' own (a railing is 32: no jumping or stepping over)
   crop?: { kind: string; stage: number }; // a crop at a growth stage (the last stage is ripe)
@@ -78,6 +80,14 @@ export const B_HARDNESS = new Float32Array(BLOCK_COUNT);
 export const B_FACE_TEX = new Uint16Array(BLOCK_COUNT * 6);
 /** Boxes of a model block, in sixteenths (undefined for other blocks). */
 export const B_BOXES: (Box[] | undefined)[] = new Array(BLOCK_COUNT);
+/** Texture layer for each face of each box of a model block: index = box * 6 + face. */
+export const B_BOX_TEX: (Uint16Array | undefined)[] = new Array(BLOCK_COUNT);
+/** How each box of a model block is drawn: 0 as lit by its surroundings, BOX_LIT glowing by itself, BOX_FLAME a flame. */
+export const B_BOX_GLOW: (Uint8Array | undefined)[] = new Array(BLOCK_COUNT);
+export const BOX_LIT = 1;
+export const BOX_FLAME = 2;
+/** A texture named lit_… glows by itself (a lamp's shade, coals); one named flame_… glows and wavers. */
+function glowOf(tex: string): number { return tex.startsWith('flame_') ? BOX_FLAME : tex.startsWith('lit_') ? BOX_LIT : 0; }
 /** Height a solid block stops the player at, in sixteenths (16 = a full block; slabs are 8). */
 export const B_TOP = new Uint8Array(BLOCK_COUNT);
 
@@ -109,14 +119,28 @@ defs.forEach((d, id) => {
   B_HARDNESS[id] = d.hardness;
   B_BOXES[id] = d.boxes;
   B_TOP[id] = d.collideTop ?? (d.boxes && d.solid ? Math.max(...d.boxes.map((b) => b[4])) : 16);
-  if (d.tex) {
-    const t = typeof d.tex === 'string' ? { top: d.tex, side: d.tex, bottom: d.tex } : d.tex;
+  const facesOf = (tex: Tex): number[] => {
+    const t = typeof tex === 'string' ? { top: tex, side: tex, bottom: tex } : tex;
     const side = texLayer(t.side);
     const top = texLayer(t.top);
     const bottom = texLayer(t.bottom);
     const faces = [side, side, top, bottom, side, side];
     if (t.front) faces[FRONT_FACE[d.facingIndex ?? 0]] = texLayer(t.front);
-    for (let f = 0; f < 6; f++) B_FACE_TEX[id * 6 + f] = faces[f];
+    return faces;
+  };
+  if (d.tex) facesOf(d.tex).forEach((layer, f) => (B_FACE_TEX[id * 6 + f] = layer));
+  if (d.boxes) {
+    if (d.boxTex && d.boxTex.length !== d.boxes.length) throw new Error(`block "${d.name}": boxTex must name a texture (or null) for each of its ${d.boxes.length} boxes`);
+    const tex = new Uint16Array(d.boxes.length * 6);
+    const glow = new Uint8Array(d.boxes.length);
+    d.boxes.forEach((_, b) => {
+      const t = d.boxTex?.[b] ?? d.tex;
+      if (!t) throw new Error(`block "${d.name}": box ${b} has no texture`);
+      tex.set(facesOf(t), b * 6);
+      glow[b] = glowOf(typeof t === 'string' ? t : t.side);
+    });
+    B_BOX_TEX[id] = tex;
+    B_BOX_GLOW[id] = glow;
   }
 });
 

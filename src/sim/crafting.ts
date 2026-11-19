@@ -26,7 +26,7 @@ export const STATION_LABEL: Record<Station, string> = {
   hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill',
 };
 
-/** Which station a block is, if any. The fireplace cooks like the stove. */
+/** Which station a block is, if any. The hearth cooks like the range, and so does any part of either. */
 export function stationOf(block: number): Station | null {
   const base = BLOCK_DEFS[block]?.base ?? blockName(block);
   switch (base) {
@@ -35,6 +35,8 @@ export function stationOf(block: number): Station | null {
     case 'smelter': return 'smelter';
     case 'anvil': return 'anvil';
     case 'stove': case 'fireplace': return 'stove';
+    case 'range_firebox': case 'range_oven': case 'range_tank': case 'cook_pot': case 'kettle': return 'stove';
+    case 'hearth_fire': case 'hearth_flames': case 'ember_bed': return 'stove';
     case 'tannery_rack': return 'tannery';
     case 'forge': return 'forge';
     case 'powder_mill': return 'powder_mill';

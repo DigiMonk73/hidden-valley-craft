@@ -134,6 +134,18 @@ export class Player {
     return this.obstacleTop(x, y, z, blockAt) > -Infinity;
   }
 
+  /** Is there room for the body with its feet at (x, y, z)? */
+  fitsAt(x: number, y: number, z: number, blockAt: BlockAt): boolean { return !this.collides(x, y, z, blockAt); }
+
+  /**
+   * Is the body shut in where it stands: inside something solid, with no open space within the two blocks above
+   * that `move` would rise through? (A save from before a wall or a piece of furniture stood there.)
+   */
+  shutIn(blockAt: BlockAt): boolean {
+    if (!this.collides(this.x, this.y, this.z, blockAt)) return false;
+    return [1, 2].every((up) => this.collides(this.x, Math.floor(this.y) + up, this.z, blockAt));
+  }
+
   /** True if a block at (bx, by, bz) would overlap the player's body. */
   intersectsBlock(bx: number, by: number, bz: number): boolean {
     return bx + 1 > this.x - WIDTH / 2 && bx < this.x + WIDTH / 2 && by + 1 > this.y && by < this.y + HEIGHT && bz + 1 > this.z - WIDTH / 2 && bz < this.z + WIDTH / 2;

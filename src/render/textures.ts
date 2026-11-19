@@ -992,6 +992,217 @@ DRAW.wall_mark = (c) => { DRAW.reinforced_concrete(c); brokenCircle(c, hex('#ece
 DRAW.steel_gate = (c) => { c.noise(hex('#5a5f64'), 5, RUST, 0.12); for (let x = 0; x < TEX; x += 4) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.7); for (const y of [3, 12]) for (let x = 0; x < TEX; x++) c.shade(x, y, 1.2); };
 DRAW.searchlight = (c) => { c.noise(hex('#3a3d40'), 4); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 7.5, y - 7.5) < 5) c.set(x, y, hex('#fffbe6')); };
 
+
+// ---- The builder's home, rebuilt (docs/HOME.md) ---------------------------------------------------------
+// Furniture is made of several boxes, each with its own texture, and a box shows the part of its texture that
+// matches where it sits in the block. So the fronts below are drawn where their box is, not centred on the tile.
+const WALNUT = hex('#5b3a21'), WALNUT_D = hex('#40281a'), WALNUT_L = hex('#74502f');
+const BRASS = hex('#c9a227'), BRASS_L = hex('#f0d264'), BRASS_D = hex('#8a6d17');
+const IRON_C = hex('#2b2b2e'), IRON_L = hex('#45454a'), IRON_D = hex('#1b1b1d');
+const CREAM = hex('#d8ccb0');
+const rect = (c: Canvas16, x0: number, y0: number, x1: number, y1: number, col: RGB, a = 255) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) c.set(x, y, col, a); };
+const box = (c: Canvas16, x0: number, y0: number, x1: number, y1: number, col: RGB) => { for (let x = x0; x <= x1; x++) { c.set(x, y0, col); c.set(x, y1, col); } for (let y = y0; y <= y1; y++) { c.set(x0, y, col); c.set(x1, y, col); } };
+/** Wood with the grain running across the tile: a base, a few long darker streaks, a knot or two. */
+function wood(c: Canvas16, base: RGB, dark: RGB, light: RGB, amount = 5): void {
+  c.noise(base, amount);
+  for (const y of [2, 6, 9, 13]) { let x = Math.floor(c.rng() * 6); while (x < TEX) { const n = 3 + Math.floor(c.rng() * 6); for (let k = 0; k < n && x < TEX; k++, x++) c.set(x, y, dark); x += 1 + Math.floor(c.rng() * 4); } }
+  for (const y of [4, 11]) for (let x = 0; x < TEX; x++) if (c.rng() < 0.3) c.set(x, y, light);
+}
+DRAW.walnut = (c) => wood(c, WALNUT, WALNUT_D, WALNUT_L);
+DRAW.teak = (c) => wood(c, hex('#a07a4c'), hex('#836039'), hex('#b58f60'), 6);
+DRAW.teak_slats = (c) => { wood(c, hex('#a07a4c'), hex('#836039'), hex('#b58f60'), 6); for (const y of [0, 5, 10, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, [0, 0, 0], 0); for (const y of [1, 6, 11]) for (let x = 0; x < TEX; x++) c.shade(x, y, 1.12); for (const y of [4, 9, 14]) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.82); };
+DRAW.beam = (c) => { wood(c, hex('#5e4127'), hex('#3f2a18'), hex('#765536'), 7); for (let k = 0; k < 5; k++) { const x = Math.floor(c.rng() * 14), y = Math.floor(c.rng() * 16); c.shade(x, y, 0.75); c.shade(x + 1, y, 0.8); } for (let x = 0; x < TEX; x++) { c.shade(x, 0, 0.8); c.shade(x, 15, 0.72); } };
+DRAW.beam_t = (c) => { const b = new Canvas16('beam'); DRAW.beam(b); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) c.set(x, y, b.get(y, x)); };
+DRAW.linen = (c) => { c.noise(CREAM, 5, [hex('#cbbf9f'), hex('#e2d8bf')], 0.25); for (let y = 0; y < TEX; y += 2) for (let x = (y >> 1) % 2; x < TEX; x += 2) c.shade(x, y, 0.96); };
+DRAW.sheet = (c) => { c.noise(hex('#ebe4d2'), 3, [hex('#dfd7c2')], 0.12); };
+DRAW.pillow = (c) => { c.noise(hex('#f4efe4'), 3); for (let k = 0; k < TEX; k++) { c.shade(k, 15, 0.9); c.shade(15, k, 0.93); } };
+DRAW.leather = (c) => { c.noise(hex('#8a4a2a'), 6, [hex('#7a3f23'), hex('#9a5632')], 0.3); for (let k = 0; k < 6; k++) { let x = Math.floor(c.rng() * 16), y = Math.floor(c.rng() * 16); for (let n = 0; n < 4; n++) { c.shade(x, y, 0.8); x += 1; y += c.rng() < 0.5 ? 1 : 0; } } for (const [x, y] of [[4, 4], [11, 4], [4, 11], [11, 11]]) c.set(x, y, hex('#5a2e18')); };
+DRAW.blanket = (c) => {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const band = y % 8;
+    const col = band === 1 ? hex('#d39b3a') : band === 2 ? hex('#efe2c4') : band === 3 ? hex('#2f7f7a') : hex('#a8332b');
+    c.set(x, y, (x + y) % 3 === 0 ? [col[0] * 0.88, col[1] * 0.88, col[2] * 0.88] : col);
+  }
+};
+DRAW.throw_pillow = (c) => { c.noise(hex('#2f7f7a'), 5, [hex('#276b66')], 0.2); for (let k = 0; k < TEX; k += 2) { c.set(k, k, hex('#d39b3a')); c.set(15 - k, k, hex('#d39b3a')); } };
+DRAW.seat_cushion = (c) => { c.noise(hex('#5d7f8a'), 5, [hex('#51717c'), hex('#6b8f9a')], 0.25); for (const [x, y] of [[3, 3], [11, 3], [7, 8], [3, 12], [11, 12]]) { c.set(x, y, hex('#3c545c')); c.set(x + 1, y, hex('#86a8b3')); } for (let k = 0; k < TEX; k++) { c.shade(k, 0, 0.85); c.shade(k, 15, 0.85); } };
+DRAW.brass = (c) => { c.noise(BRASS, 5); for (let k = 0; k < TEX; k++) { c.set(k, (k * 3) & 15, BRASS_L); if (k % 5 === 0) c.set(k, (k * 7 + 5) & 15, BRASS_D); } };
+DRAW.cast_iron = (c) => { c.noise(IRON_C, 4, [IRON_D, hex('#333336')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 0, IRON_L); c.set(x, 15, IRON_D); } };
+/** The range's fronts are seen through its body (rows 2 to 13 of the tile). */
+function rangeFront(c: Canvas16): void { DRAW.cast_iron(c); for (let x = 0; x < TEX; x++) { c.set(x, 2, IRON_L); c.set(x, 13, IRON_D); } for (let y = 2; y < 14; y++) { c.set(0, y, IRON_D); c.set(15, y, IRON_D); } }
+DRAW.range_oven_front = (c) => {
+  rangeFront(c);
+  box(c, 2, 4, 13, 12, IRON_L); rect(c, 3, 5, 12, 11, hex('#232326'));
+  rect(c, 4, 9, 11, 9, IRON_L); // a vent slit
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx * dx + dy * dy <= 1) c.set(8 + dx, 7 + dy, hex('#e9e2cf')); // the thermometer
+  c.set(8, 7, hex('#b5452f'));
+  c.set(3, 5, BRASS); c.set(3, 11, BRASS); // hinges
+};
+DRAW.range_fire_front = (c) => {
+  rangeFront(c);
+  box(c, 3, 3, 12, 8, IRON_L); rect(c, 4, 4, 11, 7, hex('#1a1210'));
+  for (let x = 4; x <= 11; x++) for (let y = 4; y <= 7; y++) if (x % 2 === 0) c.set(x, y, y >= 6 ? hex('#ffb347') : hex('#ff7a2e')); // the glow through the grate
+  box(c, 4, 10, 11, 12, IRON_L); c.set(7, 11, BRASS); c.set(8, 11, BRASS_L); // the ash door and its knob
+};
+DRAW.range_tank_front = (c) => {
+  rangeFront(c);
+  box(c, 2, 3, 7, 8, IRON_L); box(c, 9, 3, 13, 8, IRON_L); c.set(6, 6, BRASS); c.set(10, 6, BRASS);
+  rect(c, 2, 10, 13, 10, IRON_L);
+  c.set(7, 11, BRASS); c.set(8, 11, BRASS_L); c.set(8, 12, BRASS); // the tap
+};
+DRAW.range_top = (c) => {
+  c.noise(hex('#252528'), 3);
+  for (let k = 0; k < TEX; k++) { c.set(k, 0, IRON_L); c.set(k, 15, IRON_L); c.set(0, k, IRON_L); c.set(15, k, IRON_L); }
+  for (const [cx, cy] of [[4.5, 5.5], [10.5, 9.5]]) for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - cx, y - cy); if (d > 2.4 && d < 3.4) c.set(x, y, IRON_L); else if (d < 1) c.set(x, y, hex('#5a3a2a')); }
+};
+DRAW.range_top_plain = (c) => {
+  c.noise(hex('#252528'), 3);
+  for (let k = 0; k < TEX; k++) { c.set(k, 0, IRON_L); c.set(k, 15, IRON_L); c.set(0, k, IRON_L); c.set(15, k, IRON_L); }
+  box(c, 4, 5, 11, 12, hex('#38383c')); c.set(7, 8, IRON_L); c.set(8, 8, IRON_L);
+};
+DRAW.copper = (c) => {
+  c.noise(hex('#b4683a'), 8, [hex('#c97b48'), hex('#9d5630'), hex('#d68f5c')], 0.3);
+  for (let x = 0; x < TEX; x++) { c.set(x, 15, hex('#7d4526')); c.set(x, 14, hex('#955330')); if (x % 4 === 1) c.set(x, 13, hex('#e6a877')); c.set(x, 6, hex('#955330')); }
+};
+DRAW.firebrick = (c) => {
+  c.noise(hex('#7d4631'), 8, [hex('#6a3a28'), hex('#8f5238'), hex('#5a3124')], 0.3);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const off = (y >> 2) % 2 === 0 ? 0 : 4; if (y % 4 === 3 || (x + off) % 8 === 7) c.set(x, y, hex('#3a2620')); }
+  for (let k = 0; k < 10; k++) c.shade(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), 0.7); // soot
+};
+DRAW.lit_embers = (c) => {
+  const cols = [hex('#ff7a2e'), hex('#ffb347'), hex('#e0461c'), hex('#ffd98a'), hex('#b02e12'), hex('#3a1a10')];
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) c.set(x, y, cols[Math.floor(c.rng() * cols.length)]);
+  for (let k = 0; k < 10; k++) { const x = Math.floor(c.rng() * 15), y = Math.floor(c.rng() * 15); c.set(x, y, hex('#2a1510')); c.set(x + 1, y, hex('#2a1510')); }
+};
+DRAW.char_log = (c) => {
+  c.noise(hex('#2c1e16'), 6, [hex('#1c120d'), hex('#3d2a1e')], 0.3);
+  for (let k = 0; k < 9; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), k % 3 ? hex('#ff7a2e') : hex('#ffb347'));
+  for (const y of [3, 9, 13]) for (let x = 0; x < TEX; x++) if (c.rng() < 0.5) c.set(x, y, hex('#140c08'));
+};
+/** A flame as a sheet: tongues rising from row `foot` of the tile to row `top`, between two columns. */
+function flame(c: Canvas16, x0: number, x1: number, top: number, tongues: number, foot = 15): void {
+  c.clearAlpha();
+  const mid = (x0 + x1) / 2, half = (x1 - x0) / 2;
+  for (let t = 0; t < tongues; t++) {
+    const cx = x0 + ((t + 0.5) / tongues) * (x1 - x0) + (c.rng() - 0.5) * 1.5;
+    const reach = 1 - Math.abs(cx - mid) / (half + 1.5); // the middle tongues stand tallest
+    const tip = Math.round(foot - (foot - top) * (0.55 + 0.45 * reach) * (0.8 + 0.2 * c.rng()));
+    const lean = (c.rng() - 0.5) * 0.3;
+    for (let y = foot; y >= tip; y--) {
+      const h = (foot - y) / Math.max(1, foot - tip); // 0 at the foot, 1 at the tip
+      const w = (1 - h) * (1 - h) * (1.2 + (foot - top) / 13) + 0.4;
+      const px = cx + lean * (foot - y) + Math.sin(y * 1.3 + t) * 0.5;
+      for (let x = Math.round(px - w); x <= Math.round(px + w); x++) {
+        if (x < x0 || x > x1) continue;
+        const core = Math.abs(x - px) / (w + 0.01);
+        c.set(x, y, h < 0.35 && core < 0.45 ? hex('#fff1b8') : h < 0.65 && core < 0.7 ? hex('#ffc04d') : h > 0.85 ? hex('#e8501c') : hex('#ff8a2e'));
+      }
+    }
+  }
+}
+DRAW.flame_a = (c) => flame(c, 1, 14, 0, 6);
+DRAW.flame_b = (c) => flame(c, 2, 13, 3, 4);
+DRAW.flame_c = (c) => flame(c, 2, 13, 6, 4);
+DRAW.flame_low = (c) => flame(c, 3, 12, 0, 3, 5);
+DRAW.flame_candle = (c) => { c.clearAlpha(); for (const [x, y, col] of [[7, 5, '#ffc04d'], [8, 5, '#ffc04d'], [7, 4, '#fff1b8'], [8, 4, '#ffc04d'], [7, 3, '#ff8a2e'], [8, 2, '#ff8a2e'], [8, 3, '#ffc04d']] as [number, number, string][]) c.set(x, y, hex(col)); };
+DRAW.candle = (c) => { c.noise(hex('#efe6cc'), 3); };
+DRAW.log_pile_end = (c) => {
+  // Split logs stacked end-on: pale cut faces, each ringed with bark, dark gaps between.
+  c.noise(hex('#24170f'), 4);
+  for (const [cx, cy, r] of [[2.5, 2.5, 2.6], [8, 2.5, 2.6], [13.5, 2.5, 2.6], [5, 7.5, 2.6], [10.5, 7.5, 2.6], [0, 7.5, 2.2], [15.5, 7.5, 2.2], [2.5, 12.8, 2.7], [8, 12.8, 2.7], [13.5, 12.8, 2.7]] as [number, number, number][])
+    for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - cx, y - cy); if (d < r) c.set(x, y, d > r - 0.9 ? hex('#6b4a2b') : d < 0.7 ? hex('#9a7242') : hex('#c9a36b')); }
+};
+DRAW.log_pile_side = (c) => {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const r = y % 5; const base = r === 4 ? hex('#2a1c12') : r === 0 ? hex('#6b4a2b') : hex('#5a3d22'); const j = (c.rng() - 0.5) * 14; c.set(x, y, [base[0] + j, base[1] + j, base[2] + j]); }
+  for (let k = 0; k < 8; k++) { const x = Math.floor(c.rng() * 14), y = Math.floor(c.rng() * 16); c.shade(x, y, 0.7); c.shade(x + 1, y, 0.7); c.shade(x + 2, y, 0.75); }
+};
+DRAW.counter_top = (c) => { c.noise(hex('#cdc6b2'), 5, [hex('#bfb8a4'), hex('#dad4c2')], 0.15); for (let k = 0; k < TEX; k++) { c.shade(k, 15, 0.82); c.shade(k, 14, 0.92); } for (let k = 0; k < 4; k++) c.shade(3 + k * 3, 5 + k, 0.9); };
+DRAW.counter_front = (c) => {
+  wood(c, hex('#8a5e36'), hex('#6b4627'), hex('#9d7044'));
+  for (let y = 2; y < TEX; y++) { c.set(0, y, hex('#4a3220')); c.set(7, y, hex('#4a3220')); c.set(8, y, hex('#4a3220')); c.set(15, y, hex('#4a3220')); }
+  for (let x = 0; x < TEX; x++) { c.set(x, 2, hex('#4a3220')); c.set(x, 15, hex('#4a3220')); }
+  box(c, 2, 4, 5, 13, hex('#75502e')); box(c, 10, 4, 13, 13, hex('#75502e'));
+  c.set(6, 8, BRASS); c.set(9, 8, BRASS);
+};
+DRAW.basin = (c) => { c.noise(hex('#7fb2c8'), 4, [hex('#a6cad9'), hex('#6da3ba')], 0.3); for (let k = 3; k < 13; k++) { c.set(k, 3, hex('#e6ecea')); c.set(k, 12, hex('#e6ecea')); c.set(3, k, hex('#e6ecea')); c.set(12, k, hex('#e6ecea')); } c.set(6, 6, hex('#dff0f5')); c.set(7, 5, hex('#dff0f5')); };
+DRAW.enamel = (c) => { c.noise(hex('#eef0ec'), 3); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#3b6ea5')); c.set(x, 4, hex('#3b6ea5')); } };
+function panelDoors(c: Canvas16, top: number, bottom: number): void {
+  wood(c, WALNUT, WALNUT_D, WALNUT_L, 4);
+  for (let y = 0; y < TEX; y++) { c.set(0, y, WALNUT_D); c.set(15, y, WALNUT_D); c.set(7, y, WALNUT_D); c.set(8, y, hex('#35211a')); }
+  box(c, 2, top, 5, bottom, WALNUT_L); box(c, 10, top, 13, bottom, WALNUT_L);
+  for (let y = top + 1; y < bottom; y++) { c.shade(3, y, 0.86); c.shade(4, y, 0.86); c.shade(11, y, 0.86); c.shade(12, y, 0.86); }
+}
+DRAW.wardrobe_lower = (c) => { panelDoors(c, 5, 12); for (const y of [1, 2]) { c.set(6, y, BRASS); c.set(9, y, BRASS); } c.set(6, 1, BRASS_L); for (let x = 0; x < TEX; x++) { c.set(x, 14, WALNUT_D); c.set(x, 15, hex('#35211a')); } };
+DRAW.wardrobe_upper = (c) => { panelDoors(c, 4, 13); for (let x = 0; x < TEX; x++) { c.set(x, 0, WALNUT_L); c.set(x, 1, WALNUT_D); c.set(x, 2, WALNUT_L); } c.set(6, 14, BRASS); c.set(9, 14, BRASS); };
+DRAW.nightstand_front = (c) => {
+  wood(c, WALNUT, WALNUT_D, WALNUT_L, 4);
+  box(c, 2, 5, 13, 9, WALNUT_D); box(c, 2, 10, 13, 15, WALNUT_D);
+  rect(c, 3, 6, 12, 8, WALNUT_L); rect(c, 3, 11, 12, 14, WALNUT_L);
+  for (const y of [7, 12]) { c.set(7, y, BRASS); c.set(8, y, BRASS_L); }
+};
+DRAW.desk_front = (c) => {
+  wood(c, WALNUT, WALNUT_D, WALNUT_L, 4);
+  for (const [y0, y1] of [[3, 6], [7, 10], [11, 15]]) { box(c, 1, y0, 14, y1, WALNUT_D); rect(c, 2, y0 + 1, 13, y1 - 1, WALNUT_L); c.set(7, (y0 + y1) >> 1, BRASS); c.set(8, (y0 + y1) >> 1, BRASS_L); }
+};
+DRAW.lit_shade = (c) => {
+  // A parchment shade with the lamp behind it: brightest across the middle, pleated, a darker hem top and bottom.
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const glow = 1 - Math.abs(((y + 8) % 8) - 3.5) / 9; const col = x % 3 === 0 ? hex('#e9b25e') : hex('#f7c873'); c.set(x, y, [col[0] * glow, col[1] * glow, col[2] * glow * 0.95]); }
+};
+DRAW.door_wood = (c) => {
+  wood(c, hex('#7a5130'), hex('#5e3c20'), hex('#8f6540'), 5);
+  for (const x of [0, 5, 10, 15]) for (let y = 0; y < TEX; y++) c.set(x, y, hex('#4a3220'));
+  for (const y of [3, 12]) { for (let x = 0; x < 13; x++) c.set(x, y, hex('#2c2a27')); c.set(2, y - 1, hex('#55524c')); c.set(7, y - 1, hex('#55524c')); c.set(12, y - 1, hex('#55524c')); }
+  for (const [x, y] of [[12, 7], [13, 7], [12, 9], [13, 9], [11, 8], [14, 8]]) c.set(x, y, hex('#2c2a27')); // the ring handle
+  for (let y = 0; y < TEX; y++) { c.shade(1, y, 1.06); }
+};
+DRAW.mirror = (c) => {
+  wood(c, WALNUT, WALNUT_D, WALNUT_L, 4);
+  for (let y = 2; y <= 13; y++) for (let x = 4; x <= 11; x++) { const t = (y - 2) / 11; c.set(x, y, [150 + 60 * t, 178 + 50 * t, 196 + 40 * t]); }
+  for (let k = 0; k < 5; k++) { c.set(5 + k, 9 - k, hex('#f4fbff')); c.set(6 + k, 12 - k, hex('#dcebf2')); }
+};
+DRAW.clock_face = (c) => {
+  wood(c, WALNUT, WALNUT_D, WALNUT_L, 4);
+  for (let y = 7; y < TEX; y++) for (let x = 4; x < 12; x++) { const d = Math.hypot(x - 7.5, y - 11); if (d < 3.3) c.set(x, y, d > 2.5 ? BRASS : hex('#efe6cc')); }
+  c.set(7, 11, hex('#2c2a27')); c.set(7, 10, hex('#2c2a27')); c.set(7, 9, hex('#2c2a27')); c.set(8, 11, hex('#2c2a27')); c.set(9, 12, hex('#2c2a27'));
+};
+DRAW.book_red = (c) => { c.noise(hex('#8e2b25'), 4); for (let x = 0; x < TEX; x++) { c.set(x, 6, hex('#e8dfc6')); c.set(x, 0, hex('#c9a227')); } };
+DRAW.painting = (c) => {
+  wood(c, WALNUT, WALNUT_D, WALNUT_L, 4);
+  for (let y = 3; y <= 12; y++) for (let x = 2; x <= 13; x++) {
+    const sky = y <= 6, cliffL = x <= 4 && y <= 10, cliffR = x >= 11 && y <= 10, far = y === 7 || (y === 6 && x > 5 && x < 10);
+    let col = sky ? [236 - (y - 3) * 6, 170 + (y - 3) * 12, 130 + (y - 3) * 22] as RGB : hex('#4f8a3a');
+    if (far) col = hex('#b9a888');
+    if (cliffL || cliffR) col = (x + y) % 3 ? hex('#a08a68') : hex('#8a7556');
+    if (y >= 11) col = (x + y) % 2 ? hex('#3f7a30') : hex('#5a9a42');
+    if (x === 7 && y >= 6 && y <= 9) col = hex('#eef6f8'); // the falls
+    if (y === 10 && x >= 6 && x <= 9) col = hex('#5aa0c0'); // the pool
+    c.set(x, y, col);
+  }
+  c.set(9, 4, hex('#fff1b8')); c.set(10, 4, hex('#ffd98a'));
+};
+DRAW.plaster = (c) => { c.noise(hex('#d6ccb4'), 4, [hex('#cbc1a8'), hex('#dfd6c0')], 0.2); for (let k = 0; k < 5; k++) { const x = Math.floor(c.rng() * 12), y = Math.floor(c.rng() * 16); for (let n = 0; n < 4; n++) c.shade(x + n, y, 0.95); } };
+DRAW.clay_pot = (c) => { c.noise(hex('#b2633a'), 7, [hex('#9a5230'), hex('#c47446')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 4, hex('#7d4226')); c.set(x, 5, hex('#c98356')); c.set(x, 0, hex('#2a1c18')); } };
+/** A fitted rug, nine pieces: a patterned field, and a border on the sides its letters name (n, e, s, w). */
+function fittedRug(c: Canvas16, sides: string, field: RGB, motif: RGB, band: RGB, line: RGB, edge: RGB): void {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = (Math.abs(((x + 4) % 8) - 4) + Math.abs(((y + 4) % 8) - 4)); // a lattice of small diamonds
+    const col = d === 0 ? line : d <= 1 ? motif : field;
+    c.set(x, y, (x * 3 + y * 5) % 7 === 0 ? [col[0] * 0.9, col[1] * 0.9, col[2] * 0.9] : col);
+  }
+  const depth = (x: number, y: number) => Math.min(sides.includes('n') ? y : 99, sides.includes('s') ? 15 - y : 99, sides.includes('w') ? x : 99, sides.includes('e') ? 15 - x : 99);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const k = depth(x, y);
+    if (k === 0) c.set(x, y, (x + y) % 2 ? edge : [edge[0] * 0.8, edge[1] * 0.8, edge[2] * 0.8]); // the fringe
+    else if (k === 1 || k === 4) c.set(x, y, line);
+    else if (k === 2 || k === 3) c.set(x, y, (x + y) % 4 === 0 ? motif : band);
+  }
+}
+for (const k of ['nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se']) {
+  const sides = k === 'c' ? '' : k;
+  DRAW[`rug_red_${k}`] = (c) => fittedRug(c, sides, hex('#8e2b25'), hex('#b5452f'), hex('#2f6f6a'), hex('#e8dcbc'), hex('#d39b3a'));
+  DRAW[`rug_blue_${k}`] = (c) => fittedRug(c, sides, hex('#2f4a6a'), hex('#45688f'), hex('#9a3a2c'), hex('#e8dcbc'), hex('#c9a55a'));
+}
+
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */
 export function drawTexture(name: string): Uint8ClampedArray {
   const c = new Canvas16(name);

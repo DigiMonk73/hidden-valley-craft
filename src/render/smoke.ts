@@ -46,9 +46,14 @@ const HEIGHT = 70; // how high the column rises before it thins out
 const RISE = 1.6; // m/s
 
 /** A column's look: grey smoke over the outpost; white steam from the hot spring's vent (docs/PHASE6.md). */
-export interface ColumnLook { color: [number, number, number]; height: number; rise: number; size: number; drift: number }
+/** `spread`: how far the puffs start from the column's foot (1 if unset: a wide fire; a chimney's is narrow). */
+export interface ColumnLook { color: [number, number, number]; height: number; rise: number; size: number; drift: number; spread?: number }
 const SMOKE: ColumnLook = { color: [0.5, 0.49, 0.48], height: HEIGHT, rise: RISE, size: 1, drift: 26 };
 export const STEAM: ColumnLook = { color: [0.9, 0.91, 0.93], height: 34, rise: 2.4, size: 0.55, drift: 8 };
+/** Wood smoke from the home's chimney on the plateau, and the thinner thread from the range's flue (docs/HOME.md). */
+export const CHIMNEY: ColumnLook = { color: [0.62, 0.61, 0.6], height: 22, rise: 1.5, size: 0.16, drift: 7, spread: 0.12 };
+// The flue ends under an overhang of the cliff: its smoke curls out west, over the valley, as it rises.
+export const FLUE: ColumnLook = { color: [0.66, 0.65, 0.64], height: 7, rise: 1.0, size: 0.09, drift: -16, spread: 0.06 };
 
 export class SmokeColumn {
   readonly mesh: THREE.InstancedMesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
@@ -84,11 +89,12 @@ export class SmokeColumn {
     for (let k = 0; k < PUFFS; k++) {
       const h = (time * L.rise + (k * L.height) / PUFFS) % L.height, t = h / L.height;
       const size = (3.5 + t * 10 + (k % 3) * 0.8) * L.size;
-      const drift = t * t * L.drift + Math.sin(time * 0.3 + k) * 1.2;
+      const sp = L.spread ?? 1;
+      const drift = t * t * L.drift + Math.sin(time * 0.3 + k) * 1.2 * sp;
       this.m.makeScale(size, size * 0.8, size);
-      this.m.setPosition(this.base.x + drift + ((k * 7) % 3) - 1, this.base.y + h, this.base.z + Math.sin(k * 1.7) * 1.4);
+      this.m.setPosition(this.base.x + drift + (((k * 7) % 3) - 1) * sp, this.base.y + h, this.base.z + Math.sin(k * 1.7) * 1.4 * sp);
       this.mesh.setMatrixAt(k, this.m);
-      this.alpha.setX(k, 0.8 * Math.min(1, h / 4) * (1 - t) ** 1.1);
+      this.alpha.setX(k, 0.8 * Math.min(1, h / (4 * Math.min(1, L.size * 3))) * (1 - t) ** 1.1);
     }
     this.mesh.instanceMatrix.needsUpdate = true;
     this.alpha.needsUpdate = true;
