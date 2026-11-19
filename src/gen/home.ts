@@ -16,9 +16,9 @@ export const HOME_FIT = {
   hearth: { x: 1807, z: 1014 },
   /** The chimney comes out on the plateau: stone from the ground up, and a clay pot at `top`. */
   chimney: { x: 1807, z: 1014, top: 125 },
-  /** The range's firebox on the balcony, and the cap of its flue up the cliff. */
+  /** The range's firebox on the balcony, and the cap of its flue up the cliff (under the rock that overhangs the balcony). */
   range: { x: 1800, z: 1032 },
-  flueCap: { x: 1799, y: 93, z: 1032 },
+  flueCap: { x: 1800, y: 91, z: 1032 },
   /** The double bed's four blocks, and the wardrobe that holds what the linen chest held. */
   bed: [[1811, F, 1037], [1811, F, 1038], [1810, F, 1037], [1810, F, 1038]] as [number, number, number][],
   wardrobe: [1806, F, 1041] as [number, number, number],
@@ -58,12 +58,14 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   const rug = (colour: string, xa: number, xb: number, za: number, zb: number) => {
     for (let z = za; z <= zb; z++) for (let x = xa; x <= xb; x++) put(x, F - 1, z, rugPiece(colour, x, z, xa, xb, za, zb));
   };
-  /** A lantern hung from whatever is overhead: the highest open cell under the ceiling. */
+  /** A lantern hung from whatever is overhead, on a chain where the ceiling is high, so its light reaches the floor. */
   const hang = (x: number, z: number) => {
     if (!inside(x, F, z)) return;
-    let y = F;
-    while (y < F + 9 && !B_SOLID[get(x, y + 1, z)]) y++;
+    let top = F;
+    while (top < F + 9 && !B_SOLID[get(x, top + 1, z)]) top++;
+    const y = Math.min(top, F + 3);
     put(x, y, z, 'lantern');
+    for (let c = y + 1; c <= top; c++) put(x, c, z, 'lamp_chain');
   };
   const b = HOME.balcony;
 
@@ -86,7 +88,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(1800, F, 1016, 'bench@west');
 
   // The kitchen, at the south end with its back to the rock: a cast-iron range three wide (oven, firebox, warming
-  // oven), a copper hood over it, and the flue up the cliff, stepping out under the overhang to carry the smoke clear.
+  // oven), a copper hood over it, and the flue up the cliff to a cap high overhead, where the smoke drifts out over the valley.
   const R = HOME_FIT.range;
   fill(1801, 1801, F, F + 3, R.z - 1, R.z + 1, 'stone_bricks'); // the wall behind it, dressed
   put(R.x, F, R.z - 1, 'range_oven@west');
@@ -98,11 +100,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(R.x, F + 2, R.z, 'range_hood_mid@west');
   put(R.x, F + 2, R.z + 1, 'range_hood@west');
   const cap = HOME_FIT.flueCap;
-  const bend = cap.y - 4; // where it steps out from the wall, clear of the rock that overhangs higher up
-  for (let y = F + 3; y < bend; y++) put(R.x, y, R.z, 'stove_pipe');
-  put(R.x, bend, R.z, 'flue_elbow_low@west');
-  put(cap.x, bend, cap.z, 'flue_elbow_high@east');
-  for (let y = bend + 1; y < cap.y; y++) put(cap.x, y, cap.z, 'stove_pipe');
+  for (let y = F + 3; y < cap.y; y++) put(cap.x, y, cap.z, 'stove_pipe');
   put(cap.x, cap.y, cap.z, 'flue_cap');
   // The prep counter along the south railing, a basin in it, and the firewood.
   put(1799, F, 1033, 'counter');
@@ -247,7 +245,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
 
   // ---- Workshop, pantry, vault: lit, and the vault lined with dressed stone ---------------------------------
   for (const x of [1820, 1828]) for (const z of [1008, 1013, 1018]) hang(x, z);
-  for (const z of [1010, 1015]) hang(1824, z);
+  for (const z of [1008, 1013, 1018]) hang(1824, z);
   for (const z of [1009, 1015, 1018]) put(1817, F + 2, z, 'wall_lamp@east');
   for (const z of [1010, 1016]) put(1831, F + 2, z, 'wall_lamp@west');
   for (const x of [1821, 1829]) put(x, F + 2, 1006, 'wall_lamp@south');
@@ -260,5 +258,6 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   const v = HOME.rooms.find((r) => r.name === 'vault')!;
   const lined = (x: number, y: number, z: number) => isRock(x, y, z);
   fill(v.x0 - 1, v.x1, F, F + 4, v.z0 - 1, v.z1, 'stone_bricks', (x, y, z) => (x === v.x0 - 1 || x === v.x1 || z === v.z0 - 1 || z === v.z1 || y === F + 4) && lined(x, y, z));
-  hang(1830, 1024);
+  hang(1828, 1022);
+  hang(1831, 1025);
 }

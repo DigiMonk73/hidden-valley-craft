@@ -1181,6 +1181,7 @@ DRAW.painting = (c) => {
   c.set(9, 4, hex('#fff1b8')); c.set(10, 4, hex('#ffd98a'));
 };
 DRAW.plaster = (c) => { c.noise(hex('#d6ccb4'), 4, [hex('#cbc1a8'), hex('#dfd6c0')], 0.2); for (let k = 0; k < 5; k++) { const x = Math.floor(c.rng() * 12), y = Math.floor(c.rng() * 16); for (let n = 0; n < 4; n++) c.shade(x + n, y, 0.95); } };
+DRAW.chain = (c) => { c.clearAlpha(); for (let y = 0; y < TEX; y++) { const k = y % 4; c.set(7, y, k < 2 ? hex('#3a3a3c') : hex('#55524c')); c.set(8, y, k >= 2 ? hex('#3a3a3c') : hex('#6a665e')); } };
 DRAW.clay_pot = (c) => { c.noise(hex('#b2633a'), 7, [hex('#9a5230'), hex('#c47446')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 4, hex('#7d4226')); c.set(x, 5, hex('#c98356')); c.set(x, 0, hex('#2a1c18')); } };
 /** A fitted rug, nine pieces: a patterned field, and a border on the sides its letters name (n, e, s, w). */
 function fittedRug(c: Canvas16, sides: string, field: RGB, motif: RGB, band: RGB, line: RGB, edge: RGB): void {

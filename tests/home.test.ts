@@ -145,7 +145,10 @@ describe('the home, rebuilt', () => {
     for (let x = 1790; x <= 1836; x++) for (let z = 1004; z <= 1046; z++) for (let y = F; y < F + 8; y++) {
       if (name(w, x, y, z) !== 'lantern') continue;
       n++;
-      expect(B_SOLID[w.blockAt(x, y + 1, z)] || B_SOLID[w.blockAt(x, y - 1, z)], `lantern ${x},${y},${z}`).toBeTruthy();
+      // On a chain, the chain runs up to something solid.
+      let top = y + 1;
+      while (name(w, x, top, z) === 'lamp_chain') top++;
+      expect(B_SOLID[w.blockAt(x, top, z)] || B_SOLID[w.blockAt(x, y - 1, z)], `lantern ${x},${y},${z}`).toBeTruthy();
     }
     expect(n).toBeGreaterThanOrEqual(12);
   });
@@ -185,9 +188,9 @@ describe('the home, rebuilt', () => {
     expect(name(w, cap.x, cap.y, cap.z)).toBe('flue_cap');
     expect(name(w, cap.x, cap.y + 1, cap.z)).toBe('air');
     expect(name(w, cap.x, cap.y + 2, cap.z)).toBe('air');
-    for (let y = F + 3; y < cap.y - 4; y++) expect(name(w, HOME_FIT.range.x, y, HOME_FIT.range.z)).toBe('stove_pipe');
-    expect(name(w, HOME_FIT.range.x, cap.y - 4, HOME_FIT.range.z)).toBe('flue_elbow_low@west');
-    expect(name(w, cap.x, cap.y - 4, cap.z)).toBe('flue_elbow_high@east');
+    expect(cap.x).toBe(HOME_FIT.range.x);
+    for (let y = F + 3; y < cap.y; y++) expect(name(w, cap.x, y, cap.z)).toBe('stove_pipe');
+    expect(name(w, cap.x, F + 2, cap.z)).toBe('range_hood_mid@west');
   });
 
   it('the bedroom’s double door shuts and opens as one, and will not shut on someone standing in it', () => {
