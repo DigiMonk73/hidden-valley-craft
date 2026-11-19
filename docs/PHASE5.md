@@ -217,3 +217,33 @@ Set each scene with `window.__hv`, holding the view steady in each wait:
   - Frogs are silent in the deep band.
 - **DONE: M2** (`src/sim/preserve.ts`, `src/sim/milestones.ts`, `src/sim/farming.ts`). The smoker converts at 00, 04, 08 … o'clock; the jerky rack at dawn.
 - **The map table** marks the outpost, the mine, the camp and its trail, and the bridge once each is found.
+- **DONE: Merged `main`** (the home is sanctuary too). The generator now uses `inValleyBowl` and `landZoneAt`; the game's rules use `inSanctuary` and `zoneAt`.
+- **DONE: The fresh review.** Each fix has a test in `tests/phase5.test.ts` ("review fixes") that fails on the code before it:
+  1. The pistol and the machete watch the road before the alarm (a 130° view). A blade from behind can take any raider, not only the lookout.
+  2. A gunshot alerts the outpost from 150 m. It was 80 m, though raiders are posted within 110 m.
+  3. A raider who loses you mid-aim holds his shot 0.5 s after you reappear. Stepping back out from cover gets a moment's warning again.
+  4. The machete gives up a chase 40 m from his post, or after 10 s, and walks back. He used to follow a walking player for ever.
+  5. Jerky's lost water is no reason to eat it on a full stomach.
+  6. The jaguar stops to look well west of the trail (x 786), and while crossing it turns on you only within 5 m. Walking into the camp, to the lodge or the shed, doesn't start a fight.
+  7. Mining the camp's rusted trap teaches the leghold too.
+  8. The outpost's restore from a save is a tested function (`outpostFromSave`).
+- **DONE: The lead's requests (2026-11-18, for the owner)**
+  - **Hold H to head home** (`src/sim/home.ts`).
+    - Two seconds held, with "Heading home…" and a bar, takes you where you wake: the bed, else the balcony. Nothing is lost and the hour stays.
+    - Letting go or being hurt cancels it. It won't start within 10 s of being hurt ("Not with danger this close").
+    - Flying in builder's mode, it is at once.
+    - It shows in the controls list, and as a one-time toast the first time you are outside the valley.
+    - *Why H:* Cmd+H hides the browser on a Mac, and Ctrl+H opens History in Chrome.
+  - **Catching chickens:**
+    - A hen runs only from a sprinting player, or for a moment after a grab that fell short ("Too far: walk right up to her").
+    - The catch reach is 3 m.
+  - **Readable damage:**
+    - A health bar over a creature for 3 s after it is hit.
+    - A one-time toast when a blow barely hurts, pointing to the armory.
+    - A weapon Shift-clicked from a chest already goes into the first free hotbar slot (a test pins it).
+  - **Raising chickens** (`src/sim/livestock.ts`):
+    - Each morning a coop with a pair and an egg left in it hatches one hen, up to eight. Eggs left from before hatch first, then the morning's are laid.
+    - Its hens walk round it as tame chickens, one per hen, within 4 blocks. They never step up over a fence: a tame hen doesn't climb.
+    - Right-click one to pick her up; she leaves the coop's count.
+    - The coop's slots stay the truth: the walkers are kept in step once a second, and are not saved.
+    - Tame hens are the one creature allowed in the valley. They are the player's, and nothing hostile is.
