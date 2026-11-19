@@ -73,8 +73,8 @@ check('Shift-click takes the rifle', hasRifle);
 // Read the journal at the bookshelves, then open the vault safe with the code it gives.
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
-await g(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1029.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; });
-await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1814; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+await g(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1031.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; });
+await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1814 && t.z === 1031; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
 await page.mouse.click(400, 225, { button: 'right' });
 await page.waitForTimeout(400);
 const journal = await page.locator('.pp-panel').textContent().catch(() => '');
@@ -91,10 +91,21 @@ await page.waitForTimeout(300);
 const opened = await g(() => window.__hv.game.flags.has('safe_open'));
 check('the code from the journal opens the safe', opened);
 
+// The bedroom's wardrobe holds the linen, the lamps and the journal: its top half opens it too.
+await page.mouse.click(400, 225);
+await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+await g(() => { const p = window.__hv.game.player; p.setPosition(1806.5, 82, 1039.5); p.yaw = Math.PI; p.pitch = 0; });
+await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1806 && t.y === 83 && t.z === 1041; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+await page.mouse.click(400, 225, { button: 'right' });
+await page.waitForTimeout(500);
+const wardrobe = await page.locator('.iv-title').first().textContent().catch(() => null);
+check('the wardrobe opens (by its top half too) and holds the linen', /^Wardrobe/.test(wardrobe ?? ''), `title: ${wardrobe}`);
+await page.keyboard.press('Escape');
+
 // Sleep in the bed at night: morning comes, and the garden has grown.
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
-await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
+await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
 const gardenBefore = await g(() => window.__hv.gardenStages());
 // Headless pointer lock can drop between steps; a click that only re-captures the mouse is not a
 // right-click on the bed. So: make sure the mouse is held, aim, click, and try again if night stays.
@@ -104,8 +115,8 @@ for (let attempt = 0; attempt < 3; attempt++) {
     await page.mouse.click(400, 225);
     await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
   }
-  await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
-  await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1813 && t.z === 1019; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+  await g(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; });
+  await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1810 && t.z === 1037; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
   sleepTry = await g(() => JSON.stringify({ target: window.__hv.game.target && [window.__hv.game.target.x, window.__hv.game.target.y, window.__hv.game.target.z], look: window.__hv.game.look.mode }));
   await page.mouse.click(400, 225, { button: 'right' });
   const slept = await page.waitForFunction(() => window.__hv.game.hour < 7, null, { timeout: 3_000 }).then(() => true, () => false);
@@ -113,6 +124,11 @@ for (let attempt = 0; attempt < 3; attempt++) {
   console.log(`  (sleep attempt ${attempt + 1} did not take: ${sleepTry})`);
 }
 const morning = await g(() => ({ hour: window.__hv.game.hour, stages: window.__hv.gardenStages() }));
+// The builder's bed: you wake at its foot, facing the window, and that is where you wake from now on.
+// (The view itself is not checked: here synthetic mouse events turn it as they land. Where you wake keeps its facing.)
+const woke = await g(() => { const gm = window.__hv.game, p = gm.player, s = gm.spawn; return { x: p.x, z: p.z, sx: s.x, sz: s.z, syaw: s.yaw, wake: window.__hv.HOME.wake }; });
+check('you wake at the foot of the bed, facing the window and the valley', Math.hypot(woke.x - woke.wake.x, woke.z - woke.wake.z) < 0.3 && Math.abs(woke.syaw - Math.PI / 2) < 0.01 && woke.sx === woke.wake.x && woke.sz === woke.wake.z,
+  `at ${woke.x.toFixed(1)}, ${woke.z.toFixed(1)}, to wake facing ${woke.syaw.toFixed(2)}`);
 check('sleeping in the bed brings morning', Math.abs(morning.hour - 6) < 0.2, `hour ${morning.hour.toFixed(2)}`);
 check('the garden grows overnight', morning.stages > gardenBefore, `crop stages ${gardenBefore} → ${morning.stages}`);
 
@@ -256,11 +272,11 @@ await page.waitForFunction((n) => window.__hv.game.hotbar.count(window.__hv.item
 const arrowsNow = await g(() => window.__hv.game.hotbar.count(window.__hv.itemId('arrow')));
 check('arrows can be picked up again', arrowsNow > arrowsLeft, `arrows ${arrowsLeft} → ${arrowsNow}`);
 
-// Home to the balcony stove, and cook the venison.
+// Home to the range on the balcony, and cook the venison at its firebox.
 await ensureLook();
-await g(() => { const gm = window.__hv.game; gm.player.setPosition(1797.5, 82, 1032.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.7; });
-// The stove itself, not its pipe above.
-await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.pitch = -0.7; gm.player.yaw = -Math.PI / 2; return t && t.x === 1799 && t.y === 82 && t.z === 1032; }, null, { timeout: 60_000, polling: 200 }).catch(() => {});
+await g(() => { const gm = window.__hv.game; gm.player.setPosition(1798.5, 82, 1032.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.7; });
+// The firebox itself, not the pot on it.
+await page.waitForFunction(() => { const gm = window.__hv.game, t = gm.target; gm.player.pitch = -0.7; gm.player.yaw = -Math.PI / 2; return t && t.x === 1800 && t.y === 82 && t.z === 1032; }, null, { timeout: 60_000, polling: 200 }).catch(() => {});
 await page.mouse.click(400, 225, { button: 'right' });
 await page.waitForTimeout(500);
 await page.locator('.iv-recipe', { hasText: 'Venison steak' }).locator('.iv-make').click().catch(() => {});
@@ -307,5 +323,36 @@ await page.reload();
 await idle();
 const after3 = await g((t) => window.__hv.game.world.blockAt(t.x, t.y, t.z), t3);
 check('leaving the page keeps the last edit', before3 !== 0 && after3 !== before3, `block ${before3} → ${after3} after reload`);
+
+// A save whose player is now shut in rock (behind the hearth): they are put back at the cave, never stranded.
+await g(async () => {
+  const gm = window.__hv.game, d = gm.snapshot();
+  d.savedAt = new Date(Date.now() + 60_000).toISOString(); // newer than the copy the page writes as it closes
+  d.player = { ...d.player, x: 1807.5, y: 85, z: 1011.5, flying: false };
+  await gm.store.set('save:1', new TextEncoder().encode(JSON.stringify(d)));
+});
+await page.reload();
+await idle();
+await page.waitForFunction(() => { const gm = window.__hv.game; return gm.ready && window.__hv.idle() && gm.player.x < 1830; }, null, { timeout: 120_000, polling: 300 }).catch(() => {});
+const freed = await g(() => { const gm = window.__hv.game, p = gm.player; return { x: p.x, y: p.y, z: p.z, shut: p.shutIn((x, y, z) => gm.world.blockAt(x, y, z)), sx: gm.spawn.x, sz: gm.spawn.z }; });
+check('a player saved inside what is now rock is put back at the cave, free', !freed.shut && Math.hypot(freed.x - freed.sx, freed.z - freed.sz) < 1.5, `at ${freed.x.toFixed(1)}, ${freed.y.toFixed(1)}, ${freed.z.toFixed(1)}`);
+
+// A valley saved before the home was rebuilt (no layout number, a player on the old bed, the old linen chest opened):
+// a fresh valley starts and says so. Nothing of the old one is carried in, and nothing breaks.
+await g(async () => {
+  const gm = window.__hv.game, d = gm.snapshot();
+  delete d.layout;
+  d.savedAt = new Date(Date.now() + 120_000).toISOString();
+  d.player = { ...d.player, x: 1813.5, y: 82, z: 1019.5 };
+  d.spawn = { x: 1811.5, y: 82, z: 1019.5, yaw: 0 };
+  d.containers = [...(d.containers ?? []), [1813, 82, 1016, [{ name: 'bandage', count: 3 }]]];
+  d.flags = [...(d.flags ?? []), 'old_valley'];
+  await gm.store.set('save:1', new TextEncoder().encode(JSON.stringify(d)));
+});
+await page.reload();
+await idle();
+const fresh = await g(() => { const gm = window.__hv.game, p = gm.player; return { old: gm.flags.has('old_valley'), x: p.x, z: p.z, said: document.querySelector('.hv-status')?.textContent ?? '', edits: gm.world.edits.size, hour: gm.hour }; });
+check('a valley from before the home was rebuilt starts fresh, and says so', !fresh.old && Math.abs(fresh.x - 1796.5) < 0.5 && Math.abs(fresh.z - 1024.5) < 0.5 && /earlier build/.test(fresh.said) && fresh.edits === 0,
+  `at ${fresh.x.toFixed(1)}, ${fresh.z.toFixed(1)}; menu: “${fresh.said.slice(0, 60)}”`);
 
 await finish();

@@ -21,8 +21,8 @@ await walkWest(P.SADDLE.x - 20, 1027.5, (P.ZONE1.shelter.x0 + P.ZONE1.shelter.x1
 check('reaches the lit bus shelter and finds Marco’s number', (await flags()).includes('shelter_found'));
 
 // 3. Home to the phone in the cave, and call him.
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1804.5, 82, 1027.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1806 && t.y === 83 && t.z === 1027; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1814 && t.y === 83 && t.z === 1029; });
 const phoneText = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the builder’s phone now has Marco', /Marco/.test(phoneText ?? ''), (phoneText ?? '').slice(0, 80));
 await page.locator('.pp-call').first().click().catch(() => {});
@@ -113,10 +113,10 @@ await closeScreens();
 const inCoop = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
 check('the pair goes into the coop', inCoop === 2, `chickens in the coop ×${inCoop}`);
 for (let attempt = 0; attempt < 3; attempt++) {
-  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
+  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
     // The clock is set once, before aiming: setting it again while waiting could put a slept night back to
     // 21:00, and a second sleep lays a second morning's eggs.
-    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1810 && t.z === 1037; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
 await page.waitForTimeout(500);
@@ -124,8 +124,8 @@ const eggs = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, 
 check('in the morning the coop has eggs', eggs === 2, `eggs ×${eggs}`);
 // The eggs are left in: another night, and one hatches. Her hens walk round the coop, one per hen.
 for (let attempt = 0; attempt < 3; attempt++) {
-  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
-    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1810 && t.z === 1037; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
 const hens3 = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
@@ -140,8 +140,8 @@ const m1 = await g(() => ({ done: window.__hv.game.flags.has('m1_done'), f: [...
 check('M1, the first outside run, is done', m1.done, m1.f.join(' '));
 check('the meeting with Marco ended once you left him', !m1.f.includes('marco_meeting'));
 // The journal opens at the newest of your own notes.
-await useAt(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1029.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; },
-  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.1; const t = gm.target; return t && t.x === 1814; });
+await useAt(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1031.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; },
+  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.1; const t = gm.target; return t && t.x === 1814 && t.z === 1031; });
 const notesPage = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the journal opens at your newest note', /Your notes/.test(notesPage ?? '') && /first run/i.test(notesPage ?? ''), (notesPage ?? '').slice(0, 70));
 await closeScreens();

@@ -7,7 +7,8 @@ import { HOME_CHESTS } from '../src/gen/inheritance.ts';
 import { AIR, B_BOXES, B_BOX_GLOW, B_BOX_TEX, B_EMIT, B_SOLID, BLOCK_DEFS, BOX_FLAME, BOX_LIT, TEXTURE_NAMES, blockId, blockName } from '../src/world/blocks.ts';
 import { hasTexture } from '../src/render/textures.ts';
 import { stationOf } from '../src/sim/crafting.ts';
-import { toggleDoor } from '../src/sim/interact.ts';
+import { toggleDoor, breakBlock, placeBlock } from '../src/sim/interact.ts';
+import { Inventory } from '../src/sim/inventory.ts';
 import { Player, EYE } from '../src/sim/player.ts';
 import { meshChunk } from '../src/mesh/mesher.ts';
 import { fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData } from '../src/save/save.ts';
@@ -204,6 +205,18 @@ describe('the home, rebuilt', () => {
     expect(B_SOLID[d.blockAt(l[0], F, l[2])]).toBe(1);
     expect(toggleDoor(d, r[0], F, r[2])).toBe(true);
     for (const y of [F, F + 1]) { expect(name(d, l[0], y, l[2])).toBe('door_wood_open'); expect(name(d, r[0], y, r[2])).toBe('door_wood_r_open'); }
+  });
+
+  it('the fire’s flames go out with it when it is taken up, and burn again where it is set down; they cannot be mined alone', () => {
+    const d = home(), H = HOME_FIT.hearth;
+    const inv = new Inventory();
+    expect(BLOCK_DEFS[blockId('hearth_flames')].hardness).toBeLessThan(0); // the game mines nothing with a hardness below 0
+    expect(breakBlock(d, inv, H.x, F, H.z).changed).toBe(true);
+    expect(name(d, H.x, F + 1, H.z)).toBe('air');
+    expect(inv.count(blockId('hearth_fire'))).toBe(1);
+    inv.select(inv.slots.findIndex((s) => s && s.id === blockId('hearth_fire')));
+    expect(placeBlock(d, inv, { intersectsBlock: () => false }, { x: H.x, y: F - 1, z: H.z, nx: 0, ny: 1, nz: 0, id: d.blockAt(H.x, F - 1, H.z), dist: 1 })).toEqual([H.x, F, H.z]);
+    expect(name(d, H.x, F + 1, H.z)).toBe('hearth_flames');
   });
 
   it('keeps the middle of the balcony clear, so nothing stands between the sofa and the falls', () => {

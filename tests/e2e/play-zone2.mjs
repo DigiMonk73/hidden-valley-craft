@@ -155,8 +155,8 @@ check('what it earns goes into the hot wallet', (await g(() => window.__hv.game.
 check('the fridge and the pump at home tick their step', (await flags()).includes('fridge_pump'));
 
 // 4. The computer's power lines: the arrays, the bank, the rig's hashrate and what it has mined.
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1805.5, 82, 1030.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { gm.player.yaw = Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1803 && t.z === 1030; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1028.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1814 && t.y === 83 && t.z === 1028; });
 const screen = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the computer shows the power, the rig’s hashrate and what it has mined', /TH\/s/.test(screen ?? '') && /Mined today/.test(screen ?? '') && /M3 · power up/.test(screen ?? ''), (screen ?? '').replace(/\s+/g, ' ').slice(0, 160));
 await closeScreens();
@@ -168,8 +168,8 @@ void rigAt;
 
 // 6. Doc, by phone: a dose from the hotspots is treated, and the call ticks M3's step.
 await g(() => { window.__hv.game.dose = 30; });
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1804.5, 82, 1027.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1806 && t.y === 83 && t.z === 1027; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1814 && t.y === 83 && t.z === 1029; });
 const phone = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the phone has Doc once his card is found', /Doc/.test(phone ?? ''), (phone ?? '').slice(0, 100));
 await page.locator('.pp-panel .row', { hasText: 'Doc' }).locator('.pp-call').click().catch(() => {});
@@ -208,8 +208,8 @@ check('rounds are made at the workbench: M3’s ammunition step', (await count('
 await closeScreens();
 
 // 8. Marco: the first call after coming home from Las Cruces earns trust 2, and his trade now has guns.
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1804.5, 82, 1027.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1806 && t.y === 83 && t.z === 1027; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1814 && t.y === 83 && t.z === 1029; });
 await page.locator('.pp-panel .row', { hasText: 'Marco' }).locator('.pp-call').click().catch(() => {});
 await page.waitForTimeout(300);
 const said = await page.locator('.pp-say').textContent().catch(() => '');

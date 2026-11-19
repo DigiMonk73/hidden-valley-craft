@@ -83,6 +83,9 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
     if (x < 1795 || x > 1797) put(x, F, b.z0, 'stone_railing');
   }
   for (const x of [1794, 1798]) { put(x, F, b.z0, 'fence_post'); put(x, F + 1, b.z0, 'lantern'); }
+  // A potted fern either side of the mouth, at the foot of each pier.
+  put(1800, F, 1017, 'potted_fern');
+  put(1800, F, 1030, 'potted_fern');
   // A bench against the rock, north of the mouth.
   put(1800, F, 1015, 'bench@west');
   put(1800, F, 1016, 'bench@west');
@@ -168,7 +171,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   // The dining table and four chairs by the mouth, and a sideboard along the south wall behind it.
   put(1803, F, 1026, 'dining_table');
   put(1804, F, 1026, 'dining_table@south');
-  for (const x of [1803, 1804]) { put(x, F, 1025, 'chair@south'); put(x, F, 1027, 'chair'); }
+  for (const x of [1803, 1804]) { put(x, F, 1025, 'dining_chair@south'); put(x, F, 1027, 'dining_chair'); }
   for (const x of [1802, 1803, 1804]) put(x, F, 1032, 'counter');
   put(1802, F + 1, 1032, 'table_lamp');
   put(1804, F + 1, 1032, 'kettle');
@@ -179,11 +182,12 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(1814, F + 1, 1027, 'table_lamp');
   put(1814, F + 1, 1028, 'computer@west');
   put(1814, F + 1, 1029, 'phone');
-  put(1813, F, 1028, 'chair@east');
+  put(1813, F, 1028, 'dining_chair@east');
   // The library: bookshelves from floor to beam in the south-east corner (the journal), and a chair to read in.
   fill(1814, 1814, F, F + 3, 1030, 1032, 'bookshelf');
   fill(1809, 1813, F, F + 3, 1032, 1032, 'bookshelf');
   put(1811, F, 1029, 'armchair');
+  put(1813, F, 1015, 'potted_fern');
   // Lamps on the walls.
   put(1814, F + 2, 1018, 'wall_lamp@west');
   put(1814, F + 2, 1021, 'wall_lamp@west');
@@ -226,6 +230,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   fill(W.x + 1, W.x + 1, W.y0, W.y1 - 1, W.z0, W.z1 - 1, 'air');
   fill(W.x + 1, W.x + 1, W.y0 - 1, W.y0 - 1, W.z0, W.z1 - 1, 'window_seat');
   fill(W.x - 4, W.x - 1, W.y0, W.y1 - 1, W.z0, W.z1 - 1, 'air');
+  put(W.x + 1, W.y0, W.z0, 'potted_orchid'); // an orchid on the window seat
   // The bed, head to the east wall, a nightstand and lamp either side.
   for (const [x, y, z] of HOME_FIT.bed) put(x, y, z, x === 1811 ? 'bed_head@west' : 'bed_foot@west');
   for (const z of [1036, 1039]) { put(1811, F, z, 'nightstand@west'); put(1811, F + 1, z, 'table_lamp'); }

@@ -4,6 +4,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **The home is rebuilt on branch `home`**, waiting for the lead's review. What was built, what differs from the review's plan and why: [HOME.md](HOME.md).
+  - **Built:** the hearth and its chimney; the cast-iron range, hood and flue; the bedroom with its window, double bed and wardrobes; the living room's sofa, armchairs, dining table, desk and library; the patio table, loungers and lantern posts; lamps so every room is lit at night; the vault lined.
+  - **Changed from the plan:** stone piers either side of the mouth (it is 14 wide now); the bedroom is 9 by 8 with a window 4 by 2 and plastered walls; the linen is in a wardrobe; the door stands open.
+  - **Saves:** a valley from before starts fresh and says so (`WORLD_LAYOUT` in `src/save/save.ts`).
+  - **Not built:** sitting in chairs; the workshop's and pantry's dressing beyond light.
+
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7 (running, branch `phase7`): merge and publish.
   2. The home makeover (running in parallel, branch `home`): merge after Phase 7 and publish.

@@ -9,6 +9,8 @@ import type { World } from '../world/world.ts';
 import type { Inventory } from './inventory.ts';
 import type { RayHit } from './raycast.ts';
 
+const HEARTH_FIRE = blockId('hearth_fire'), HEARTH_FLAMES = blockId('hearth_flames');
+
 export interface Body { intersectsBlock(x: number, y: number, z: number): boolean; yaw?: number }
 
 /** Breaks a block. Returns false if nothing changed; `full` is set when a drop didn't fit. */
@@ -20,6 +22,8 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   // Crops give their harvest; everything else its one drop. A plant on top loses its footing and drops too.
   const above = world.blockAt(x, y + 1, z);
   const plantAbove = B_RENDER[above] === RENDER.cross;
+  // A hearth fire's flames stand in the block above it, and go out with it.
+  const flamesAbove = id === HEARTH_FIRE && above === HEARTH_FLAMES;
   const drops: [number, number][] = [...(cropDrops(id) ?? [[dropOf(id), 1]]), ...(plantAbove ? cropDrops(above) ?? [[dropOf(above), 1]] : [])];
   // Nothing is ever lost: if the pack can't take everything, the block stays where it is.
   if (!hotbar.creative) {
@@ -31,7 +35,7 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   if (!world.setBlock(x, y, z, besideWater ? WATER : AIR)) return { changed: false, full: false };
   // An emptied chest's record stays (empty), so a chest put back here never refills with the builder's things.
   if (held) world.containers.set(packPos(x, y, z), held.map(() => null));
-  if (plantAbove) world.setBlock(x, y + 1, z, AIR);
+  if (plantAbove || flamesAbove) world.setBlock(x, y + 1, z, AIR);
   if (!hotbar.creative) for (const [item, n] of drops) if (item && n > 0) hotbar.add(item, n);
   return { changed: true, full: false };
 }
@@ -54,6 +58,7 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
   if (B_SOLID[id] && body.intersectsBlock(x, y, z)) return null;
   if (B_RENDER[id] === RENDER.cross && !B_SOLID[world.blockAt(x, y - 1, z)]) return null; // plants need ground
   if (!world.setBlock(x, y, z, id)) return null; // outside the world, or not loaded
+  if (id === HEARTH_FIRE && world.blockAt(x, y + 1, z) === AIR) world.setBlock(x, y + 1, z, HEARTH_FLAMES); // a fire set down burns
   hotbar.take();
   return [x, y, z];
 }

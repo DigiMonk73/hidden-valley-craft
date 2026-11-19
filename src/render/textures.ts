@@ -1181,6 +1181,24 @@ DRAW.painting = (c) => {
   c.set(9, 4, hex('#fff1b8')); c.set(10, 4, hex('#ffd98a'));
 };
 DRAW.plaster = (c) => { c.noise(hex('#d6ccb4'), 4, [hex('#cbc1a8'), hex('#dfd6c0')], 0.2); for (let k = 0; k < 5; k++) { const x = Math.floor(c.rng() * 12), y = Math.floor(c.rng() * 16); for (let n = 0; n < 4; n++) c.shade(x + n, y, 0.95); } };
+// A potted plant's leaves, drawn in the part of the tile its sheets show (above the pot).
+DRAW.pot_fern = (c) => {
+  c.clearAlpha();
+  const greens = [hex('#4f9c36'), hex('#3e862c'), hex('#62b045')];
+  for (const [bx, lean] of [[8, 0], [5, -0.5], [11, 0.5], [3, -0.9], [13, 0.9]] as [number, number][])
+    for (let y = 9; y >= 0; y--) {
+      const x = Math.round(bx + lean * (9 - y) * 0.6);
+      if (Math.abs(lean) > 0.6 && y < 3) continue;
+      c.set(x, y, greens[(x + y) % 3]);
+      if (y % 2 === 0 && y > 0) { c.set(x - 1, y, greens[(y >> 1) % 3]); c.set(x + 1, y, greens[(y + 1) % 3]); }
+    }
+};
+DRAW.pot_orchid = (c) => {
+  c.clearAlpha();
+  for (let y = 11; y >= 4; y--) c.set(8, y, hex('#3e862c')); // the stem
+  for (const [x, y] of [[6, 11], [7, 10], [10, 11], [9, 10], [5, 10], [11, 10]]) c.set(x, y, hex('#4f9c36')); // leaves at its foot
+  for (const [cx, cy] of [[7, 4], [10, 6], [6, 7]]) { for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) c.set(cx + dx, cy + dy, hex('#e9d9f2')); c.set(cx, cy, hex('#b85fb4')); }
+};
 DRAW.chain = (c) => { c.clearAlpha(); for (let y = 0; y < TEX; y++) { const k = y % 4; c.set(7, y, k < 2 ? hex('#3a3a3c') : hex('#55524c')); c.set(8, y, k >= 2 ? hex('#3a3a3c') : hex('#6a665e')); } };
 DRAW.clay_pot = (c) => { c.noise(hex('#b2633a'), 7, [hex('#9a5230'), hex('#c47446')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 4, hex('#7d4226')); c.set(x, 5, hex('#c98356')); c.set(x, 0, hex('#2a1c18')); } };
 /** A fitted rug, nine pieces: a patterned field, and a border on the sides its letters name (n, e, s, w). */

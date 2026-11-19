@@ -181,6 +181,8 @@ export class Game {
   private mining = { active: false, x: 0, y: 0, z: 0, progress: 0 };
   private target: RayHit | null = null;
   private playing = false;
+  /** The stored valley was from before the home was rebuilt, so a fresh one was started: said in the menu, and again when play begins. */
+  private startedFresh = false;
   private ready = false;
   private accumulator = 0;
   private last = 0;
@@ -258,7 +260,9 @@ export class Game {
     this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
 
     let resumed = false;
-    if (this.opts.handover) { this.applySave(this.opts.handover); resumed = true; this.editCount++; }
+    const handed = this.opts.handover;
+    if (handed && !fromEarlierLayout(handed)) { this.applySave(handed); resumed = true; this.editCount++; }
+    else if (handed) this.startedFresh = true; // handed on by a page from before the home was rebuilt: a fresh valley
     else if (!this.opts.test) {
       // The stored save, or the copy written as the page last closed, whichever is newer.
       const bytes = await this.store.get(SAVE_KEY);
@@ -269,7 +273,7 @@ export class Game {
       // A valley from before the home was rebuilt is not opened: its chests, bed and rooms are elsewhere now.
       const earlier = !!newest && fromEarlierLayout(newest);
       const data = earlier ? null : newest;
-      if (earlier) this.hud.toast(EARLIER_BUILD, 12000);
+      if (earlier) this.startedFresh = true;
       if (data) { this.applySave(data); resumed = true; }
       if (data === pending && pending) this.editCount++; // still to be written to the main store
       else clearPending();
@@ -786,6 +790,10 @@ export class Game {
       const c = ZONE2.cave.cavern;
       if (Math.hypot((c.x0 + c.x1) / 2 - p.x, (c.z0 + c.z1) / 2 - p.z) < 26) this.sound.bubble((c.x0 + c.x1) / 2, p.y - 2, (c.z0 + c.z1) / 2);
     }
+    // The hearth crackles when you are near it, and the range's firebox more quietly.
+    const hearth = HOME_FIT.hearth, range = HOME_FIT.range;
+    if (Math.hypot(hearth.x + 0.5 - p.x, hearth.z + 0.5 - p.z) < 14 && Math.abs(p.y - HOME.floor) < 6 && Math.random() < this.frameDt * 2.4) this.sound.crackle(hearth.x + 0.5, HOME.floor + 0.8, hearth.z + 0.5);
+    if (Math.hypot(range.x + 0.5 - p.x, range.z + 0.5 - p.z) < 7 && Math.abs(p.y - HOME.floor) < 6 && Math.random() < this.frameDt * 0.8) this.sound.crackle(range.x + 0.5, HOME.floor + 0.6, range.z + 0.5);
     const [fx, fy, fz] = p.lookDir();
     const head = this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z));
     const valley = inSanctuary(p.x, p.z);
@@ -970,7 +978,9 @@ export class Game {
       growWhileAway(this.world, this.player.x, this.player.z, hours, Math.random);
       this.hour = 6;
       // The builder's own bed: you wake at its foot, facing the window and the valley. Any other bed: where you stood.
-      if (HOME_FIT.bed.some(([bx, by, bz]) => bx === x && by === y && bz === z)) {
+      // (If something has been built at its foot, where you stand will do.)
+      const footFree = this.player.fitsAt(HOME.wake.x, HOME.wake.y, HOME.wake.z, (bx, by, bz) => this.world.blockAt(bx, by, bz));
+      if (footFree && HOME_FIT.bed.some(([bx, by, bz]) => bx === x && by === y && bz === z)) {
         this.spawn = { ...HOME.wake };
         this.player.setPosition(HOME.wake.x, HOME.wake.y, HOME.wake.z);
         this.player.yaw = HOME.wake.yaw;
@@ -1404,6 +1414,7 @@ export class Game {
     this.playing = true;
     this.hud.showMenu(false);
     this.look.engage();
+    if (this.startedFresh) { this.startedFresh = false; this.hud.toast(EARLIER_BUILD, 10000); this.updateSaveStatus(); }
   }
 
   private pause(): void {
@@ -1526,6 +1537,7 @@ export class Game {
 
   private updateSaveStatus(): void {
     const n = [...this.world.edits.values()].reduce((s, m) => s + m.size, 0);
+    if (this.startedFresh) { this.hud.setSaveStatus(EARLIER_BUILD, true); return; }
     if (this.store.kind === 'memory') {
       this.hud.setSaveStatus(`This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe. (${n} blocks changed)`, true);
     } else {
@@ -1582,6 +1594,7 @@ export class Game {
   /** Rebuilds the world from a save (or from nothing) in place: no page reload, so it works without storage. */
   private restart(d: SaveData | null): void {
     clearPending(); // a close-time copy of the old valley must not come back at the next start
+    this.startedFresh = false;
     this.streamer.reset();
     this.world.edits.clear();
     this.world.containers.clear();
