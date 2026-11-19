@@ -16,6 +16,9 @@ export function freshVitals(): Vitals { return { hp: 100, hunger: 100, thirst: 1
 
 /** Advances the body by dt seconds. `exertion` is 1 at a walk and more when sprinting or swimming. */
 export function tickVitals(v: Vitals, dt: number, exertion: number, drowning: boolean): void {
+  // Health at nothing is death, and the dead don't mend: a blow that took the last of it used to be healed a
+  // sliver by a full stomach in the same tick, before anything looked, so a fed player could not be killed.
+  if (v.hp <= 0) { v.hp = 0; return; }
   v.hunger = Math.max(0, v.hunger - (dt * 100 * exertion) / (HUNGER_MINUTES * 60));
   v.thirst = Math.max(0, v.thirst - (dt * 100 * exertion) / (THIRST_MINUTES * 60));
   if (v.hunger === 0 || v.thirst === 0) v.hp -= STARVE_HP_PER_S * dt;

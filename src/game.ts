@@ -544,6 +544,8 @@ export class Game {
         this.vitals.hp = Math.max(0, this.vitals.hp - h.damage * factor);
         this.sound.hurt();
         this.hud.flashHurt();
+        // Dead at the blow that takes the last of it, not at some later look.
+        if (this.vitals.hp <= 0) { this.die(); break; }
       }
     }
     for (const e of ev.raiders) {

@@ -253,4 +253,20 @@ await closeScreens();
 check('M4 · hydro: all eight steps are done', await waitFlag('m4_done'), (await flags()).filter((f) => /zone3_home|steel|lathe|hydro|farm|uplink|gun_mod|armor2/.test(f)).join(' '));
 await keepAlive();
 
+// ---- Last: they can kill. A fed player who stands still in front of one dies and wakes at the cave -----------
+// (The review of Phases 0–6: a full stomach healed the killing blow away in the same tick, so no fed player
+// could die of bites, blows or bullets. No helper tops health up here.)
+await standAt(A.x + 0.5, Z.firstAshen.z + 24, 0);
+await page.waitForFunction(() => { const gm = window.__hv.game; gm.hour = 11; return gm.wild.creatures.some((c) => c.kind === 'ashen'); }, null, { timeout: LONG, polling: 200 }).catch(() => {});
+await g(() => {
+  const gm = window.__hv.game, p = gm.player, c = gm.wild.creatures.find((o) => o.kind === 'ashen');
+  c.x = p.x; c.z = p.z - 3; c.y = p.y; c.mind = 'charge'; c.lost = 0; c.post = undefined; c.leg = 9;
+  gm.vitals.hp = 12; gm.vitals.hunger = 100; gm.vitals.thirst = 100;
+  window.__low = 100;
+  window.__lowWatch = setInterval(() => { window.__low = Math.min(window.__low, gm.vitals.hp); }, 20);
+});
+const died = await page.waitForFunction(() => { const gm = window.__hv.game; gm.hour = 11; return gm.player.x > 1500; }, null, { timeout: LONG, polling: 100 }).then(() => true, () => false);
+const end = await g(() => { clearInterval(window.__lowWatch); const gm = window.__hv.game; return { x: Math.round(gm.player.x), hp: gm.vitals.hp, low: window.__low, pack: gm.hotbar.slots.filter(Boolean).length }; });
+check('a fed player who stands still before one of them is killed: they wake at the cave with nothing, the pack left where they fell', died && end.hp === 100 && end.pack === 0, JSON.stringify(end));
+
 await finish();

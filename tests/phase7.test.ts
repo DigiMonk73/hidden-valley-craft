@@ -1182,6 +1182,73 @@ describe('the Ashen and a careful player, in the real land (the review’s walk)
   });
 });
 
+describe('the Ashen hunting on the real land: out of each nest by its own door, to the player, and no further than the dam', () => {
+  // Every other test of their mind runs on flat ground. These run on the generated blocks: the game has no
+  // path-finding, so each nest's way out is a straight leg or two by design, and this is where a wall in the
+  // way would show (the review of Phases 0–6: three creature faults appeared only on real blocks).
+  const Z = ZONE3, A = Z.avenue, D = Z.dam;
+  const w = works();
+  const blockAt = (x: number, y: number, z: number) => w.blockAt(x, y, z);
+  const noonLight = (x: number, y: number, z: number) => { const l = w.lightAt(x, y, z); return Math.max(skyOf(l), blockOf(l)); };
+  const nine = () => {
+    const st = newAshen(); st.firstOut = false;
+    const all: Creature[] = [];
+    for (const n of Z.nests) all.push(...manAshen(all, st, n.x, n.z, false, (x, z) => w.isLoaded(x, z), (x, y, z) => floorNear(x, y, z, blockAt)));
+    return all;
+  };
+  /** Runs the nest's Ashen against a player who keeps running on the spot at (px, pz), until one rears at them. */
+  const bringOut = (nest: number, px: number, py: number, pz: number, seconds: number) => {
+    const mine = nine().filter((c) => c.nest === nest), rand = makeRng(21 + nest);
+    let shriek: Creature | null = null, worst = '';
+    for (let k = 0; k < seconds * 20 && !shriek; k++) for (const c of mine) {
+      const s: AshenSenses = { px, py, pz, pv: 5.6, sprint: true, playerInSanctuary: false, night: false, shot: false, lightAt: noonLight };
+      for (const e of thinkAshen(c, 1 / 20, s, mine.filter((o) => o !== c && isHunting(o)).length, blockAt, rand)) if (e.kind === 'shriek') shriek = e.c;
+      if (!fits(c, c.x, c.y, c.z, blockAt)) worst = `inside a block at ${c.x.toFixed(1)},${c.y},${c.z.toFixed(1)}`;
+      if (!ashenGround(c.x, c.z)) worst = `off its ground at ${c.x.toFixed(1)},${c.z.toFixed(1)}`;
+    }
+    return { mine, shriek, worst };
+  };
+
+  it('from each of the four nests above ground: a runner in the open outside is reached, by the nest’s own door, never through a block', () => {
+    for (const i of [0, 1, 2, 3]) {
+      const n = Z.nests[i], [ox, oz] = n.path[n.path.length - 1];
+      // The player stands two metres beyond the door's far point, on the line out of the nest.
+      const len = Math.hypot(ox - n.x, oz - n.z), px = ox + ((ox - n.x) / len) * 2, pz = oz + ((oz - n.z) / len) * 2;
+      const py = outsideHeight(Math.floor(px), Math.floor(pz));
+      const r = bringOut(i, px, py, pz, 60);
+      expect(r.mine.length, n.name).toBe(n.n);
+      expect(r.worst, n.name).toBe('');
+      expect(r.shriek, `${n.name}: one of them reached the player and reared`).not.toBeNull();
+      expect(Math.hypot(r.shriek!.x - px, r.shriek!.z - pz), n.name).toBeLessThan(LUNGE_FROM);
+      expect(r.shriek!.keen, `${n.name}: dull out in the daylight`).toBe(false);
+    }
+  });
+
+  it('from the mine’s drift: placed there, not spawned; a runner in the gallery is reached down the drift', () => {
+    const n = Z.nests[4], gf = Z3.GALLERY_FLOOR;
+    const r = bringOut(4, n.path[1][0] + 4, gf, n.path[1][1], 60);
+    expect(r.mine.length).toBe(2);
+    for (const c of r.mine) expect(c.y).toBe(gf); // under 18 m of rock, where nothing spawns
+    expect(r.worst).toBe('');
+    expect(r.shriek, 'one of them reached the player and reared').not.toBeNull();
+  });
+
+  it('refuses the dam: hunting a player who goes out onto the deck, it stops at the dam’s end and lands nothing', () => {
+    const [c] = nine().filter((o) => o.nest === 0);
+    c.x = A.x + 4.5; c.z = D.z; c.y = D.crest; c.leg = Z.nests[0].path.length; c.mind = 'charge'; c.lost = 0;
+    const rand = makeRng(31), ev: AshenEvent[] = [];
+    let px = A.x + 9.5;
+    for (let k = 0; k < 20 * 25; k++) {
+      px = Math.min(D.x0 + 8.5, px + WALK / 20); // the player walks east along the crest road and out onto the deck
+      ev.push(...thinkAshen(c, 1 / 20, { px, py: D.crest, pz: D.z, pv: WALK, sprint: false, playerInSanctuary: false, night: false, shot: false, lightAt: noonLight }, 0, blockAt, rand));
+      expect(c.x, 'never onto the deck').toBeLessThan(D.x0 - 1);
+      expect(fits(c, c.x, c.y, c.z, blockAt)).toBe(true);
+    }
+    expect(c.x).toBeGreaterThan(A.x + 8); // it did come after them, as far as it may
+    expect(ev.filter((e) => e.kind === 'hit')).toEqual([]);
+  });
+});
+
 describe('the review’s faults in the land', () => {
   const Z = ZONE3, A = Z.avenue, D = Z.dam, Y = Z.yard, YF = zone3Floor.yard;
   const w = works();
