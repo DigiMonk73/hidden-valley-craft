@@ -2,6 +2,8 @@
   "_comment": "What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery, forge (M2), powder_mill (M3). learn: a flag the player must have earned before it shows (the leghold, learned from the camp's trap). At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug).",
   "recipes": [
     { "station": "hand", "out": ["planks", 4], "in": [["log", 1]] },
+    { "station": "hand", "out": ["cobble", 1], "in": [["limestone", 1]] },
+    { "station": "hand", "out": ["cobble", 1], "in": [["limestone_mossy", 1]] },
     { "station": "hand", "out": ["stick", 4], "in": [["planks", 2]] },
     { "station": "hand", "out": ["cordage", 1], "in": [["plant_fiber", 3]] },
     { "station": "hand", "out": ["spear", 1], "in": [["stick", 2], ["flint", 1], ["cordage", 1]] },

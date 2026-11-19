@@ -10,6 +10,25 @@ _The page to resume from. Keep it short; history lives in git._
   - **M4:** steel (the crucible furnace), the lathe, a hydro generator in the creek (2 kW day and night), a farm of rigs (beyond the first only on hydro), the suppressed pistol, the rebuilt rifle, plate armour, Ray by phone with his plans and then the uplink plans.
   - **Small fixes:** hutches, coops, smokers and jerky racks work while their land is not loaded; the strip mall's lot no longer stands above the highway.
   - **The land east of the gorge** is unchanged but for the dam road's five columns (`tools/worldhash.ts`, `tests/fixtures/east-of-ravine.json`).
+- (Phase 7 was built by a phase session on Fable 5.2 at High effort; the owner asked for that model and effort for sub-sessions from 2026-11-19.)
+- **A full independent review** (code, look, gameplay, script) runs read-only on branch `review` and writes `docs/REVIEW.md`. Apply what it finds after Phase 7 merges, before Phase 8.
+- **The owner's notes on the home** (2026-11-19), to do as its own job after Phase 7 merges, using the review's redesign proposal:
+  - a grander fireplace;
+  - a stove that looks like a larger cooking stove;
+  - a bedroom section;
+  - better furniture;
+  - true patio furniture, placed properly on the balcony.
+- **Early warning from the review** (2026-11-19; the full list will be in `docs/REVIEW.md` on branch `review`). Fix these with the review's other fixes after Phase 7 merges, and before anyone outside plays:
+  - A slow storage open (over 1.5 s, `src/platform/storage.ts:69`) starts a fresh valley silently, and that fresh valley can then overwrite the real save.
+  - The hand-over to a newly published version can pass on a blank game (`src/main.ts:86` registers the snapshot before boot has applied the save).
+  - An imported save with missing fields is stored before it is applied (`loadBytes` in `src/game.ts`), so the page then fails at every start.
+  - Two open tabs: the stale one wins.
+  - Position, health, hunger, hour and dose are only saved when something counts as an edit.
+  - Spawners check only a creature's centre against the sanctuary's edge; require `fits()` at birth.
+- **Mined walls go back matching** (the owner, 2026-11-19): limestone and mossy limestone now drop themselves, and break down to rubble by hand. On `main`; it ships with the next publish.
+- **Saves before version 1 don't matter** (the owner, 2026-11-19: "they are all just test runs"). Changes needn't carry old saves across: an older save must never crash the game or strand the player, and that is all. Saving and loading within a build must still work and stay tested.
+- **The repo rename** to hidden-valley-blocks: the owner does it after Phase 7 or when home; then point the remote and the docs at the new name.
+
 - **Phase 6 ("Zone-2 and power, M3")** was merged into `main` (branch `phase6`) and published as version 9.
   - It was built to the map shown to the owner (docs/phase6-map.png); no changes came back before it was done.
   - Checks: 302 unit tests, and all 110 checks in the four play-through parts (`tests/e2e/play.mjs` runs them in turn; `PARTS=` picks some), about an hour here.
