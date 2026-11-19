@@ -4,6 +4,13 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
+  1. Phase 7 (running, branch `phase7`): merge and publish.
+  2. The home makeover (running in parallel, branch `home`): merge after Phase 7 and publish.
+  3. The review's fixes, on `main` after Phase 7, one session after another because they share `src/game.ts`: saves (N1), stakes (N2, N4), traps and the world-walk test (N3), creatures (N5), the first ten minutes (N6), failures (N8), splitting `src/game.ts` (N10).
+  4. Phase 8 (Zone-4, the tower, M5).
+  5. Phase 9 (finish), with the review's "worth doing at the end" list.
+
 - **Phase 7** is being built by a phase session on branch `phase7` (Fable 5.2 at High effort; the owner asked for that model and effort for sub-sessions from 2026-11-19).
 - **The owner's notes on the home** (2026-11-19), to do as its own job after Phase 7 merges, using the review's redesign proposal:
   - a grander fireplace;
@@ -14,7 +21,7 @@ _The page to resume from. Keep it short; history lives in git._
 - **The independent review is in: `docs/REVIEW.md`** (2026-11-19). Verdict: mostly sound, and it can be greatly improved. Grades: bugs C+, code B− (engine B+), graphics B− (outdoors B+), gameplay against the script C+ (places and story A−, systems C).
   - **Being fixed in Phase 7:** a fed player cannot be killed by a hit (review N5).
   - **After Phase 7 merges, before Phase 8:** a fixes session for the review's "worth doing now" list (N1 saves, N3 traps, N5 creatures, N8 failures, N10 splitting `src/game.ts`), and a session for the home makeover (N7, sketch `docs/review/home-proposed.png`).
-  - **Waiting on the owner's choices:** Survival against Builder's mode (N2), money and milestones (N4), the first ten minutes (N6).
+  - **Approved by the owner** (2026-11-19): the home redesign, Survival against Builder's mode (N2), money and milestones (N4), the first ten minutes (N6).
 - **Mined walls go back matching** (the owner, 2026-11-19): limestone and mossy limestone now drop themselves, and break down to rubble by hand. On `main`; it ships with the next publish.
 - **Saves before version 1 don't matter** (the owner, 2026-11-19: "they are all just test runs"). Changes needn't carry old saves across: an older save must never crash the game or strand the player, and that is all. Saving and loading within a build must still work and stay tested.
 - **The repo rename** to hidden-valley-blocks: the owner does it after Phase 7 or when home; then point the remote and the docs at the new name.

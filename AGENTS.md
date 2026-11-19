@@ -27,6 +27,17 @@ project's `docs/DESIGN.md`, in the private repository `DigiMonk73/hidden-valley`
 - **Design data stays plain data** (`data/*.json`). Saves store block *names*, so ids may change between builds.
 - **A bug fix gets a test that fails on the old code.**
 
+## Finishing the game (the owner, 2026-11-19)
+
+The owner has handed over the finish: "just finish building it to the best of your ability knowing my script, best practices, etc. … I do not want to micro manage and trust your ability to make an awesome game." They will test and critique when it is done.
+
+- **Decide, don't ask.** Design and gameplay calls through Phase 9 are the lead's, made from the script (the Unity repo's `docs/DESIGN.md`), `docs/PLAN.md`, `docs/REVIEW.md` and the owner's critiques so far. Write each call and its reason in the phase's doc.
+- **Approved in one go:** the home redesign in `docs/REVIEW.md` (sketch `docs/review/home-proposed.png`), and the review's gameplay changes: Survival against Builder's mode, money and milestones that matter, a proper first ten minutes.
+- **Zone maps** no longer wait for the owner's look: build to the map and show it in the phase's report.
+- **Still bring to the owner:** accounts, passwords and money; anything that would change the script's vision; and each published build, with its link, at most 5 pictures and at most 10 lines.
+- **The owner's standing critiques:** simple, short, well lit, easy to find; nothing hidden that looks like everything around it; what you mine goes back matching; hold H to go home; animals can be caught and raised.
+- **Sub-sessions** run on Fable 5.2 at High effort.
+
 ## Sessions (the owner, 2026-11-17)
 
 - **One lead session** owns `main`, the published page and the reviews. It writes each phase's plan into `docs/PHASEn.md` and starts a **phase session** to build it, so no one conversation grows too long.
