@@ -630,14 +630,14 @@ const wentHome = await page.waitForFunction(() => { const gm = window.__hv.game,
 await page.keyboard.up('KeyH');
 check('holding H takes you home from the broken bridge', wentHome, await g(() => { const p = window.__hv.game.player, s = window.__hv.game.spawn; return `at ${p.x.toFixed(1)},${p.z.toFixed(1)}, wakes at ${s.x.toFixed(1)},${s.z.toFixed(1)}`; }));
 await page.waitForFunction(() => window.__hv.idle(), null, { timeout: LONG, polling: 300 }).catch(() => {});
-// F3 shows the debug panel, and F3 again hides it (it used to stay up with its last text).
+// F3 shows the debug panel, and F3 again hides it (it used to stay up with its last text). The game is
+// slow here, so wait for a frame to draw rather than for a fixed time.
 await ensureLook();
+const shown = (want) => page.waitForFunction((w) => (getComputedStyle(document.querySelector('.hv-debug')).display !== 'none') === w, want, { timeout: LONG, polling: 100 }).then(() => true, () => false);
 await page.keyboard.press('F3');
-await page.waitForTimeout(400);
-const debugOn = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display !== 'none');
+const debugOn = await shown(true);
 await page.keyboard.press('F3');
-await page.waitForTimeout(400);
-const debugOff = await g(() => getComputedStyle(document.querySelector('.hv-debug')).display === 'none');
+const debugOff = await shown(false);
 check('F3 shows the debug panel and hides it again', debugOn && debugOff, `on ${debugOn}, off ${debugOff}`);
 
 // Mine a block next to it and leave the hole, then save and reload.

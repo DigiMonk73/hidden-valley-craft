@@ -2,7 +2,12 @@
 
 _The page to resume from. Keep it short; history lives in git._
 
-## Now (2026-11-18)
+## Now (2026-11-19)
+
+- **Phase 5 ("Zone-1 mid and deep")** was merged into `main` (branch `phase5`) and published as version 8. It has the raider outpost (telegraphed shots, cover, stealth takedowns), focus mode (Q), the old mine, the hunting camp and the jaguar, the broken bridge with the body and the tracks, M2, hold H to go home, and chickens raised in coops. Details are in docs/PHASE5.md.
+  - Checks: 251 unit tests and 70 of 71 play-through checks. The one miss, F3, was the test's timing: it now waits for a drawn frame, and F3 was checked directly in the browser.
+  - The play-through takes about 45 minutes here.
+  - Weak spots: the outpost is dim at night from 40 m, and the body across the ravine is small (the binoculars are in the kit).
 
 - **Phase 5 ("Zone-1 mid and deep", DESIGN.md's MVP in blocks) is built on branch `phase5`**, waiting for the lead's review. Details and progress are in docs/PHASE5.md.
   - **Step 0:** a swimmer holding forward now comes up out of each tunnel mouth by itself: the water climbs a block at a time to a ledge under the surface. Creatures are never put on roofs or built things (`groundAt`).
