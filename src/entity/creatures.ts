@@ -6,7 +6,7 @@
 import { B_SOLID, isWaterId } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 
-export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco';
+export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco' | 'lookout' | 'gunman' | 'rusher' | 'jaguar';
 
 export interface KindDef {
   hp: number;
@@ -31,7 +31,16 @@ export const KINDS: Record<Kind, KindDef> = {
   coyote: { hp: 16, width: 0.55, height: 0.7, walk: 2, run: 6.4, shy: 0, hostile: true, damage: 6, windup: 0.55, drops: [['hide', 1]] },
   chicken: { hp: 4, width: 0.35, height: 0.5, walk: 0.7, run: 3.2, shy: 4, hostile: false, damage: 0, windup: 0, drops: [['chicken_raw', 1], ['feather', 2]] },
   marco: { hp: 1e9, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: false, damage: 0, windup: 0, drops: [] },
+  // Zone-1's mid band (docs/PHASE5.md): the outpost's three raiders and the hunting camp's jaguar. A gun's
+  // `windup` is its aim, the warning before the shot.
+  lookout: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 18, windup: 1.5, drops: [['raider_rifle', 1], ['rifle_rounds', 10]] },
+  gunman: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 12, windup: 1.0, drops: [['pistol', 1], ['pistol_rounds', 8]] },
+  rusher: { hp: 45, width: 0.6, height: 1.85, walk: 1.5, run: 4.6, shy: 0, hostile: true, damage: 14, windup: 0.7, drops: [['machete', 1]] },
+  jaguar: { hp: 90, width: 0.85, height: 1.0, walk: 2.0, run: 7.5, shy: 0, hostile: true, damage: 22, windup: 0.55, drops: [['jaguar_pelt', 1]] },
 };
+
+/** The outpost's three raiders: people, not game, but hostile. */
+export const RAIDER_KINDS: ReadonlySet<Kind> = new Set<Kind>(['lookout', 'gunman', 'rusher']);
 
 /** Kinds that hunt as a pack, each from its own side (docs/PHASE4.md, "The flank"). */
 export const PACK_KINDS: ReadonlySet<Kind> = new Set<Kind>(['dog', 'coyote']);
@@ -42,7 +51,9 @@ export const FLANK_RADIUS = 4;
 /** A den's dogs come out when the player is this near their home, by day and by night. */
 export const DEN_RANGE = { day: 12, night: 30 };
 
-export type Mind = 'wander' | 'flee' | 'charge' | 'stalk' | 'windup' | 'recover' | 'flank';
+export type Mind = 'wander' | 'flee' | 'charge' | 'stalk' | 'windup' | 'recover' | 'flank'
+  // The raiders (src/entity/outpost.ts) and the jaguar's one crossing (src/entity/jaguar.ts).
+  | 'watch' | 'notice' | 'alerted' | 'aim' | 'cross' | 'stare' | 'leave';
 
 export interface Creature {
   id: number;
@@ -67,7 +78,22 @@ export interface Creature {
   flankBase: number;
   /** Seconds a hurt animal still fights back wherever the player is (a dog shot from afar comes for them). */
   angry: number;
+  /** A raider's post (feet, and the way he watches), which he keeps to. */
+  post?: { x: number; y: number; z: number; yaw: number };
+  /** Seconds left held in a leghold trap (it can't move); below 0, seconds before a trap can take it again. */
+  held?: number;
+  /** A tame hen walking round her coop (its block): she keeps within LEASH of it and never climbs a fence. */
+  tame?: [number, number, number];
 }
+
+/** Is a block solid (for code outside the entity system that places creatures). */
+export const B_SOLID_OK = (id: number): boolean => !!B_SOLID[id];
+
+/** How far a tame hen strays from her coop. */
+export const TAME_LEASH = 4;
+
+/** Medium game a leghold trap holds (DESIGN.md: deer and boar). */
+export const TRAPPABLE: ReadonlySet<Kind> = new Set<Kind>(['deer', 'boar']);
 
 type BlockAt = (x: number, y: number, z: number) => number;
 
@@ -81,8 +107,10 @@ export function makeCreature(kind: Kind, x: number, y: number, z: number): Creat
 export function fits(c: Creature, x: number, y: number, z: number, blockAt: BlockAt): boolean {
   const d = KINDS[c.kind];
   const h = d.width / 2;
-  // The whole body stays out of the sanctuary, not only its middle.
-  for (const [cx, cz] of [[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h], [x, z]]) if (inSanctuary(cx, cz)) return false;
+  // The whole body stays out of the sanctuary, not only its middle. A tame hen is the one creature that
+  // lives in it (she is the player's), and she keeps within her leash of her coop instead.
+  if (c.tame) { if (Math.hypot(x - (c.tame[0] + 0.5), z - (c.tame[2] + 0.5)) > TAME_LEASH) return false; }
+  else for (const [cx, cz] of [[x - h, z - h], [x + h, z - h], [x - h, z + h], [x + h, z + h], [x, z]]) if (inSanctuary(cx, cz)) return false;
   for (let by = Math.floor(y); by <= Math.floor(y + d.height - 1e-6); by++)
     for (let bz = Math.floor(z - h); bz <= Math.floor(z + h - 1e-6); bz++)
       for (let bx = Math.floor(x - h); bx <= Math.floor(x + h - 1e-6); bx++) if (B_SOLID[blockAt(bx, by, bz)]) return false;
@@ -90,7 +118,7 @@ export function fits(c: Creature, x: number, y: number, z: number, blockAt: Bloc
 }
 
 /** Moves a body: gravity, then each horizontal axis, stepping up single blocks and stopping at drops > 3 m. */
-function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
+export function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
   c.vy = Math.max(-30, c.vy - 26 * dt);
   const ny = c.y + c.vy * dt;
   c.onGround = false;
@@ -106,7 +134,7 @@ function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
     const cliff = c.onGround && drop >= 4;
     const wet = isWaterId(blockAt(Math.floor(nx), Math.floor(c.y), Math.floor(nz)));
     if (!cliff && !wet && fits(c, nx, c.y, nz, blockAt)) { c.x = nx; c.z = nz; continue; }
-    if (!cliff && !wet && c.onGround && fits(c, nx, Math.floor(c.y) + 1, nz, blockAt) && fits(c, c.x, Math.floor(c.y) + 1, c.z, blockAt)) {
+    if (!cliff && !wet && c.onGround && !c.tame && fits(c, nx, Math.floor(c.y) + 1, nz, blockAt) && fits(c, c.x, Math.floor(c.y) + 1, c.z, blockAt)) {
       c.y = Math.floor(c.y) + 1; c.x = nx; c.z = nz; continue;
     }
     // Blocked: turn away next time it chooses.
@@ -117,6 +145,10 @@ function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
 
 export interface Senses {
   px: number; py: number; pz: number; // the player's feet
+  /** How fast the player is moving (m/s): a running target is harder to hit. */
+  pv?: number;
+  /** Is the player sprinting? A hen flees only from a running player (the lead, 2026-11-18). */
+  sprint?: boolean;
   playerInSanctuary: boolean;
   night: boolean;
   /** A gunshot this tick, heard within 60 m. */
@@ -154,6 +186,17 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   const reachable = !s.playerInSanctuary && Math.abs(s.py - c.y) < 3;
   let hit: Hit | null = null;
 
+  // Caught in a leghold: it struggles where it stands until the trap lets it go.
+  if (c.held !== undefined && c.held > 0) {
+    c.held -= dt;
+    if (c.held <= 0) c.held = -30;
+    c.vx = c.vz = 0;
+    c.yaw += Math.sin(c.timer * 7) * 0.02;
+    moveBody(c, dt, blockAt);
+    return null;
+  }
+  if (c.held !== undefined && c.held < 0) c.held = Math.min(0, c.held + dt);
+
   // Marco stands where he is and turns to whoever comes near.
   if (c.kind === 'marco') {
     c.vx = c.vz = 0;
@@ -181,11 +224,16 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   if (pack && !reachable && c.mind === 'flank') { c.mind = 'wander'; c.timer = 0; }
 
   // Changes of mind.
-  if (d.shy && dist < d.shy && c.mind !== 'flee') { c.mind = 'flee'; c.timer = 3 + rand() * 2; }
-  if (s.shot && dist < 60 && c.kind !== 'puma') { c.mind = d.hostile && dist < 12 ? 'charge' : 'flee'; c.timer = 4; }
+  // Shy animals bolt when you come near. A hen is used to people: she runs only from a running one
+  // (or for a moment after a grab that missed), so walking up to catch her works.
+  const startled = c.kind === 'chicken' ? !!s.sprint : true;
+  if (d.shy && dist < d.shy && c.mind !== 'flee' && startled && !c.tame) { c.mind = 'flee'; c.timer = 3 + rand() * 2; }
+  if (s.shot && dist < 60 && c.kind !== 'puma' && c.kind !== 'jaguar') { c.mind = d.hostile && dist < 12 ? 'charge' : 'flee'; c.timer = 4; }
   if (d.hostile && reachable) {
     if (c.kind === 'boar' && dist < 4 && (c.mind === 'wander')) { c.mind = 'charge'; c.timer = 8; }
     if (c.kind === 'puma' && s.night && c.mind === 'wander' && dist < 40) { c.mind = 'stalk'; c.timer = 30; }
+    // A provoked jaguar comes for you wherever you are within reach of it.
+    if (c.kind === 'jaguar' && c.angry > 0 && c.mind === 'wander' && dist < 60) { c.mind = 'charge'; c.timer = 10; }
   }
   if (!reachable && (c.mind === 'charge' || c.mind === 'stalk' || c.mind === 'windup')) { c.mind = 'wander'; c.timer = 0; }
 
@@ -199,7 +247,10 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
         c.goalX = c.x + Math.cos(a) * r; c.goalZ = c.z + Math.sin(a) * r;
         // Creatures with a home keep to it: dogs lie up in their den by day and range out at night;
         // chickens scratch round their yard.
-        if (c.home) {
+        if (c.tame) {
+          const ha = rand() * Math.PI * 2, hr = 1 + rand() * (TAME_LEASH - 1.2);
+          c.goalX = c.tame[0] + 0.5 + Math.cos(ha) * hr; c.goalZ = c.tame[2] + 0.5 + Math.sin(ha) * hr;
+        } else if (c.home) {
           const keep = c.kind === 'dog' ? (s.night ? 22 : 2.5) : 9;
           const ha = rand() * Math.PI * 2, hr = rand() * keep;
           c.goalX = c.home[0] + Math.cos(ha) * hr; c.goalZ = c.home[1] + Math.sin(ha) * hr;
@@ -270,6 +321,7 @@ function inReach(c: Creature, s: Senses, blockAt: BlockAt): boolean {
 /** Damages a creature; returns true if that killed it. A hurt animal flees, a hurt boar charges. */
 export function hurt(c: Creature, damage: number): boolean {
   if (c.kind === 'marco') return false; // a person, not game
+  if (c.kind === 'jaguar') c.angry = 60; // provoked: the fight is real
   c.hp -= damage;
   c.hurt = 0;
   if (c.hp <= 0) return true;

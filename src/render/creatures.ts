@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { SKY_COLOR_GLSL } from './sky.ts';
-import type { Creature, Kind } from '../entity/creatures.ts';
+import { KINDS, type Creature, type Kind } from '../entity/creatures.ts';
 import type { Arrow } from '../entity/wild.ts';
 
 const VERT = /* glsl */ `
@@ -50,12 +50,37 @@ void main() {
   outColor = vec4(col, 1.0);
 }`;
 
-type Part = { size: [number, number, number]; at: [number, number, number]; color: string };
+import type { Mind } from '../entity/creatures.ts';
+
+/** A box of a model. `when`: shown only in these minds; `not`: hidden in these; `glow`: drawn unlit (a glint). */
+type Part = { size: [number, number, number]; at: [number, number, number]; color: string; when?: Mind[]; not?: Mind[]; glow?: boolean };
 
 interface Model {
   body: Part[]; // body, head and the rest that do not move
   leg: { size: [number, number, number]; color: string; hips: [number, number, number][] }; // hips: where each leg hangs from
 }
+
+
+/** A raider: olive jacket with the red armband (the scout's), dark trousers, a bandana; then each his weapon. */
+function raider(bandana: string, extra: Part[]): Model {
+  return {
+    body: [
+      { size: [0.44, 0.6, 0.26], at: [0, 1.12, 0], color: '#4f5a36' }, // jacket
+      { size: [0.12, 0.1, 0.27], at: [-0.28, 1.28, 0], color: '#a3241c' }, // the armband, left arm
+      { size: [0.12, 0.5, 0.14], at: [-0.28, 1.08, 0], color: '#465030' },
+      { size: [0.12, 0.08, 0.28], at: [0, 0.85, 0], color: '#2a241e' }, // belt
+      { size: [0.12, 0.08, 0.12], at: [0, 1.45, 0], color: '#9a6e4c' }, // neck
+      { size: [0.28, 0.3, 0.28], at: [0, 1.62, 0], color: '#a77a55' }, // head
+      { size: [0.3, 0.1, 0.3], at: [0, 1.74, 0], color: bandana }, // bandana
+      { size: [0.04, 0.04, 0.02], at: [-0.07, 1.65, -0.145], color: '#1d1d1d' },
+      { size: [0.04, 0.04, 0.02], at: [0.07, 1.65, -0.145], color: '#1d1d1d' },
+      { size: [0.2, 0.05, 0.02], at: [0, 1.55, -0.145], color: '#3a2a20' }, // stubble
+      ...extra,
+    ],
+    leg: { size: [0.17, 0.82, 0.19], color: '#2f2f2c', hips: [[-0.1, 0.82, 0], [0.1, 0.82, 0]] },
+  };
+}
+const ARM = '#465030', HAND = '#a77a55', GUN = '#2a2a2a', STOCK = '#5a4632';
 
 /** The four kinds, in metres from the feet. The head is toward −z (the way yaw 0 faces). */
 const MODELS: Record<Kind, Model> = {
@@ -172,6 +197,53 @@ const MODELS: Record<Kind, Model> = {
     ],
     leg: { size: [0.17, 0.82, 0.19], color: '#33363c', hips: [[-0.1, 0.82, 0], [0.1, 0.82, 0]] },
   },
+  // Zone-1's mid band (docs/PHASE5.md). Each raider's weapon shows its threat; the aim is a pose you can see.
+  lookout: raider('#7a2a20', [
+    // At rest: the rifle held across the body. Aiming: raised to the shoulder, and the scope glints.
+    { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['aim'] },
+    { size: [0.06, 0.08, 0.9], at: [0.05, 1.1, -0.2], color: GUN, not: ['aim'] },
+    { size: [0.12, 0.12, 0.5], at: [0.18, 1.42, -0.25], color: ARM, when: ['aim'] },
+    { size: [0.07, 0.09, 1.1], at: [0.1, 1.5, -0.45], color: GUN, when: ['aim'] },
+    { size: [0.08, 0.12, 0.3], at: [0.1, 1.44, 0.0], color: STOCK, when: ['aim'] },
+    { size: [0.1, 0.1, 0.06], at: [0.1, 1.6, -0.62], color: '#fff6c8', when: ['aim'], glow: true },
+  ]),
+  gunman: raider('#2a2a2a', [
+    // A pistol at his side; raised at arm's length to aim.
+    { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['aim'] },
+    { size: [0.06, 0.14, 0.2], at: [0.28, 0.78, -0.06], color: GUN, not: ['aim'] },
+    { size: [0.12, 0.12, 0.6], at: [0.22, 1.38, -0.3], color: ARM, when: ['aim'] },
+    { size: [0.12, 0.12, 0.1], at: [0.22, 1.38, -0.62], color: HAND, when: ['aim'] },
+    { size: [0.06, 0.12, 0.24], at: [0.22, 1.44, -0.72], color: GUN, when: ['aim'] },
+  ]),
+  rusher: raider('#a3241c', [
+    // A machete low in his hand; raised high before the blow.
+    { size: [0.12, 0.5, 0.14], at: [0.28, 1.08, 0], color: ARM, not: ['windup'] },
+    { size: [0.05, 0.55, 0.1], at: [0.28, 0.6, -0.08], color: '#b8c0c6', not: ['windup'] },
+    { size: [0.12, 0.5, 0.14], at: [0.28, 1.65, 0.05], color: ARM, when: ['windup'] },
+    { size: [0.05, 0.6, 0.1], at: [0.28, 2.15, 0.08], color: '#b8c0c6', when: ['windup'] },
+  ]),
+  jaguar: { // heavier than the puma: a golden coat with black rosettes, a broad head, a long dark-ringed tail
+    body: [
+      { size: [0.5, 0.48, 1.25], at: [0, 0.78, 0.05], color: '#c9973c' },
+      { size: [0.4, 0.08, 1.0], at: [0, 0.55, 0.05], color: '#ecdcb8' },
+      { size: [0.12, 0.06, 0.14], at: [0.18, 1.02, -0.3], color: '#2a2018' },
+      { size: [0.14, 0.06, 0.12], at: [-0.17, 0.98, 0.1], color: '#2a2018' },
+      { size: [0.12, 0.06, 0.14], at: [0.16, 0.92, 0.42], color: '#2a2018' },
+      { size: [0.1, 0.06, 0.1], at: [-0.12, 1.03, 0.5], color: '#2a2018' },
+      { size: [0.06, 0.12, 0.14], at: [0.26, 0.8, -0.1], color: '#2a2018' },
+      { size: [0.06, 0.12, 0.12], at: [-0.26, 0.76, 0.3], color: '#2a2018' },
+      { size: [0.4, 0.36, 0.38], at: [0, 0.92, -0.74], color: '#c9973c' },
+      { size: [0.24, 0.14, 0.14], at: [0, 0.84, -0.96], color: '#ecdcb8' },
+      { size: [0.08, 0.06, 0.04], at: [0, 0.9, -1.04], color: '#2a1e18' },
+      { size: [0.06, 0.05, 0.02], at: [-0.1, 1.0, -0.94], color: '#d8c040' },
+      { size: [0.06, 0.05, 0.02], at: [0.1, 1.0, -0.94], color: '#d8c040' },
+      { size: [0.1, 0.1, 0.04], at: [-0.14, 1.12, -0.66], color: '#8a6a2a' },
+      { size: [0.1, 0.1, 0.04], at: [0.14, 1.12, -0.66], color: '#8a6a2a' },
+      { size: [0.1, 0.1, 0.9], at: [0, 0.66, 1.05], color: '#c9973c' },
+      { size: [0.12, 0.12, 0.12], at: [0, 0.62, 1.5], color: '#1e1814' },
+    ],
+    leg: { size: [0.16, 0.54, 0.16], color: '#b8862e', hips: [[-0.16, 0.54, -0.44], [0.16, 0.54, -0.44], [-0.16, 0.54, 0.46], [0.16, 0.54, 0.46]] },
+  },
 };
 
 function coloured(g: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
@@ -191,6 +263,18 @@ function box(p: Part): THREE.BufferGeometry {
 
 const BODY_GEOMS = new Map<Kind, THREE.BufferGeometry[]>();
 const LEG_GEOMS = new Map<Kind, THREE.BufferGeometry>();
+const GLOW_MAT = new THREE.MeshBasicMaterial({ color: '#fff6c8' });
+// The health bar shown over a creature for a few seconds after it is hit (the lead: make damage readable).
+const BAR_BACK = new THREE.MeshBasicMaterial({ color: '#1b1b1b' });
+const BAR_FILL = new THREE.MeshBasicMaterial({ color: '#d8382c' });
+const BAR_GEOM = new THREE.BoxGeometry(1, 1, 1);
+/** Seconds the bar stays up after a hit. */
+export const BAR_SECONDS = 3;
+/** How full a creature's bar is (0–1), and whether to show it: only for a while after a hit, never for people who can't be hurt. */
+export function healthBar(c: Creature): { show: boolean; fill: number } {
+  const max = KINDS[c.kind].hp;
+  return { show: c.kind !== 'marco' && c.hurt < BAR_SECONDS && c.hp > 0, fill: Math.max(0, Math.min(1, c.hp / max)) };
+}
 for (const k of Object.keys(MODELS) as Kind[]) {
   BODY_GEOMS.set(k, MODELS[k].body.map(box));
   const l = MODELS[k].leg;
@@ -205,7 +289,7 @@ const ARROW_GEOM = (() => {
 
 export interface Shared { uniforms: Record<string, THREE.IUniform> }
 
-interface View { group: THREE.Group; legs: THREE.Mesh[]; mat: THREE.ShaderMaterial }
+interface View { group: THREE.Group; legs: THREE.Mesh[]; mat: THREE.ShaderMaterial; posed: { mesh: THREE.Mesh; part: Part }[]; bar: THREE.Group; fill: THREE.Mesh }
 
 export class CreatureRenderer {
   private views = new Map<number, View>();
@@ -232,15 +316,31 @@ export class CreatureRenderer {
   private make(c: Creature): View {
     const mat = this.material();
     const group = new THREE.Group();
-    for (const g of BODY_GEOMS.get(c.kind)!) group.add(new THREE.Mesh(g, mat));
+    const posed: View['posed'] = [];
+    BODY_GEOMS.get(c.kind)!.forEach((g, i) => {
+      const part = MODELS[c.kind].body[i];
+      const mesh = new THREE.Mesh(g, part.glow ? GLOW_MAT : mat);
+      group.add(mesh);
+      if (part.when || part.not) posed.push({ mesh, part });
+    });
     const legs = MODELS[c.kind].leg.hips.map((h) => {
       const m = new THREE.Mesh(LEG_GEOMS.get(c.kind)!, mat);
       m.position.set(...h);
       group.add(m);
       return m;
     });
+    // The health bar: a dark back and a red fill, turned to the camera each frame.
+    const bar = new THREE.Group();
+    const back = new THREE.Mesh(BAR_GEOM, BAR_BACK);
+    back.scale.set(0.8, 0.09, 0.02);
+    const fill = new THREE.Mesh(BAR_GEOM, BAR_FILL);
+    fill.scale.set(0.76, 0.06, 0.03);
+    bar.add(back, fill);
+    bar.position.y = KINDS[c.kind].height + 0.35;
+    bar.visible = false;
+    group.add(bar);
     this.scene.add(group);
-    return { group, legs, mat };
+    return { group, legs, mat, posed, bar, fill };
   }
 
   /** Brings the drawn creatures and arrows in step with the wild. `lightAt` gives a block's packed light. */
@@ -251,7 +351,11 @@ export class CreatureRenderer {
       let v = this.views.get(c.id);
       if (!v) { v = this.make(c); this.views.set(c.id, v); }
       // Winding up to strike: head down, body tensed and trembling. That is the warning to step back.
-      const windup = c.mind === 'windup';
+      // A pose for the moment: the rifle raised and glinting, the pistol held out, the machete up.
+      for (const { mesh, part } of v.posed) mesh.visible = (!part.when || part.when.includes(c.mind)) && !part.not?.includes(c.mind);
+      const glint = v.posed.find((p) => p.part.glow);
+      if (glint && glint.mesh.visible) glint.mesh.scale.setScalar(1 + 0.6 * Math.abs(Math.sin(c.timer * 9)));
+      const windup = c.mind === 'windup' && !c.post; // a raider raising his machete stands upright
       const tremble = windup ? Math.sin(c.timer * 60) * 0.03 : 0;
       v.group.position.set(c.x + tremble, c.y, c.z);
       v.group.rotation.set(windup ? -0.22 : 0, c.yaw, 0, 'YXZ');
@@ -262,6 +366,13 @@ export class CreatureRenderer {
       v.mat.uniforms.uLight.value.set((l >> 4) / 15, (l & 15) / 15);
       v.mat.uniforms.uHurt.value = Math.max(0, 1 - c.hurt / 0.35);
       v.group.visible = Math.hypot(c.x - eye.x, c.z - eye.z) < 160;
+      const hb = healthBar(c);
+      v.bar.visible = hb.show;
+      if (hb.show) {
+        v.bar.rotation.set(0, Math.atan2(eye.x - c.x, eye.z - c.z) - c.yaw, 0);
+        v.fill.scale.x = 0.76 * hb.fill;
+        v.fill.position.x = -0.38 * (1 - hb.fill);
+      }
     }
     for (const [id, v] of this.views) {
       if (alive.has(id)) continue;

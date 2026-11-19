@@ -9,10 +9,12 @@ import {
   SEED, VALLEY, HOME, PATH_HALF_WIDTH, POOL, CANYON_POOL, TUNNEL, MOUTH_BASINS, GARDEN, SPRINGS, SPRING_OPENING, type Falls,
   GATE, TUNNEL_LAMPS, MOUTH_LAMPS, ROAD, PLACES, RAMP_HALF_WIDTH,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inValleyBowl, landZoneAt, canyonCenterX,
-  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack,
+  roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack, basinFloor,
+  ZONE1FAR, onCampTrail, brushTrailDist, ravineX, RAVINE_HALF,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
 import { buildZone1 } from './zone1.ts';
+import { buildZone1Far } from './zone1far.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -55,6 +57,8 @@ const caveB = new Simplex(SEED + 22);
 const detail = new Simplex(SEED + 31);
 
 const R_IN = VALLEY.radius - 14;
+/** The far bank of the ravine is as wet and dark as the deep band. */
+const ZONES_RAVINE_FAR = 640;
 const R_OUT = VALLEY.radius + 18;
 
 /** Radius of the valley's cliff face at a point and height: the sinkhole's 3D shape. */
@@ -93,6 +97,18 @@ function caveExcluded(x: number, y: number, z: number): boolean {
   if (y > 50 && x > CANYON_POOL.cx - 16 && x < TUNNEL.x1 + 14 && z > 966 && z < 1084) return true;
   // Nor drain the canyon stream.
   if (y > 55 && inCanyonStream(x, z, 4)) return true;
+  // Nor open under Zone-1's mid and deep places: the outpost, the mine, the camp, the bridge's ends.
+  if (y > 60 && farPlace(x, z)) return true;
+  return false;
+}
+
+/** Round Zone-1's mid and deep places (with a margin), where caves don't cut and trees don't grow. */
+function farPlace(x: number, z: number): boolean {
+  const F = ZONE1FAR, o = F.outpost, m = F.mine, c = F.camp, b = F.bridge;
+  if (x > o.x0 - 14 && x < o.x1 + 14 && z > o.z0 - 12 && z < o.z1 + 8) return true;
+  if (x > m.chamber.x0 - 6 && x < m.chamber.x1 + 6 && z > m.z - 8 && z < m.chamber.z1 + 6) return true;
+  if (x > c.x0 - 4 && x < c.x1 + 4 && z > c.z0 - 4 && z < c.z1 + 2) return true;
+  if (x > b.far - 22 && x < b.near + 10 && Math.abs(z - b.z) < 12) return true;
   return false;
 }
 
@@ -147,6 +163,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   paveRoad(col, x0, z0, tops);
   placeBufferPlaces(col, x0, z0);
   buildZone1(col, x0, z0);
+  buildZone1Far(col, x0, z0);
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
@@ -201,7 +218,10 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
       const x = x0 + lx, z = z0 + lz;
       const top = tops[lz * CS + lx];
       const valley = inValleyBowl(x, z);
-      const near = landZoneAt(x, z) === 'near';
+      const zone = landZoneAt(x, z);
+      const near = zone === 'near';
+      // The mid band's deeper rock holds twice the coal and iron (docs/PHASE5.md).
+      const rich = zone === 'mid' ? 2 : 1;
       for (let y = 3; y < top - 2; y++) {
         const i = ci(lx, y, lz);
         if (col[i] !== LIMESTONE || caveExcluded(x, y, z)) continue;
@@ -216,11 +236,12 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
         } else {
           // Zone-1's near band shows its iron and copper closer to the surface (docs/PHASE4.md).
           const lift = near ? 12 : 0;
-          if (roll < 0.05 && y < 112) ore = COAL;
-          else if (roll < 0.08 && y < 92 + lift) ore = IRON;
-          else if (roll < 0.105 && y < 84 + lift) ore = COPPER;
-          else if (roll < 0.12) ore = FLINT;
-          else if (roll < 0.14) ore = GRAVEL;
+          const k = y < 72 ? rich : 1;
+          if (roll < 0.05 * k && y < 112) ore = COAL;
+          else if (roll < 0.08 * k && y < 92 + lift) ore = IRON;
+          else if (roll < 0.08 * k + 0.025 && y < 84 + lift) ore = COPPER;
+          else if (roll < 0.08 * k + 0.04) ore = FLINT;
+          else if (roll < 0.08 * k + 0.06) ore = GRAVEL;
         }
         if (!ore) continue;
         const ox = (gx << 2) + ((h >>> 10) & 3), oy = (gy << 2) + ((h >>> 12) & 3), oz = (gz << 2) + ((h >>> 14) & 3);
@@ -271,6 +292,11 @@ function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array
       let fill = DIRT;
       let depth = valley ? 4 : 3;
       if (canyonFloor) { topBlock = rand3(x, top, z, SEED) < 0.5 ? GRAVEL : SAND; fill = GRAVEL; depth = 2; }
+      else if (landZoneAt(x, z) === 'deep' || (x < ZONES_RAVINE_FAR && x > 560)) {
+        // The deep band: the wettest ground, moss and mud under the dense canopy.
+        const r = rand3(x, top, z, SEED + 3);
+        topBlock = wet > 0.1 ? (r < 0.25 ? MUD : MOSS) : r < 0.12 ? MUD : FOREST;
+      }
       else if (!valley && slope >= 2 && wet > 0.2) topBlock = MOSS;
       col[ti] = topBlock;
       for (let k = 2; k <= depth; k++) {
@@ -346,12 +372,13 @@ function placeWater(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
         }
       }
 
-      // The deep water under each curtain, down to the tunnel's floor, on a gravel bed.
-      for (const b of [MOUTH_BASINS.canyon, MOUTH_BASINS.valley])
-        if (x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1) {
-          col[ci(lx, TUNNEL.y0 - 1, lz)] = GRAVEL;
-          for (let y = TUNNEL.y0; y <= W; y++) col[ci(lx, y, lz)] = WATER;
-        }
+      // The deep water under each curtain, down to the tunnel's floor, then a gravel floor stepping up
+      // a block at a time to a ledge just under the surface (basinFloor).
+      const bf = basinFloor(x, z);
+      if (bf !== null) {
+        for (let y = TUNNEL.y0 - 1; y < bf; y++) col[ci(lx, y, lz)] = GRAVEL;
+        for (let y = bf; y <= W; y++) col[ci(lx, y, lz)] = WATER;
+      }
 
       // The drowned tunnel, straight through the ridge from one mouth to the other.
       if (x >= TUNNEL.x0 && x < TUNNEL.x1 && Math.abs(z - TUNNEL.z) <= TUNNEL.halfWidth) {
@@ -627,6 +654,17 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (x > sh.x0 - 6 && x < sh.x1 + 6 && z > sh.z0 - 6 && z < sh.z1 + 3) return null;
   if (x > tk.x0 - 5 && x < tk.x1 + 5 && Math.abs(z - tk.z0) < 6) return null;
   if (Math.abs(x - ZONE1.saddleSign.x) < 6 && Math.abs(z - ZONE1.saddleSign.z) < 6) return null;
+  // Zone-1's mid places: the outpost's cleared ground (the raiders cut back the trees), the brush trail,
+  // the mine's head, the camp's trail and clearing. The deep band's bridge, and the line of sight across
+  // the ravine to the body on the far bank.
+  const F = ZONE1FAR, o = F.outpost;
+  if (Math.hypot(x - (o.x0 + o.x1) / 2, z - (o.z0 + o.z1) / 2) < 32) return null;
+  if (brushTrailDist(x, z) < 8 || farPlace(x, z)) return null;
+  if (onCampTrail(x, z) || onCampTrail(x - 3, z) || onCampTrail(x + 3, z)) return null;
+  if (Math.abs(x - ravineX(z)) < RAVINE_HALF + 2 && Math.abs(z - F.bridge.z) < 70) return null;
+  // A break in the canopy over the body, so it lies in daylight (DESIGN.md: the one high-contrast thing).
+  if (Math.hypot(x - F.body.x, z - F.body.z) < 11) return null;
+  if (x > F.body.x - 6 && x < F.bridge.far + 2 && Math.abs(z - (F.bridge.z + (F.body.z - F.bridge.z) * (F.bridge.far - x) / (F.bridge.far - F.body.x))) < 5) return null;
   let kind: TreeSpot['kind'] | null = null;
   if (zone === 'valley') {
     const cd = creekDistance(x, z);
@@ -642,6 +680,14 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
     const open = x > 1040 && x < 1160 && z > 1000 && z < 1095;
     if (roll < (open ? 0.05 : 0.17)) kind = 'broadleaf';
     else if (roll < (open ? 0.08 : 0.24)) kind = 'fern';
+  } else if (zone === 'deep' || (zone === 'zone3' && x > 560 && x < 640)) {
+    // The deep band and the ravine's far bank: the densest, darkest forest (DESIGN.md).
+    if (roll < 0.72) kind = 'broadleaf';
+    else if (roll < 0.9) kind = 'fern';
+  } else if (zone === 'mid') {
+    // Shadowed, asymmetrically cleared round the outpost.
+    if (roll < 0.42) kind = 'broadleaf';
+    else if (roll < 0.62) kind = 'fern';
   } else {
     if (roll < 0.5) kind = 'broadleaf';
     else if (roll < 0.72) kind = 'fern';

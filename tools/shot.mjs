@@ -1,6 +1,7 @@
 // Takes screenshots of the built game (dist/index.html) in headless Chromium, from fixed cameras
 // and times of day. For checking the look by eye; not a pass/fail test.
 // Usage: node tools/shot.mjs [name=x,y,z,yawDeg,pitchDeg,hour ...]   (default: the balcony views)
+// EVAL='window.__hv.manOutpost()' runs a script in the page before each picture (to place creatures).
 import { createRequire } from 'node:module';
 // Playwright is installed globally in this environment, so load it through require (NODE_PATH).
 const { chromium } = createRequire(import.meta.url)('playwright');
@@ -31,6 +32,8 @@ for (const [name, spec] of Object.entries(shots)) {
   const t0 = Date.now();
   await page.goto(url);
   await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 600_000, polling: 500 });
+  // EVAL: script run in the page once the world is loaded, to set the scene (creatures via window.__hv).
+  if (process.env.EVAL) { await page.evaluate(process.env.EVAL); await page.waitForTimeout(600); }
   await page.waitForTimeout(400);
   await page.screenshot({ path: `out/${name}.png`, timeout: 180_000 });
   console.log(`${name}: ${((Date.now() - t0) / 1000).toFixed(1)} s`);

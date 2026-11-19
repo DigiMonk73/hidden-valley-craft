@@ -15,10 +15,18 @@ const CROPS: Record<string, { produce: string; seed: string; ripe: number; seeds
   pepper: { produce: 'pepper', seed: 'seeds_pepper', ripe: 3, seeds: 2 },
   potato: { produce: 'potato', seed: 'potato', ripe: 4, seeds: 0 }, // potatoes grow from cut tubers
   herbs: { produce: 'herbs', seed: 'seeds_herbs', ripe: 3, seeds: 1 },
+  // M2's expanded garden (docs/PHASE5.md): Marco's quinoa, and the farm's apple, grown from a slip.
+  quinoa: { produce: 'quinoa', seed: 'seeds_quinoa', ripe: 4, seeds: 2 },
+  apple: { produce: 'apple', seed: 'apple_slip', ripe: 3, seeds: 1 },
 };
+/** Crops of the expanded garden: planting one ticks M2's garden step. */
+export const NEW_CROPS = new Set(['quinoa', 'apple']);
 const LAST_STAGE = 3;
 
 export const FARMLAND = blockId('farmland');
+/** A raised bed is farmland you can place (M2's expanded garden). */
+export const RAISED_BED = blockId('raised_bed');
+export const isFarmland = (id: number): boolean => id === FARMLAND || id === RAISED_BED;
 const TILLABLE = new Set([blockId('grass'), blockId('dirt'), blockId('forest_floor')]);
 
 export function cropOf(block: number): { kind: string; stage: number } | undefined { return BLOCK_DEFS[block]?.crop; }
@@ -52,7 +60,7 @@ export function till(world: World, x: number, y: number, z: number): boolean {
 export function sow(world: World, inv: Inventory, x: number, y: number, z: number): boolean {
   const held = inv.current;
   const kind = held && sows(held.id);
-  if (!kind || world.blockAt(x, y, z) !== FARMLAND || world.blockAt(x, y + 1, z) !== AIR) return false;
+  if (!kind || !isFarmland(world.blockAt(x, y, z)) || world.blockAt(x, y + 1, z) !== AIR) return false;
   if (!world.setBlock(x, y + 1, z, blockId(kind === 'coffee' ? 'coffee_bush_0' : `crop_${kind}_0`))) return false;
   inv.take();
   return true;
@@ -65,6 +73,16 @@ export function pickCoffee(world: World, inv: Inventory, x: number, y: number, z
   if (trial.add(itemId('coffee_beans'), 3) > 0) return 'full';
   world.setBlock(x, y, z, blockId('coffee_bush_1'));
   inv.add(itemId('coffee_beans'), 3);
+  return true;
+}
+
+/** Picks a ripe apple tree: apples, and the young tree goes back a stage to fruit again (it is a perennial). */
+export function pickApple(world: World, inv: Inventory, x: number, y: number, z: number): boolean | 'full' {
+  if (blockName(world.blockAt(x, y, z)) !== 'crop_apple_3') return false;
+  const trial = inv.clone();
+  if (trial.add(itemId('apple'), 3) > 0) return 'full';
+  world.setBlock(x, y, z, blockId('crop_apple_2'));
+  inv.add(itemId('apple'), 3);
   return true;
 }
 
@@ -102,7 +120,7 @@ export function grow(world: World, x: number, y: number, z: number): boolean {
   if (!c) return false;
   const last = c.kind === 'coffee' ? 2 : LAST_STAGE;
   if (c.stage >= last) return false;
-  if (c.kind !== 'coffee' && world.blockAt(x, y - 1, z) !== FARMLAND) return false;
+  if (c.kind !== 'coffee' && !isFarmland(world.blockAt(x, y - 1, z))) return false;
   const lv = world.lightAt(x, y, z);
   if ((lv >> 4) < 9 && (lv & 15) < 9) return false; // crops need light
   const next = c.kind === 'coffee' ? `coffee_bush_${c.stage + 1}` : `crop_${c.kind}_${c.stage + 1}`;

@@ -19,6 +19,8 @@ export const SCOUT_AT: [number, number, number] = [ZONE1.scout.x, ZONE1.scout.y,
 /** The shelter's lantern, under the middle of its roof, and where Marco stands (feet), facing the road. */
 export const SHELTER_LANTERN: [number, number, number] = [ZONE1.shelter.x0 + 3, ZONE1.shelter.floor + 2, ZONE1.shelter.z0 + 1];
 export const MARCO_SPOT: [number, number, number] = [ZONE1.shelter.x0 + 2.5, ZONE1.shelter.floor, ZONE1.shelter.z1 - 0.5];
+/** The old apple tree in the farmyard's south-east corner: right-click its trunk for a grafting slip (docs/PHASE5.md). */
+export const APPLE_TREE: [number, number, number] = [ZONE1.barn.x1 + 1, ZONE1.farm.floor, ZONE1.farm.z1 - 6];
 /** The dogs' den: the middle of the collapsed house. */
 export const DEN: [number, number, number] = [(ZONE1.house.x0 + ZONE1.house.x1) / 2, ZONE1.farm.floor, (ZONE1.house.z0 + ZONE1.house.z1) / 2];
 /** The middle of the farmyard, where the chickens scratch. */
@@ -148,6 +150,14 @@ export function buildZone1(col: Uint16Array, x0: number, z0: number): void {
     const wall = x === c.x0 || x === c.x1 - 1 || z === c.z0 || z === c.z1 - 1;
     if (wall && r(x, 10, z) < 0.6) put(x, FF, z, r(x, 11, z) < 0.5 ? 'slab_planks' : 'fence_wire');
     else if (!wall && r(x, 12, z) < 0.3) put(x, FF, z, 'tin_roof');
+  }
+  // The old apple tree, gone feral but still fruiting: a short trunk and a round crown.
+  const [ax, , az] = APPLE_TREE;
+  for (let y = FF; y < FF + 3; y++) put(ax, y, az, 'apple_trunk');
+  for (let dy = 2; dy <= 4; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+    if (dx * dx + dz * dz + (dy - 3) * (dy - 3) * 2 > 6 || (dx === 0 && dz === 0 && dy < 3)) continue;
+    if (r(ax + dx, 13, az + dz, dy) < 0.12) continue;
+    put(ax + dx, FF + dy, az + dz, 'apple_leaves');
   }
   // The laundry line, sagging between two posts.
   const lz = h.z0 + 1;

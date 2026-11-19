@@ -36,3 +36,31 @@ export function diedOutside(flags: Set<string>): void {
   if (!flags.has('extracted')) flags.delete('reached_near');
   if (!flags.has('gate_both')) flags.delete('been_out'); // waking at the bed is not swimming home
 }
+
+// ---- M2, the homestead expansion (docs/PHASE5.md, step 7) -------------------------------------------
+// DESIGN.md's M2 bundles seven unlocks; here each is a thing the player has done, ticked on the computer.
+// Clearing the outpost (the run M2 hangs on) is its own line.
+
+export const M2_STEPS: Step[] = [
+  { flag: 'outpost_cleared', label: 'Clear the raiders’ outpost' },
+  { flag: 'coop_laid', label: 'A coop that lays (chickens from the farm)' },
+  { flag: 'hutch_bred', label: 'A hutch that breeds (rabbits from the buffer)' },
+  { flag: 'forge_made', label: 'Workshop extension: the forge (the outpost’s parts)' },
+  { flag: 'preserved', label: 'Preserve meat: a smoker or a jerky rack' },
+  { flag: 'bow_made', label: 'Make a bow (the outpost’s bowstring)' },
+  { flag: 'leghold_learned', label: 'Learn the leghold trap (the hunters’ camp)' },
+  { flag: 'garden_expanded', label: 'A new crop: Marco’s quinoa or the farm’s apple' },
+];
+
+/**
+ * Sets the M2 flags earned by what the player carries (a bow made, preserved meat taken from a rack or
+ * smoker). The rest are set where they happen. Returns flags newly set, ending with 'm2_done' when the last ticks.
+ */
+export function trackM2(flags: Set<string>, count: (item: string) => number): string[] {
+  const added: string[] = [];
+  const set = (f: string) => { if (!flags.has(f)) { flags.add(f); added.push(f); } };
+  if (count('hunting_bow') > 0) set('bow_made');
+  if (count('jerky') + count('smoked_meat') > 0) set('preserved');
+  if (M2_STEPS.every((s) => flags.has(s.flag))) set('m2_done');
+  return added;
+}

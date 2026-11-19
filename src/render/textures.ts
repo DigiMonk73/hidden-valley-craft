@@ -416,6 +416,10 @@ const CROP_LOOK: Record<string, { fruit: RGB; leaf: RGB; tall: number; style: 's
   pepper: { fruit: hex('#e55039'), leaf: hex('#3f7f2c'), tall: 10, style: 'bush' },
   potato: { fruit: hex('#b9874f'), leaf: hex('#5a9a3a'), tall: 8, style: 'low' },
   herbs: { fruit: hex('#9fd36a'), leaf: hex('#5daa42'), tall: 7, style: 'low' },
+  // M2's new crops (docs/PHASE5.md): Marco's quinoa, its seed heads going rose-gold, and the apple slip
+  // growing into a small tree that fruits again after picking.
+  quinoa: { fruit: hex('#c86a5a'), leaf: hex('#6a9a3a'), tall: 13, style: 'stalk' },
+  apple: { fruit: hex('#c0302a'), leaf: hex('#4f8a32'), tall: 15, style: 'bush' },
 };
 
 function cropTexture(c: Canvas16, kind: string, stage: number): void {
@@ -635,6 +639,208 @@ DRAW.coop_side = (c) => {
 DRAW.farmland = (c) => {
   c.noise(hex('#4a3322'), 6, [hex('#3e2a1b'), hex('#5a3e28')], 0.2);
   for (const y of [1, 5, 9, 13]) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#2f2015')); c.set(x, y + 1, hex('#5e4430')); }
+};
+
+// ---- Zone-1's mid and deep bands, and M2 (docs/PHASE5.md) ---------------------------------
+
+/** Grey hollow-core blocks in a running bond, with dark mortar and grime. */
+DRAW.cinder_block = (c) => {
+  c.noise(hex('#9a9890'), 7, [hex('#8a8880'), hex('#a8a69e')], 0.25);
+  for (const y of [0, 8]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#5e5c56'));
+  for (let y = 0; y < TEX; y++) { c.set(y < 8 ? 0 : 8, y, hex('#5e5c56')); }
+  for (let k = 0; k < 10; k++) c.shade(Math.floor(c.rng() * 16), 9 + Math.floor(c.rng() * 7), 0.8);
+};
+/** A shop sign, blue paint gone chalky, white letters on two lines. */
+DRAW.tienda_sign = (c) => boardText(c, hex('#4a7090'), hex('#efe9da'));
+DRAW.sandbags = (c) => {
+  c.noise(hex('#a8956a'), 8, [hex('#988560'), hex('#b8a57a')], 0.2);
+  for (const y of [5, 11]) for (let x = 0; x < TEX; x++) { c.shade(x, y, 0.65); c.shade(x, y - 1, 0.85); }
+  for (let y = 0; y < TEX; y++) c.shade(y < 6 ? 7 : y < 12 ? 3 : 11, y, 0.7);
+};
+DRAW.sandbags_top = (c) => { c.noise(hex('#b0a074'), 8, [hex('#9a8a62')], 0.2); for (let x = 0; x < TEX; x++) c.shade(x, 8, 0.75); };
+DRAW.oil_drum = (c) => {
+  c.noise(hex('#3c5a4a'), 6, RUST, 0.25);
+  for (const y of [3, 12]) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#2c4236')); c.set(x, y + 1, hex('#5a7a68')); }
+};
+DRAW.oil_drum_top = (c) => { c.noise(hex('#3a3a36'), 5, RUST, 0.3); for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#2c4236')); c.set(k, 15, hex('#2c4236')); c.set(0, k, hex('#2c4236')); c.set(15, k, hex('#2c4236')); } };
+/** Flames and embers in the drum's open top. */
+DRAW.drum_fire = (c) => {
+  c.noise(hex('#2a1a12'), 6);
+  for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) { const r = c.rng(); c.set(x, y, r < 0.35 ? hex('#ffb030') : r < 0.65 ? hex('#e8641c') : r < 0.85 ? hex('#a82a10') : hex('#ffe08a')); }
+  for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#2c4236')); c.set(k, 15, hex('#2c4236')); c.set(0, k, hex('#2c4236')); c.set(15, k, hex('#2c4236')); }
+};
+/** The raiders' flag: red cloth, the white broken circle of the scout's armband. */
+DRAW.faction_flag = (c) => {
+  c.noise(hex('#a3241c'), 8, [hex('#8a1c16')], 0.2);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5), a = Math.atan2(y - 7.5, x - 7.5);
+    if (d > 3.2 && d < 5.2 && !(a > 0.3 && a < 1.0)) c.set(x, y, hex('#e9e2d0'));
+  }
+  for (let y = 0; y < TEX; y++) if (c.rng() < 0.3) c.set(15, y, hex('#000000'), 0); // a frayed edge
+};
+DRAW.supply_crate = (c) => {
+  c.noise(hex('#7a6a48'), 7, [hex('#6a5c3e')], 0.2);
+  for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#4a3e28')); c.set(k, 15, hex('#4a3e28')); c.set(0, k, hex('#4a3e28')); c.set(15, k, hex('#4a3e28')); c.set(k, k, hex('#5a4c32')); }
+};
+DRAW.supply_crate_top = (c) => { c.noise(hex('#7a6a48'), 7, [hex('#6a5c3e')], 0.2); for (let y = 0; y < TEX; y += 4) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.7); };
+/** The raiders' crate: a supply crate with the broken circle sprayed on it in red. */
+DRAW.raiders_crate = (c) => {
+  DRAW.supply_crate(c);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5), a = Math.atan2(y - 7.5, x - 7.5); if (d > 3 && d < 4.6 && !(a > 0.3 && a < 1.0)) c.set(x, y, hex('#b0281e')); }
+};
+DRAW.bedroll = (c) => { c.noise(hex('#4a5a3a'), 6, [hex('#3e4c30')], 0.2); for (let y = 0; y < 4; y++) for (let x = 2; x < 14; x++) c.set(x, y, hex('#8a7a5a')); };
+DRAW.bedroll_side = (c) => { c.noise(hex('#3e4c30'), 5); };
+/** A hand-crank forge: a firebrick hearth, a blower's drum on the side, its crank. */
+DRAW.raider_forge = (c) => {
+  c.noise(hex('#8a3a2a'), 8, [hex('#a8483a'), hex('#6e2e22')], 0.3);
+  for (const y of [4, 8, 12]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#4a2a20'));
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 11, y - 6) < 3.5) c.set(x, y, hex('#5d5f62'));
+  c.set(11, 6, hex('#1c1c1c')); for (let k = 0; k < 4; k++) c.set(11 + k, 2 - (k >> 1), hex('#3a3a3a'));
+};
+DRAW.forge_coals = (c) => { c.noise(hex('#2a1e18'), 6); for (let k = 0; k < 40; k++) c.set(3 + Math.floor(c.rng() * 10), 3 + Math.floor(c.rng() * 10), c.rng() < 0.5 ? hex('#e8641c') : hex('#ffb030')); };
+DRAW.mina_sign = (c) => boardText(c, hex('#5a4a3a'), hex('#e8d8a8'));
+DRAW.camp_sign = (c) => boardText(c, hex('#3e5a2e'), hex('#f0e6c8'));
+/** A pair of antlers, bleached, for the trail head's post. */
+DRAW.antlers = (c) => {
+  c.clearAlpha();
+  const B = hex('#e8e0cc'), D = hex('#bdb39c');
+  for (const s of [-1, 1]) {
+    for (let k = 0; k < 7; k++) c.set(8 + s * (1 + k), 12 - k, k % 2 ? D : B);
+    for (let k = 0; k < 3; k++) { c.set(8 + s * 3, 9 - k - 1, B); c.set(8 + s * 6, 6 - k - 1, B); }
+  }
+  for (let y = 11; y < 15; y++) { c.set(7, y, D); c.set(8, y, B); }
+};
+/** The last clients: four small figures in hunting clothes by a buck, faded, the glass cracked. */
+DRAW.photo = (c) => {
+  c.noise(hex('#5a3a22'), 4);
+  for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) c.set(x, y, y < 8 ? hex('#a8b8a0') : hex('#8a9a6a'));
+  for (const x of [4, 6, 9, 11]) { c.set(x, 6, hex('#d8b890')); for (let y = 7; y < 11; y++) c.set(x, y, x === 9 ? hex('#a86a2a') : hex('#4a5a3a')); }
+  for (let x = 6; x < 10; x++) c.set(x, 11, hex('#6a4a2a')); c.set(10, 9, hex('#e8dcc0'));
+  for (let k = 0; k < 7; k++) c.set(3 + k, 3 + Math.round(k * 0.8), hex('#e8eef0')); // the crack
+};
+/** A cured hide stretched on a pole frame. */
+DRAW.hide_rack = (c) => {
+  c.clearAlpha();
+  for (let y = 0; y < TEX; y++) { c.set(1, y, hex('#6e4a2a')); c.set(14, y, hex('#6e4a2a')); }
+  for (let x = 1; x < 15; x++) c.set(x, 1, hex('#6e4a2a'));
+  for (let y = 3; y < 13; y++) for (let x = 3 + (y < 5 || y > 10 ? 1 : 0); x < 13 - (y < 5 || y > 10 ? 1 : 0); x++) c.set(x, y, c.rng() < 0.2 ? hex('#a87a4a') : hex('#c09060'));
+};
+DRAW.meat_frame = (c) => {
+  c.clearAlpha();
+  for (let y = 0; y < TEX; y++) { c.set(2, y, hex('#6e4a2a')); c.set(13, y, hex('#6e4a2a')); }
+  for (const y of [2, 7]) for (let x = 2; x < 14; x++) c.set(x, y, hex('#7a5a36'));
+  for (const x of [5, 8, 11]) { c.set(x, 3, hex('#9a9a9a')); c.set(x, 8, hex('#9a9a9a')); }
+};
+DRAW.skinning_rack = (c) => {
+  c.clearAlpha();
+  for (let k = 0; k < TEX; k++) { c.set(k, 15 - k, hex('#6e4a2a')); c.set(15 - k, 15 - k, hex('#6e4a2a')); }
+  for (let x = 3; x < 13; x++) c.set(x, 4, hex('#7a5a36'));
+};
+DRAW.straw = (c) => { c.noise(hex('#d9c27a'), 10, [hex('#c4ac62'), hex('#e8d48e')], 0.3); };
+/** A straw-stuffed sack target: rings painted on, arrow holes. */
+DRAW.archery_butt = (c) => {
+  DRAW.straw(c);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if (d < 1.6) c.set(x, y, hex('#c0302a')); else if (d > 3 && d < 4) c.set(x, y, hex('#c0302a')); else if (d > 5.5 && d < 6.5) c.set(x, y, hex('#3a3a3a'));
+  }
+  for (let k = 0; k < 5; k++) c.set(3 + Math.floor(c.rng() * 10), 3 + Math.floor(c.rng() * 10), hex('#2a1e14'));
+};
+/** A rusted leghold trap: two jaws, a spring, the pan, its chain. */
+DRAW.leghold = (c) => {
+  c.clearAlpha();
+  for (let a = 0; a < 40; a++) { const t = (a / 40) * Math.PI * 2; c.set(8 + Math.cos(t) * 5.5, 8 + Math.sin(t) * 4, RUST[a % 4]); }
+  for (let x = 2; x < 14; x++) c.set(x, 8, hex('#5a4a3e'));
+  for (let y = 6; y < 11; y++) for (let x = 6; x < 10; x++) c.set(x, y, hex('#6e5a4a'));
+  for (let k = 0; k < 4; k++) c.set(13 + (k & 1), 12 + k, hex('#7a7068'));
+};
+/** Big cat's prints pressed into the mud: four toes and a broad pad, no claw marks. */
+DRAW.jaguar_tracks = (c) => {
+  c.clearAlpha();
+  const P = hex('#2e2014');
+  for (const [px, py] of [[4, 4], [11, 10]]) {
+    for (let y = -1; y <= 1; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y * 2 < 6) c.set(px + x, py + y + 2, P, 200);
+    for (const [tx, ty] of [[-2, -1], [-1, -2], [1, -2], [2, -1]]) c.set(px + tx, py + ty, P, 200);
+  }
+};
+DRAW.concrete = (c) => {
+  c.noise(hex('#a8a59c'), 8, [hex('#8e8b82'), hex('#bab7ae'), hex('#6e6c66')], 0.2);
+  for (let k = 0; k < 3; k++) { let x = Math.floor(c.rng() * 16), y = 0; while (y < 16) { c.set(x, y, hex('#6e6c66')); y++; x += Math.floor(c.rng() * 3) - 1; } }
+  for (let k = 0; k < 6; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), RUST[k % 4]); // rust weeping from the steel inside
+};
+/** Rebar: bent rust-brown rods hanging from broken concrete. */
+DRAW.rebar = (c) => {
+  c.clearAlpha();
+  for (const [x0, bend] of [[3, 2], [8, -2], [12, 1]]) for (let y = 0; y < TEX; y++) { const x = x0 + Math.round((bend * y * y) / 225); c.set(x, y, RUST[(y + x0) % 4]); if (y % 3 === 0) c.set(x + 1, y, hex('#5a3a22')); }
+};
+/** Two-legged prints, long and narrow, with toes splayed: not a boot, not a paw. Leaf litter half over them. */
+DRAW.odd_tracks = (c) => {
+  c.clearAlpha();
+  const P = hex('#241a10');
+  for (const [px, py] of [[5, 3], [10, 10]]) {
+    for (let y = 0; y < 6; y++) for (let x = 0; x < 2; x++) c.set(px + x, py + y, P, 210);
+    for (const [tx, ty] of [[-1, -1], [0, -2], [1, -2], [2, -1], [3, 0]]) c.set(px + tx, py + ty, P, 210);
+  }
+  for (let k = 0; k < 9; k++) { const x = Math.floor(c.rng() * 16), y = Math.floor(c.rng() * 16); c.set(x, y, k % 2 ? hex('#6a5a2a') : hex('#8a6a30')); c.set(x + 1, y, hex('#6a5a2a')); }
+};
+/** The body from above, head to the west: pale clothes, one arm thrown out bone-white, twisted, no wound. */
+DRAW.pale_upper = (c) => {
+  c.clearAlpha();
+  const cloth = [hex('#d8d4c8'), hex('#cac6b8'), hex('#e4e0d4')];
+  for (let z = 4; z < 12; z++) for (let x = 5; x < 16; x++) c.set(x, (z + Math.round((x - 10) / 5)) & 15, cloth[(x + z) % 3]);
+  for (let x = 6; x < 13; x++) c.set(x, 1 + (x > 9 ? 1 : 0), hex('#f0ece0')); // the arm thrown out, bone-white
+  for (let x = 8; x < 12; x++) c.set(x, 13 + (x & 1), hex('#e8e4d8')); // the other, twisted under
+  for (let z = 6; z < 11; z++) for (let x = 0; x < 5; x++) if ((x - 2.5) ** 2 / 6.5 + (z - 8) ** 2 / 8 < 1) c.set(x, z, x < 2 ? hex('#5a4a3a') : hex('#c8b8a0'));
+};
+DRAW.pale_lower = (c) => {
+  c.clearAlpha();
+  for (let z = 3; z < 8; z++) for (let x = 0; x < 13; x++) c.set(x, z, hex('#c8c4b8'));
+  for (let z = 9; z < 13; z++) for (let x = 0; x < 9; x++) c.set(x + Math.floor(z / 4), z, hex('#bcb8ac')); // one leg bent back
+  for (let z = 3; z < 7; z++) for (let x = 13; x < 16; x++) c.set(x, z, hex('#e8e4d8')); // a bare foot
+};
+DRAW.pale_side = (c) => { c.noise(hex('#cfcbbf'), 5); };
+/** A wide, patchy pale stain on the ground: too wide and too pale to be blood. */
+DRAW.pale_stain = (c) => {
+  c.clearAlpha();
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (c.rng() < 0.5) c.set(x, y, c.rng() < 0.5 ? hex('#c8c8b0') : hex('#b4baa0'), 190);
+};
+DRAW.smoker_top = (c) => { c.noise(hex('#5a5852'), 6, [hex('#3a3a36')], 0.3); for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) c.set(x, y, hex('#2a2a28')); };
+/** A smoker: a stone firebox below, a plank chamber with a door above. */
+DRAW.smoker_side = (c) => {
+  c.noise(hex('#8a6a46'), 6, [hex('#7a5c3c')], 0.2);
+  for (let y = 10; y < 16; y++) for (let x = 0; x < TEX; x++) c.set(x, y, (x + y) % 5 === 0 ? hex('#6e6a62') : hex('#9d978a'));
+  for (let y = 12; y < 15; y++) for (let x = 5; x < 11; x++) c.set(x, y, y === 12 ? hex('#3a3a36') : hex('#e8641c'));
+  for (let y = 2; y < 9; y++) { c.set(3, y, hex('#4a3a28')); c.set(12, y, hex('#4a3a28')); }
+};
+/** A jerky rack: strips of meat hanging on lines between the posts. */
+DRAW.jerky_rack = (c) => {
+  c.clearAlpha();
+  for (const y of [3, 9]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#c8b98f'));
+  for (const y of [3, 9]) for (let x = 1; x < 15; x += 3) for (let k = 1; k < 5; k++) c.set(x, y + k, k < 4 ? hex('#7a3a22') : hex('#5a2a18'));
+};
+DRAW.forge_top = (c) => { c.noise(hex('#7a7468'), 6); for (let y = 4; y < 12; y++) for (let x = 4; x < 12; x++) c.set(x, y, c.rng() < 0.5 ? hex('#e8641c') : hex('#3a2a20')); };
+/** The workshop's new forge: dressed stone, a firebrick mouth glowing, the raiders' blower bolted on. */
+DRAW.forge_side = (c) => {
+  c.noise(hex('#9d978a'), 6, [hex('#8a8478')], 0.2);
+  for (const y of [5, 10]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#6e6a62'));
+  for (let y = 7; y < 14; y++) for (let x = 4; x < 12; x++) c.set(x, y, y < 9 ? hex('#a8483a') : c.rng() < 0.6 ? hex('#ffb030') : hex('#e8641c'));
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 13, y - 3) < 2.2) c.set(x, y, hex('#5d5f62'));
+};
+/** A tool rack: pegs on a plank back, the shapes of tools hung on them. */
+DRAW.tool_rack = (c) => {
+  c.noise(hex('#9a7048'), 6, [hex('#8a623e')], 0.2);
+  for (const x of [3, 8, 12]) { for (let y = 2; y < 13; y++) c.set(x, y, hex('#5a5a5a')); c.set(x - 1, 2, hex('#7d8790')); c.set(x + 1, 2, hex('#7d8790')); }
+  for (let x = 0; x < TEX; x++) c.set(x, 14, hex('#5e3c20'));
+};
+DRAW.raised_bed_side = (c) => { c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#4a3322')); c.set(x, 8, hex('#7a5232')); } };
+DRAW.apple_trunk = (c) => {
+  c.noise(hex('#5a4a3a'), 8, [hex('#4a3c2e'), hex('#6e5c48')], 0.3);
+  for (let k = 0; k < 4; k++) { const x = Math.floor(c.rng() * 16); for (let y = 0; y < TEX; y++) if (c.rng() < 0.7) c.set(x, y, hex('#3a2e22')); }
+  for (let k = 0; k < 5; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#8a9a5a')); // lichen
+};
+DRAW.apple_leaves = (c) => {
+  leafy(c, [hex('#3f7a2c'), hex('#4f8a32'), hex('#5a9a3a')], 0.18);
+  for (let k = 0; k < 4; k++) { const x = 1 + Math.floor(c.rng() * 14), y = 1 + Math.floor(c.rng() * 14); c.set(x, y, hex('#c0302a')); c.set(x + 1, y, hex('#a82820')); }
 };
 
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */

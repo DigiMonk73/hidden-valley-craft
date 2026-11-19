@@ -1,8 +1,10 @@
 // Where and when wildlife appears: by zone and time of day, in a ring around the player, never in the
 // valley (the sanctuary rule is checked here in code, whatever any table says).
 
-import { zoneAt, inSanctuary, PLACES, type ZoneId } from '../gen/layout.ts';
-import { B_SOLID, isWaterId, blockId } from '../world/blocks.ts';
+import { zoneAt, inSanctuary, surfaceHeight, PLACES, type ZoneId } from '../gen/layout.ts';
+import { B_SOLID, isWaterId, blockId, BLOCK_DEFS } from '../world/blocks.ts';
+
+const hasBlock = (n: string) => BLOCK_DEFS.some((d) => d.name === n);
 
 /** Tree crowns and trunks: a creature never stands on these; the search goes on down to the ground. */
 const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds'].map(blockId));
@@ -37,20 +39,39 @@ const RING_NEAR = 24, RING_FAR = 80, DESPAWN = 128, WARREN_NEAR = 16;
 /** A night creature still about by day slips away once it is this far from the player. */
 const DAWN_LEAVE = 24;
 
-/** A spot a creature could stand: solid ground, room above (plants are fine), no water, outside the sanctuary. */
+/** Built things a creature is never put on top of: roofs, coops and hutches, crates, fences, wrecks, sandbags. */
+const BUILT = new Set([
+  'tin_roof', 'slab_planks', 'slab_stone_bricks', 'coop', 'hutch', 'chest', 'fence_post', 'fence_wire', 'truck_body', 'truck_cab',
+  'truck_wheel', 'scrap_heap', 'bench', 'table', 'stone_railing', 'sandbags', 'supply_crate', 'oil_drum', 'concrete_slab',
+].flatMap((n) => (hasBlock(n) ? [n, `${n}@east`, `${n}@south`, `${n}@west`].filter(hasBlock) : [])).map(blockId));
+
+/**
+ * A spot a creature could stand: solid ground, room above (plants are fine), no water, outside the
+ * sanctuary. Of the open spots in the column, the lowest that is not below the land's own height is
+ * taken, so a creature stands on the floor under a roof rather than on it, and never on top of a coop,
+ * a crate or a fence (the lead, 2026-11-18: Marco was put on the bus shelter's roof). A pit dug deeper
+ * than the land leaves only the highest open spot, as before.
+ */
 export function groundAt(x: number, z: number, blockAt: (x: number, y: number, z: number) => number, top = 190): number | null {
   if (inSanctuary(x, z)) return null;
+  const bx = Math.floor(x), bz = Math.floor(z);
+  const land = surfaceHeight(bx, bz);
+  let first: number | null = null, lowest: number | null = null, ground = false;
   for (let y = top; y > 2; y--) {
-    const below = blockAt(Math.floor(x), y - 1, Math.floor(z));
-    if (isWaterId(below)) return null;
-    if (TREE.has(below)) continue;
-    if (B_SOLID[below]) {
-      const here = blockAt(Math.floor(x), y, Math.floor(z)), above = blockAt(Math.floor(x), y + 1, Math.floor(z));
-      // Grass and ferns are no obstacle; rock or water is.
-      return !B_SOLID[here] && !isWaterId(here) && !B_SOLID[above] && !isWaterId(above) ? y : null;
+    const below = blockAt(bx, y - 1, bz);
+    if (isWaterId(below) && !ground) return null; // water before any ground
+    if (y < land - 3 && ground) break; // under the land: caves are not a place to put anything
+    if (TREE.has(below) || !B_SOLID[below]) continue;
+    ground = true;
+    const here = blockAt(bx, y, bz), above = blockAt(bx, y + 1, bz);
+    // Grass and ferns are no obstacle; rock or water is.
+    const open = !B_SOLID[here] && !isWaterId(here) && !B_SOLID[above] && !isWaterId(above);
+    if (open && !BUILT.has(below)) {
+      if (first === null) first = y;
+      if (y >= land - 3) lowest = y;
     }
   }
-  return null;
+  return lowest ?? first;
 }
 
 /** One spawn attempt per rule; returns the creatures made. `loaded` says whether a column is in memory. */
@@ -64,7 +85,7 @@ export function trySpawn(
   for (const rule of SPAWNS) {
     if (rule.night === 'day' && night) continue;
     if (rule.night === 'night' && !night) continue;
-    const have = creatures.filter((c) => c.kind === rule.kind).length + made.filter((c) => c.kind === rule.kind).length;
+    const have = creatures.filter((c) => c.kind === rule.kind && !c.tame).length + made.filter((c) => c.kind === rule.kind).length;
     const cap = Math.min(rule.cap, limits[rule.kind] ?? Infinity);
     if (have >= cap) continue;
     let x: number, z: number;
@@ -138,6 +159,7 @@ export function despawnFar(creatures: Creature[], px: number, pz: number, night 
   return creatures.filter((c) => {
     const d = Math.hypot(c.x - px, c.z - pz);
     if (!night && SPAWNS.some((r) => r.kind === c.kind && r.night === 'night') && d > DAWN_LEAVE) return false;
+    if (c.tame) return true; // the coop's own hens: the game keeps them in step with it
     return d < DESPAWN && !inSanctuary(c.x, c.z);
   });
 }

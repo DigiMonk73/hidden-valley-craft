@@ -42,20 +42,42 @@ import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
 import { CATALOG, START_WALLET, buy, sell, sellPrice, sellable, btc } from './sim/trade.ts';
 import { M1_STEPS, trackM1, diedOutside } from './sim/milestones.ts';
-import { catchChicken, layEggs, COOP, CATCH_REACH } from './sim/livestock.ts';
+import { catchChicken, layEggs, hatchEggs, syncTameHens, takeHen, COOP, CATCH_REACH } from './sim/livestock.ts';
 import { itemLabel } from './world/items.ts';
 import { iconFor } from './ui/icons.ts';
 import { drawMapScrap } from './ui/mapView.ts';
 import people from '../data/people.json' with { type: 'json' };
+import { RAIDER_KINDS } from './entity/creatures.ts';
+import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS, outpostFromSave } from './entity/outpost.ts';
+import { makeJaguar, atCampClearing } from './entity/jaguar.ts';
+import { Focus } from './sim/focus.ts';
+import { HomeKey } from './sim/home.ts';
+import { ZONE1FAR, ZONES } from './gen/layout.ts';
+import { OUTPOST_AT, CAMP_MARKER, DECK_END, RUSTED_TRAP } from './gen/zone1far.ts';
+import { M2_STEPS, trackM2 } from './sim/milestones.ts';
+import { smokeMeat, cureJerky, newWatch, learnLeghold, LEGHOLD_LESSON, LEGHOLD } from './sim/preserve.ts';
+import { pickApple, isFarmland, sows, NEW_CROPS } from './sim/farming.ts';
+import { itemName } from './world/items.ts';
+import { blockId } from './world/blocks.ts';
 
 const SAVE_KEY = 'save:1';
 const KILL_LINE: Record<Creature['kind'], string> = {
   rabbit: 'A rabbit: meat and a small hide', deer: 'A deer: venison, a hide and bone', boar: 'A wild boar: pork, a hide and bone', puma: 'The puma is dead. Its pelt is yours',
   dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '',
+  lookout: 'The lookout is down. His rifle and his rounds are yours.', gunman: 'The man with the pistol is down. His pistol and rounds are yours.',
+  rusher: 'The man with the machete is down. His machete is yours.', jaguar: 'The jaguar is dead. Its pelt is yours.',
 };
+/** Firearms: found, never crafted (ADR-019). Damage, seconds between shots, range, and what each fires. */
+const GUNS: Record<string, { damage: number; cooldown: number; range: number; ammo: string; sound: 'rifle' | 'pistol' }> = {
+  hunting_rifle: { damage: 45, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
+  raider_rifle: { damage: 40, cooldown: 1.6, range: 120, ammo: 'rifle_rounds', sound: 'rifle' },
+  pistol: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol' },
+};
+const BOWS = new Set(['compound_bow', 'hunting_bow']);
+const BLADES = new Set(['hunting_knife', 'machete', 'spear']);
+const isBow = (id: number | undefined) => id !== undefined && BOWS.has(itemName(id));
+const isWeapon = (id: number | undefined) => id !== undefined && (BOWS.has(itemName(id)) || itemName(id) in GUNS);
 const MARCO = people.marco;
-/** Pistol: the dead scout's, never crafted (ADR-019). */
-const PISTOL = { damage: 30, cooldown: 0.5, range: 60 };
 /** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
 const MARCO_HOURS: [number, number] = [7, 18];
 const SETTINGS_KEY = 'settings';
@@ -108,6 +130,16 @@ export class Game {
   private shake = 0;
   /** The creatures and arrows outside the valley. */
   wild = new Wild();
+  /** Focus mode: the world slowed for a careful shot (docs/PHASE5.md). */
+  focus = new Focus();
+  /** Holding H to head home (the lead, 2026-11-18), and when the player was last hurt (play time). */
+  home = new HomeKey();
+  private lastHurt = -Infinity;
+  private hpBefore = 100;
+  /** Is the player sprinting this tick (a hen runs only from that)? */
+  private sprinting = false;
+  /** The deep band's stinger plays once a visit, when the body across the ravine comes into view. */
+  private stingerVisit = false;
   /** A rifle shot this tick, for the creatures to hear. */
   private shotFired = false;
   private lastBlow = -Infinity;
@@ -154,7 +186,12 @@ export class Game {
     this.screen = new InventoryScreen(ui);
     this.paper = new PaperScreen(ui);
     this.screen.onChange = () => this.edited();
-    this.screen.onMake = () => this.sound.place('wood');
+    this.screen.onMake = (r) => {
+      this.sound.place('wood');
+      // M2's workshop extension: the forge, made from the outpost's parts.
+      if (r.out[0] === blockId('forge')) { this.flags.add('forge_made'); this.hud.toast('The forge, and a tool rack with it. Set the forge in the workshop: it gets more iron from scrap.', 7000); }
+    };
+    this.screen.known = this.flags;
     this.screen.onFull = () => this.hud.toast('No room in your pack for that');
     this.hud = new Hud(ui, {
       play: () => this.resume(),
@@ -255,6 +292,12 @@ export class Game {
       }
     }
 
+    if (this.playing && !this.screen.isOpen && !this.paper.isOpen) {
+      if (this.focus.active && !isWeapon(this.hotbar.current?.id)) this.endFocus();
+      if (this.focus.update(dt) === 'ended') this.sound.focus(false);
+    }
+    this.hud.setHoming(this.home.progress);
+    this.hud.setFocus(this.focus.active, this.focus.level, this.focus.active || (this.focus.level < 1 && isWeapon(this.hotbar.current?.id)));
     if (this.playing) {
       this.accumulator += dt;
       while (this.accumulator >= STEP) {
@@ -264,9 +307,13 @@ export class Game {
       if (!this.opts.test) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
     }
     // Each morning (or on waking), the hutches breed.
+    if (newWatch(this.dayClock, this.hour) && smokeMeat(this.world)) this.edited();
     if (newDay(this.dayClock, this.hour)) {
-      if (breedHutches(this.world)) this.edited();
-      if (layEggs(this.world)) this.edited();
+      if (breedHutches(this.world)) { this.flags.add('hutch_bred'); this.edited(); }
+      // Eggs left in from yesterday hatch first, then this morning's are laid.
+      if (hatchEggs(this.world)) { this.hud.toast('A chick has hatched in the coop: one more hen.', 5000); this.edited(); }
+      if (layEggs(this.world)) { this.flags.add('coop_laid'); this.edited(); }
+      if (cureJerky(this.world)) this.edited();
       // The farm's feral flock regrows by a hen a day.
       this.wild.flockLeft = Math.min(FLOCK_SIZE, this.wild.flockLeft + 1);
     }
@@ -291,7 +338,7 @@ export class Game {
     this.hud.updateHotbar(this.hotbar);
     this.hud.setVitals(this.vitals.hp, this.vitals.hunger, this.vitals.thirst, !this.hotbar.creative);
     // The bow's draw shows on the same bar as mining; switching away from the bow lets the string down.
-    if (this.drawing !== null && this.hotbar.current?.id !== itemId('compound_bow')) this.drawing = null;
+    if (this.drawing !== null && !isBow(this.hotbar.current?.id)) this.drawing = null;
     this.hud.setMining(this.drawing !== null ? drawOf(this.playTime - this.drawing) : this.mining.active ? this.mining.progress : 0);
     const m = this.mining;
     this.renderer.showCrack(m.x, m.y, m.z, m.active && this.target ? m.progress : 0);
@@ -314,9 +361,12 @@ export class Game {
     }
     this.playTime += dt;
     const input = this.readInput();
+    this.sprinting = input.sprint && (input.forward !== 0 || input.strafe !== 0);
     const p = this.player;
     const px = p.x, pz = p.z, vy = p.vy;
-    p.step(dt, input, (x, y, z) => this.world.blockAt(x, y, z));
+    // In focus the world runs slow, the player's body with it; only the aim (the mouse) is quick.
+    const world = dt * this.focus.scale;
+    p.step(world, input, (x, y, z) => this.world.blockAt(x, y, z));
     // Footsteps by the ground underfoot, and a splash on falling into water.
     if (p.onGround && !p.flying && !p.inWater) {
       this.stepDist += Math.hypot(p.x - px, p.z - pz);
@@ -327,9 +377,16 @@ export class Game {
     }
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
-    this.tickWild(dt);
+    this.tickWild(world);
     this.tickSurvival(dt, input);
-    this.tickGate(dt);
+    this.tickGate(world);
+    // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
+    const hurt = this.vitals.hp < this.hpBefore - 0.01;
+    if (hurt) this.lastHurt = this.playTime;
+    this.hpBefore = this.vitals.hp;
+    const h = this.home.update(dt, this.keys.has('KeyH'), hurt);
+    if (h === 'go') this.goHome();
+    else if (h === 'cancelled' && hurt) this.hud.toast('Hurt: you stop. Get clear first.');
     if (Math.floor(this.time) !== this.lastPlaces) { this.lastPlaces = Math.floor(this.time); this.tickPlaces(); }
     // Mark where the player has been, for the map table (once a second).
     if (Math.floor(this.time) !== this.lastExplore) {
@@ -396,6 +453,8 @@ export class Game {
       loaded: (x, z) => !!this.world.column(Math.floor(x / CS), Math.floor(z / CS)),
       rand: Math.random,
       arrowRoom: () => this.hotbar.room(itemId('arrow')),
+      pv: Math.hypot(p.vx, p.vz),
+      sprint: this.sprinting,
     });
     this.shotFired = false;
     this.wildEvents(ev);
@@ -420,6 +479,30 @@ export class Game {
         this.hud.flashHurt();
       }
     }
+    for (const e of ev.raiders) {
+      const c = e.c, at = [c.x, c.y + 1.6, c.z] as const;
+      if (e.kind === 'notice') this.once('raider_notice', 'A raider has turned your way. Get out of his sight before he shouts.', 5000);
+      else if (e.kind === 'shout') { this.sound.shout(...at); this.once('outpost_alert', 'They have seen you! Every shot comes after an aim: when you see a glint or hear a click, get behind something solid.', 8000); }
+      else if (e.kind === 'aim') {
+        this.sound.click(...at);
+        if (c.kind === 'lookout') this.once('lookout_aim', 'A glint on the roof: he’s aiming. Get behind something solid.', 6000);
+      } else if (e.kind === 'shot') {
+        this.sound.enemyShot(...at, c.kind === 'lookout');
+        if (!e.hit) { if (e.cover) this.sound.ricochet(...e.cover); else this.sound.zip(); }
+      } else if (e.kind === 'swing') this.sound.swing(...at);
+    }
+    for (const j of ev.jaguar) {
+      const jag = this.wild.creatures.find((c) => c.kind === 'jaguar');
+      if (j === 'gone') {
+        const [x, z] = ZONE1FAR.jaguarPath[ZONE1FAR.jaguarPath.length - 1];
+        this.sound.jaguarCall(x, ZONE1FAR.camp.floor + 1, z - 6);
+        this.hud.toast('A jaguar. It looked at you, and was gone into the trees. Its tracks are in the mud by the shed.', 8000);
+      } else {
+        if (jag) this.sound.growl(jag.x, jag.y + 0.6, jag.z);
+        this.once('jaguar_fight', 'The jaguar turns on you! Step back when it crouches, then strike.', 6000);
+      }
+    }
+    if (ev.silent) this.once('takedown', 'He never saw it coming. The others heard nothing.', 6000);
     for (const c of ev.kills) this.takeDrops(c);
     for (const [x, y, z] of ev.snared) {
       this.world.setBlock(x, y, z, SNARE_CAUGHT);
@@ -436,7 +519,17 @@ export class Game {
       this.wild.denLeft = Math.max(0, this.wild.denLeft - 1);
       if (this.wild.denLeft === 0) this.hud.toast('The last of the dogs. The farm is quiet now.', 5000);
     }
-    if (c.kind === 'chicken') this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
+    if (c.kind === 'chicken' && c.tame) takeHen(this.world, c.tame);
+    else if (c.kind === 'chicken') this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
+    // The outpost's raiders stay dead: once all three are, it is quiet for good.
+    if (c.kind === 'lookout' || c.kind === 'gunman' || c.kind === 'rusher') {
+      this.wild.outpost.left &= ~RAIDER_BIT[c.kind];
+      if (!this.wild.outpost.left && !this.flags.has('outpost_cleared')) {
+        this.flags.add('outpost_cleared');
+        this.wild.outpost.alert = false;
+        window.setTimeout(() => this.hud.toast('The outpost is quiet. Search the back room: the crate, and the forge (mine it to take its parts home).', 9000), 3200);
+      }
+    }
     const left = takeDrops(this.hotbar, c.kind);
     if (!left.length) this.hud.toast(KILL_LINE[c.kind]);
     else {
@@ -464,6 +557,7 @@ export class Game {
   private damageCreature(c: Creature, damage: number): void {
     this.sound.hit(c.x, c.y + 0.5, c.z);
     if (hurtCreature(c, damage)) { this.wild.remove(c); this.takeDrops(c); }
+    if (RAIDER_KINDS.has(c.kind)) alertOutpost(this.wild.creatures, this.wild.outpost);
   }
 
   /** A left-click on a creature in reach: a blow with what is in hand. True if there was one to hit. */
@@ -473,7 +567,20 @@ export class Game {
     if (hit.c.kind === 'marco') { this.hud.toast(MARCO.strike); return true; }
     if (this.playTime - this.lastBlow < MELEE_COOLDOWN) return true;
     this.lastBlow = this.playTime;
-    this.damageCreature(hit.c, meleeDamage(this.hotbar.current?.id));
+    // A blade on a raider who hasn't seen you: a silent takedown (docs/PHASE5.md).
+    const held = this.hotbar.current?.id;
+    if (silentTakedown(hit.c, this.wild.outpost, held !== undefined && BLADES.has(itemName(held)))) {
+      this.sound.hit(hit.c.x, hit.c.y + 1, hit.c.z);
+      hit.c.hp = 0;
+      this.wild.remove(hit.c);
+      this.takeDrops(hit.c);
+      this.once('takedown', 'He never saw it coming. The others heard nothing.', 6000);
+      return true;
+    }
+    const dmg = meleeDamage(held);
+    if (dmg <= 2 && !RAIDER_KINDS.has(hit.c.kind))
+      this.once('weak_hit', 'That barely hurts it. The machete, the bow or the rifle (in the vault’s armory chest) work far better.', 8000);
+    this.damageCreature(hit.c, dmg);
     return true;
   }
 
@@ -484,40 +591,29 @@ export class Game {
     const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationOf(t.id) || /^steel_door|^snare_caught/.test(blockName(t.id))
-      || ['bed', 'bookshelf', 'computer', 'phone', 'map_table'].includes(name);
+      || ['bed', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge'].includes(name);
   }
 
   /** Right-click with the bow or rifle in hand. True if it was handled. */
   private aim(): boolean {
     const held = this.hotbar.current?.id;
     if (held === undefined || this.usableTarget()) return false;
-    if (held === itemId('compound_bow')) {
+    if (isBow(held)) {
       if (this.hotbar.count(itemId('arrow')) === 0) { this.hud.toast('No arrows'); return true; }
       this.drawing = this.playTime;
       this.sound.bowDraw();
       return true;
     }
-    if (held === itemId('pistol')) {
-      if (this.playTime - this.lastShot < PISTOL.cooldown) return true;
-      if (!this.hotbar.remove(itemId('pistol_rounds'), 1)) { this.hud.toast('No pistol rounds'); return true; }
+    const gun = GUNS[itemName(held)];
+    if (gun) {
+      if (this.playTime - this.lastShot < gun.cooldown) return true;
+      if (!this.hotbar.remove(itemId(gun.ammo), 1)) { this.hud.toast(gun.ammo === 'pistol_rounds' ? 'No pistol rounds' : 'No rifle rounds'); return true; }
       this.lastShot = this.playTime;
       this.shotFired = true;
-      this.sound.pistol();
-      this.shake = Math.max(this.shake, 0.15);
-      const hit = this.creatureInSight(PISTOL.range);
-      if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, PISTOL.damage);
-      this.edited();
-      return true;
-    }
-    if (held === itemId('hunting_rifle')) {
-      if (this.playTime - this.lastShot < RIFLE_COOLDOWN) return true;
-      if (!this.hotbar.remove(itemId('rifle_rounds'), 1)) { this.hud.toast('No rifle rounds'); return true; }
-      this.lastShot = this.playTime;
-      this.shotFired = true;
-      this.sound.rifle();
-      this.shake = Math.max(this.shake, 0.25);
-      const hit = this.creatureInSight(RIFLE_RANGE);
-      if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, RIFLE_DAMAGE);
+      if (gun.sound === 'rifle') this.sound.rifle(); else this.sound.pistol();
+      this.shake = Math.max(this.shake, gun.sound === 'rifle' ? 0.25 : 0.15);
+      const hit = this.creatureInSight(gun.range);
+      if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, gun.damage);
       this.edited();
       return true;
     }
@@ -529,11 +625,20 @@ export class Game {
     const hit = this.creatureInSight(4);
     if (!hit) return false;
     if (hit.c.kind === 'marco') { this.talkToMarco(); return true; }
+    if (hit.c.kind === 'chicken' && hit.dist > CATCH_REACH && !hit.c.tame) {
+      // A grab that falls short: she scuttles off for a moment.
+      hit.c.mind = 'flee'; hit.c.timer = 3;
+      this.sound.cluck(hit.c.x, hit.c.y + 0.3, hit.c.z);
+      this.once('grab_short', 'Too far: walk right up to her (no running), then right-click.', 5000);
+      return true;
+    }
     if (hit.c.kind === 'chicken' && hit.dist <= CATCH_REACH) {
       const r = catchChicken(this.hotbar, hit.c);
       if (r === 'full') { this.hud.toast('No room in your pack for the chicken'); return true; }
       this.wild.remove(hit.c);
-      this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
+      // A tame hen leaves her coop's count; a wild one leaves the farm's flock.
+      if (hit.c.tame) takeHen(this.world, hit.c.tame);
+      else this.wild.flockLeft = Math.max(0, this.wild.flockLeft - 1);
       this.sound.cluck(hit.c.x, hit.c.y + 0.3, hit.c.z);
       const n = this.hotbar.count(itemId('live_chicken'));
       this.hud.toast(n >= 2 ? `${n} live chickens: a pair for a coop. Build one at the workbench.` : 'A live chicken! Catch another: a pair lays eggs in a coop.');
@@ -548,7 +653,7 @@ export class Game {
     if (this.drawing === null) return;
     const draw = drawOf(this.playTime - this.drawing);
     this.drawing = null;
-    if (this.hotbar.current?.id !== itemId('compound_bow') || draw < BOW_MIN_DRAW) return;
+    if (!isBow(this.hotbar.current?.id) || draw < BOW_MIN_DRAW) return;
     if (!this.hotbar.remove(itemId('arrow'), 1)) return;
     const p = this.player;
     const [dx, dy, dz] = p.lookDir();
@@ -581,6 +686,7 @@ export class Game {
    */
   private die(): void {
     const p = this.player;
+    this.endFocus();
     this.drawing = null;
     this.fishing = null;
     this.mining.active = false;
@@ -618,6 +724,8 @@ export class Game {
       // The valley's falls, and the canyon's (the stronger spring, a little louder); each is muffled
       // by the ridge when heard from the other side of it.
       falls: SPRINGS.map((f) => ({ pos: [f.x + f.dir, (VALLEY.water + f.top) / 2, (f.z0 + f.z1) / 2] as [number, number, number], loudness: fallsLoudness(f, p.x, p.z, valley) })),
+      band: ((z) => (z === 'near' || z === 'mid' || z === 'deep' ? z : 'other'))(zoneAt(p.x, p.z)),
+      raiders: this.wild.outpost.left > 0,
     });
   }
 
@@ -684,6 +792,7 @@ export class Game {
     const id = this.world.blockAt(x, y, z);
     const lv = this.world.lightAt(x, y + 1, z);
     const r = breakBlock(this.world, this.hotbar, x, y, z);
+    if (r.changed && id === LEGHOLD && learnLeghold(this.flags)) this.hud.toast(LEGHOLD_LESSON, 10000);
     if (r.changed) {
       // The right tool wears with each block it mines.
       const held = this.hotbar.current;
@@ -744,17 +853,32 @@ export class Game {
     const picked = pickCoffee(this.world, this.hotbar, t.x, t.y, t.z);
     if (picked === 'full') { this.hud.toast('No room in your pack for the beans'); return; }
     if (picked) { this.sound.place('leaves'); this.edited(); return; }
+    const apples = pickApple(this.world, this.hotbar, t.x, t.y, t.z);
+    if (apples === 'full') { this.hud.toast('No room in your pack for the apples'); return; }
+    if (apples) { this.sound.place('leaves'); this.hud.toast('Apples. The tree will fruit again.'); this.edited(); return; }
     const held = this.hotbar.current;
     if (held && held.id === itemId('steel_hoe') && till(this.world, t.x, t.y, t.z)) { this.hotbar.wearTool(); this.sound.dig('soil'); this.edited(); return; }
-    if (t.id === FARMLAND && t.ny === 1 && sow(this.world, this.hotbar, t.x, t.y, t.z)) { this.sound.place('soil'); this.edited(); return; }
+    const sowing = held ? sows(held.id) : undefined;
+    if (isFarmland(t.id) && t.ny === 1 && sow(this.world, this.hotbar, t.x, t.y, t.z)) {
+      this.sound.place('soil');
+      if (sowing && NEW_CROPS.has(sowing)) this.flags.add('garden_expanded');
+      this.edited();
+      return;
+    }
     if (this.useHeldItem()) return;
     const [x, y, z] = placeTarget(this.target);
+    // Traps are for outside (ADR-020): nothing in the valley needs trapping.
+    const placing = this.hotbar.current ? itemName(this.hotbar.current.id) : '';
+    if ((placing === 'snare' || placing === 'leghold_trap') && inSanctuary(x + 0.5, z + 0.5)) {
+      this.hud.toast('Traps are for outside the valley. Nothing here needs trapping.');
+      return;
+    }
     this.streamer.markUrgentAround(x, y, z);
     const id = this.hotbar.current?.id ?? 0;
     if (placeBlock(this.world, this.hotbar, this.player, this.target)) {
       this.edited();
       this.sound.place(materialOf(id));
-      if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning.', 6000);
+      if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning. Leave an egg in and it may hatch.', 7000);
     }
   }
 
@@ -777,6 +901,24 @@ export class Game {
       return true;
     }
     if (name === 'bookshelf') { this.openJournal(); return true; }
+    // Zone-1's mid and deep bands (docs/PHASE5.md).
+    if (name === 'photo_frame') { this.hud.toast('A framed photo, faded, the glass cracked: four smiling people in hunting clothes beside a buck. Somebody’s best day.', 8000); return true; }
+    if (name === 'leghold_trap') {
+      if (learnLeghold(this.flags)) {
+        this.edited();
+        this.hud.toast(LEGHOLD_LESSON, 10000);
+      } else this.hud.toast('A leghold trap. Set it where deer or boar walk, outside the valley; mine it to pick it up.');
+      return true;
+    }
+    if (name === 'apple_trunk') {
+      if (this.hotbar.count(itemId('apple_slip')) > 0) { this.hud.toast('You already have a slip from the old tree'); return true; }
+      if (this.hotbar.add(itemId('apple_slip'), 1) > 0) { this.hud.toast('No room in your pack'); return true; }
+      this.edited();
+      this.hud.toast('You cut a slip from the old apple tree. Plant it on farmland at home: a perennial, it fruits again after picking.', 8000);
+      return true;
+    }
+    if (name === 'pale_body' || name === 'pale_legs') { this.hud.toast('You don’t touch it.', 4000); return true; }
+    if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
     if (name === 'computer') {
       const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
       const m1 = this.flags.has('m1_done');
@@ -787,13 +929,17 @@ export class Game {
         ['Satellite uplink', 'no antenna', 'dim'],
         ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
         ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
+        ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}`, this.flags.has('m2_done') ? 'btc' : ''],
+        ...M2_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['Last note', '“Back before the rains.”'],
       ], 'R.’s terminal'));
       return true;
     }
     if (name === 'phone') { this.openPhone(); return true; }
     if (name === 'map_table') {
-      const marks = { route: this.flags.has('extracted'), shelter: this.flags.has('shelter_found'), scout: this.flags.has('scout_searched'), farm: this.flags.has('farm_seen') };
+      const f = this.flags;
+      const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
+        outpost: f.has('outpost_seen'), mine: f.has('mine_seen'), camp: f.has('camp_marker'), bridge: f.has('bridge_seen') };
       this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z, marks), marks.route ? 'The builder’s map · the road home is marked' : 'The builder’s map · filled in where you have been'));
       return true;
     }
@@ -867,6 +1013,36 @@ export class Game {
     })));
   }
 
+  /** Focus ends (run out, put away, a screen opened, a death). */
+  private endFocus(): void {
+    if (!this.focus.active) return;
+    this.focus.stop();
+    this.sound.focus(false);
+  }
+
+  /** Q: focus mode with a gun or bow in hand (docs/PHASE5.md). */
+  private toggleFocus(): void {
+    if (!isWeapon(this.hotbar.current?.id)) { this.hud.toast('Focus needs a gun or a bow in hand'); return; }
+    if (this.focus.active) { this.endFocus(); return; }
+    if (!this.focus.toggle()) { this.hud.toast('Focus is still coming back'); return; }
+    this.sound.focus(true);
+    this.once('focus_used', 'Focus: the world slows for a few seconds while you aim. Q again to end it.', 5000);
+  }
+
+  /** Home: back where you wake (the bed if you slept, else the balcony), with nothing lost and the hour unchanged. */
+  private goHome(): void {
+    const s = this.spawn;
+    this.endFocus();
+    this.drawing = null;
+    this.mining.active = false;
+    this.player.setPosition(s.x, s.y, s.z);
+    this.player.yaw = s.yaw;
+    this.player.pitch = 0;
+    this.player.breath = 20;
+    this.hud.toast('Home.', 2500);
+    this.edited();
+  }
+
   /** Says something the first time only. */
   private once(flag: string, line: string, ms = 5000): void {
     if (this.flags.has(flag)) return;
@@ -892,6 +1068,9 @@ export class Game {
     if (near(g.x, g.z + 2, 9)) this.once('farm_seen', 'A farm track. On the board at the gate: FAMILIA ROJAS. Hens are clucking down there, and something growls in the house.', 7000);
     if (near(YARD[0], YARD[1], 16) && this.wild.creatures.some((c) => c.kind === 'chicken' && near(c.x, c.z, 14)))
       this.once('chickens_seen', 'Feral chickens. Walk up close and right-click to catch one. Two make a pair for a coop.', 7000);
+    this.tickFarPlaces();
+    // The coops' hens walk round them, as many as each holds.
+    this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
     const gained = trackM1(f, p.x, p.z, this.hotbar.count(itemId('pistol')) > 0);
     if (gained.length) this.edited();
@@ -920,7 +1099,53 @@ export class Game {
   }
   private marcoGreeted = false;
 
+  /** Once a second: Zone-1's mid and deep places (docs/PHASE5.md): their toasts, the jaguar's crossing, the stinger, M2. */
+  private tickFarPlaces(): void {
+    const p = this.player, f = this.flags, F = ZONE1FAR;
+    const near = (x: number, z: number, r: number) => Math.hypot(p.x - x, p.z - z) < r;
+    const zone = zoneAt(p.x, p.z);
+    if (zone !== 'valley') this.once('home_hint', 'Lost? Hold H to head home.', 5000);
+    if (zone === 'mid') this.once('mid_seen', 'Zone 1, mid band: danger 3, and 4 at night. No birds here.', 5000);
+    // (A few seconds' walk on from the band's edge, so the two toasts don't overlap.)
+    if (near(OUTPOST_AT[0], OUTPOST_AT[1], 66) && this.wild.outpost.left && p.x > OUTPOST_AT[0] && f.has('mid_seen'))
+      this.once('outpost_seen', 'The raiders’ outpost. A lookout on the roof watches the road. Leave the road and go round through the brush to the south to come at them unseen: a blade from behind is silent. Or fight from cover.', 12000);
+    if ((zone === 'mid' || zone === 'deep') && isWeapon(this.hotbar.current?.id))
+      this.once('focus_hint', 'Focus: press Q with a gun or bow in hand to slow the world for a careful shot. It lasts four seconds, then needs time to come back.', 9000);
+    if (near(F.mine.x, F.mine.z, 9)) this.once('mine_seen', 'An old mine, lit all the way down. Iron and coal lie thick in the walls of the chamber below. Underground, the danger is one higher.', 9000);
+    if (near(CAMP_MARKER[0], CAMP_MARKER[2], 9)) this.once('camp_marker', 'COTO DE CAZA: a hunting reserve. A lit trail runs north to the hunters’ camp.', 7000);
+    // The jaguar crosses the clearing once, the first time you come to it.
+    if (atCampClearing(p.x, p.z) && !f.has('jaguar_seen') && this.world.column(Math.floor(F.camp.x0 / CS), Math.floor(F.camp.z0 / CS))) {
+      const j = makeJaguar((x, z) => groundAt(x, z, (bx, by, bz) => this.world.blockAt(bx, by, bz)));
+      if (j && this.wild.add(j)) { f.add('jaguar_seen'); this.edited(); }
+    }
+    if (f.has('jaguar_seen') && !this.wild.creatures.some((c) => c.kind === 'jaguar') && near((F.camp.x0 + F.camp.x1) / 2, (F.camp.z0 + F.camp.z1) / 2, 18))
+      this.once('camp_seen', 'The hunters’ camp. The raiders took the easy gear. Hides still hang in the shed, there is a chest in the lodge, and a rusted trap by the shed: right-click it to see how it is made.', 10000);
+    if (zone === 'deep') this.once('deep_seen', 'The deep band. Danger 4. Nothing moves, and the birds have stopped.', 7000);
+    if (near(DECK_END[0], DECK_END[2], 14)) this.once('bridge_seen', 'The bridge is gone. Across the ravine, something pale lies in the undergrowth.', 8000);
+    const [[ax, az], [bx, bz]] = F.tracks;
+    if (near((ax + bx) / 2, (az + bz) / 2, 9)) this.once('tracks_seen', 'Tracks in the mud: two-legged, but not boots, and not paws. Days old, maybe weeks.', 9000);
+    if (p.x < F.bridge.far - 2 && zone === 'zone3') this.once('zone3_seen', 'Zone 3. The forest is silent here.', 6000);
+    // The stinger: once a visit, the first time the body across the ravine comes into view.
+    const b = F.body, bd = Math.hypot(p.x - b.x, p.z - b.z);
+    if (bd > 130) this.stingerVisit = false;
+    if (!this.stingerVisit && bd < 75) {
+      const [dx, , dz] = p.lookDir(), tx = b.x + 0.5 - p.x, tz = b.z + 0.5 - p.z, len = Math.hypot(tx, tz) || 1;
+      const facing = (dx * tx + dz * tz) / (Math.hypot(dx, dz) * len || 1) > 0.9;
+      if (facing && clearShot((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, tx / len, (b.y + 0.3 - p.eyeY) / len, tz / len, len - 1)) {
+        this.stingerVisit = true;
+        if (!f.has('body_seen')) { f.add('body_seen'); this.edited(); }
+        this.sound.stinger(Math.floor(Math.random() * 4), b.x - 30, b.y + 4, b.z + (Math.random() - 0.5) * 30, 0.6);
+      }
+    }
+    // M2.
+    const m2 = trackM2(f, (name) => this.hotbar.count(itemId(name)));
+    if (m2.length) this.edited();
+    if (m2.includes('m2_done')) this.hud.toast('M2 · the homestead expansion. The valley is bigger for what you brought home.', 9000);
+  }
+
   private openPaper(show: () => void): void {
+    this.endFocus();
+    this.home.cancel();
     this.mining.active = false;
     this.drawing = null;
     this.keys.clear();
@@ -1003,6 +1228,9 @@ export class Game {
   }
 
   private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null, station: Station = 'hand'): void {
+    this.endFocus();
+    this.home.cancel();
+    this.screen.known = this.flags;
     this.mining.active = false;
     this.drawing = null; // a bow drawn when a screen opens is let down, not loosed
     this.keys.clear();
@@ -1039,6 +1267,12 @@ export class Game {
       if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
       if (!this.playing) return;
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
+      if (e.code === 'KeyQ') this.toggleFocus();
+      if (e.code === 'KeyH' && !e.repeat) {
+        const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
+        if (r === 'go') this.goHome();
+        else if (r === 'danger') this.hud.toast('Not with danger this close');
+      }
       if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
       if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.hud.toast(this.hotbar.creative ? 'Builder’s mode: blocks never run out' : 'Builder’s mode off'); }
       if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
@@ -1079,6 +1313,8 @@ export class Game {
   }
 
   private pause(): void {
+    this.endFocus();
+    this.home.cancel();
     this.playing = false;
     this.drawing = null;
     this.sound.suspend();
@@ -1122,7 +1358,7 @@ export class Game {
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
-      wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft,
+      wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
     };
   }
 
@@ -1139,10 +1375,12 @@ export class Game {
     this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
+    this.hpBefore = this.vitals.hp; // loading a hurt player is not being hurt now
     this.flags = new Set(d.flags ?? []);
     this.wallet = d.wallet ?? START_WALLET;
     this.wild.denLeft = d.den ?? 3;
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
+    this.wild.outpost = outpostFromSave(d.outpost);
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
@@ -1257,6 +1495,7 @@ export class Game {
       this.wallet = START_WALLET;
       this.wild.denLeft = 3;
       this.wild.flockLeft = FLOCK_SIZE;
+      this.wild.outpost = { left: ALL_RAIDERS, alert: false };
       this.explored = new Uint8Array(64 * 64);
       this.hour = 16.5;
       this.dayClock = 16.5;
