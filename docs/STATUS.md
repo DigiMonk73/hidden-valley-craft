@@ -12,6 +12,13 @@ _The page to resume from. Keep it short; history lives in git._
   - a bedroom section;
   - better furniture;
   - true patio furniture, placed properly on the balcony.
+- **Early warning from the review** (2026-11-19; the full list will be in `docs/REVIEW.md` on branch `review`). Fix these with the review's other fixes after Phase 7 merges, and before anyone outside plays:
+  - A slow storage open (over 1.5 s, `src/platform/storage.ts:69`) starts a fresh valley silently, and that fresh valley can then overwrite the real save.
+  - The hand-over to a newly published version can pass on a blank game (`src/main.ts:86` registers the snapshot before boot has applied the save).
+  - An imported save with missing fields is stored before it is applied (`loadBytes` in `src/game.ts`), so the page then fails at every start.
+  - Two open tabs: the stale one wins.
+  - Position, health, hunger, hour and dose are only saved when something counts as an edit.
+  - Spawners check only a creature's centre against the sanctuary's edge; require `fits()` at birth.
 - **Mined walls go back matching** (the owner, 2026-11-19): limestone and mossy limestone now drop themselves, and break down to rubble by hand. On `main`; it ships with the next publish.
 - **Saves before version 1 don't matter** (the owner, 2026-11-19: "they are all just test runs"). Changes needn't carry old saves across: an older save must never crash the game or strand the player, and that is all. Saving and loading within a build must still work and stay tested.
 - **The repo rename** to hidden-valley-blocks: the owner does it after Phase 7 or when home; then point the remote and the docs at the new name.
