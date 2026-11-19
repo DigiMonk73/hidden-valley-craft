@@ -26,9 +26,10 @@ export const HOME_FIT = {
   window: { x: 1801, z0: 1036, z1: 1040, y0: F + 1, y1: F + 3 },
   /** The bedroom door's two leaves (each two blocks high). */
   door: [[1806, F, 1033], [1807, F, 1033]] as [number, number, number][],
-  desk: { computer: [1814, F + 1, 1028], phone: [1814, F + 1, 1029] } as Record<string, [number, number, number]>,
+  /** The study, in the library corner: the desk faces west across the room, to the mouth and the valley. */
+  desk: { computer: [1811, F + 1, 1029], phone: [1811, F + 1, 1030], chair: [1812, F, 1029] } as Record<string, [number, number, number]>,
   /** The journal: any of the bookshelves in the living room's south-east corner. */
-  bookshelf: [1814, F + 1, 1030] as [number, number, number],
+  bookshelf: [1814, F + 1, 1031] as [number, number, number],
   mapTable: [1812, F, 1020] as [number, number, number],
   /** Left empty for what the milestones bring: the rain awning (M3), the planter boxes (M4), the telescope (M5). */
   reserved: {
@@ -175,19 +176,26 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   for (const x of [1802, 1803, 1804]) put(x, F, 1032, 'counter');
   put(1802, F + 1, 1032, 'table_lamp');
   put(1804, F + 1, 1032, 'kettle');
-  // The desk on the east wall: a lamp, the computer, the phone; and its chair.
-  put(1814, F, 1027, 'desk_drawers@west');
-  put(1814, F, 1028, 'desk@west');
-  put(1814, F, 1029, 'desk_drawers@west');
-  put(1814, F + 1, 1027, 'table_lamp');
-  put(1814, F + 1, 1028, 'computer@west');
-  put(1814, F + 1, 1029, 'phone');
-  put(1813, F, 1028, 'dining_chair@east');
-  // The library: bookshelves from floor to beam in the south-east corner (the journal), and a chair to read in.
-  fill(1814, 1814, F, F + 3, 1030, 1032, 'bookshelf');
+  // The study, in the library corner. Bookshelves from floor to beam along the east and south walls (the journal).
+  // In front of them a desk three wide, facing west across the room to the mouth and the valley, the fire to its
+  // right: a green-shaded lamp, the monitor and keyboard with the tower under them, the satellite phone on its
+  // cradle; and a desk chair behind it, with the books at its back.
+  fill(1814, 1814, F, F + 3, 1027, 1032, 'bookshelf');
   fill(1809, 1813, F, F + 3, 1032, 1032, 'bookshelf');
-  put(1811, F, 1029, 'armchair');
-  put(1813, F, 1015, 'potted_fern');
+  const [cx, cy, cz] = HOME_FIT.desk.computer;
+  put(cx, F, cz - 1, 'desk_drawers@east');
+  put(cx, F, cz, 'desk@east');
+  put(cx, F, cz + 1, 'desk_drawers@east');
+  put(cx, cy, cz - 1, 'desk_lamp@east');
+  put(cx, cy, cz, 'computer@east');
+  put(...HOME_FIT.desk.phone, 'phone');
+  put(...HOME_FIT.desk.chair, 'desk_chair@west');
+  rug('blue', 1809, 1813, 1027, 1031);
+  // A corner to read in, by the fire: an armchair, a small table and its lamp.
+  put(1814, F, 1017, 'armchair@west');
+  put(1814, F, 1016, 'nightstand@west');
+  put(1814, F + 1, 1016, 'table_lamp');
+  put(1814, F, 1015, 'potted_fern');
   // Lamps on the walls.
   put(1814, F + 2, 1018, 'wall_lamp@west');
   put(1814, F + 2, 1021, 'wall_lamp@west');

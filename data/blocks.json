@@ -26,14 +26,14 @@
     { "name": "cobble", "label": "Limestone rubble", "tex": "cobble", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
     { "name": "stone_bricks", "label": "Dressed stone", "tex": "stone_bricks", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.6 },
     { "name": "glass", "label": "Glass", "tex": "glass", "render": "cube", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.15 },
-    { "name": "lantern", "label": "Lantern", "tex": "lantern", "render": "model", "boxes": [ [ 5, 0, 5, 11, 9, 11 ], [ 7, 9, 7, 9, 16, 9 ] ], "layer": "cutout", "solid": true, "opaque": false, "emit": 15, "hardness": 0.15 },
+    {"name": "lantern", "label": "Lantern", "tex": "lantern", "render": "model", "boxes": [[5, 0, 5, 11, 1, 11], [6, 1, 6, 10, 7, 10], [5, 7, 5, 11, 8, 11], [6, 8, 6, 10, 9, 10], [7, 9, 7, 9, 16, 9]], "layer": "cutout", "solid": true, "opaque": false, "emit": 15, "hardness": 0.15, "boxTex": ["lantern_iron", "lit_lantern", "lantern_iron", "lantern_iron", "lantern_iron"]},
     { "name": "fern", "label": "Fern", "tex": "fern", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0, "drop": "plant_fiber" },
     { "name": "tall_grass", "label": "Tall grass", "tex": "tall_grass", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0, "drop": "plant_fiber" },
     { "name": "bromeliad", "label": "Bromeliad", "tex": "bromeliad", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0 },
     { "name": "orchid", "label": "Orchid", "tex": "orchid", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0 },
     { "name": "bamboo", "label": "Bamboo", "tex": "bamboo", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1 },
     { "name": "moss", "label": "Moss", "tex": "moss", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.2, "drop": "dirt" },
-    { "name": "chest", "label": "Chest", "container": 27, "tex": { "top": "chest_top", "side": "chest_side", "bottom": "chest_top" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
+    {"name": "chest", "label": "Chest", "container": 27, "tex": {"top": "chest_top", "side": "chest_side", "bottom": "chest_top"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "boxes": [[1, 0, 1, 15, 10, 15], [0, 9, 0, 16, 14, 16], [1, 14, 1, 15, 15, 15], [7, 6, 0, 9, 10, 1], [7, 6, 15, 9, 10, 16]], "boxTex": [{"top": "chest_top", "side": "chest_side", "bottom": "chest_top"}, {"top": "chest_top", "side": "chest_lid", "bottom": "chest_top"}, "chest_top", "brass", "brass"]},
     { "name": "road", "label": "Broken asphalt", "tex": "road", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "drop": "gravel" },
     {
       "render": "model",
@@ -159,245 +159,11 @@
       ],
       "collideTop": 32
     },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.5,
-      "name": "table",
-      "label": "Table",
-      "tex": "planks",
-      "boxes": [
-        [
-          0,
-          13,
-          0,
-          16,
-          16,
-          16
-        ],
-        [
-          1,
-          0,
-          1,
-          3,
-          13,
-          3
-        ],
-        [
-          13,
-          0,
-          1,
-          15,
-          13,
-          3
-        ],
-        [
-          1,
-          0,
-          13,
-          3,
-          13,
-          15
-        ],
-        [
-          13,
-          0,
-          13,
-          15,
-          13,
-          15
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.5,
-      "name": "map_table",
-      "label": "Map table",
-      "tex": {
-        "top": "map_top",
-        "side": "planks",
-        "bottom": "planks"
-      },
-      "boxes": [
-        [
-          0,
-          13,
-          0,
-          16,
-          16,
-          16
-        ],
-        [
-          1,
-          0,
-          1,
-          3,
-          13,
-          3
-        ],
-        [
-          13,
-          0,
-          1,
-          15,
-          13,
-          3
-        ],
-        [
-          1,
-          0,
-          13,
-          3,
-          13,
-          15
-        ],
-        [
-          13,
-          0,
-          13,
-          15,
-          13,
-          15
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.5,
-      "name": "chair",
-      "label": "Chair",
-      "tex": "planks",
-      "facing": true,
-      "boxes": [
-        [
-          3,
-          7,
-          3,
-          13,
-          9,
-          13
-        ],
-        [
-          3,
-          9,
-          11,
-          13,
-          16,
-          13
-        ],
-        [
-          3,
-          0,
-          3,
-          5,
-          7,
-          5
-        ],
-        [
-          11,
-          0,
-          3,
-          13,
-          7,
-          5
-        ],
-        [
-          3,
-          0,
-          11,
-          5,
-          7,
-          13
-        ],
-        [
-          11,
-          0,
-          11,
-          13,
-          7,
-          13
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.5,
-      "name": "bench",
-      "label": "Bench",
-      "tex": "planks",
-      "facing": true,
-      "boxes": [
-        [
-          0,
-          6,
-          4,
-          16,
-          8,
-          12
-        ],
-        [
-          1,
-          0,
-          5,
-          3,
-          6,
-          11
-        ],
-        [
-          13,
-          0,
-          5,
-          15,
-          6,
-          11
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.3,
-      "name": "bed",
-      "label": "Bed",
-      "tex": {
-        "top": "bed_top",
-        "side": "bed_side",
-        "bottom": "planks"
-      },
-      "facing": true,
-      "boxes": [
-        [
-          0,
-          0,
-          0,
-          16,
-          9,
-          16
-        ],
-        [
-          2,
-          9,
-          11,
-          14,
-          11,
-          15
-        ]
-      ]
-    },
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "name": "table", "label": "Table", "tex": {"top": "table_top", "side": "oak", "bottom": "oak"}, "boxes": [[0, 14, 0, 16, 16, 16], [2, 11, 1, 14, 14, 2], [2, 11, 14, 14, 14, 15], [1, 11, 2, 2, 14, 14], [14, 11, 2, 15, 14, 14], [1, 0, 1, 3, 14, 3], [13, 0, 1, 15, 14, 3], [1, 0, 13, 3, 14, 15], [13, 0, 13, 15, 14, 15]], "boxTex": [{"top": "table_top", "side": "oak", "bottom": "oak"}, "oak", "oak", "oak", "oak", "oak", "oak", "oak", "oak"]},
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "name": "map_table", "label": "Map table", "tex": {"top": "map_top", "side": "planks", "bottom": "planks"}, "boxes": [[0, 14, 0, 16, 16, 16], [2, 11, 1, 14, 14, 2], [2, 11, 14, 14, 14, 15], [1, 11, 2, 2, 14, 14], [14, 11, 2, 15, 14, 14], [1, 0, 1, 3, 14, 3], [13, 0, 1, 15, 14, 3], [1, 0, 13, 3, 14, 15], [13, 0, 13, 15, 14, 15]], "boxTex": [{"top": "map_top", "side": "oak", "bottom": "oak"}, "oak", "oak", "oak", "oak", "oak", "oak", "oak", "oak"]},
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "name": "chair", "label": "Chair", "tex": "oak", "facing": true, "boxes": [[3, 0, 3, 5, 7, 5], [11, 0, 3, 13, 7, 5], [3, 0, 11, 5, 16, 13], [11, 0, 11, 13, 16, 13], [3, 7, 3, 13, 9, 13], [5, 10, 11, 11, 12, 12], [5, 13, 11, 11, 15, 12], [5, 3, 4, 11, 4, 5]]},
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "name": "bench", "label": "Bench", "tex": "oak", "facing": true, "boxes": [[0, 7, 3, 16, 9, 12], [1, 0, 4, 3, 7, 6], [13, 0, 4, 15, 7, 6], [1, 0, 10, 3, 16, 12], [13, 0, 10, 15, 16, 12], [3, 11, 10, 13, 13, 11], [3, 14, 10, 13, 16, 11], [3, 3, 5, 13, 4, 6]]},
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3, "name": "bed", "label": "Bed", "tex": {"top": "blanket", "side": "blanket", "bottom": "oak"}, "facing": true, "boxes": [[0, 0, 0, 2, 3, 2], [14, 0, 0, 16, 3, 2], [0, 0, 14, 2, 3, 16], [14, 0, 14, 16, 3, 16], [0, 3, 0, 16, 6, 16], [1, 6, 1, 15, 9, 15], [0, 6, 0, 16, 10, 9], [3, 9, 10, 13, 12, 14], [0, 6, 15, 16, 15, 16], [0, 6, 0, 16, 9, 1]], "boxTex": ["oak", "oak", "oak", "oak", "oak", "sheet", "blanket", "pillow", "oak", "oak"]},
     {
       "render": "model",
       "layer": "cutout",
@@ -418,153 +184,10 @@
         ]
       ]
     },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 1.0,
-      "name": "anvil",
-      "label": "Anvil",
-      "tex": "anvil",
-      "boxes": [
-        [
-          2,
-          0,
-          3,
-          14,
-          4,
-          13
-        ],
-        [
-          5,
-          4,
-          5,
-          11,
-          9,
-          11
-        ],
-        [
-          1,
-          9,
-          4,
-          15,
-          15,
-          12
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.5,
-      "name": "tannery_rack",
-      "label": "Tannery rack",
-      "tex": {
-        "top": "planks",
-        "side": "hide",
-        "bottom": "planks"
-      },
-      "facing": true,
-      "boxes": [
-        [
-          0,
-          0,
-          7,
-          2,
-          16,
-          9
-        ],
-        [
-          14,
-          0,
-          7,
-          16,
-          16,
-          9
-        ],
-        [
-          0,
-          14,
-          7,
-          16,
-          16,
-          9
-        ],
-        [
-          2,
-          3,
-          7,
-          14,
-          14,
-          9
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": true,
-      "opaque": false,
-      "hardness": 0.4,
-      "name": "computer",
-      "label": "The builder's computer",
-      "tex": {
-        "top": "steel",
-        "side": "steel",
-        "bottom": "steel",
-        "front": "computer_screen"
-      },
-      "facing": true,
-      "boxes": [
-        [
-          3,
-          0,
-          2,
-          13,
-          1,
-          6
-        ],
-        [
-          7,
-          0,
-          9,
-          9,
-          5,
-          11
-        ],
-        [
-          2,
-          5,
-          9,
-          14,
-          14,
-          11
-        ]
-      ]
-    },
-    {
-      "render": "model",
-      "layer": "cutout",
-      "solid": false,
-      "opaque": false,
-      "hardness": 0.2,
-      "name": "phone",
-      "label": "Satellite phone",
-      "tex": "phone",
-      "boxes": [
-        [
-          6,
-          0,
-          5,
-          10,
-          2,
-          11
-        ]
-      ]
-    },
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 1.0, "name": "anvil", "label": "Anvil", "tex": "anvil", "boxes": [[3, 0, 3, 13, 6, 13], [4, 6, 5, 12, 8, 11], [6, 8, 6, 10, 10, 10], [2, 10, 5, 14, 14, 11], [0, 11, 6, 2, 13, 10], [14, 12, 6, 16, 14, 10]], "boxTex": [{"top": "log_top", "side": "log_side", "bottom": "log_top"}, "anvil", "anvil", "anvil", "anvil", "anvil"]},
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "name": "tannery_rack", "label": "Tannery rack", "tex": {"top": "oak", "side": "hide", "bottom": "oak"}, "facing": true, "boxes": [[0, 0, 7, 2, 16, 9], [14, 0, 7, 16, 16, 9], [0, 14, 7, 16, 16, 9], [2, 1, 7, 14, 3, 9], [2, 3, 8, 14, 14, 8]], "boxTex": ["oak", "oak", "oak", "oak", "hide_stretched"]},
+    {"render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.4, "name": "computer", "label": "The builder's computer", "tex": {"top": "monitor", "side": "monitor", "bottom": "monitor", "front": "computer_screen"}, "facing": true, "boxes": [[5, 0, 8, 11, 1, 12], [7, 1, 9, 9, 5, 11], [1, 4, 9, 15, 14, 11], [2, 5, 8, 14, 13, 9], [3, 0, 1, 13, 1, 5], [14, 0, 2, 16, 1, 4]], "boxTex": ["monitor", "monitor", "monitor", "lit_screen", "keyboard", "monitor"]},
+    {"render": "model", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.2, "name": "phone", "label": "Satellite phone", "tex": "phone", "boxes": [[4, 0, 4, 12, 2, 12], [5, 2, 5, 11, 3, 8], [5, 2, 9, 11, 4, 11], [10, 4, 9, 11, 11, 10]], "boxTex": ["phone_base", "phone", "phone_base", "phone_base"]},
     {
       "render": "model",
       "layer": "cutout",
@@ -661,11 +284,11 @@
       ]
     },
     { "name": "bookshelf", "label": "Bookshelf", "tex": { "top": "planks", "side": "bookshelf", "bottom": "planks" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
-    { "name": "fireplace", "label": "Fireplace", "tex": { "top": "cobble", "side": "stone_bricks", "bottom": "cobble", "front": "fireplace_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 14, "facing": true, "hardness": 0.8 },
-    { "name": "stove", "label": "The builder's stove", "tex": { "top": "stove_top", "side": "stove_side", "bottom": "stove_side", "front": "stove_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 11, "facing": true, "hardness": 0.8 },
-    { "name": "workbench", "label": "Workbench", "tex": { "top": "workbench_top", "side": "workbench_side", "bottom": "planks" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5 },
-    { "name": "smelter", "label": "Smelter", "tex": { "top": "cobble", "side": "cobble", "bottom": "cobble", "front": "smelter_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 9, "facing": true, "hardness": 0.8 },
-    { "name": "kiln", "label": "Kiln", "tex": { "top": "stone_bricks", "side": "stone_bricks", "bottom": "stone_bricks", "front": "kiln_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "emit": 7, "facing": true, "hardness": 0.8 },
+    {"name": "fireplace", "label": "Fireplace", "tex": {"top": "cobble", "side": "stone_bricks", "bottom": "cobble", "front": "fireplace_front"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "emit": 14, "facing": true, "hardness": 0.8, "boxes": [[0, 0, 0, 3, 12, 16], [13, 0, 0, 16, 12, 16], [0, 12, 0, 16, 16, 16], [3, 0, 12, 13, 12, 16], [3, 0, 0, 13, 2, 12], [4, 2, 4, 12, 5, 7], [5, 2, 8, 11, 5, 11], [4, 2, 3, 12, 3, 11], [4, 4, 6, 12, 12, 6]], "boxTex": ["stone_bricks", "stone_bricks", {"top": "cobble", "side": "stone_bricks", "bottom": "stone_bricks"}, "firebrick", "stone_bricks", "char_log", "char_log", "lit_embers", "flame_small"]},
+    {"name": "stove", "label": "The builder's stove", "tex": {"top": "stove_top", "side": "stove_side", "bottom": "stove_side", "front": "stove_front"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "emit": 11, "facing": true, "hardness": 0.8, "boxes": [[2, 0, 3, 4, 3, 5], [12, 0, 3, 14, 3, 5], [2, 0, 12, 4, 3, 14], [12, 0, 12, 14, 3, 14], [2, 3, 3, 14, 12, 14], [1, 12, 2, 15, 14, 15], [5, 14, 5, 11, 16, 11], [5, 5, 2, 11, 9, 3], [4, 10, 2, 12, 11, 3]], "boxTex": ["cast_iron", "cast_iron", "cast_iron", "cast_iron", {"top": "cast_iron", "side": "cast_iron", "bottom": "cast_iron", "front": "stove_front"}, {"top": "stove_top", "side": "cast_iron", "bottom": "cast_iron"}, "pipe", "lit_embers", "brass"]},
+    {"name": "workbench", "label": "Workbench", "tex": {"top": "workbench_top", "side": "workbench_side", "bottom": "planks"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "boxes": [[0, 11, 0, 16, 14, 16], [1, 0, 1, 4, 11, 4], [12, 0, 1, 15, 11, 4], [1, 0, 12, 4, 11, 15], [12, 0, 12, 15, 11, 15], [2, 3, 2, 14, 5, 14], [11, 14, 0, 16, 16, 3], [12, 12, 0, 15, 14, 1], [2, 14, 6, 8, 15, 7], [7, 14, 5, 9, 16, 8], [0, 14, 14, 16, 16, 16]], "boxTex": [{"top": "workbench_top", "side": "workbench_side", "bottom": "oak"}, "oak", "oak", "oak", "oak", "oak", "steel", "steel", "oak", "steel", "oak"]},
+    {"name": "smelter", "label": "Smelter", "tex": {"top": "cobble", "side": "cobble", "bottom": "cobble", "front": "smelter_front"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "emit": 9, "facing": true, "hardness": 0.8, "boxes": [[0, 0, 1, 16, 11, 16], [1, 11, 2, 15, 13, 15], [4, 13, 4, 12, 16, 12], [4, 7, 0, 12, 9, 1], [3, 1, 0, 5, 7, 1], [11, 1, 0, 13, 7, 1], [5, 1, 0, 11, 6, 1]], "boxTex": [{"top": "cobble", "side": "cobble", "bottom": "cobble", "front": "smelter_front"}, "cobble", "cobble", "stone_bricks", "stone_bricks", "stone_bricks", "lit_embers"]},
+    {"name": "kiln", "label": "Kiln", "tex": {"top": "stone_bricks", "side": "stone_bricks", "bottom": "stone_bricks", "front": "kiln_front"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "emit": 7, "facing": true, "hardness": 0.8, "boxes": [[0, 0, 1, 16, 8, 16], [1, 8, 2, 15, 12, 15], [3, 12, 4, 13, 15, 13], [5, 15, 5, 11, 16, 11], [5, 6, 0, 11, 7, 1], [5, 1, 0, 6, 6, 1], [10, 1, 0, 11, 6, 1], [6, 1, 0, 10, 4, 1]], "boxTex": [{"top": "stone_bricks", "side": "stone_bricks", "bottom": "stone_bricks", "front": "kiln_front"}, "stone_bricks", "stone_bricks", "pipe", "firebrick", "firebrick", "firebrick", "lit_embers"]},
     { "name": "wall_safe", "label": "Wall safe", "container": 27, "tex": { "top": "steel", "side": "steel", "bottom": "steel", "front": "safe_front" }, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "facing": true, "hardness": -1 },
     {"name": "firebrick", "label": "Firebrick", "tex": "firebrick", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.8},
     {"name": "plaster", "label": "Lime plaster", "tex": "plaster", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5},
@@ -709,10 +332,12 @@
     {"name": "low_table", "label": "Low table", "tex": "walnut", "render": "model", "boxes": [[0, 7, 2, 16, 9, 14], [1, 0, 3, 3, 7, 5], [13, 0, 3, 15, 7, 5], [1, 0, 11, 3, 7, 13], [13, 0, 11, 15, 7, 13], [2, 3, 4, 14, 4, 12], [3, 9, 5, 8, 10, 10], [11, 9, 8, 13, 11, 10]], "boxTex": ["walnut", "walnut", "walnut", "walnut", "walnut", "walnut", "book_red", "enamel"], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5},
     {"name": "dining_chair", "label": "Dining chair", "tex": "walnut", "render": "model", "boxes": [[3, 0, 3, 5, 7, 5], [11, 0, 3, 13, 7, 5], [3, 0, 11, 5, 16, 13], [11, 0, 11, 13, 16, 13], [3, 7, 3, 13, 9, 13], [4, 9, 4, 12, 10, 11], [5, 10, 11, 11, 12, 12], [5, 14, 11, 11, 16, 12]], "boxTex": ["walnut", "walnut", "walnut", "walnut", "walnut", "leather", "walnut", "walnut"], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5},
     {"name": "dining_table", "label": "Dining table (end)", "tex": "walnut", "render": "model", "boxes": [[0, 13, 1, 16, 15, 15], [1, 0, 2, 3, 13, 4], [1, 0, 12, 3, 13, 14], [1, 5, 4, 3, 7, 12], [3, 5, 7, 16, 7, 9]], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5},
-    {"name": "desk", "label": "Desk", "tex": "walnut", "render": "model", "boxes": [[0, 13, 0, 16, 15, 16], [0, 2, 14, 16, 13, 16]], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5},
+    {"name": "desk", "label": "Desk", "tex": "walnut", "render": "model", "boxes": [[0, 13, 0, 16, 15, 16], [0, 2, 14, 16, 13, 16], [10, 0, 3, 15, 11, 13], [11, 8, 2, 12, 9, 3]], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5, "boxTex": ["walnut", "walnut", "pc_tower", "lit_led"]},
     {"name": "desk_drawers", "label": "Desk drawers", "tex": "walnut", "render": "model", "boxes": [[0, 13, 0, 16, 15, 16], [1, 0, 1, 15, 13, 16]], "boxTex": ["walnut", {"top": "walnut", "side": "walnut", "bottom": "walnut", "front": "desk_front"}], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5},
-    {"name": "table_lamp", "label": "Table lamp", "tex": "brass", "render": "model", "boxes": [[6, 0, 6, 10, 1, 10], [7, 1, 7, 9, 6, 9], [4, 6, 4, 12, 12, 12]], "boxTex": ["brass", "brass", "lit_shade"], "layer": "cutout", "solid": false, "opaque": false, "emit": 11, "hardness": 0.2},
-    {"name": "wall_lamp", "label": "Wall lamp", "tex": "brass", "render": "model", "boxes": [[6, 4, 15, 10, 12, 16], [7, 7, 11, 9, 8, 15], [5, 4, 7, 11, 11, 12], [5, 11, 7, 11, 12, 12]], "boxTex": ["brass", "brass", "lit_shade", "brass"], "layer": "cutout", "solid": false, "opaque": false, "facing": true, "emit": 12, "hardness": 0.2},
+    {"name": "desk_lamp", "label": "Desk lamp", "tex": "brass", "boxes": [[5, 0, 6, 11, 1, 10], [7, 1, 7, 9, 8, 9], [3, 8, 5, 13, 9, 11], [3, 9, 5, 13, 12, 11], [4, 12, 6, 12, 13, 10]], "boxTex": ["brass", "brass", "brass", "lit_green", "brass"], "solid": false, "facing": true, "emit": 10, "hardness": 0.2, "render": "model", "layer": "cutout", "opaque": false},
+    {"name": "desk_chair", "label": "Desk chair", "tex": "leather", "boxes": [[2, 0, 7, 14, 1, 9], [7, 0, 2, 9, 1, 14], [7, 1, 7, 9, 6, 9], [3, 6, 3, 13, 9, 13], [3, 9, 11, 13, 16, 13], [2, 9, 4, 3, 11, 11], [13, 9, 4, 14, 11, 11]], "boxTex": ["cast_iron", "cast_iron", "cast_iron", "leather", "leather", "walnut", "walnut"], "solid": true, "facing": true, "hardness": 0.5, "render": "model", "layer": "cutout", "opaque": false},
+    {"name": "table_lamp", "label": "Table lamp", "tex": "brass", "render": "model", "boxes": [[6, 0, 6, 10, 1, 10], [7, 1, 7, 9, 5, 9], [4, 5, 4, 12, 8, 12], [5, 8, 5, 11, 11, 11], [7, 11, 7, 9, 12, 9]], "boxTex": ["brass", "brass", "lit_shade", "lit_shade", "brass"], "layer": "cutout", "solid": false, "opaque": false, "emit": 11, "hardness": 0.2},
+    {"name": "wall_lamp", "label": "Wall lamp", "tex": "brass", "render": "model", "boxes": [[6, 3, 15, 10, 12, 16], [7, 6, 12, 9, 7, 15], [6, 3, 8, 10, 4, 12], [6, 4, 8, 10, 10, 12], [5, 10, 7, 11, 11, 13], [7, 11, 9, 9, 12, 11]], "boxTex": ["brass", "brass", "brass", "lit_lantern", "brass", "brass"], "layer": "cutout", "solid": false, "opaque": false, "facing": true, "emit": 12, "hardness": 0.2},
     {"name": "bed_head", "label": "Bed (head)", "tex": "blanket", "render": "model", "boxes": [[0, 2, 0, 16, 5, 14], [0, 5, 0, 16, 9, 14], [2, 9, 6, 14, 12, 13], [0, 0, 14, 16, 16, 16], [0, 9, 0, 16, 10, 3]], "boxTex": ["walnut", "sheet", "pillow", "walnut", "blanket"], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.3},
     {"name": "bed_foot", "label": "Bed (foot)", "tex": "blanket", "render": "model", "boxes": [[0, 2, 2, 16, 5, 16], [0, 5, 2, 16, 10, 16], [0, 0, 0, 16, 9, 2]], "boxTex": ["walnut", "blanket", "walnut"], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.3},
     {"name": "nightstand", "label": "Nightstand", "tex": "walnut", "render": "model", "boxes": [[2, 0, 3, 14, 11, 16], [1, 11, 2, 15, 12, 16]], "boxTex": [{"top": "walnut", "side": "walnut", "bottom": "walnut", "front": "nightstand_front"}, "walnut"], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5},
@@ -778,7 +403,7 @@
     {"name": "sign_post", "label": "Broken post", "tex": "planks", "render": "model", "boxes": [[6, 0, 6, 10, 11, 10]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3, "drop": "stick"},
     {"name": "snare", "label": "Snare", "tex": "snare", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.05},
     {"name": "snare_caught", "label": "Snare (a rabbit!)", "tex": "snare_caught", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.05, "drop": "live_rabbit"},
-    {"name": "hutch", "label": "Rabbit hutch", "tex": {"top": "planks", "side": "hutch_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "container": 9},
+    {"name": "hutch", "label": "Rabbit hutch", "tex": {"top": "planks", "side": "hutch_side", "bottom": "planks"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "container": 9, "boxes": [[1, 0, 1, 3, 4, 3], [13, 0, 1, 15, 4, 3], [1, 0, 13, 3, 4, 15], [13, 0, 13, 15, 4, 15], [0, 4, 0, 16, 13, 16], [0, 13, 0, 16, 15, 16], [2, 15, 2, 14, 16, 14]], "boxTex": ["oak", "oak", "oak", "oak", {"top": "planks", "side": "hutch_side", "bottom": "planks"}, "planks", "planks"]},
     {"name": "lost_pack", "label": "Your lost pack", "tex": "lost_pack", "render": "model", "boxes": [[3, 0, 3, 13, 8, 13], [5, 8, 5, 11, 10, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.4, "drop": "none", "container": 46},
     {"name": "tin_roof", "label": "Tin roof", "tex": {"top": "tin_roof", "side": "tin_roof_edge", "bottom": "tin_roof_under"}, "render": "model", "boxes": [[0, 0, 0, 16, 3, 16]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "drop": "scrap_metal"},
     {"name": "fence_post", "label": "Fence post", "tex": {"top": "log_top", "side": "fence_post", "bottom": "log_top"}, "render": "model", "boxes": [[6, 0, 6, 10, 16, 10]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3, "drop": "stick"},
@@ -795,7 +420,7 @@
     {"name": "truck_wheel", "label": "Truck wheel", "tex": {"top": "truck_under", "side": "truck_wheel", "bottom": "truck_under"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.8, "drop": "scrap_metal"},
     {"name": "fence_wire", "label": "Wire fence", "tex": "fence_wire", "render": "cross", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3, "drop": "wire"},
     {"name": "laundry_line", "label": "Laundry line", "tex": "laundry", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1, "drop": "cordage"},
-    {"name": "coop", "label": "Chicken coop", "tex": {"top": "tin_roof", "side": "coop_side", "bottom": "planks"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "container": 9},
+    {"name": "coop", "label": "Chicken coop", "tex": {"top": "tin_roof", "side": "coop_side", "bottom": "planks"}, "render": "model", "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.5, "container": 9, "boxes": [[1, 0, 1, 3, 3, 3], [13, 0, 1, 15, 3, 3], [1, 0, 13, 3, 3, 15], [13, 0, 13, 15, 3, 15], [1, 3, 1, 15, 12, 15], [0, 12, 0, 16, 14, 16], [0, 14, 3, 16, 15, 13], [0, 15, 6, 16, 16, 10]], "boxTex": ["oak", "oak", "oak", "oak", {"top": "planks", "side": "coop_side", "bottom": "planks"}, "tin_roof", "tin_roof", "tin_roof"]},
     {"name": "cinder_block", "label": "Cinder block", "tex": "cinder_block", "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.8},
     {"name": "tin_sheet", "label": "Tin sheet (over a window)", "tex": {"top": "tin_roof_edge", "side": "tin_roof", "bottom": "tin_roof_edge"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.5, "drop": "scrap_metal"},
     {"name": "tienda_sign", "label": "Shop sign", "tex": {"top": "planks", "side": "planks", "bottom": "planks", "front": "tienda_sign"}, "render": "model", "boxes": [[0, 0, 14, 16, 12, 16]], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.3, "drop": "planks"},

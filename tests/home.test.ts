@@ -244,7 +244,8 @@ describe('the home, rebuilt', () => {
     expect(name(w, 1806, F, 1020)).toBe('sofa_end'); expect(name(w, 1808, F, 1020)).toBe('sofa_end_r');
     expect(name(w, 1794, F, 1022)).toBe('lounger_head@west'); expect(name(w, 1793, F, 1022)).toBe('lounger_foot@west');
     expect(name(w, HOME_FIT.range.x, F, HOME_FIT.range.z)).toBe('range_firebox@west');
-    expect(name(w, ...HOME_FIT.desk.computer)).toBe('computer@west');
+    expect(name(w, ...HOME_FIT.desk.computer)).toBe('computer@east'); // its screen to the chair behind the desk
+    expect(name(w, ...HOME_FIT.desk.chair)).toBe('desk_chair@west');
     // A facing block's boxes turn with it: the sofa's back is to the south, the west-facing lounger's head-rest to the east.
     const tall = (n: string) => B_BOXES[blockId(n)]!.filter((b) => b[4] >= 13);
     for (const b of tall('sofa_mid')) expect(b[2]).toBeGreaterThanOrEqual(11);
