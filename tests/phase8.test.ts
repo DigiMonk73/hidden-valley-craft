@@ -628,3 +628,611 @@ describe('the dose, the suit and the tablets', () => {
     expect(clickRate(1700, 1024)).toBe(0);
   });
 });
+
+// ---- The data: blocks, items, recipes, trade (docs/PHASE8.md, 4) -----------------------------------------
+import { RECIPES, recipesAt, make, stationOf, STATION_LABEL } from '../src/sim/crafting.ts';
+import { Inventory } from '../src/sim/inventory.ts';
+import { hasItem, dropOf, itemLabel } from '../src/world/items.ts';
+import { hasIcon } from '../src/render/itemIcons.ts';
+import { hasTexture } from '../src/render/textures.ts';
+import { BLOCK_DEFS, blockId, TEXTURE_NAMES } from '../src/world/blocks.ts';
+import items from '../data/items.json' with { type: 'json' };
+import { CATALOG_RAY, CATALOG_RAY_M5, sellPrice, tradeNamesValid, UNIT } from '../src/sim/trade.ts';
+
+describe('M5’s data', () => {
+  const bag = (...things: [string, number][]) => { const inv = new Inventory(36); for (const [n, c] of things) inv.add(itemId(n), c); return inv; };
+  const recipe = (station: string, out: string, known: string[] = []) => recipesAt(station as never, new Set(known)).find((r) => r.out[0] === itemId(out));
+  const M5_ITEMS = ['hazard_suit', 'rad_tablets', 'antenna_section', 'rare_components', 'telescope_optics', 'sat_modem', 'sat_antenna', 'uplink_terminal', 'spirit', 'antibiotics', 'adrenaline', 'thermal_optic', 'engineer_armor'];
+
+  it('draws every new block’s texture and every new item’s icon', () => {
+    for (const n of TEXTURE_NAMES) expect(hasTexture(n), `texture ${n}`).toBe(true);
+    for (const it of items.items as { name: string; icon: string }[]) expect(hasIcon(it.icon), `icon ${it.icon}`).toBe(true);
+    for (const n of M5_ITEMS) expect(hasItem(n), n).toBe(true);
+  });
+
+  it('gives what the plan says for what is mined on the ridge, and nothing for the tower', () => {
+    expect(dropOf(blockId('dish_panel'))).toBe(itemId('antenna_section'));
+    expect(dropOf(blockId('relay_rack'))).toBe(itemId('rare_components'));
+    expect(dropOf(blockId('dome_scope'))).toBe(itemId('telescope_optics'));
+    for (const n of ['tower_steel', 'sat_dish', 'antenna_hoist']) { expect(BLOCK_DEFS[blockId(n)].hardness).toBeLessThan(0); expect(dropOf(blockId(n))).toBe(0); }
+    for (const n of ['telescope', 'med_bench', 'distiller', 'sonic_lure', 'smoke_pot']) expect(dropOf(blockId(n)), n).toBe(blockId(n)); // set down, taken up again
+    for (const n of ['sonic_lure_on', 'smoke_pot_lit']) expect(dropOf(blockId(n))).toBe(0); // a running one is spent
+  });
+
+  it('keeps every recipe to four kinds of input, each a thing that exists', () => {
+    for (const r of RECIPES) expect(r.in.length).toBeLessThanOrEqual(4);
+  });
+
+  it('shows the suit only on Ray’s word, and makes it from what Zones 1–3 and the kiln give', () => {
+    expect(recipe('workbench', 'hazard_suit')).toBeUndefined();
+    const r = recipe('workbench', 'hazard_suit', ['suit_word'])!;
+    expect(r.in.map(([id]) => id).sort()).toEqual(['canvas', 'scrap_lead', 'glass', 'charcoal'].map(itemId).sort());
+    const inv = bag(['canvas', 4], ['scrap_lead', 4], ['glass', 1], ['charcoal', 2]);
+    expect(make(inv, r)).toBe('made');
+    expect(inv.count(itemId('hazard_suit'))).toBe(1);
+  });
+
+  it('chains the uplink: the dish’s sections → the antenna; the optics → the telescope; Ray’s modem and the racks → the terminal, the plans kept', () => {
+    expect(recipe('workbench', 'sat_antenna')).toBeUndefined();
+    const ant = bag(['antenna_section', 3], ['steel_ingot', 4], ['wiring', 2], ['pipe_fittings', 2]);
+    expect(make(ant, recipe('workbench', 'sat_antenna', ['uplink_plans'])!)).toBe('made');
+    const tel = bag(['telescope_optics', 1], ['steel_ingot', 2], ['glass', 1], ['planks', 2]);
+    expect(make(tel, recipe('lathe', 'telescope')!)).toBe('made');
+    expect(tel.count(blockId('telescope'))).toBe(1);
+    const term = bag(['sat_modem', 1], ['rare_components', 2], ['wiring', 4], ['uplink_plans', 1]);
+    expect(make(term, recipe('workbench', 'uplink_terminal', ['uplink_plans'])!)).toBe('made');
+    expect(term.count(itemId('uplink_plans'))).toBe(1);
+    expect(term.count(itemId('sat_modem'))).toBe(0);
+    // Without the plans in the pack it cannot be made.
+    expect(make(bag(['sat_modem', 1], ['rare_components', 2], ['wiring', 4]), recipe('workbench', 'uplink_terminal', ['uplink_plans'])!)).toBe('short');
+  });
+
+  it('makes the medical bench and the distiller stations, shown by the manual; three medicines from the valley’s own crops', () => {
+    expect(stationOf(blockId('med_bench'))).toBe('med_bench');
+    expect(stationOf(blockId('distiller'))).toBe('distiller');
+    expect(STATION_LABEL.med_bench).toBe('Medical bench');
+    expect(recipe('workbench', 'med_bench')).toBeUndefined();
+    expect(recipe('workbench', 'med_bench', ['pharma_learned'])).toBeDefined();
+    expect(recipe('workbench', 'distiller', ['pharma_learned'])).toBeDefined();
+    const still = bag(['corn', 4], ['water_jug', 1], ['charcoal', 1]);
+    expect(make(still, recipesAt('distiller')[0])).toBe('made');
+    expect(still.count(itemId('spirit'))).toBe(2);
+    expect(still.count(itemId('empty_jug'))).toBe(1);
+    expect(recipesAt('distiller').length).toBe(2);
+    expect(recipesAt('med_bench').map((r) => itemLabel(r.out[0]).split(' ')[0]).sort()).toEqual(['Adrenaline', 'Antibiotics', 'Blue']);
+    const meds = bag(['spirit', 1], ['iron_ingot', 1], ['herbs', 2], ['charcoal', 1]);
+    expect(make(meds, recipe('med_bench', 'rad_tablets')!)).toBe('made');
+    expect(meds.count(itemId('rad_tablets'))).toBe(2);
+  });
+
+  it('hides each drawing’s recipe until its drawing is pulled', () => {
+    for (const [station, out, flag] of [['lathe', 'thermal_optic', 'sch_thermal'], ['workbench', 'sonic_lure', 'sch_sonic'], ['powder_mill', 'smoke_pot', 'sch_smoke'], ['lathe', 'engineer_armor', 'sch_armor']]) {
+      expect(recipe(station, out), out).toBeUndefined();
+      expect(recipe(station, out, [flag]), out).toBeDefined();
+    }
+    expect(recipe('lathe', 'engineer_armor', ['sch_armor'])!.in.map(([id]) => id)).toContain(itemId('plate_armor'));
+  });
+
+  it('needs seven rare components for everything; six are in the racks and Ray sells more', () => {
+    const need = RECIPES.filter((r) => r.in.some(([id]) => id === itemId('rare_components'))).reduce((s, r) => s + r.in.find(([id]) => id === itemId('rare_components'))![1], 0);
+    expect(need).toBe(6); // terminal 2, bench 1, optic 1, lures 1, armour 1
+    expect(Z4.RELAY_RACKS.length).toBeGreaterThanOrEqual(need);
+    expect(CATALOG_RAY_M5.map((l) => l.id)).toEqual(expect.arrayContaining([itemId('rare_components'), itemId('rad_tablets'), itemId('antenna_section')]));
+    for (const l of CATALOG_RAY_M5) expect(l.sats).toBeGreaterThanOrEqual(6 * UNIT); // premium, as his other things are
+    expect(CATALOG_RAY.some((l) => l.id === itemId('rare_components'))).toBe(false); // only after the meeting
+    expect(tradeNamesValid()).toBe(true);
+  });
+
+  it('gives none of M5’s parts a price Marco will pay: nothing the uplink hangs on can be sold away', () => {
+    for (const n of M5_ITEMS) expect(sellPrice(itemId(n)), n).toBe(0);
+    for (const n of ['telescope', 'med_bench', 'distiller', 'sonic_lure', 'smoke_pot']) expect(sellPrice(blockId(n)), n).toBe(0);
+  });
+});
+
+// ---- M5 on the computer (docs/PHASE8.md, 8) --------------------------------------------------------------
+import { M5_STEPS, trackM5, diedOutsideM5, atTowerYard, craftedFlag } from '../src/sim/m5.ts';
+import { VALLEY, HOME } from '../src/gen/layout.ts';
+
+describe('M5’s steps', () => {
+  const HX = VALLEY.cx, HZ = VALLEY.cz;
+
+  it('lists nine steps, one for each thing the plan names', () => {
+    expect(M5_STEPS.map((s) => s.flag)).toEqual(['ridge_home', 'ray_met', 'antenna_up', 'telescope_set', 'uplink_live', 'agi_asked', 'med_made', 'schematic_built', 'armor3_made']);
+    expect(new Set(M5_STEPS.map((s) => s.label)).size).toBe(9);
+  });
+
+  it('ticks the run only for the tower’s yard and home alive; a death on the way home unticks the yard', () => {
+    const flags = new Set<string>();
+    expect(trackM5(flags, Z.hut.x0, Z.hut.z0, { telescope: false })).toEqual([]); // the hut is not the tower
+    expect(atTowerYard(Z.gate.x, Z.gate.z)).toBe(false);
+    expect(trackM5(flags, T.x + 10, T.z, { telescope: false })).toEqual(['yard_reached']);
+    expect(trackM5(flags, 900, 1024, { telescope: false })).toEqual([]);
+    diedOutsideM5(flags);
+    expect(flags.has('yard_reached')).toBe(false);
+    trackM5(flags, Z.relay.door, Z.relay.z0 + 3, { telescope: false }); // inside the station counts
+    expect(trackM5(flags, HX, HZ, { telescope: false })).toEqual(['ridge_home']);
+    diedOutsideM5(flags);
+    expect(flags.has('ridge_home')).toBe(true); // once home it is kept
+    expect(inSanctuary(HOME.balcony.x0 + 1, HOME.balcony.z0 + 1)).toBe(true);
+  });
+
+  it('ticks the telescope when one stands under the sky at home, and M5 when all nine are done', () => {
+    const flags = new Set<string>();
+    expect(trackM5(flags, HX, HZ, { telescope: true })).toEqual(['telescope_set']);
+    for (const s of M5_STEPS.slice(0, -1)) flags.add(s.flag);
+    expect(trackM5(flags, HX, HZ, { telescope: true })).toEqual([]);
+    flags.add('armor3_made');
+    expect(trackM5(flags, HX, HZ, { telescope: true })).toEqual(['m5_done']);
+    expect(trackM5(flags, HX, HZ, { telescope: true })).toEqual([]);
+  });
+
+  it('knows what each thing made earns', () => {
+    for (const n of ['rad_tablets', 'antibiotics', 'adrenaline']) expect(craftedFlag(n)).toBe('med_made');
+    for (const n of ['thermal_optic', 'sonic_lure', 'smoke_pot']) expect(craftedFlag(n)).toBe('schematic_built');
+    expect(craftedFlag('engineer_armor')).toBe('armor3_made');
+    expect(craftedFlag('spirit')).toBe(null);
+    expect(craftedFlag('hazard_suit')).toBe(null);
+  });
+});
+
+// ---- The uplink: it never speaks (docs/PHASE8.md, 6) -----------------------------------------------------
+import {
+  linkStatus, linkReady, endpoints, endpointList, radMap, bioMap, ephemeris, schematicIndex, pullSchematic, ask, spoken, hoursToDusk, linkHours, nextWindow, bearingTo,
+  HANDSHAKE, SCHEMATICS, QUERIES, WINDOW_HOURS, MIRA, type Answer,
+} from '../src/sim/uplink.ts';
+import { NESTS } from '../src/entity/ashen.ts';
+
+describe('the uplink', () => {
+  const NOW = { day: 12, hour: 14.5 };
+  const none = new Set<string>();
+  const every = (): Answer[] => [endpoints(NOW), radMap(), bioMap(), ephemeris(NOW), schematicIndex(none, NOW, null), ...SCHEMATICS.map((s) => pullSchematic(s.flag, none, NOW, null)!)];
+
+  it('lists what the link needs, and is ready only with all four', () => {
+    const all = { antenna: true, telescope: true, hydro: true, terminal: true };
+    expect(linkReady(all)).toBe(true);
+    for (const k of Object.keys(all) as (keyof typeof all)[]) {
+      const n = { ...all, [k]: false };
+      expect(linkReady(n)).toBe(false);
+      expect(linkStatus(n).filter((r) => !r.ok).length).toBe(1);
+    }
+    expect(linkStatus(all).map((r) => r.label)).toEqual(['ANTENNA', 'OPTICS', 'POWER', 'TERMINAL']);
+  });
+
+  it('never speaks: every row of every answer is capitals, numbers and marks, with no word a speaker would use', () => {
+    const answers = every();
+    expect(answers.length).toBe(9);
+    for (const a of answers) {
+      expect(a.rows.length).toBeGreaterThan(3);
+      for (const row of [a.head, ...a.rows]) expect(spoken(row), `"${row}"`).toBe(null);
+      for (const row of a.rows) expect(row.length, `"${row}"`).toBeLessThanOrEqual(78);
+    }
+    for (const row of HANDSHAKE) expect(spoken(row)).toBe(null);
+    // And the check itself knows speech when it sees it.
+    for (const said of ['HELLO', 'I AM HERE', 'Coordinates follow', 'YOU ARE NOT ALONE', 'WHAT DO YOU NEED?', 'THE DOSE IS HIGH', 'PLEASE WAIT']) expect(spoken(said), said).not.toBe(null);
+    for (const fine of ['GRID 25 M · ORIGIN 330E 350N', 'B03        560   867   1  STRUCTURE   18:00-06:00', 'MIRA-7                004    212.4           0  BEACON REPEATING']) expect(spoken(fine), fine).toBe(null);
+  });
+
+  it('has no name for itself and none for the player', () => {
+    const text = every().flatMap((a) => [a.head, ...a.rows]).join('\n');
+    for (const w of ['AGI', 'AI ', 'SYSTEM', 'USER', 'HUMAN', 'OPERATOR', 'WELCOME', 'QUERY ACCEPTED']) expect(text.includes(w), w).toBe(false);
+  });
+
+  it('answers first, unasked, with every handset it has heard: three that answer, the builder’s people silent since the Event, and Mira', () => {
+    const list = endpointList(NOW), by = (id: string) => list.find((e) => e.id.includes(id))!;
+    expect(list[0]).toMatchObject({ id: 'HV-01', state: 'LINK' });
+    for (const id of ['MARCO', 'IBANEZ', 'QUISPE']) expect(by(id).state).toBe('ACTIVE');
+    expect(by('MARCO').km).toBeLessThan(1); // at his shelter on the old road
+    expect(by('MARCO').brg).toBeGreaterThan(260);
+    const mira = by('MIRA');
+    expect(mira).toMatchObject({ state: 'BEACON REPEATING', last: 0, brg: MIRA.brg, km: MIRA.km });
+    expect(mira.km).toBeGreaterThan(200);
+    // Eight years: the silent ones stopped within a week of each other.
+    const silent = list.filter((e) => e.state === 'SILENT');
+    expect(silent.length).toBe(5);
+    for (const e of silent) { expect(e.last).toBeGreaterThan(2900); expect(e.last).toBeLessThan(2960); }
+    expect(Math.max(...silent.map((e) => e.last)) - Math.min(...silent.map((e) => e.last))).toBeLessThanOrEqual(7);
+    // Lucía's, and the builder's own second handset: one place, his fix two days after hers.
+    const lucia = by('LUCIA'), his = by('HV-02');
+    expect([his.brg, his.km]).toEqual([lucia.brg, lucia.km]);
+    expect(lucia.last - his.last).toBe(2);
+    // The days count on with the save.
+    expect(endpointList({ day: 13, hour: 2 }).find((e) => e.id.includes('LUCIA'))!.last).toBe(lucia.last + 1);
+    const a = endpoints(NOW);
+    expect(a.rows.length).toBe(list.length + 1);
+    expect(a.rows.some((r) => r.startsWith('MIRA-7') && r.includes('212.4') && r.endsWith('BEACON REPEATING'))).toBe(true);
+    expect(a.sets).toEqual(['agi_end']);
+  });
+
+  it('takes bearings from the valley: north is 0, east 90', () => {
+    expect(bearingTo(VALLEY.cx, VALLEY.cz - 1000)).toEqual({ brg: 0, km: 1 });
+    expect(bearingTo(VALLEY.cx + 500, VALLEY.cz).brg).toBe(90);
+    expect(bearingTo(T.x, T.z).brg).toBeGreaterThan(290);
+    expect(bearingTo(T.x, T.z).km).toBeCloseTo(1.49, 1);
+  });
+
+  it('returns the dose as a grid that is the ground’s own numbers, with the road, the sump and the clean ground', () => {
+    const a = radMap();
+    expect(a.sets).toEqual(['agi_rad']);
+    const grid = a.rows.slice(2, 12).map((r) => r.trim().split(/\s+/).map(Number));
+    expect(grid.length).toBe(10);
+    for (const [j, row] of grid.entries()) {
+      expect(row.length).toBe(13);
+      for (let i = 0; i < 12; i++) expect(row[i + 1]).toBe(Math.round(falloutAt(330 + i * 25 + 12.5, row[0] + 12.5)));
+      expect(row[0]).toBe(350 + j * 25);
+    }
+    expect(Math.max(...grid.flatMap((r) => r.slice(1)))).toBeGreaterThan(Z.rates.off); // the sump shows
+    expect(a.rows.some((r) => r.startsWith('MAX') && r.includes(`${Z.sump.x}E ${Z.sump.z}N`))).toBe(true);
+    expect(a.rows.some((r) => r.startsWith('NIL') && r.includes(`${Z.clean.x}E`))).toBe(true);
+    // The path's points are on the road, and the last is the yard.
+    const pts = a.rows.filter((r) => r.startsWith('  ')).flatMap((r) => [...r.matchAll(/(\d+)E (\d+)N/g)].map((m) => [Number(m[1]), Number(m[2])]));
+    expect(pts.length).toBeGreaterThan(6);
+    for (const [x, z] of pts) expect(ridgeRoadAt(x, z).dist).toBeLessThan(1.5);
+    expect(atTowerYard(...(pts[pts.length - 1] as [number, number]))).toBe(true);
+  });
+
+  it('returns every nest: eleven Ashen in six places, the relay’s among them, out from dusk to dawn', () => {
+    const a = bioMap();
+    expect(a.sets).toEqual(['agi_bio']);
+    expect(a.rows.length).toBe(NESTS.length + 2);
+    NESTS.forEach((n, i) => { expect(a.rows[i + 1]).toContain(String(Math.round(n.x))); expect(a.rows[i + 1]).toContain(String(Math.round(n.z))); });
+    expect(a.rows[NESTS.length]).toContain(String(Math.round(Z.nest.x)));
+    expect(a.rows.filter((r) => r.includes('SUBSURFACE')).length).toBe(1);
+    expect(a.rows[1]).toContain('18:00-06:00');
+    expect(a.rows[a.rows.length - 1]).toContain('TOTAL 11');
+  });
+
+  it('returns three days of sun, moon and mist, and the time left to dusk', () => {
+    const a = ephemeris(NOW);
+    expect(a.sets).toEqual(['agi_eph']);
+    expect(a.rows.filter((r) => r.startsWith('D+')).length).toBe(3);
+    expect(a.rows[1]).toContain('06:00');
+    expect(a.rows[a.rows.length - 1]).toBe('NOW 14:30 · DUSK T-03:30');
+    expect(hoursToDusk(14.5)).toBe(3.5);
+    expect(hoursToDusk(20)).toBe(0);
+    expect(hoursToDusk(3)).toBe(0);
+    expect(ephemeris({ day: 0, hour: 22 }).rows.at(-1)).toBe('NOW 22:00 · DUSK T-00:00');
+  });
+
+  it('holds four drawings; each pull returns a diagram and the parts of the very recipe it unlocks, one a window', () => {
+    expect(SCHEMATICS.map((s) => s.flag).sort()).toEqual(['sch_armor', 'sch_smoke', 'sch_sonic', 'sch_thermal']);
+    const flags = new Set<string>();
+    let last: number | null = null;
+    const clock = { day: 3, hour: 9 };
+    expect(schematicIndex(flags, clock, last).rows.at(-1)).toBe('WINDOW OPEN');
+    for (const s of SCHEMATICS) {
+      const a = pullSchematic(s.flag, flags, clock, last)!;
+      expect(a, s.flag).not.toBe(null);
+      expect(a.sets).toEqual([s.flag]);
+      expect(a.head).toContain(s.code);
+      const r = RECIPES.find((q) => q.learn === s.flag)!;
+      expect(r.out[0]).toBe(itemId(s.item));
+      for (const [id, n] of r.in) expect(a.rows.some((row) => row.startsWith(itemLabel(id).replace(/\s*\(.*$/, '').toUpperCase()) && row.trim().endsWith(String(n))), `${s.flag}: ${itemLabel(id)}`).toBe(true);
+      expect(a.rows.at(-1)).toContain(`STATION ${STATION_LABEL[r.station].toUpperCase()}`);
+      // Pulled: held now, and the window shuts for six hours.
+      for (const f of a.sets) flags.add(f);
+      last = linkHours(clock);
+      expect(pullSchematic(s.flag, flags, clock, last)).toBe(null);
+      const other = SCHEMATICS.find((q) => !flags.has(q.flag));
+      if (other) {
+        expect(pullSchematic(other.flag, flags, clock, last)).toBe(null);
+        expect(schematicIndex(flags, clock, last).rows.at(-1)).toBe(`NEXT WINDOW ${String((clock.hour + WINDOW_HOURS) % 24).padStart(2, '0')}:00`);
+        clock.hour += WINDOW_HOURS; if (clock.hour >= 24) { clock.hour -= 24; clock.day++; }
+      }
+    }
+    expect(schematicIndex(flags, clock, last).rows.at(-1)).toBe('INDEX COMPLETE');
+    expect(schematicIndex(flags, clock, last).rows.filter((r) => r.endsWith('HELD')).length).toBe(4);
+    expect(nextWindow(null)).toBe(-Infinity);
+    expect(pullSchematic('sch_nothing', none, NOW, null)).toBe(null);
+  });
+
+  it('offers five queries, and each of the four that change something sets its own flag', () => {
+    expect(QUERIES.map((q) => q.id).sort()).toEqual(['BIO', 'END', 'EPH', 'RAD', 'SCH']);
+    const sets = QUERIES.map((q) => ask(q.id, NOW, none, null).sets.join());
+    expect(sets.sort()).toEqual(['', 'agi_bio', 'agi_end', 'agi_eph', 'agi_rad']);
+  });
+});
+
+// ---- The lure and the smoke pot (docs/PHASE8.md, 4) ------------------------------------------------------
+import { startDevice, stepDevices, smokeOf, devicesFromSave, LURE_SECONDS, LURE_HEARD, LURE_EVERY, POT_SECONDS, POT_RADIUS } from '../src/sim/countermeasures.ts';
+import { makeCreature, type Creature } from '../src/entity/creatures.ts';
+import {
+  thinkAshen, ashenGround, ashenHear, manAshen, newAshen, nestFloor, isHunting, inSmoke, SLOTS, RELAY_GROUND, LUNGE_FROM, type AshenSenses,
+} from '../src/entity/ashen.ts';
+import { makeRng } from '../src/core/noise.ts';
+
+describe('the sonic lure and the smoke pot', () => {
+  it('runs each for its time and then it is spent; a lure calls at once and every two seconds', () => {
+    const devs = [startDevice('lure', 10, 80, 10), startDevice('pot', 20, 80, 20)];
+    let calls = 0, t = 0;
+    const first = stepDevices(devs, 0.05);
+    expect(first.calls.length).toBe(1);
+    calls++;
+    const spentAt: Record<string, number> = {};
+    for (t = 0.05; t < 70; t += 0.05) { const r = stepDevices(devs, 0.05); calls += r.calls.length; for (const d of r.spent) spentAt[d.kind] = t; }
+    expect(calls).toBe(LURE_SECONDS / LURE_EVERY);
+    expect(spentAt.lure).toBeCloseTo(LURE_SECONDS, 0);
+    expect(spentAt.pot).toBeCloseTo(POT_SECONDS, 0);
+    expect(devs.length).toBe(0);
+  });
+
+  it('gives the Ashen the smoke of burning pots only', () => {
+    const devs = [startDevice('lure', 10, 80, 10), startDevice('pot', 20, 80, 20)];
+    expect(smokeOf(devs)).toEqual([{ x: 20.5, z: 20.5, r: POT_RADIUS }]);
+    expect(inSmoke({ smoke: smokeOf(devs) }, 24, 22)).toBe(true);
+    expect(inSmoke({ smoke: smokeOf(devs) }, 30, 20)).toBe(false);
+    expect(inSmoke({}, 20, 20)).toBe(false);
+  });
+
+  it('loads from a save, and from an older one with none', () => {
+    expect(devicesFromSave(undefined)).toEqual([]);
+    expect(devicesFromSave('x')).toEqual([]);
+    const d = startDevice('pot', 1, 2, 3); d.left = 12;
+    expect(devicesFromSave([d, { kind: 'bomb', x: 1 }, null, { ...d, left: NaN }, { ...d, left: 9999 }])).toEqual([d, { ...d, left: POT_SECONDS }]);
+  });
+});
+
+// ---- The relay's two (docs/PHASE8.md, "Design calls") ----------------------------------------------------
+
+describe('the Ashen on the ridge', () => {
+  const TF = zone4Floor.tower, RI = NESTS.indexOf(Z.nest);
+  const STONE = blockId('limestone');
+  const flat = (floor: number) => (_x: number, y: number, _z: number) => (y < floor ? STONE : 0);
+  const senses = (px: number, pz: number, o: Partial<AshenSenses> = {}): AshenSenses => ({ px, py: TF, pz, pv: 0, sprint: false, playerInSanctuary: false, night: false, shot: false, lightAt: () => 15, ...o });
+  /** One of them out on the yard's open ground east of the tower. */
+  const out = (x: number, z: number): Creature => { const c = makeCreature('ashen', x, TF, z); c.nest = RI; c.squad = 1 << 9; c.leg = Z.nest.path.length; c.yaw = 0; return c; };
+  const run = (c: Creature, s: () => AshenSenses, seconds: number) => { const rand = makeRng(7); for (let k = 0; k < seconds * 20; k++) thinkAshen(c, 1 / 20, s(), 0, flat(TF), rand); };
+  const YX = T.x + 16, YZ = T.z - 2;
+
+  it('adds one nest of two after Zone-3’s five: eleven in all, and the bits saved for the first nine are still theirs', () => {
+    expect(RI).toBe(5);
+    expect(SLOTS.length).toBe(11);
+    expect(SLOTS.slice(0, 9).every((q) => q.nest < 5)).toBe(true);
+    expect(SLOTS.slice(9).map((q) => [q.nest, q.bit])).toEqual([[5, 1 << 9], [5, 1 << 10]]);
+    expect(nestFloor(RI)).toBe(TF);
+    expect(Z.nest.n).toBe(2);
+  });
+
+  it('makes their ground the yard and the slope round the station, and nowhere else on the ridge: never the pass', () => {
+    expect(ashenGround(Z.nest.x, Z.nest.z)).toBe(true);
+    expect(ashenGround(YX, YZ)).toBe(true);
+    for (const [x, z] of Z.nest.path) expect(ashenGround(x, z)).toBe(true);
+    expect(ashenGround(Z.clean.x, Z.clean.z)).toBe(false);
+    expect(ashenGround(Z.ray.x, Z.ray.z)).toBe(false);
+    expect(ashenGround(Z.observatory.x, Z.observatory.z)).toBe(false);
+    expect(ashenGround(Z.gate.x, Z.gate.z - 30)).toBe(false);
+    const rand = makeRng(5);
+    for (let k = 0; k < 20_000; k++) {
+      const x = 200 + rand() * 440, z = 200 + rand() * 560;
+      if (zoneAt(x, z) === 'zone4' && ashenGround(x, z)) expect(Math.hypot(x - Z.nest.x, z - Z.nest.z)).toBeLessThan(RELAY_GROUND);
+    }
+    // The pass is three times their reach from the nest.
+    expect(Math.hypot(Z.clean.x - Z.nest.x, Z.clean.z - Z.nest.z)).toBeGreaterThan(RELAY_GROUND * 2.5);
+  });
+
+  it('puts both in the battery hall when the player comes near, and nowhere before', () => {
+    const st = newAshen();
+    const floorAt = (_x: number, y: number) => y;
+    expect(manAshen([], st, Z.gate.x, Z.gate.z, false, () => true, floorAt).filter((c) => c.nest === RI).length).toBe(0);
+    const made = manAshen([], st, T.x + 20, T.z, false, () => true, floorAt).filter((c) => c.nest === RI);
+    expect(made.length).toBe(2);
+    for (const c of made) {
+      expect(c.x > Z.relay.baffle && c.x < Z.relay.split && c.z > Z.relay.z0 + 1 && c.z < Z.relay.z1 - 1, `in the hall's far end: ${c.x},${c.z}`).toBe(true);
+      expect(c.y).toBe(TF);
+    }
+    // One down stays down until dawn.
+    st.down = 1 << 9;
+    expect(manAshen([], st, T.x + 20, T.z, false, () => true, floorAt).filter((c) => c.nest === RI).length).toBe(1);
+  });
+
+  it('answers a lure as it answers a shot: one that is not hunting goes to where it wails', () => {
+    const c = out(YX, YZ);
+    ashenHear([c], YX - 12, YZ + 6, LURE_HEARD);
+    expect(c.mind).toBe('seek');
+    const far = () => senses(YX + 200, YZ, { night: true, lightAt: () => 2 });
+    run(c, far, 4);
+    expect(Math.hypot(c.x - (YX - 12), c.z - (YZ + 6))).toBeLessThan(6);
+    // Out of earshot it hears nothing.
+    const d = out(YX, YZ);
+    ashenHear([d], YX + LURE_HEARD + 5, YZ, LURE_HEARD);
+    expect(d.mind).not.toBe('seek');
+  });
+
+  it('will not step into a burning pot’s smoke: it stops at the edge, out of its lunge’s reach of someone at the pot', () => {
+    const c = out(YX, YZ);
+    c.mind = 'charge';
+    const px = YX - 14, pz = YZ;
+    const smoke = [{ x: px, z: pz, r: POT_RADIUS }];
+    run(c, () => senses(px, pz, { smoke, night: true, lightAt: () => 2 }), 8);
+    const d = Math.hypot(c.x - px, c.z - pz);
+    expect(d).toBeGreaterThanOrEqual(POT_RADIUS - 0.1);
+    expect(d).toBeLessThan(POT_RADIUS + 1.5);
+    expect(POT_RADIUS).toBeGreaterThan(LUNGE_FROM + 3);
+    // Without the pot it would have been on the player in that time.
+    const e = out(YX, YZ); e.mind = 'charge';
+    run(e, () => senses(px, pz, { night: true, lightAt: () => 2 }), 8);
+    expect(Math.hypot(e.x - px, e.z - pz)).toBeLessThan(LUNGE_FROM + 1);
+  });
+
+  it('walks out of smoke lit round it, and lands no blow on someone standing at the pot for as long as it burns', () => {
+    const c = out(YX, YZ);
+    c.mind = 'charge';
+    const smoke = [{ x: YX + 2, z: YZ + 1, r: POT_RADIUS }];
+    const rand = makeRng(9);
+    let hits = 0, inside = 0;
+    for (let k = 0; k < POT_SECONDS * 20; k++) {
+      for (const e of thinkAshen(c, 1 / 20, senses(YX + 2, YZ + 1, { smoke, night: true, lightAt: () => 2 }), 0, flat(TF), rand)) if (e.kind === 'hit') hits++;
+      if (k > 6 * 20 && Math.hypot(c.x - (YX + 2), c.z - (YZ + 1)) < POT_RADIUS - 0.3) inside++;
+    }
+    expect(hits).toBe(0);
+    expect(inside).toBe(0); // out within six seconds, and never back in
+    // When the pot is out it comes, as it would have.
+    run(c, () => senses(YX + 2, YZ + 1, { night: true, lightAt: () => 2 }), 8);
+    expect(Math.hypot(c.x - (YX + 2), c.z - (YZ + 1))).toBeLessThan(LUNGE_FROM + 1.5);
+    expect(isHunting(c)).toBe(true);
+  });
+});
+
+// ---- The telescope (docs/PHASE8.md, 5) -------------------------------------------------------------------
+import { scopeTargets, aimedAt, scopeLabel, sightClear, moonDir, satTrain, aimOf, SCOPE_NEAR, TRAIN_EVERY, type V3 } from '../src/sim/telescope.ts';
+import { surfaceHeight, WATERFALL, roadZ } from '../src/gen/layout.ts';
+
+describe('the telescope', () => {
+  const BALCONY: V3 = [HOME.balcony.x0 + 2.5, HOME.floor + 1.6, VALLEY.cz + 0.5];
+  const by = (ts: ReturnType<typeof scopeTargets>, id: string) => ts.find((t) => t.id === id);
+
+  it('aims by the game’s compass: north is yaw 0, west a quarter turn, up is positive pitch', () => {
+    expect(aimOf(0, 0, -5).yaw).toBeCloseTo(0);
+    expect(aimOf(-5, 0, 0).yaw).toBeCloseTo(Math.PI / 2);
+    expect(aimOf(0, 5, -5).pitch).toBeCloseTo(Math.PI / 4);
+  });
+
+  it('shows the falls from the balcony, due west across the valley; the tower and the dam lie behind the rim from there', () => {
+    const ts = scopeTargets(BALCONY, 12, 0);
+    const falls = by(ts, 'falls')!;
+    expect(falls.hidden).toBe(false);
+    expect(Math.abs(falls.yaw - Math.PI / 2)).toBeLessThan(0.05);
+    expect(falls.dist).toBeGreaterThan(180);
+    expect(by(ts, 'tower')!.hidden).toBe(true);
+    expect(by(ts, 'dam')!.hidden).toBe(true);
+    expect(scopeLabel(by(ts, 'tower')!)).toContain('behind the land');
+    expect(by(ts, 'moon')).toBeUndefined(); // noon
+    expect(aimedAt(falls.yaw, falls.pitch, ts)).toBe(falls);
+    expect(aimedAt(falls.yaw + (SCOPE_NEAR + 0.6) * Math.PI / 180, falls.pitch, ts)).toBe(null);
+    expect(scopeLabel(falls)).toMatch(/^The falls · \d+ m$/);
+    expect(scopeLabel(null)).toBe('');
+  });
+
+  it('shows the tower from the valley’s north and east rim, up on the plateau; the dam only from nearer', () => {
+    let seen = 0;
+    for (let a = -2.4; a <= 0.2; a += 0.1) {
+      const x = Math.floor(VALLEY.cx + Math.cos(a) * (VALLEY.radius + 35)), z = Math.floor(VALLEY.cz + Math.sin(a) * (VALLEY.radius + 35));
+      const ts = scopeTargets([x + 0.5, surfaceHeight(x, z) + 1.6, z + 0.5], 12, 0);
+      if (!by(ts, 'tower')!.hidden) seen++;
+      expect(by(ts, 'dam')!.hidden).toBe(true); // it lies in its gorge
+    }
+    expect(seen).toBeGreaterThan(15);
+    const north: V3 = [VALLEY.cx + 0.5, surfaceHeight(VALLEY.cx, VALLEY.cz - VALLEY.radius - 35) + 1.6, VALLEY.cz - VALLEY.radius - 34.5];
+    const tower = by(scopeTargets(north, 12, 0), 'tower')!;
+    expect(tower.hidden).toBe(false);
+    expect(tower.dist).toBeGreaterThan(1200);
+    expect(tower.pitch).toBeGreaterThan(0); // its top stands above the eye
+    expect(scopeLabel(tower)).toMatch(/^The relay tower · 1\.\d\d km$/);
+    // From the dam's own road both stand in sight.
+    const road: V3 = [ZONE3.dam.x1 + 2.5, ZONE3.dam.crest + 1.6, ZONE3.dam.z + 0.5];
+    expect(by(scopeTargets(road, 12, 0), 'tower')!.hidden).toBe(false);
+  });
+
+  it('keeps the tower on the skyline from the old road, as before the ridge was lowered: nine tenths of it from Zone-1', () => {
+    // (From the buffer's road the saddle's knolls hide it, as they hid the taller drawing: checked for both.)
+    const tenths = (eye: V3, base: number, h: number) => { let n = 0; for (let k = 0; k <= 10; k++) if (sightClear(eye, [T.x + 0.5, base + (h * k) / 10, T.z + 0.5])) n++; return n; };
+    for (const x of [1050, 990, 930, 870, 810, 750, 690]) {
+      const z = Math.floor(roadZ(x)), eye: V3 = [x + 0.5, surfaceHeight(x, z) + 1.6, z + 0.5];
+      expect(tenths(eye, zone4Floor.tower, T.height), `from the road at x ${x}`).toBeGreaterThanOrEqual(9);
+    }
+    const bufferEye: V3 = [1400.5, surfaceHeight(1400, Math.floor(roadZ(1400))) + 1.6, roadZ(1400)];
+    expect(tenths(bufferEye, 166, 64)).toBe(0); // the old drawing's height: hidden from here too
+  });
+
+  it('shows the moon by night, opposite the sun, and never by day', () => {
+    expect(moonDir(12)).toBe(null);
+    const m = moonDir(0)!;
+    expect(m[1]).toBeGreaterThan(0.9); // overhead at midnight
+    expect(moonDir(20)![0]).toBeGreaterThan(0); // rising in the east after dusk
+    expect(by(scopeTargets(BALCONY, 23, 0), 'moon')).toBeDefined();
+    expect(by(scopeTargets(BALCONY, 23, 0), 'moon')!.hidden).toBe(false);
+  });
+
+  it('brings a train of four satellites over every four minutes at night, low to high to low, and none by day', () => {
+    expect(satTrain(50, 12)).toEqual([]);
+    expect(satTrain(50, 23).length).toBe(4);
+    expect(satTrain(TRAIN_EVERY - 20, 23)).toEqual([]); // between passes
+    for (const d of satTrain(50, 23)) { expect(Math.hypot(...d)).toBeCloseTo(1); expect(d[1]).toBeGreaterThan(0.5); }
+    expect(satTrain(8, 23)[0][1]).toBeLessThan(satTrain(50, 23)[0][1]);
+    const ts = scopeTargets(BALCONY, 23, 50), sats = by(ts, 'sats')!;
+    expect(aimedAt(sats.yaw, sats.pitch, ts)).toBe(sats);
+    expect(sightClear(BALCONY, [WATERFALL.x + 1, 90, VALLEY.cz])).toBe(true);
+  });
+});
+
+// ---- The relay's two on the real land (the review of Phases 0–6: creature faults show only on real blocks) --
+import { floorNear } from '../src/entity/wild.ts';
+import { fits } from '../src/entity/creatures.ts';
+import { type AshenEvent } from '../src/entity/ashen.ts';
+
+describe('the relay’s Ashen and a careful player, on the generated land', () => {
+  const w = ridge();
+  const TF = zone4Floor.tower, R = Z.relay, RI = NESTS.indexOf(Z.nest);
+  const blockAt = (x: number, y: number, z: number) => w.blockAt(x, y, z);
+  const noonLight = (x: number, y: number, z: number) => { const l = w.lightAt(x, y, z); return Math.max(skyOf(l), blockOf(l)); };
+  const nightLight = (x: number, y: number, z: number) => Math.max(skyOf(w.lightAt(x, y, z)) * 0.3, blockOf(w.lightAt(x, y, z)));
+  const two = () => manAshen([], newAshen(), T.x + 20, T.z, false, (x, z) => w.isLoaded(x, z), (x, y, z) => floorNear(x, y, z, blockAt)).filter((c) => c.nest === RI);
+  const sense = (px: number, py: number, pz: number, o: Partial<AshenSenses> = {}): AshenSenses => ({ px, py, pz, pv: 0, sprint: false, playerInSanctuary: false, night: false, shot: false, lightAt: noonLight, ...o });
+  const tick = (all: Creature[], s: AshenSenses, rand: () => number, into: AshenEvent[]) => {
+    for (const c of all) into.push(...thinkAshen(c, 1 / 20, s, all.filter((o) => o !== c && isHunting(o)).length, blockAt, rand));
+  };
+  const WALK = 4;
+
+  it('places both on the hall’s floor behind the baffle, in the dark: keen where they stand', () => {
+    const both = two();
+    expect(both.length).toBe(2);
+    for (const c of both) {
+      expect(fits(c, c.x, c.y, c.z, blockAt)).toBe(true);
+      expect(c.y).toBe(TF);
+      expect(noonLight(Math.floor(c.x), Math.floor(c.y + 1), Math.floor(c.z)), 'dark at noon').toBeLessThan(LIGHT_KEEN);
+    }
+  });
+
+  it('by day, walking the road into the yard, round the tower’s feet, to the dish and in at the station’s door wakes neither', () => {
+    const both = two(), rand = makeRng(31), ev: AshenEvent[] = [];
+    const legs: [number, number][] = [[Z.yard.x1 - 1, T.z + 6], [T.x + 12, T.z - 2], [T.x + 8, T.z - 8], [T.x - 8, T.z - 8], [T.x - 8, T.z + 8], [T.x + 8, T.z + 8], [R.door + 1, R.z0 - 2], [R.door + 1, R.z0 + 3]];
+    let [x, z] = legs[0];
+    for (const [bx, bz] of legs.slice(1)) {
+      const len = Math.hypot(bx - x, bz - z);
+      for (let k = 0; k < len; k += WALK / 20) tick(both, sense(x + ((bx - x) * k) / len, TF, z + ((bz - z) * k) / len, { pv: WALK }), rand, ev);
+      [x, z] = [bx, bz];
+    }
+    expect(ev.filter((e) => e.kind === 'notice').map((e) => `noticed at ${e.c.x.toFixed(0)},${e.c.z.toFixed(0)}`)).toEqual([]);
+  });
+
+  it('in the lit half, walking every open cell and working a pick at every rack wakes nothing behind the wall', () => {
+    const both = two(), rand = makeRng(32), ev: AshenEvent[] = [];
+    let cells = 0;
+    for (let z = R.z0 + 1; z < R.z1 - 1; z++) for (let x = R.split + 1; x < R.x1 - 1; x++) {
+      if (B_SOLID[w.blockAt(x, TF, z)] || B_SOLID[w.blockAt(x, TF + 1, z)]) continue;
+      cells++;
+      for (let k = 0; k < 20; k++) tick(both, sense(x + 0.5, TF, z + 0.5, { pv: WALK, mining: k >= 8 }), rand, ev);
+    }
+    expect(cells).toBeGreaterThan(50);
+    expect(ev.filter((e) => e.kind === 'notice')).toEqual([]);
+    // Mining the dish in the yard, the same.
+    for (let k = 0; k < 20 * 20; k++) tick(both, sense(Z4.DISH_PANELS[0][0] - 0.5, TF, Z4.DISH_PANELS[0][2] + 0.5, { mining: true }), rand, ev);
+    expect(ev.filter((e) => e.kind === 'notice')).toEqual([]);
+  });
+
+  it('a runner in the yard brings them out by their own bay, round the baffle, never through a block or off their ground', () => {
+    const both = two(), rand = makeRng(33);
+    const [ox, oz] = Z.nest.path[Z.nest.path.length - 1], px = ox + 1, pz = oz - 6;
+    let shriek: Creature | null = null, worst = '';
+    for (let k = 0; k < 90 * 20 && !shriek; k++) for (const c of both) {
+      for (const e of thinkAshen(c, 1 / 20, sense(px, TF, pz, { pv: 5.6, sprint: true }), both.filter((o) => o !== c && isHunting(o)).length, blockAt, rand)) if (e.kind === 'shriek') shriek = e.c;
+      if (!fits(c, c.x, c.y, c.z, blockAt)) worst = `inside a block at ${c.x.toFixed(1)},${c.y},${c.z.toFixed(1)}`;
+      if (!ashenGround(c.x, c.z)) worst = `off its ground at ${c.x.toFixed(1)},${c.z.toFixed(1)}`;
+    }
+    expect(worst).toBe('');
+    expect(shriek, 'one of them reached the runner and reared').not.toBeNull();
+    expect(Math.hypot(shriek!.x - px, shriek!.z - pz)).toBeLessThan(LUNGE_FROM);
+  });
+
+  it('at night they come out and keep to the yard’s west end; none goes into the lit half or toward the road’s end', () => {
+    const both = two(), rand = makeRng(34), ev: AshenEvent[] = [];
+    let east = -Infinity;
+    // The player waits on the pass, far out of sight and hearing, for five minutes of night.
+    for (let k = 0; k < 300 * 20; k++) {
+      tick(both, sense(Z.clean.x, zone4Floor.pass, Z.clean.z, { night: true, lightAt: nightLight }), rand, ev);
+      for (const c of both) { east = Math.max(east, c.x); expect(fits(c, c.x, c.y, c.z, blockAt), `inside a block at ${c.x.toFixed(1)},${c.z.toFixed(1)}`).toBe(true); expect(c.x < R.split || c.z < R.z0 || c.z >= R.z1, 'never in the lit half').toBe(true); }
+    }
+    expect(both.some((c) => (c.leg ?? 0) >= Z.nest.path.length), 'one at least is out of the hall').toBe(true);
+    expect(east).toBeLessThan(T.x + 12); // fourteen metres round their door, at most
+    expect(ev.filter((e) => e.kind === 'notice')).toEqual([]);
+  });
+});

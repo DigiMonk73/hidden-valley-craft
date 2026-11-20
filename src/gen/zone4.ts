@@ -351,7 +351,8 @@ export function buildZone4(col: Uint16Array, x0: number, z0: number): void {
     put(R.door - 1, TF + 4, R.z0 - 1, 'lantern'); put(R.door + 2, TF + 4, R.z0 - 1, 'lantern');
     for (let x = R.door - 1; x <= R.door + 2; x++) put(x, TF + 5, R.z0 - 1, 'shed_roof');
     // The battery hall: dead cabinets, old cells, ash where they stand.
-    for (const [dx, dz] of [[2, 1], [3, 1], [6, 1], [8, 1], [9, 8], [1, 8]]) put(R.x0 + dx, TF, R.z0 + dz, dz === 1 ? 'ups_cabinet@south' : 'car_battery');
+    // (Clear of where the two stand, and of their way round the baffle.)
+    for (const [dx, dz, what] of [[2, 1, 'ups_cabinet@south'], [3, 1, 'ups_cabinet@south'], [7, 8, 'ups_cabinet'], [8, 8, 'ups_cabinet'], [1, 8, 'car_battery']] as [number, number, string][]) put(R.x0 + dx, TF, R.z0 + dz, what);
     for (const [dx, dz] of [[0, 0], [1, -1], [0, 1], [-1, 0]]) put(Math.floor(Z.nest.x) + dx, TF, Math.floor(Z.nest.z) + dz, 'pale_stain');
     // The yard's lamps: by the road's end, by the dish, by the door, at the tower's foot.
     for (const [x, z] of YARD_LAMPS) lampAt(x, z, TF + 2);

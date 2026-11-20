@@ -9,7 +9,7 @@ export interface Lot { id: number; lot: number; sats: number }
 
 export const SATS_PER_BTC = 100_000_000;
 export const START_WALLET: number = data.startWallet;
-const UNIT: number = data.unit;
+export const UNIT: number = data.unit;
 
 /** What Marco sells: the item, how many come in a lot, and the lot's price in satoshis. */
 export const CATALOG: Lot[] = data.catalog.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));

@@ -86,7 +86,7 @@ Each step is committed with its tests and marked DONE under "Progress".
 - **The suit is carried, like armour.** A hazard suit in the pack is worn. It lets a fortieth of the dose through, in Zone-2 as well.
 - **No new enemy; two Ashen.** They keep the relay station's battery hall, walled off from the lit half, by Phase 7's rules. Nothing needed is in there.
 - **Ray's meeting is the suit's reward, not its gate.** Ray tells you how to make the suit by phone. Once you carry one he will meet you at the hut, once, by day. He gives the satellite modem: the dam's old telemetry link and its keys, which no drawing can give.
-- **The telescope is true.** Looking through it is a real 12× look from where it stands, with a label when a known thing is in the cross-hairs. From the balcony the valley's rim hides the tower and the dam (the rim stands 10° up; the tower's top 4°). So from the balcony it shows the falls, the moon and the satellites' train; carried up to the rim it shows the tower and the dam. *Why not a fixed picture of the tower:* a view that could not be true from where you stand is the one thing a block game should not fake.
+- **The telescope is true.** Looking through it is a real 12× look from where it stands, with a label when a known thing is in the cross-hairs. From the balcony the valley's rim hides the tower and the dam (the rim stands 10° up; the tower's top 4°). So from the balcony it shows the falls, the moon and the satellites' train; carried up onto the plateau round the valley's north and east rim it shows the tower, 1.4 km off (a unit test finds the sight lines). The dam lies in its gorge and shows only from near it. *Why not a fixed picture of the tower:* a view that could not be true from where you stand is the one thing a block game should not fake.
 - **The antenna is mounted, not placed.** The builder left a hoist on the balcony. Right-click it with the assembled antenna and the dish stands on the cliff's edge above the cave's mouth: a mast and a 5 m dish, seen from the garden and the pool. *Why:* a one-block dish would not be seen from the valley floor, and there is no way to climb up there.
 - **The link's first answer comes unasked**: the list of handsets it has heard. That is what a link does first, and it is what the ending needs (Mira is on it). Then the queries.
 - **The sonic and chemical means are things you set down**, not ammunition: a sonic lure that draws the Ashen to it, and a smoke pot they will not come near. *Why:* both reuse rules the Ashen already have (a shot draws them to where it was fired; ground they never step on), and both fit a zone where the right answer is not to fight.
@@ -181,7 +181,7 @@ Each step is committed with its tests and marked DONE under "Progress".
 
 - **The medical bench and the distiller are stations, and work only while a hydro generator turns** (the script: hydro-gated). Without one they say why.
 - **The medicines** (the script: rare drugs from before; never an Ashen cure, and the manual says so): blue tablets (dose −30); antibiotics (health back to the most the dose allows, at once); adrenaline (for 60 s blows hurt half as much and the focus meter is full).
-- **Rare components:** six from the racks; M5 needs seven if everything is built (terminal 2, bench 1, optic 1, lure 1, armour 1, and a second pair of lures 1). Ray sells more.
+- **Rare components:** six from the racks; M5 needs six if everything is built once (terminal 2, bench 1, optic 1, a pair of lures 1, armour 1). Ray sells more.
 - **The thermal optic** (carried): in focus mode (Q) every warm body within 60 m is drawn bright through the dark, Ashen included, and never through rock.
 - **The sonic lure** (set down, then right-click): it wails for 40 s. Every Ashen within 40 m that is not already hunting goes to it, as to a shot. Then it is spent.
 - **The smoke pot** (set down, then right-click): for 60 s no Ashen steps within 8 m of it; one that is inside walks out. Then it is spent.
@@ -203,7 +203,7 @@ Each step is committed with its tests and marked DONE under "Progress".
 `ENDPOINTS HEARD · LAST 3000 d` — one row for each handset the satellites have heard: an id, a position (bearing and distance from here), the last fix (days ago), a state.
 - Three that answer: the trader's, the doctor's, the engineer's (the ids on the builder's phone).
 - This one: `HERE`.
-- Four that stopped within two days of each other, 2,9xx days ago: the builder's contacts. Two of them, his own second handset and Lucía's, at the same position on the coast road, the same hour. Nothing is said about it.
+- Five that stopped within a week of each other, some 2,920 days ago: the builder's contacts, and his own second handset (`HV-02`). That one and Lucía's last answered from the same position on the coast road, his two days after hers. Nothing is said about it.
 - One nobody has on the phone: `MIRA-7`, 212 km north, a fix 0 days old, state `BEACON · REPEATING`.
 
 **That is the ending** (below). After it, the queries:
@@ -229,15 +229,15 @@ The first answer is the closing beat. When the endpoints table has been read and
 >
 > You came up out of the water with nothing. Now a wheel turns in the creek, a dish stands on the cliff, and nobody has found the valley.
 >
-> Still out there: Marco on his road. Doc on a bad line. Ray beside his dam.
+> Still out there: Marco on his road. Doc on a bad line. Ray, who left his dam and still listens for it.
 > A handset called Mira, far to the north, calling and calling.
-> Two that stopped side by side on the coast road, eight years ago.
+> Two that stopped at one place on the coast road, two days apart, eight years ago.
 >
 > The valley is yours. The rest is waiting.
 
 One button: "Back to the valley". The game goes on; the queries are open; a page goes into the notes. The card shows once (`ending_seen`); "The story so far" on the computer shows it again. Phase 9 polishes it.
 
-## 8. M5 on the computer (`src/sim/milestones.ts`)
+## 8. M5 on the computer (`src/sim/m5.ts`)
 
 | DESIGN.md's row | Here: done when |
 |---|---|
@@ -257,7 +257,7 @@ When all are done: *"M5 · the uplink. Everything the builder began is running. 
 
 - **Old saves.** New flags default. A save made on the old dome, which stood up to 45 m higher, loads in the air: once the land is in, a player with nothing under them for more than three blocks is set on the surface, as a buried one already is.
 - **Zone-4's toast** fires at the gate, and for anyone who walks in over the signs elsewhere.
-- **The far tower** keeps its place on the skyline from the buffer and the highway (checked in a picture).
+- **The far tower** keeps its place on the skyline. By the land's lie it shows from the old road west of the saddle (nine tenths of it and more from x 1,050 to the bridge) and from the highway and the dam, as the taller drawing did; from the buffer's road the saddle's knolls hide it, as they hid the old one (a unit test checks both).
 - **Sound:** the wind on the ridge (it already rises with height); the Geiger; the beacon's slow tick near the tower; a short modem handshake when the link opens.
 
 ## 10. The play-through
@@ -300,3 +300,11 @@ When all are done: *"M5 · the uplink. Everything the builder began is running. 
   - The tower drawn in the sky is the same frame as the blocks (`towerBeams`), upright, and is left out within 150 m.
   - The data for the whole phase is in (`data/*.json`, appended): 27 blocks, 13 items, 15 recipes, Ray's later catalogue; with textures and icons. The medical bench and the distiller are stations.
   - Checks: `tests/phase8.test.ts`, 37 tests (layout, bounds, the fallout's table, the tower's frame, the three fixtures, every place built and lit). 424 columns of the world differ from `main`: none east of the gorge, none in the gorge's own column, 13 outside the massif (all on the road).
+- **DONE: The dose, the suit, the tablets** (`src/sim/radiation.ts`, pure, tested). *Changed from the first draft:* the fallout is twice as strong and the suit lets a fortieth through (the suited numbers are the same). At the first numbers a runner without a suit reached the hut alive, at the limit, with no way back.
+- **DONE, waiting to be wired: the pure logic** for everything after the merge, each with tests:
+  - the uplink (`src/sim/uplink.ts`): what the link needs; the first answer (the handsets); `RAD`, `BIO`, `EPH`, `SCH` and the four drawings, each row checked for speech (`spoken`): no lower case, no sentence, no word a speaker uses, no name;
+  - M5's nine steps (`src/sim/m5.ts`);
+  - the sonic lure and the smoke pot (`src/sim/countermeasures.ts`), and the Ashen's part of them (`src/entity/ashen.ts`: `smoke` in their senses; a lure is `ashenHear`);
+  - the relay station's nest: eleven Ashen in six nests (`NESTS`); the ridge is theirs only within 50 m of the nest, never the pass. Tested on the generated land: neither wakes for a walker in the yard or a pick in the lit half; a runner brings them out round the baffle and by their bay; at night they keep to the yard's west end;
+  - the telescope's aiming (`src/sim/telescope.ts`): bearings, sight lines over the land, the moon, the satellites' train, what the cross-hairs are on.
+  - Unit tests: 485 in all (89 in `tests/phase8.test.ts`).
