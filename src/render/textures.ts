@@ -1689,6 +1689,70 @@ DRAW.dried_chili = (c) => { c.noise(hex('#a8281e'), 8, [hex('#8a1e18'), hex('#c8
 DRAW.garlic = (c) => { c.noise(hex('#e6dcc4'), 5, [hex('#d2c6aa'), hex('#f2ead8')], 0.3); for (let y = 0; y < TEX; y += 3) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.8); };
 
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */
+// ---- Phase 9A: more trees, the banana, vines on the cliffs (docs/PHASE9A.md, 5) -----------------
+// The guarumo's leaves: paler and yellower than the canopy's, in big open hands.
+DRAW.leaves_pale = (c) => leafy(c, [hex('#6f9a3a'), hex('#5d8730'), hex('#86b04a'), hex('#79a23f')], 0.3);
+// A banana's stem: smooth, green going to yellow-brown, sheathed in overlapping leaf bases.
+DRAW.banana_stem = (c) => {
+  c.noise(hex('#8aa24a'), 6, [hex('#7c9442'), hex('#9bb057')], 0.2);
+  for (let y = 0; y < TEX; y++) { c.shade(0, y, 0.72); c.shade(15, y, 0.72); c.shade(1, y, 0.86); c.shade(14, y, 0.9); }
+  for (const y of [3, 9, 14]) for (let x = 0; x < TEX; x++) c.set(x, (y + (x >> 3)) & 15, x % 5 === 0 ? hex('#6b5a34') : hex('#74873c'));
+};
+DRAW.banana_stem_top = (c) => { c.noise(hex('#a9bb6a'), 6); for (let k = 0; k < TEX; k++) { c.set(k, 0, hex('#74873c')); c.set(k, 15, hex('#74873c')); c.set(0, k, hex('#74873c')); c.set(15, k, hex('#74873c')); } };
+// Banana leaves, drawn on crossed sheets like the ferns: two broad paddles rising from the middle and arching out,
+// a pale midrib down each, the blade torn into ribbons at its edge.
+DRAW.banana_leaves = (c) => {
+  c.clearAlpha();
+  const greens = [hex('#5fae3c'), hex('#4f9a33'), hex('#6fbd48')], rib = hex('#c2d98a');
+  for (const side of [-1, 1]) {
+    // The midrib: up from the foot, leaning out, drooping at the tip.
+    for (let k = 0; k <= 15; k++) {
+      const t = k / 15;
+      const x = Math.round(7.5 + side * (0.5 + 6.8 * t * t)), y = Math.round(14.5 - 17.5 * t + 6.5 * t * t * t * t);
+      const half = Math.round(1 + 2.4 * Math.sin(Math.PI * Math.min(1, t * 1.1))); // the blade is widest two thirds up
+      for (let d = -half; d <= half; d++) {
+        if (Math.abs(d) === half && (k * 5 + (side > 0 ? 2 : 0)) % 4 === 0) continue; // a tear in the edge
+        c.set(x + d, y, greens[Math.floor(c.rng() * 3)]);
+      }
+      c.set(x, y, rib);
+    }
+  }
+  for (let y = 12; y < TEX; y++) { c.set(7, y, hex('#8aa24a')); c.set(8, y, hex('#7c9442')); } // the stalks, together at the foot
+};
+// A bunch of bananas, hanging from its stalk under the leaves: hands of green fruit going yellow, the purple bud below.
+DRAW.banana_bunch = (c) => {
+  c.clearAlpha();
+  for (let y = 0; y < 14; y++) c.set(7 + (y > 9 ? 1 : 0), y, hex('#6b7a36'));
+  const fruit = [hex('#b9c94a'), hex('#d8cf4e'), hex('#9fb840')];
+  for (const [y, half] of [[3, 3], [5, 4], [7, 4], [9, 3]]) {
+    for (let d = 1; d <= half; d++) for (const side of [-1, 1]) {
+      c.set(7 + side * d + (side > 0 ? 1 : 0), y + (d > 2 ? -1 : 0), fruit[(d + y) % 3]);
+      c.set(7 + side * d + (side > 0 ? 1 : 0), y + 1 + (d > 2 ? -1 : 0), fruit[(d + y + 1) % 3]);
+    }
+  }
+  for (const [x, y] of [[8, 13], [8, 14], [7, 14], [8, 15]]) c.set(x, y, hex('#6a2f4a'));
+};
+// A vine on rock: four stems hanging down the face, heart-shaped leaves crowding along them, dark gaps between.
+DRAW.vine = (c) => {
+  c.clearAlpha();
+  const stem = hex('#33521f'), leaf = [hex('#3f8f2c'), hex('#57a83a'), hex('#2f7a25'), hex('#6dbb48')];
+  for (const [sx, phase] of [[1, 0], [5, 2], [9, 1], [13, 3]]) {
+    let x = sx;
+    for (let y = 0; y < TEX; y++) {
+      if ((y + phase) % 4 === 3) x += c.rng() < 0.5 ? 1 : -1;
+      x = Math.max(sx - 1, Math.min(sx + 1, x));
+      c.set(x, y, stem);
+      // A leaf every other row, on alternate sides: two texels wide, with a lighter one at its tip.
+      if ((y + phase) % 2 === 0) {
+        const side = ((y + phase) >> 1) % 2 === 0 ? 1 : -1;
+        c.set(x + side, y, leaf[Math.floor(c.rng() * 3)]);
+        c.set(x + side, y + 1, leaf[Math.floor(c.rng() * 3)]);
+        if (c.rng() < 0.6) c.set(x + side * 2, y, leaf[3]);
+      }
+    }
+  }
+};
+
 export function drawTexture(name: string): Uint8ClampedArray {
   const c = new Canvas16(name);
   const fn = DRAW[name];

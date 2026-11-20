@@ -389,7 +389,7 @@ describe('Zone-4’s places, built and lit', () => {
       const g = outsideHeight(x, z), top = name(x, g - 1, z);
       expect(['grass', 'forest_floor', 'moss', 'mud', 'limestone_mossy'], `${x},${z}: ${top}`).not.toContain(top);
       if (top === 'dead_soil') dead++;
-      for (let y = g; y < g + 14; y++) { const n = name(x, y, z); expect(['leaves', 'fern_fronds', 'fern', 'tall_grass', 'bromeliad', 'orchid', 'log', 'bamboo'], `${x},${y},${z}`).not.toContain(n); if (n === 'dead_trunk') snags++; }
+      for (let y = g; y < g + 14; y++) { const n = name(x, y, z); expect(['leaves', 'fern_fronds', 'fern', 'tall_grass', 'bromeliad', 'orchid', 'log', 'bamboo', 'leaves_pale', 'banana_leaves', 'banana_trunk'], `${x},${y},${z}`).not.toContain(n); if (n === 'dead_trunk') snags++; }
     }
     expect(dead).toBeGreaterThan(1500);
     expect(snags).toBeGreaterThan(30);

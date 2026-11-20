@@ -16,6 +16,10 @@ export class FakeRenderer {
   camera = { position: { x: 0, y: 0, z: 0, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; } }, rotation: { set() {} } };
   particles = blank({ fireflies: () => 0, morphos: () => 0 });
   creatures = blank({});
+  hand = blank({});
+  birds = { flock: { update: () => [] }, draw() {} };
+  rain = blank({});
+  effects = true;
   stats = { chunks: 0, quads: 0 };
   gl = { info: { render: { calls: 0 } } };
   constructor() { return blank(this); }
@@ -38,7 +42,7 @@ export class FakeHud {
   menuShown = true;
   loadingText = '';
   debugVisible = false;
-  settingsInputs = { rd: { value: '8' }, sens: { value: '1' }, inv: { checked: false }, vol: { value: '0.8' } };
+  settingsInputs = { rd: { value: '8' }, sens: { value: '1' }, inv: { checked: false }, vol: { value: '0.8' }, fx: { checked: true } };
   actions: Record<string, (...a: never[]) => unknown>;
   constructor(_ui: unknown, actions: Record<string, (...a: never[]) => unknown>) {
     this.actions = actions;

@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Phase 9A's viewer for the valley's birds (docs/PHASE9A.md, 6): each kind close to, at rest and on the wing.
+     Served by the dev server (npm run dev): /tools/birdroom.html — photographed by tools/handroom.mjs birds. -->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#222}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { Birds, FOLDED } from '/src/render/birds.ts';
+const canvas = document.getElementById('c');
+const gl = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+gl.setSize(1200, 500, false); canvas.style.width = '1200px';
+gl.outputColorSpace = THREE.LinearSRGBColorSpace;
+gl.setClearColor(0x88a8c0);
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1200 / 500, 0.05, 50);
+cam.position.set(0, 0.25, 2.2); cam.lookAt(0, 0.05, 0);
+const birds = new Birds();
+for (const m of birds.meshes) scene.add(m);
+const sky = { zenith: new THREE.Color(0x88a8c0), horizon: new THREE.Color(0x88a8c0), sunGlow: new THREE.Color(0), sunDir: new THREE.Vector3(0, 1, 0) };
+birds.sync(sky, 150, 1350);
+const b = (kind, x, y, yaw, pitch, flap) => ({ kind, x, y, z: 0, yaw, pitch, flap, mode: 'perch', t: 0, tx: 0, ty: 0, tz: 0, seed: 0 });
+// Each kind three ways: side on at rest, three-quarters on the wing (wings up), from the front (wings down).
+birds.flock.birds.push(
+  b('hummingbird', -1.05, 0.3, Math.PI / 2, 0.15, 0.9), b('hummingbird', -0.8, 0.3, 0.9, 0.15, -0.6), b('hummingbird', -0.55, 0.3, 2.6, 0, 0.3),
+  b('dove', -0.25, 0, Math.PI / 2, 0, FOLDED), b('dove', 0.15, 0.25, 0.8, 0.2, 0.8), b('dove', 0.5, 0.25, 2.5, 0, -0.5),
+  b('quetzal', 0.85, 0.0, Math.PI / 2, 0, FOLDED), b('quetzal', 1.15, 0.0, 2.4, 0, FOLDED),
+);
+birds.draw((x, y, z, out) => out.setRGB(1, 1, 1));
+gl.render(scene, cam);
+window.__done = true;
+</script></body></html>

@@ -3,10 +3,10 @@
 
 import * as THREE from 'three';
 import { SKY_COLOR_GLSL, type SkyState } from './sky.ts';
-import { B_FACE_TEX, BLOCK_COUNT, B_SOLID, TEXTURE_NAMES } from '../world/blocks.ts';
+import { B_FACE_TEX, BLOCK_COUNT, B_SOLID, TEXTURE_NAMES, isWaterId } from '../world/blocks.ts';
 import { drawTexture } from './textures.ts';
 
-export const KIND = { chip: 0, mist: 1, firefly: 2, morpho: 3 } as const;
+export const KIND = { chip: 0, mist: 1, firefly: 2, morpho: 3, bubble: 4 } as const;
 
 const VERT = /* glsl */ `
 in vec4 aColor;
@@ -40,7 +40,12 @@ void main() {
   vec2 p = gl_PointCoord - 0.5;
   float a = vColor.a;
   bool glow = vKind > 1.5 && vKind < 2.5;
-  if (vKind > 2.5) {
+  if (vKind > 3.5) {
+    // A bubble: a thin bright rim round a clear middle, a glint at its top.
+    float r = length(p) * 2.0;
+    if (r > 1.0) discard;
+    a *= 0.25 + 0.75 * smoothstep(0.55, 0.95, r) + 0.6 * (1.0 - smoothstep(0.0, 0.3, length(p - vec2(-0.14, -0.16)) * 2.0));
+  } else if (vKind > 2.5) {
     // A butterfly: two rounded wings either side of a thin body.
     vec2 w = vec2(abs(p.x) - 0.2, p.y * 1.25 + 0.04 * sign(p.y));
     if (length(w) > 0.24 && abs(p.x) > 0.03) discard;
@@ -145,6 +150,14 @@ class Pool {
         this.pos[p] += this.vel[p] * dt; this.pos[p + 1] += this.vel[p + 1] * dt; this.pos[p + 2] += this.vel[p + 2] * dt;
         this.size[i] += dt * 1.2;
         this.col[i * 4 + 3] = this.baseAlpha[i] * Math.sin(Math.PI * t) * light;
+      } else if (k === KIND.bubble) {
+        // A bubble wobbles up through the water and is gone at the surface.
+        const s = this.seed[i];
+        this.pos[p] += Math.sin(time * 3.1 + s) * 0.25 * dt;
+        this.pos[p + 1] += this.vel[p + 1] * dt;
+        this.pos[p + 2] += Math.cos(time * 2.7 + s * 1.3) * 0.25 * dt;
+        if (!isWaterId(blockAt(Math.floor(this.pos[p]), Math.floor(this.pos[p + 1] + 0.15), Math.floor(this.pos[p + 2])))) { this.remove(i); continue; }
+        this.col[i * 4 + 3] = this.baseAlpha[i] * Math.min(1, t * 6, this.life[i] * 2);
       } else if (k === KIND.morpho) {
         // Blue morphos drift around their tree (the anchor is kept in vel), flashing blue on the
         // upstroke and dull brown on the downstroke as they flap.
@@ -227,11 +240,22 @@ export class Particles {
     }
   }
 
+  /** The sump's vapour (docs/PHASE9A.md, 8): a sick yellow-green breath off the sludge, slow to rise, slow to go. */
+  fume(x: number, y: number, z: number): void {
+    const g = 0.55 + Math.random() * 0.2;
+    this.normal.spawn(KIND.mist, x, y, z, (Math.random() - 0.5) * 0.3, 0.25 + Math.random() * 0.45, (Math.random() - 0.5) * 0.3, g * 0.9, g, g * 0.62, 0.16, 2 + Math.random() * 1.8, 5 + Math.random() * 4);
+  }
+
   firefly(x: number, y: number, z: number): void {
     this.glow.spawn(KIND.firefly, x, y, z, 0, 0, 0, 0.75, 1, 0.35, 0.9, 0.22, 12 + Math.random() * 14);
   }
 
   fireflies(): number { return this.glow.countOf(KIND.firefly); }
+
+  /** A bubble under water: it rises until it meets the surface (docs/PHASE9A.md, 2). */
+  bubble(x: number, y: number, z: number): void {
+    this.normal.spawn(KIND.bubble, x, y, z, 0, 0.7 + Math.random() * 0.9, 0, 0.82, 0.95, 1, 0.55, 0.05 + Math.random() * 0.09, 3 + Math.random() * 3);
+  }
 
   /** A blue morpho butterfly, fluttering round a tree whose crown is about (x, y, z). */
   morpho(x: number, y: number, z: number): void {

@@ -19,7 +19,7 @@ import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
 import { buildZone3, zone3Place } from './zone3.ts';
 import { buildZone4, zone4Place } from './zone4.ts';
-import { PATH, inSanctuary } from './layout.ts';
+import { PATH, inSanctuary, type ZoneId } from './layout.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -56,6 +56,13 @@ const GATE_STONE = blockId('gate_stone');
 const SEALED_LAMP = blockId('sealed_lamp');
 const DEAD_SOIL = blockId('dead_soil');
 const DEAD_TRUNK = blockId('dead_trunk');
+// Phase 9A's plants (docs/PHASE9A.md, 5).
+const LEAVES_PALE = blockId('leaves_pale');
+const BANANA_TRUNK = blockId('banana_trunk');
+const BANANA_LEAVES = blockId('banana_leaves');
+const BANANA_BUNCH = blockId('banana_bunch');
+/** A vine by the side its rock is on: +z, −x, −z, +x (the block's sheet hangs against that face). */
+const VINES = [blockId('vine'), blockId('vine@east'), blockId('vine@south'), blockId('vine@west')];
 
 const wallNoise = new Simplex(SEED + 7);
 const caveA = new Simplex(SEED + 21);
@@ -129,7 +136,15 @@ function farPlace(x: number, z: number): boolean {
   return false;
 }
 
-export function generateColumn(cx: number, cz: number): Uint16Array {
+/**
+ * Which plants grow. 'now': the game's. 'v13': exactly those of version 13 (one broadleaf shape, no banana, no
+ * vines), kept so the fixtures that pin the land of earlier phases (tests/fixtures, tools/worldhash.ts) still
+ * compare like with like: everything but step 7 is the same in both, and tests/plants.test.ts checks that the two
+ * differ only where a plant or open air is.
+ */
+export type Plants = 'now' | 'v13';
+
+export function generateColumn(cx: number, cz: number, plants: Plants = 'now'): Uint16Array {
   const col = new Uint16Array(COLUMN_VOLUME);
   const x0 = cx * CS, z0 = cz * CS;
   const tops = new Int16Array(CS * CS); // walking height after shaping, per (x, z)
@@ -190,9 +205,10 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   buildHome(col, x0, z0);
   plantGarden(col, x0, z0);
 
-  // 7. Trees and ground plants.
-  placeTrees(col, x0, z0);
+  // 7. Trees and ground plants; then vines down the valley's cliffs.
+  placeTrees(col, x0, z0, plants);
   placeGroundPlants(col, x0, z0);
+  if (plants === 'now') placeVines(col, x0, z0);
 
   return col;
 }
@@ -704,9 +720,44 @@ function plantGarden(col: Uint16Array, x0: number, z0: number): void {
 
 const TREE_CELL = 9;
 
-interface TreeSpot { x: number; z: number; ground: number; kind: 'broadleaf' | 'fern' | 'bamboo' | 'snag'; seed: number }
+interface TreeSpot { x: number; z: number; ground: number; kind: 'broadleaf' | 'fern' | 'bamboo' | 'snag' | 'banana'; seed: number; zone: ZoneId }
 
-function treeSpot(gx: number, gz: number): TreeSpot | null {
+/**
+ * A broadleaf's shape (docs/PHASE9A.md, 5). One flat-topped tree everywhere read as one tree copied: now four.
+ * `flat`: the cloud-forest canopy tree, a broad flat crown (version 13's only shape). `emergent`: a giant that
+ * stands above the canopy, a tall bare trunk and a crown in tiers. `round`: a low, domed tree, branching near the
+ * ground (the valley's fruit trees, old farmland). `guarumo`: a slender pale-leaved pioneer, a few bare limbs each
+ * ending in a hand of leaves. Each zone has its own mix. None reaches further than the flat crown did (8 blocks),
+ * so the clearings kept round every built place still hold.
+ */
+type TreeShape = 'flat' | 'emergent' | 'round' | 'guarumo';
+const SHAPES: Partial<Record<ZoneId, [TreeShape, number][]>> = {
+  valley: [['round', 0.5], ['flat', 0.3], ['guarumo', 0.2]],
+  near: [['round', 0.5], ['flat', 0.25], ['guarumo', 0.25]],
+  deep: [['flat', 0.5], ['emergent', 0.35], ['guarumo', 0.15]],
+  mid: [['flat', 0.45], ['emergent', 0.25], ['guarumo', 0.2], ['round', 0.1]],
+};
+const SHAPES_ELSEWHERE: [TreeShape, number][] = [['flat', 0.42], ['emergent', 0.2], ['guarumo', 0.2], ['round', 0.18]];
+/**
+ * Where the trees stay exactly as version 13 grew them: along the gorge (90 m either side of its line), in the
+ * mountains at the world's north and south ends, and for 40 m outside the valley's treeless rim. A crown is
+ * something to walk on, and those are the places where what can and cannot be walked is the game's fence
+ * (tests/walk.test.ts: the gorge is not crossed without the dam; the valley is not entered over its rim). The first
+ * build of the new shapes put an emergent's crown at the world's ceiling in the southern mountains and the gorge
+ * was walked round; so the fence keeps its old trees, and the new ones grow in the forest between.
+ */
+function oldGrowth(x: number, z: number): boolean {
+  return Math.abs(x - ravineX(z)) < 90 || Math.min(z, WORLD_Z - 1 - z) < 300 || distToValley(x, z) - VALLEY.radius < 62 && distToValley(x, z) > VALLEY.radius;
+}
+
+function shapeOf(t: TreeSpot): TreeShape {
+  if (oldGrowth(t.x, t.z)) return 'flat';
+  let pick = (hash3(t.x, 11, t.z, SEED + 31) >>> 8) / 16777216;
+  for (const [shape, share] of SHAPES[t.zone] ?? SHAPES_ELSEWHERE) { if (pick < share) return shape; pick -= share; }
+  return 'flat';
+}
+
+function treeSpot(gx: number, gz: number, plants: Plants = 'now'): TreeSpot | null {
   const h = hash3(gx, 7, gz, SEED + 9);
   const x = gx * TREE_CELL + (h & 7);
   const z = gz * TREE_CELL + ((h >>> 3) & 7);
@@ -780,31 +831,132 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
     else if (roll < 0.72) kind = 'fern';
   }
   if (!kind) return null;
+  // Bananas (docs/PHASE9A.md, 5) stand where a tree fern did: half of those in the valley and on the old farmland
+  // (the builder's, and the farm's gone wild), a few along the buffer's road. Same spots, so the same clearings.
+  if (plants === 'now' && kind === 'fern' && !oldGrowth(x, z)) {
+    const share = zone === 'valley' || zone === 'near' ? 0.5 : zone === 'buffer' ? 0.14 : 0;
+    if ((hash3(x, 13, z, SEED + 32) >>> 8) / 16777216 < share) kind = 'banana';
+  }
   const ground = d < VALLEY.radius ? valleyFloorHeight(x, z) : outsideHeight(x, z);
   // No trees on steep ground.
   const slope = Math.max(Math.abs(outsideHeight(x + 2, z) - outsideHeight(x - 2, z)), Math.abs(outsideHeight(x, z + 2) - outsideHeight(x, z - 2)));
   if (d >= VALLEY.radius && slope > 4) return null;
-  return { x, z, ground, kind, seed: h };
+  return { x, z, ground, kind, seed: h, zone };
 }
 
-function placeTrees(col: Uint16Array, x0: number, z0: number): void {
+/**
+ * The quetzal's tree (docs/PHASE9A.md, 6; the script: "the rare quetzal on one tree every few days"): the broadleaf
+ * nearest the garden's south-west corner, where the path from the home comes down. Its trunk; null if the valley
+ * has none (it has).
+ */
+export function quetzalTree(): { x: number; z: number } | null {
+  if (quetzal !== undefined) return quetzal;
+  const ax = GARDEN.x0 - 14, az = GARDEN.z1 + 2;
+  let best: TreeSpot | null = null;
+  for (let gz = Math.floor((az - 70) / TREE_CELL); gz <= Math.floor((az + 70) / TREE_CELL); gz++)
+    for (let gx = Math.floor((ax - 70) / TREE_CELL); gx <= Math.floor((ax + 70) / TREE_CELL); gx++) {
+      const t = treeSpot(gx, gz);
+      if (!t || t.kind !== 'broadleaf' || t.zone !== 'valley') continue;
+      if (!best || Math.hypot(t.x - ax, t.z - az) < Math.hypot(best.x - ax, best.z - az)) best = t;
+    }
+  return (quetzal = best ? { x: best.x, z: best.z } : null);
+}
+let quetzal: { x: number; z: number } | null | undefined;
+
+function placeTrees(col: Uint16Array, x0: number, z0: number, plants: Plants = 'now'): void {
   const M = 8; // the widest canopy reach
   const set = (x: number, y: number, z: number, id: number, replaceSoft: boolean) => {
     const lx = x - x0, lz = z - z0;
     if (lx < 0 || lz < 0 || lx >= CS || lz >= CS || y < 0 || y >= WORLD_Y) return;
     const i = ci(lx, y, lz);
     const cur = col[i];
-    if (cur === AIR || (replaceSoft && (cur === FERN || cur === TALL_GRASS || cur === LEAVES || cur === FRONDS))) col[i] = id;
+    if (cur === AIR || (replaceSoft && (cur === FERN || cur === TALL_GRASS || cur === LEAVES || cur === FRONDS || cur === LEAVES_PALE || cur === BANANA_LEAVES || cur === BANANA_BUNCH))) col[i] = id;
   };
   const gx0 = Math.floor((x0 - M) / TREE_CELL), gx1 = Math.floor((x0 + CS + M) / TREE_CELL);
   const gz0 = Math.floor((z0 - M) / TREE_CELL), gz1 = Math.floor((z0 + CS + M) / TREE_CELL);
   for (let gz = gz0; gz <= gz1; gz++)
     for (let gx = gx0; gx <= gx1; gx++) {
-      const t = treeSpot(gx, gz);
+      const t = treeSpot(gx, gz, plants);
       if (!t) continue;
       const r = (k: number) => ((t.seed >>> k) & 255) / 256;
       const g = t.ground;
-      if (t.kind === 'broadleaf') {
+      const shape = plants === 'now' && t.kind === 'broadleaf' ? shapeOf(t) : 'flat';
+      /** A blob of leaves: an ellipsoid round (cx, cy, cz), a few gaps in it, epiphytes on its top if `perch`. */
+      const blob = (cx: number, cy: number, cz: number, rh: number, rv: number, leaf: number, perch: boolean) => {
+        const R = Math.ceil(rh), V = Math.ceil(rv);
+        for (let dy = -V; dy <= V; dy++)
+          for (let dz = -R; dz <= R; dz++)
+            for (let dx = -R; dx <= R; dx++) {
+              const x = Math.round(cx) + dx, y = Math.round(cy) + dy, z = Math.round(cz) + dz;
+              if ((x - cx) ** 2 / (rh * rh) + (z - cz) ** 2 / (rh * rh) + (y - cy) ** 2 / (rv * rv) > 1) continue;
+              if (rand3(x, y, z, SEED + 13) < 0.07) continue;
+              set(x, y, z, leaf, false);
+              if (perch && y - cy >= rv - 1 && rand3(x, y, z, SEED + 14) < 0.05) set(x, y + 1, z, rand3(x, y, z, SEED + 15) < 0.6 ? BROMELIAD : ORCHID, false);
+            }
+      };
+      if (t.kind === 'broadleaf' && shape === 'emergent') {
+        // A giant above the canopy: a tall bare trunk on buttresses, limbs high up, a crown in three tiers.
+        const height = 15 + Math.floor(r(8) * 6);
+        for (let y = g; y < g + height; y++) set(t.x, y, t.z, LOG, true);
+        // Each buttress stands on its own ground (on a slope the downhill ones hung a block clear of it).
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const own = t.zone === 'valley' ? valleyFloorHeight(t.x + dx, t.z + dz) : outsideHeight(t.x + dx, t.z + dz);
+          for (let y = Math.min(own, g); y < g + (r(dx + 2 * dz + 12) < 0.5 ? 3 : 2); y++) set(t.x + dx, y, t.z + dz, LOG, true);
+        }
+        const top = g + height, a = r(16) * Math.PI * 2;
+        // The lowest tier hangs out to one side on a limb; the middle is the widest; the top is a cap.
+        const lx = Math.round(Math.cos(a) * 2), lz = Math.round(Math.sin(a) * 2);
+        set(t.x + Math.sign(lx), top - 7, t.z + Math.sign(lz), LOG, true);
+        blob(t.x + lx * 1.4, top - 6, t.z + lz * 1.4, 2.6, 1.3, LEAVES, false);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { set(t.x + dx, top - 4, t.z + dz, LOG, true); set(t.x + dx * 2, top - 3, t.z + dz * 2, LOG, true); }
+        blob(t.x, top - 2.4, t.z, 4.4 + r(4) * 1.2, 1.5, LEAVES, true);
+        blob(t.x - lx * 0.5, top, t.z - lz * 0.5, 2.8, 1.4, LEAVES, true);
+      } else if (t.kind === 'broadleaf' && shape === 'round') {
+        // A low domed tree: a short trunk, two limbs, a round head of leaves. Its lowest leaf is three blocks up in
+        // the valley and four outside it, as the flat crown's was: nothing to duck under, and nothing to step up onto.
+        const height = (t.zone === 'valley' ? 5 : 6) + Math.floor(r(8) * 3);
+        for (let y = g; y < g + height; y++) set(t.x, y, t.z, LOG, true);
+        const a = r(16) * Math.PI * 2, rr = 2.7 + r(4) * 1.0;
+        for (const k of [0, 1]) { const dx = Math.round(Math.cos(a + k * 2.6)), dz = Math.round(Math.sin(a + k * 2.6)); set(t.x + dx, g + height - 1, t.z + dz, LOG, true); set(t.x + dx, g + height, t.z + dz, LOG, true); }
+        blob(t.x, g + height + 1.2, t.z, rr, rr * 0.85, LEAVES, true);
+        blob(t.x + Math.cos(a) * 1.6, g + height + 0.4, t.z + Math.sin(a) * 1.6, rr * 0.7, rr * 0.6, LEAVES, false);
+      } else if (t.kind === 'broadleaf' && shape === 'guarumo') {
+        // A guarumo: a slender trunk, a few bare limbs reaching up and out, each ending in a hand of pale leaves.
+        const height = 8 + Math.floor(r(8) * 4);
+        for (let y = g; y < g + height; y++) set(t.x, y, t.z, LOG, true);
+        const limbs = 3 + Math.floor(r(16) * 2), a0 = r(4) * Math.PI * 2;
+        for (let k = 0; k < limbs; k++) {
+          const a = a0 + (k * Math.PI * 2) / limbs, from = g + height - 2 - (k % 2) * 2;
+          const dx = Math.cos(a), dz = Math.sin(a);
+          for (let n = 1; n <= 3; n++) set(Math.round(t.x + dx * n), from + n, Math.round(t.z + dz * n), LOG, true);
+          blob(t.x + dx * 3.4, from + 4, t.z + dz * 3.4, 2.1, 0.9, LEAVES_PALE, false);
+        }
+        blob(t.x, g + height + 0.6, t.z, 2.2, 1.0, LEAVES_PALE, false);
+      } else if (t.kind === 'banana') {
+        // A clump of bananas: stout green stems, each with a crown of broad leaves that arch out and hang at the tips.
+        const stems = 1 + Math.floor(r(8) * 3);
+        for (let n = 0; n < stems; n++) {
+          const sx = t.x + (n === 0 ? 0 : Math.floor(r(n * 3 + 4) * 5) - 2), sz = t.z + (n === 0 ? 0 : Math.floor(r(n * 3 + 5) * 5) - 2);
+          const ground = t.zone === 'valley' ? valleyFloorHeight(sx, sz) : outsideHeight(sx, sz);
+          if (Math.abs(ground - g) > 1) continue;
+          const h = 2 + Math.floor(r(n * 3 + 6) * 2);
+          for (let y = ground; y < ground + h; y++) set(sx, y, sz, BANANA_TRUNK, true);
+          const top = ground + h;
+          set(sx, top, sz, BANANA_LEAVES, false);
+          set(sx, top + 1, sz, BANANA_LEAVES, false);
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            set(sx + dx, top, sz + dz, BANANA_LEAVES, false);
+            set(sx + dx * 2, top, sz + dz * 2, BANANA_LEAVES, false);
+            if (h > 2) set(sx + dx * 3, top - 1, sz + dz * 3, BANANA_LEAVES, false);
+          }
+          for (const [dx, dz] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) set(sx + dx, top + 1, sz + dz, BANANA_LEAVES, false);
+          // A tall stem carries a bunch, two times in three: hanging beside the top of the stem, under a leaf.
+          if (h > 2 && r(n * 3 + 7) < 0.67) {
+            const [dx, dz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(r(n * 3 + 9) * 4)];
+            set(sx + dx, top - 1, sz + dz, BANANA_BUNCH, false);
+          }
+        }
+      } else if (t.kind === 'broadleaf') {
         // A cloud-forest canopy tree: tall trunk, broad flat crown, epiphytes on top.
         const valley = landZoneAt(t.x, t.z) === 'valley';
         const height = (valley ? 7 : 9) + Math.floor(r(8) * (valley ? 5 : 7));
@@ -888,6 +1040,69 @@ function placeTrees(col: Uint16Array, x0: number, z0: number): void {
           if (dy >= 2 && rand3(m.x + dx, cy + dy, m.z + dz, SEED + 14) < 0.07) set(m.x + dx, cy + dy + 1, m.z + dz, rand3(dx, dy, dz, SEED + 15) < 0.5 ? BROMELIAD : ORCHID, false);
         }
   }
+}
+
+/**
+ * Vines down the valley's cliffs (docs/PHASE9A.md, 5): strands that hang against the bare rock where it is damp,
+ * a few blocks long, thicker near the falls. Only on the valley's own wall, in open air, and never by the home,
+ * the path, the falls' curtain or the tunnel's mouth: nothing that is used may hide behind them.
+ */
+function placeVines(col: Uint16Array, x0: number, z0: number): void {
+  // The wall's band only: most columns have none of it.
+  const cxm = x0 + CS / 2, czm = z0 + CS / 2, dm = distToValley(cxm, czm);
+  if (dm < R_IN - 24 || dm > R_OUT + 24) return;
+  const rock = (id: number) => id === LIMESTONE || id === MOSSY;
+  // Where the wall is, by the side of the open cell: +z, −x, −z, +x (the order of VINES).
+  const SIDES = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+  for (let lz = 1; lz < CS - 1; lz++)
+    for (let lx = 1; lx < CS - 1; lx++) {
+      const x = x0 + lx, z = z0 + lz;
+      const d = distToValley(x, z);
+      if (d < R_IN - 2 || d > R_OUT + 2) continue;
+      if (x > HOME_BOUNDS.x0 - 14 && z > HOME_BOUNDS.z0 - 10 && z < HOME_BOUNDS.z1 + 10) continue; // the home's face, the balcony, the hoist
+      if (SPRINGS.some((f) => Math.abs(x - f.x) < 8 && z > f.z0 - 5 && z < f.z1 + 6)) continue; // the falls and the mouths under them
+      // What a strand here would need to know, worked out only if there is rock to hang one on (most columns of the
+      // band are open air from top to bottom, and this is asked of every column the game builds near the valley).
+      let wet = 0, nearFall = false, known = false, clear = true;
+      const floorH = valleyFloorHeight(x, z);
+      for (let y = Math.min(WORLD_Y - 2, VALLEY.rim + 20); y > floorH + 3; y--) {
+        const i = ci(lx, y, lz);
+        if (col[i] !== AIR) continue;
+        // Most open cells have no rock beside them: they are passed over here, before anything dearer is asked.
+        if (!rock(col[i + 1]) && !rock(col[i - 1]) && !rock(col[i + CS]) && !rock(col[i - CS])) continue;
+        if (!known) {
+          known = true;
+          clear = pathAt(x, z).dist >= 4;
+          wet = detail.noise2(x / 14, z / 14);
+          nearFall = SPRINGS.some((f) => Math.hypot(x - f.x, z - (f.z0 + f.z1) / 2) < 34);
+        }
+        if (!clear) break; // the home path: none in this column
+        // Against whichever side has rock (looking round from a side of its own, so no side is favoured).
+        let k = Math.floor(rand3(x, y, z, SEED + 42) * 4);
+        for (let n = 0; n < 4; n++, k = (k + 1) % 4) if (rock(col[ci(lx + SIDES[k][0], y, lz + SIDES[k][1])])) break;
+        const [dx, dz] = SIDES[k];
+        // Vines grow in curtains, not as lone threads: thick in a damp patch of the wall (most of all near the falls),
+        // hardly at all between the patches. (As single strands they were lost against the moss.)
+        const patch = detail.noise3(x / 11, y / 16, z / 11) + wet * 0.35 + (nearFall ? 0.25 : 0);
+        if (rand3(x, y, z, SEED + 41) > (patch > 0.3 ? 0.55 : 0.015)) continue;
+        // Under the open sky, not in a cave: nothing solid within a few blocks straight above the strand's top.
+        let open = true;
+        for (let u = 1; u <= 6 && y + u < WORLD_Y; u++) if (col[ci(lx, y + u, lz)] !== AIR && col[ci(lx, y + u, lz)] !== VINES[k]) { open = false; break; }
+        if (!open) continue;
+        const len = (patch > 0.3 ? 4 : 2) + Math.floor(rand3(x, y, z, SEED + 43) * 6);
+        let free = 0;
+        for (let n = 0; n < len; n++) {
+          const yy = y - n;
+          if (yy <= floorH + 2 || col[ci(lx, yy, lz)] !== AIR) break;
+          // It may hang a block or two past the foot of its rock into open air, no more; and it stops at anything
+          // that is not its rock (ore in the wall must not be hidden behind one).
+          const wall = col[ci(lx + dx, yy, lz + dz)];
+          if (!rock(wall) && (wall !== AIR || ++free > 2)) break;
+          col[ci(lx, yy, lz)] = VINES[k];
+        }
+        y -= len; // one strand to a stretch of wall
+      }
+    }
 }
 
 function placeGroundPlants(col: Uint16Array, x0: number, z0: number): void {

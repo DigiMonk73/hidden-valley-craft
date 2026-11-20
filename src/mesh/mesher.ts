@@ -3,7 +3,8 @@
 // and smooth light, which is why faces are not merged (merging would flatten both).
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
-import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, B_BOX_TEX, B_BOX_GLOW, BOX_FLAME, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
+import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, B_BOX_TEX, B_BOX_GLOW, BOX_FLAME, RENDER, LAYER, FALLING_WATER, BLOCK_DEFS } from '../world/blocks.ts';
+import { GLOW_OF } from '../world/glow.ts';
 
 export interface MeshPart {
   quads: number;
@@ -16,6 +17,8 @@ export interface MeshPart {
 export interface ChunkMesh {
   solid: MeshPart; // opaque and cut-out blocks and plants
   water: MeshPart; // translucent water
+  /** The chunk's lamps and fires, for the glow drawn round each (src/world/glow.ts): GLOW_STRIDE numbers apiece. */
+  glows: Float32Array;
 }
 
 // Corners of each face, counter-clockwise seen from outside; face order matches FACE_DIRS.
@@ -39,6 +42,10 @@ const FLAG_WAVE = 1 << 5;
 const FLAG_LIQUID = 1 << 6;
 const FLAG_FLOW = 1 << 7; // falling water: its texture scrolls downward
 const FLAG_GLOW = 7; // in the face bits: lit from within (a lamp's shade, coals, a flame)
+
+/** Thin things that are let go far off (a vine on a cliff): the shader reads the mark from the shading byte's third bit. */
+const THIN = new Uint8Array(B_OPAQUE.length);
+BLOCK_DEFS.forEach((d, id) => { if ((d.base ?? d.name) === 'vine') THIN[id] = 4; });
 
 /** Blocks that darken the corners next to them. */
 const AO_OCCLUDER = new Uint8Array(B_OPAQUE.length);
@@ -103,6 +110,7 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
   const light = lightForDrawing(blocks, sourceLight);
   const solid = new PartBuilder();
   const water = new PartBuilder();
+  const glows: number[] = [];
 
   for (let y = 0; y < CS; y++)
     for (let z = 0; z < CS; z++)
@@ -111,6 +119,8 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
         const id = blocks[pi];
         const render = B_RENDER[id];
         if (render === RENDER.none) continue;
+        const glow = GLOW_OF[id];
+        if (glow) addGlow(glows, blocks, light, pi, x, y, z, id);
 
         if (render === RENDER.cross) {
           // Two crossed quads, each emitted both ways round so they show from either side.
@@ -208,7 +218,31 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
         }
       }
 
-  return { solid: solid.finish(), water: water.finish() };
+  return { solid: solid.finish(), water: water.finish(), glows: new Float32Array(glows) };
+}
+
+/**
+ * A lamp or a fire in the chunk: where its glow sits, and how much of the sky's light reaches it (a lamp in
+ * daylight glows faintly). A lit block set whole into a wall puts its glow at the faces left open, so it is
+ * not seen through the rock from behind; one walled in on every side has none.
+ */
+function addGlow(out: number[], blocks: Uint16Array, light: Uint8Array, pi: number, x: number, y: number, z: number, id: number): void {
+  const g = GLOW_OF[id]!;
+  let gx = g.x, gy = g.y, gz = g.z, sky = light[pi] >> 4;
+  if (g.inWall) {
+    let ox = 0, oy = 0, oz = 0, open = 0;
+    for (const n of FACE_NORMALS) {
+      const ni = pi + n[0] * AXIS_STRIDE[0] + n[1] * AXIS_STRIDE[1] + n[2] * AXIS_STRIDE[2];
+      if (B_OPAQUE[blocks[ni]]) continue;
+      open++; ox += n[0]; oy += n[1]; oz += n[2];
+      sky = Math.max(sky, light[ni] >> 4);
+    }
+    if (!open) return;
+    const len = Math.hypot(ox, oy, oz);
+    // A little out in front of the open face, so the wall does not cut the glow in half.
+    if (len > 0) { gx += (ox / len) * 0.72; gy += (oy / len) * 0.72; gz += (oz / len) * 0.72; }
+  }
+  out.push(x + gx, y + gy, z + gz, id, sky);
 }
 
 /**
@@ -278,7 +312,7 @@ function meshModel(part: PartBuilder, blocks: Uint16Array, light: Uint8Array, id
         const [px, py, pz] = p;
         const [uu, vv] = f === 0 ? [1 - pz, py] : f === 1 ? [pz, py] : f === 2 ? [px, 1 - pz] : f === 3 ? [1 - px, 1 - pz] : f === 4 ? [px, py] : [1 - px, py];
         const u = Math.round(uu * 16), v = Math.round(vv * 16);
-        part.vertex(q, k, x + p[0], y + p[1], z + p[2], flags | (k << 3), 3, sky, blk, layer, u, v);
+        part.vertex(q, k, x + p[0], y + p[1], z + p[2], flags | (k << 3), 3 | THIN[id], sky, blk, layer, u, v);
       }
     }
   }

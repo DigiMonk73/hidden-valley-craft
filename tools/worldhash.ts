@@ -18,7 +18,9 @@ import { ravineX } from '../src/gen/layout.ts';
 /** FNV-1a over the column's blocks by name, so adding blocks to the data (which shifts ids) changes nothing. */
 const nameHash = BLOCK_DEFS.map((d) => { let h = 2166136261; for (const ch of d.name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; });
 export function hashColumn(cx: number, cz: number): number {
-  const col = generateColumn(cx, cz);
+  // With version 13's plants (src/gen/terrain.ts, Plants): the fixtures were made with them, and the plants of today
+  // differ from them only where a plant or open air was (tests/plants.test.ts).
+  const col = generateColumn(cx, cz, 'v13');
   let h = 2166136261;
   for (let i = 0; i < col.length; i++) h = Math.imul(h ^ nameHash[col[i]], 16777619);
   return h >>> 0;
@@ -32,7 +34,7 @@ export const RIM_CX = 20;
 export function hashRim(cz0 = 0, cz1 = COLS_Z - 1): Record<string, number> {
   const res: Record<string, number> = {};
   for (let cz = cz0; cz <= cz1; cz++) {
-    const col = generateColumn(RIM_CX, cz);
+    const col = generateColumn(RIM_CX, cz, 'v13');
     for (let lz = 0; lz < CS; lz++) {
       const z = cz * CS + lz;
       let h = 2166136261;

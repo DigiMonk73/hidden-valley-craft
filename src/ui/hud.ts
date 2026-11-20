@@ -113,6 +113,7 @@ export interface MenuActions {
   setSensitivity(v: number): void;
   setInvertY(v: boolean): void;
   setVolume(v: number): void;
+  setEffects(on: boolean): void;
 }
 
 /** The view distances the menu offers, in chunks of 32 m: 224 m keeps the whole valley at full detail. */
@@ -350,7 +351,12 @@ export class Hud {
     const vol = el('input', '', set);
     vol.type = 'range'; vol.min = '0'; vol.max = '1'; vol.step = '0.05'; vol.value = '0.8';
     vol.oninput = () => a.setVolume(Number(vol.value));
-    this.settingsInputs = { rd, sens, inv, vol };
+    // One switch for everything that is only for show and costs a slow computer something (docs/PHASE9A.md).
+    el('label', '', set).textContent = 'Effects (glow, rain, birds)';
+    const fx = el('input', '', set);
+    fx.type = 'checkbox'; fx.checked = true;
+    fx.onchange = () => a.setEffects(fx.checked);
+    this.settingsInputs = { rd, sens, inv, vol, fx };
   }
 
   private downloadBtn!: HTMLButtonElement;
@@ -441,7 +447,7 @@ export class Hud {
 
   setLoadingText(text: string): void { this.loadText.textContent = text; }
 
-  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement };
+  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement; fx: HTMLInputElement };
 
   setLoading(done: number, total: number): void {
     this.loadBar.style.width = `${Math.round((done / Math.max(1, total)) * 100)}%`;
