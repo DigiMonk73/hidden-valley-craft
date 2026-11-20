@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Inventory, clickSlot, quickMove, type Stack } from '../src/sim/inventory.ts';
+import { Inventory, clickSlot, quickMove, HAND, type Stack } from '../src/sim/inventory.ts';
 import { itemId, mineSeconds, maxStack } from '../src/world/items.ts';
 import { blockId } from '../src/world/blocks.ts';
 
@@ -53,5 +53,38 @@ describe('inventory', () => {
     const stone = blockId('limestone');
     expect(mineSeconds(stone, itemId('steel_pickaxe'))).toBeLessThan(mineSeconds(stone, 0) / 4);
     expect(mineSeconds(blockId('dirt'), itemId('steel_shovel'))).toBeLessThan(mineSeconds(blockId('dirt'), itemId('steel_pickaxe')));
+  });
+
+  it('the bare hand is a place on the hotbar that holds nothing, even with a full pack (the owner, 2026-11-20)', () => {
+    const inv = new Inventory();
+    for (let i = 0; i < inv.size; i++) inv.slots[i] = { id: itemId('canned_food'), count: 1 };
+    inv.select(HAND);
+    expect(inv.selected).toBe(HAND);
+    expect(inv.current).toBeNull();
+    expect(inv.take()).toBe(0);
+    expect(inv.wearTool()).toBe(false);
+    expect(inv.slots.every((s) => s && s.count === 1)).toBe(true); // nothing taken from slot 9 (index -1 wraps nowhere)
+    // The wheel comes round through it at both ends: … 8, hand, 0 …
+    inv.select(8); inv.select(inv.selected + 1); expect(inv.selected).toBe(HAND);
+    inv.select(inv.selected + 1); expect(inv.selected).toBe(0);
+    inv.select(inv.selected - 1); expect(inv.selected).toBe(HAND);
+    inv.select(inv.selected - 1); expect(inv.selected).toBe(8);
+    for (let i = 0; i < 9; i++) { inv.select(i); expect(inv.selected).toBe(i); } // keys 1–9 are as they were
+    // It is kept in a save, and a save of slot 9 is still slot 9.
+    expect(Inventory.fromSave(inv.toSave(), HAND).selected).toBe(HAND);
+    expect(Inventory.fromSave(inv.toSave(), 8).selected).toBe(8);
+  });
+});
+
+import { newSave, normaliseSave } from '../src/save/state.ts';
+describe('the bare hand in a save', () => {
+  it('a save holding the bare hand loads holding it; anything below it loads as slot 1', () => {
+    const d = newSave();
+    d.selected = HAND;
+    expect(normaliseSave(JSON.parse(JSON.stringify(d)))!.selected).toBe(HAND);
+    d.selected = -7;
+    expect(normaliseSave(JSON.parse(JSON.stringify(d)))!.selected).toBe(HAND); // clamped to the nearest place
+    d.selected = 4;
+    expect(normaliseSave(JSON.parse(JSON.stringify(d)))!.selected).toBe(4);
   });
 });

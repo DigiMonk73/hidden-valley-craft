@@ -3,8 +3,15 @@
 
 import { iconFor } from './icons.ts';
 import { BLOCK_DEFS } from '../world/blocks.ts';
-import type { Inventory } from '../sim/inventory.ts';
+import { HAND, type Inventory } from '../sim/inventory.ts';
 import { itemLabel, foodOf } from '../world/items.ts';
+
+/** An open hand in a field jacket's cuff, drawn in sixteenths like the game's own icons. */
+const HAND_ICON = `<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+<g fill="#d9a066"><rect x="4" y="2" width="2" height="6"/><rect x="6" y="1" width="2" height="7"/><rect x="8" y="1" width="2" height="7"/>
+<rect x="10" y="2" width="2" height="6"/><rect x="4" y="7" width="8" height="6"/><rect x="1" y="6" width="3" height="2"/><rect x="2" y="8" width="2" height="2"/></g>
+<g fill="#b07a45"><rect x="6" y="2" width="0.5" height="5"/><rect x="8" y="2" width="0.5" height="5"/><rect x="10" y="3" width="0.5" height="4"/><rect x="4" y="12" width="8" height="1"/></g>
+<rect x="3" y="13" width="10" height="3" fill="#4d5a3a"/></svg>`;
 
 const CSS = `
 #ui * { box-sizing: border-box; }
@@ -19,6 +26,9 @@ const CSS = `
 .hv-slot.sel { border-color: #ffe7b0; box-shadow: 0 0 0 2px rgba(255, 220, 150, .35); }
 .hv-slot img { position: absolute; inset: 1px; width: 44px; height: 44px; image-rendering: pixelated; }
 .hv-slot span { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
+/* The bare hand's place: a little apart from the nine, so it reads as not one of them. */
+.hv-slot.hv-hand { margin-right: 6px; }
+.hv-slot.hv-hand svg { position: absolute; inset: 7px; width: 36px; height: 36px; opacity: .85; }
 .hv-slot i { position: absolute; left: 3px; top: 1px; font-size: 10px; font-style: normal; opacity: .55; }
 .hv-label { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); font-size: 14px; text-shadow: 0 1px 3px #000; transition: opacity .4s; }
 .hv-breath { position: absolute; left: 50%; bottom: 126px; transform: translateX(-50%); width: 200px; height: 8px; border-radius: 4px;
@@ -142,6 +152,8 @@ export class Hud {
   private root: HTMLElement;
   private ring: SVGCircleElement;
   private slots: HTMLDivElement[] = [];
+  /** The bare hand's place, left of slot 1: it never holds anything (src/sim/inventory.ts, HAND). */
+  private handSlot!: HTMLDivElement;
   private label: HTMLDivElement;
   private breath: HTMLDivElement;
   private focusEl!: HTMLDivElement;
@@ -192,6 +204,9 @@ export class Hud {
     root.appendChild(svg);
 
     const bar = el('div', 'hv-hotbar', root);
+    this.handSlot = el('div', 'hv-slot', bar);
+    this.handSlot.innerHTML = `<i>~</i>${HAND_ICON}`;
+    this.handSlot.title = 'Empty hand (the key left of 1)';
     for (let i = 0; i < 9; i++) this.slots.push(el('div', 'hv-slot', bar));
     // Health, hunger, thirst: just above the hotbar.
     const vit = el('div', 'hv-vitals', root);
@@ -486,6 +501,7 @@ export class Hud {
     if (sig === this.hotbarSig) return;
     const selChanged = !this.hotbarSig.endsWith(`|${h.selected}|${h.creative}`) && this.hotbarSig !== '';
     this.hotbarSig = sig;
+    this.handSlot.className = 'hv-slot hv-hand' + (h.selected === HAND ? ' sel' : '');
     h.slots.slice(0, 9).forEach((s, i) => {
       const d = this.slots[i];
       d.className = 'hv-slot' + (i === h.selected ? ' sel' : '');
