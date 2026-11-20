@@ -167,8 +167,8 @@ const setDown = (name, k) => g(([n, k]) => {
   for (let dz = 1; dz <= 3; dz++) for (let dy = 0; dy < 3; dy++) { const b = window.__hv.blockName(w.blockAt(x, y + dy, z + dz)); if (/fern|grass|bromeliad|orchid|bamboo/.test(b) && b !== 'grass') w.setBlock(x, y + dy, z + dz, 0); }
   return [x, y, z];
 }, [name, k]);
-const phone = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1804.5, 82, 1027.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1806 && t.y === 83 && t.z === 1027; });
+const phone = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1813 && t.y === 83 && t.z === 1029; });
 
 // 1. Steel: the crucible furnace from the foundry's crucible, then ingots from rail and plate.
 await openWorkbench();
@@ -232,8 +232,8 @@ await gameSeconds(2.5);
 const earned = (await g(() => window.__hv.game.wallet)) - walletA;
 // (A rig earns 100,000 sats a day since docs/FIXES.md, 6: three of them for two hours is 25,000.)
 check('the farm earns three rigs’ worth: about 25,000 sats in two hours', earned > 20000 && earned < 30000, `${earned} sats`);
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1805.5, 82, 1030.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { gm.player.yaw = Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1803 && t.z === 1030; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1028.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1813 && t.y === 83 && t.z === 1028; });
 const screen = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the computer shows the hydro line, the farm’s rigs and hashrate, and M4’s steps', /Hydro/.test(screen ?? '') && /3 of 3 rigs running/.test(screen ?? '') && /M4 · hydro/.test(screen ?? ''), (screen ?? '').replace(/\s+/g, ' ').slice(0, 200));
 await closeScreens();

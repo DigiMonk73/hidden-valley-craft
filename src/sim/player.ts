@@ -114,8 +114,9 @@ export class Player {
   /** The highest top of any solid block the body would overlap at (x, y, z); −Infinity if none. */
   private obstacleTop(x: number, y: number, z: number, blockAt: BlockAt): number {
     const x0 = Math.floor(x - WIDTH / 2), x1 = Math.floor(x + WIDTH / 2 - 1e-6);
-    // From one block below the feet: a railing's collision stands taller than its block.
-    const y0 = Math.floor(y) - 1, y1 = Math.floor(y + HEIGHT - 1e-6);
+    // From two blocks below the feet: a railing's collision stands two and a half blocks tall, so that a jump
+    // from a counter or a lounger beside it (1.32 up from one block) still meets it.
+    const y0 = Math.floor(y) - 2, y1 = Math.floor(y + HEIGHT - 1e-6);
     const z0 = Math.floor(z - WIDTH / 2), z1 = Math.floor(z + WIDTH / 2 - 1e-6);
     let top = -Infinity;
     for (let by = y0; by <= y1; by++)
@@ -132,6 +133,18 @@ export class Player {
 
   private collides(x: number, y: number, z: number, blockAt: BlockAt): boolean {
     return this.obstacleTop(x, y, z, blockAt) > -Infinity;
+  }
+
+  /** Is there room for the body with its feet at (x, y, z)? */
+  fitsAt(x: number, y: number, z: number, blockAt: BlockAt): boolean { return !this.collides(x, y, z, blockAt); }
+
+  /**
+   * Is the body shut in where it stands: inside something solid, with no open space within the two blocks above
+   * that `move` would rise through? (A save from before a wall or a piece of furniture stood there.)
+   */
+  shutIn(blockAt: BlockAt): boolean {
+    if (!this.collides(this.x, this.y, this.z, blockAt)) return false;
+    return [1, 2].every((up) => this.collides(this.x, Math.floor(this.y) + up, this.z, blockAt));
   }
 
   /**

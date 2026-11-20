@@ -1,11 +1,13 @@
 // Entry point: reads test options from the address, starts the game, and exposes a small hook
 // for automated checks (window.__hv).
 
+import { blockId } from './world/blocks.ts';
 import { Game, type BootOptions } from './game.ts';
 import { SAVE_FORMAT, type SaveData } from './save/save.ts';
 import { itemId, toolOf, toolFor } from './world/items.ts';
 import { blockName } from './world/blocks.ts';
-import { GARDEN, VALLEY, ZONE1, SADDLE, ZONE1FAR } from './gen/layout.ts';
+import { GARDEN, VALLEY, ZONE1, SADDLE, ZONE1FAR, HOME } from './gen/layout.ts';
+import { HOME_FIT } from './gen/home.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, APPLE_TREE } from './gen/zone1.ts';
 import { POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, CAMP_AT } from './gen/zone1far.ts';
 import { manOutpost } from './entity/outpost.ts';
@@ -58,6 +60,8 @@ function start(data: unknown): void {
     (window as unknown as { __hv: unknown }).__hv = {
       game,
       idle: () => game.isIdle(),
+      /** A block's id by name, for setting scenes (tools/showroom.mjs). */
+      blockId: (name: string) => blockId(name),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
       /**
@@ -95,6 +99,8 @@ function start(data: unknown): void {
         const j = makeJaguar((x, z) => groundAt(x, z, blockAt), blockAt);
         return j && game.wild.add(j, blockAt) ? j : null;
       },
+      /** The home's layout (docs/HOME.md), for the play-through. */
+      HOME, HOME_FIT,
       rifleId: itemId('hunting_rifle'),
       itemId,
       blockName,

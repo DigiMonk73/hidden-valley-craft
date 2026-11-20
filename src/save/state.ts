@@ -5,7 +5,7 @@
 // A save that reaches the game is whole: every number finite, the player inside the world, every list a list.
 // One that cannot be made whole is refused (null) and the caller says so; it never throws.
 
-import { SAVE_FORMAT, SAVE_VERSION, ITEM_ALIASES, type SaveData, type Slot, type Mode } from './save.ts';
+import { SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, ITEM_ALIASES, type SaveData, type Slot, type Mode } from './save.ts';
 import { Inventory, BASE_SLOTS, BACKPACK_SLOTS } from '../sim/inventory.ts';
 import { hasItem } from '../world/items.ts';
 import { HOME } from '../gen/layout.ts';
@@ -42,7 +42,7 @@ function oldValleyId(d: Record<string, unknown>): string {
 /** A new game, as a save. */
 export function newSave(mode: Mode = 'survival'): SaveData {
   return {
-    format: SAVE_FORMAT, version: SAVE_VERSION, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), mode, endless: mode === 'builder', hour: START_HOUR,
+    format: SAVE_FORMAT, version: SAVE_VERSION, layout: WORLD_LAYOUT, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), mode, endless: mode === 'builder', hour: START_HOUR,
     player: { x: START.x, y: START.y, z: START.z, yaw: START.yaw, pitch: START.pitch, flying: false },
     hotbar: Inventory.starter().toSave(), spill: [], selected: 0, palette: [], edits: [], containers: [],
     vitals: { ...ARRIVAL }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
@@ -147,6 +147,8 @@ export function normaliseSave(raw: unknown): SaveData | null {
   const live = isObj(d.live) ? d.live : {};
   return {
     format: SAVE_FORMAT, version: SAVE_VERSION,
+    // The layout of the world the save was made in. One without the mark is from the first layout (src/save/save.ts).
+    layout: int(d.layout, 1, Number.MAX_SAFE_INTEGER, 1),
     id: typeof d.id === 'string' && d.id ? d.id.slice(0, 64) : fresh.id,
     seq: int(d.seq, 0, Number.MAX_SAFE_INTEGER, 0),
     savedAt: typeof d.savedAt === 'string' ? d.savedAt : fresh.savedAt,

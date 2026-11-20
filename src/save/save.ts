@@ -22,6 +22,12 @@ export type Mode = 'survival' | 'builder';
 /** Blocks and items renamed since a save was made: old name → new name. Empty until a build renames one. */
 export const BLOCK_ALIASES: Record<string, string> = {};
 export const ITEM_ALIASES: Record<string, string> = {};
+/**
+ * The designed world's layout, counted up when a change to it moves what a save points at (chests, the bed, rooms).
+ * 2: the home rebuilt (docs/HOME.md). A save from an earlier layout is not opened: a fresh valley starts, and says so.
+ * (Before version 1 saves are not carried across such changes; after it, a change ships with a map from old to new.)
+ */
+export const WORLD_LAYOUT = 2;
 
 export interface Slot { name: string; count: number; wear?: number }
 
@@ -31,6 +37,8 @@ export interface SaveData {
   /** Which valley this is (made at New game) and how many times it has been written. Absent before version 2. */
   id?: string;
   seq?: number;
+  /** The world layout the save was made in (absent: the first). */
+  layout?: number;
   savedAt: string;
   /** Survival or Builder's mode (absent before version 3: Survival), and, in Builder's mode, whether blocks are endless now. */
   mode?: Mode;
@@ -178,4 +186,9 @@ export async function decodeSave(bytes: Uint8Array): Promise<SaveData | null> {
   } catch {
     return null;
   }
+}
+
+/** Was this save made in an earlier layout of the world (before the home was rebuilt)? Such a save is not opened. */
+export function fromEarlierLayout(d: SaveData): boolean {
+  return (Number.isFinite(d.layout) ? d.layout! : 1) < WORLD_LAYOUT;
 }

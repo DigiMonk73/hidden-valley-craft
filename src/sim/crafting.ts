@@ -37,7 +37,7 @@ export const STATION_LABEL: Record<Station, string> = {
   hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill', crucible_furnace: 'Crucible furnace', lathe: 'Lathe',
 };
 
-/** Which station a block is, if any. The fireplace cooks like the stove. */
+/** Which station a block is, if any. The hearth cooks like the range, and so does any part of either. */
 export function stationOf(block: number): Station | null {
   const base = BLOCK_DEFS[block]?.base ?? blockName(block);
   switch (base) {
@@ -46,6 +46,8 @@ export function stationOf(block: number): Station | null {
     case 'smelter': return 'smelter';
     case 'anvil': return 'anvil';
     case 'stove': case 'fireplace': return 'stove';
+    case 'range_firebox': case 'range_oven': case 'range_tank': return 'stove';
+    case 'hearth_fire': case 'hearth_flames': case 'ember_bed': return 'stove';
     case 'tannery_rack': return 'tannery';
     case 'forge': return 'forge';
     case 'powder_mill': return 'powder_mill';
@@ -53,6 +55,17 @@ export function stationOf(block: number): Station | null {
     case 'lathe': return 'lathe';
     default: return null;
   }
+}
+
+/**
+ * The station at a place in the world. A pot or a kettle is part of the stove it stands on, and nothing by
+ * itself: on a sideboard, or carried off and set down, it cooks nothing.
+ */
+export function stationAt(blockAt: (x: number, y: number, z: number) => number, x: number, y: number, z: number): Station | null {
+  const id = blockAt(x, y, z);
+  const base = BLOCK_DEFS[id]?.base ?? blockName(id);
+  if (base === 'cook_pot' || base === 'kettle') return stationOf(blockAt(x, y - 1, z)) === 'stove' ? 'stove' : null;
+  return stationOf(id);
 }
 
 /**

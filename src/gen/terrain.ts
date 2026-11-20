@@ -13,6 +13,7 @@ import {
   ZONE1FAR, onCampTrail, brushTrailDist, ravineX, RAVINE_HALF,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
+import { fitOutHome } from './home.ts';
 import { buildZone1 } from './zone1.ts';
 import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
@@ -42,7 +43,6 @@ const FRONDS = blockId('fern_fronds');
 const PLANKS = blockId('planks');
 const COBBLE = blockId('cobble');
 const BRICKS = blockId('stone_bricks');
-const LANTERN = blockId('lantern');
 const FERN = blockId('fern');
 const TALL_GRASS = blockId('tall_grass');
 const BROMELIAD = blockId('bromeliad');
@@ -617,9 +617,9 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
       for (const r of HOME.rooms) {
         if (x < r.x0 || x >= r.x1 || z < r.z0 || z >= r.z1) continue;
         const inner = Math.min(x - r.x0, r.x1 - 1 - x, z - r.z0, r.z1 - 1 - z);
-        const ceil = r.y1 + (inner >= 3 && detail.noise2(x / 4, z / 4) > 0 ? 1 : 0) - (inner === 0 && r.name !== 'mouth' ? 1 : 0);
+        const ceil = r.built ? r.y1 : r.y1 + (inner >= 3 && detail.noise2(x / 4, z / 4) > 0 ? 1 : 0) - (inner === 0 && r.name !== 'mouth' ? 1 : 0);
         for (let y = r.y0; y < ceil; y++) col[ci(lx, y, lz)] = AIR;
-        const floor = r.name === 'living' || r.name === 'vault' || r.name === 'hall' ? PLANKS
+        const floor = r.name === 'living' || r.name === 'vault' || r.name === 'hall' || r.built ? PLANKS
           : r.name === 'workshop' ? COBBLE : r.name === 'mouth' ? BRICKS : LIMESTONE;
         col[ci(lx, r.y0 - 1, lz)] = floor;
       }
@@ -628,56 +628,24 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
       for (let y = v.y0; y < v.y1; y++)
         if (inBox(x, y, z, v) && col[ci(lx, y, lz)] !== AIR && rand3(x, y, z, SEED + 2) < 0.7) col[ci(lx, y, lz)] = IRON;
     }
-  for (const [x, y, z] of HOME.lanterns) {
-    if (x >= x0 && x < x0 + CS && z >= z0 && z < z0 + CS) col[ci(x - x0, y, z - z0)] = LANTERN;
-  }
   // The builder's chests: what he left (src/gen/inheritance.ts).
   for (const c of HOME_CHESTS) {
-    if (c.safe) continue; // the safe is set into the wall by furnish()
+    if (c.safe) continue; // the safe is set into the wall below
     if (c.x >= x0 && c.x < x0 + CS && c.z >= z0 && c.z < z0 + CS) col[ci(c.x - x0, c.y, c.z - z0)] = CHEST;
   }
   furnish(col, x0, z0);
+  // The living rooms, the balcony and the bedroom (src/gen/home.ts). It places the wardrobe that holds the linen.
+  fitOutHome(col, x0, z0);
 }
 
-// ---- The builder's furniture ------------------------------------------------------------
+// ---- The builder's workshop and vault ---------------------------------------------------------
 
-/** Places the home's furniture (docs/PHASE2.md, step 3). Facing names say which way a front looks. */
+/** The workshop's stations and the vault's door and safe (docs/PHASE2.md, step 3). Facing names say which way a front looks. */
 function furnish(col: Uint16Array, x0: number, z0: number): void {
   const put = (x: number, y: number, z: number, name: string) => {
     if (x >= x0 && x < x0 + CS && z >= z0 && z < z0 + CS && y >= 0 && y < WORLD_Y) col[ci(x - x0, y, z - z0)] = blockId(name);
   };
   const F = HOME.floor;
-  const b = HOME.balcony;
-
-  // Balcony: a solid stone railing all round, with one opening on the north side where the path
-  // leaves (DESIGN.md: no broken stretches, no posts). Along the west edge it runs north–south.
-  for (let z = b.z0; z < b.z1; z++) put(b.x0, F, z, 'stone_railing@east');
-  for (let x = b.x0 + 1; x < b.x1; x++) {
-    put(x, F, b.z1 - 1, 'stone_railing');
-    if (x < 1795 || x > 1797) put(x, F, b.z0, 'stone_railing');
-  }
-  // The big stove on the left (south) with its back to the rock, and a pipe up the cliff carrying the smoke clear.
-  put(1799, F, b.z1 - 3, 'stove@west');
-  for (let y = F + 1; y <= F + 12; y++) put(1799, y, b.z1 - 3, 'stove_pipe');
-  put(1793, F, 1024, 'bench@west');
-  put(1793, F, 1016, 'solar_panel');
-
-  // Living room.
-  put(1807, F, 1015, 'fireplace@south');
-  for (let y = F + 1; y <= F + 5; y++) put(1807, y, 1015, 'stove_pipe');
-  // The chimney carries on up through the rock to the plateau.
-  const top = outsideHeight(1807, 1015);
-  for (let y = F + 6; y <= top + 1; y++) put(1807, y, 1015, 'stove_pipe');
-  put(1813, F, 1019, 'bed@west');
-  for (let z = 1027; z <= 1031; z++) for (let y = F; y < F + 3; y++) put(1814, y, z, 'bookshelf');
-  put(1809, F, 1020, 'map_table');
-  put(1803, F, 1030, 'table');
-  put(1803, F + 1, 1030, 'computer@east');
-  put(1806, F, 1027, 'table');
-  put(1806, F + 1, 1027, 'phone');
-  put(1806, F, 1026, 'chair@south');
-  put(1806, F, 1028, 'chair');
-  for (let z = 1018; z <= 1023; z++) for (let x = 1803; x <= 1811; x++) if (!(x === 1809 && z === 1020)) put(x, F, z, 'rug');
 
   // Workshop.
   put(1820, F, 1007, 'workbench');

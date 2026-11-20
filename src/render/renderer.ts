@@ -11,7 +11,8 @@ import { Particles } from './particles.ts';
 import { FarLand } from './farland.ts';
 import { Clouds } from './clouds.ts';
 import { RidgeTower } from './tower.ts';
-import { SmokeColumn, STEAM } from './smoke.ts';
+import { SmokeColumn, STEAM, CHIMNEY, FLUE } from './smoke.ts';
+import { HOME_FIT } from '../gen/home.ts';
 import { STEAM_AT } from '../gen/zone2.ts';
 import { outsideHeight } from '../gen/layout.ts';
 import { CreatureRenderer } from './creatures.ts';
@@ -37,6 +38,7 @@ out float vDist;
 out vec3 vWorld;
 out float vWaterTop;
 out float vSun;
+out float vFlicker;
 uniform vec3 uSunDirV;
 void main() {
   int flags = int(aPack.x + 0.5);
@@ -44,6 +46,7 @@ void main() {
   int corner = (flags >> 3) & 3;
   bool wave = (flags & 32) != 0;
   bool liquid = (flags & 64) != 0;
+  bool glow = face == 7; // lit from within: a lamp's shade, coals, a flame (which also wavers)
   vec2 uv = aUv / 16.0; // position on the texture, in sixteenths (v counts up)
   vUv = vec2(uv.x, 1.0 - uv.y);
   if ((flags & 128) != 0) vUv.y -= uTime * 1.6; // falling water pours downward (the texture repeats)
@@ -56,9 +59,18 @@ void main() {
   vAo = aPack.y / 3.0;
   vLight = aPack.zw / 240.0;
   // Fixed shading per face direction gives blocks their form: top brightest, bottom darkest.
-  vShade = face == 2 ? 1.0 : face == 3 ? 0.55 : (face == 0 || face == 1) ? 0.72 : face == 6 ? 0.92 : 0.84;
+  vShade = glow ? 2.0 : face == 2 ? 1.0 : face == 3 ? 0.55 : (face == 0 || face == 1) ? 0.72 : face == 6 ? 0.92 : 0.84;
   vec4 world = modelMatrix * vec4(position, 1.0);
-  if (wave) {
+  vFlicker = 0.9;
+  if (glow && wave) {
+    // A flame: its top licks about, quick and uneven, and its brightness flutters.
+    float h = corner >= 2 ? 1.0 : 0.0; // the foot of a flame stays put
+    float t = uTime * 7.0 + world.x * 3.1 + world.z * 2.3;
+    world.x += h * (sin(t) * 0.035 + sin(t * 2.7 + 1.3) * 0.02);
+    world.z += h * (cos(t * 1.3) * 0.035 + sin(t * 3.1) * 0.02);
+    world.y += h * sin(t * 1.9) * 0.03;
+    vFlicker = 0.88 + 0.12 * sin(uTime * 11.0 + world.x * 5.0) * sin(uTime * 6.3 + world.z * 4.0);
+  } else if (wave) {
     world.x += sin(uTime * 1.6 + world.z * 0.45 + world.y * 0.3) * 0.045;
     world.z += cos(uTime * 1.25 + world.x * 0.45) * 0.045;
   }
@@ -81,6 +93,7 @@ in float vDist;
 in vec3 vWorld;
 in float vWaterTop;
 in float vSun;
+in float vFlicker;
 uniform sampler2DArray uTex;
 uniform float uMist;
 uniform vec3 uMistColor;
@@ -112,6 +125,8 @@ void main() {
   light = max(light, vec3(0.035));
   float ao = mix(0.42, 1.0, vAo);
   vec3 col = tex.rgb * light * ao * vShade;
+  // Lit from within (a lamp's shade, coals, a flame): its own colour, whatever the light around it.
+  if (vShade > 1.5) col = tex.rgb * (0.9 + 0.25 * vFlicker) * vFlicker;
   float alpha = tex.a * uOpacity;
   if (vWaterTop > 0.5) {
     // Still water mirrors the sky, more so at a glancing angle, and catches a glint of the sun.
@@ -167,6 +182,9 @@ export class Renderer {
   private smoke = new SmokeColumn();
   /** The hot spring's steam, rising from its vent in Zone-2 (docs/PHASE6.md). */
   private steam = new SmokeColumn([STEAM_AT[0], outsideHeight(Math.floor(STEAM_AT[0]), Math.floor(STEAM_AT[2])) - 1, STEAM_AT[2]], STEAM);
+  /** The home's fires: the hearth's chimney on the plateau, and the range's flue up the cliff. */
+  private chimney = new SmokeColumn([HOME_FIT.chimney.x + 0.5, HOME_FIT.chimney.top + 1, HOME_FIT.chimney.z + 0.5], CHIMNEY);
+  private flue = new SmokeColumn([HOME_FIT.flueCap.x + 0.5, HOME_FIT.flueCap.y + 0.8, HOME_FIT.flueCap.z + 0.5], FLUE);
   /** The wild's creatures and arrows. */
   readonly creatures: CreatureRenderer;
   /** Which columns have real blocks drawn: the distant land stays out of them. */
@@ -273,6 +291,8 @@ export class Renderer {
     this.scene.add(this.tower.mesh);
     this.scene.add(this.smoke.mesh);
     this.scene.add(this.steam.mesh);
+    this.scene.add(this.chimney.mesh);
+    this.scene.add(this.flue.mesh);
   }
 
   /** True while the browser has taken the picture away. */
@@ -338,6 +358,8 @@ export class Renderer {
     this.tower.sync(s, FOG_NEAR, FOG_FAR);
     this.smoke.sync(s, FOG_NEAR, FOG_FAR, time);
     this.steam.sync(s, FOG_NEAR, FOG_FAR, time);
+    this.chimney.sync(s, FOG_NEAR, FOG_FAR, time);
+    this.flue.sync(s, FOG_NEAR, FOG_FAR, time);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
   }
 

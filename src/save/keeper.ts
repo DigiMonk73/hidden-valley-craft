@@ -12,7 +12,7 @@
 //   save:head    who wrote save:1 last: { session, id, seq }
 // and, in localStorage, a copy made as the page closes (IndexedDB may not finish a write by then).
 
-import { encodeSave, encodeSaveNow, parseSave, type SaveData, type Unreadable } from './save.ts';
+import { encodeSave, encodeSaveNow, parseSave, fromEarlierLayout, type SaveData, type Parsed } from './save.ts';
 import { normaliseSave } from './state.ts';
 import type { Store, PendingIo } from '../platform/storage.ts';
 
@@ -22,6 +22,8 @@ export const PREVIOUS_KEY = 'save:previous';
 /** A write that has not answered in this long counts as failed (a store that hangs must not stop saving silently). */
 export const WRITE_WAIT_MS = 30_000;
 export const BAD_KEY = 'save:bad';
+/** A save from an earlier layout of the world (before the home was rebuilt): not opened, and kept here rather than written over. */
+export const EARLIER_KEY = 'save:earlier';
 export const HEAD_KEY = 'save:head';
 
 /** What a load found. `data` null: nothing usable, start a new valley. `note`: a plain line the player must see. */
@@ -48,8 +50,16 @@ export const NOTES = {
   fresh: 'Your save could not be read, so a fresh valley has been started. The unreadable save is kept aside in this browser.',
   newer: 'This valley was saved by a newer build of the game than this page. Reload the page to get the new build. Your save is untouched, and this page will not save over it.',
   storeError: 'The browser could not read your saved valley just now. Nothing has been lost: reload the page to try again. This page will not save, so it cannot write over it.',
+  earlier: 'This valley was made by an earlier build. A fresh one has been started.',
   otherTab: 'This valley has been saved more recently from another tab or window. This one has stopped saving so it cannot write over that. Close this tab, or reload it to pick up the newer save.',
 } as const;
+
+/**
+ * A save from an earlier layout of the world reads perfectly well, and is still not opened: its chests, bed and rooms
+ * are somewhere else now (src/save/save.ts, WORLD_LAYOUT). Every copy the keeper might open goes through this.
+ */
+type Found = Parsed | { ok: false; why: 'earlier' };
+const current = (r: Parsed): Found => (r.ok && fromEarlierLayout(r.data) ? { ok: false, why: 'earlier' } : r);
 
 const text = (b: Uint8Array | null) => (b ? new TextDecoder().decode(b) : null);
 const bytesOf = (s: string) => new TextEncoder().encode(s);
@@ -83,7 +93,7 @@ export class Keeper {
     this.pending = pending;
   }
 
-  private read(key: string) { return this.store.get(key).then((b) => parseSave(b, normaliseSave)); }
+  private read(key: string) { return this.store.get(key).then((b) => parseSave(b, normaliseSave)).then(current); }
 
   /** A write, given only so long to answer. */
   private put(key: string, bytes: Uint8Array): Promise<boolean> {
@@ -107,11 +117,12 @@ export class Keeper {
       return { data: null, from: 'nothing', unsaved: false, note: NOTES.storeError, storedId: null, storedSeq: 0 };
     }
     const storedBytes = got;
-    const stored = await parseSave(storedBytes, normaliseSave);
+    const stored = current(await parseSave(storedBytes, normaliseSave));
     // A save this keeper wrote has a head beside it. None found beside one means the read failed quietly (some
     // stores answer "nothing" on an error): unknown, not "no other tab".
     if (this.seenHead === null && stored.ok && (stored.data.seq ?? 0) > 0) this.headKnown = false;
-    const closing = await parseSave(this.pending.read(), normaliseSave);
+    const closingBytes = this.pending.read();
+    const closing = current(await parseSave(closingBytes, normaliseSave));
     const backup = await this.read(BACKUP_KEY);
     this.backupWhen = backup.ok ? when(backup.data.savedAt) || 'earlier' : null;
     const none = { storedId: null, storedSeq: 0 };
@@ -126,15 +137,26 @@ export class Keeper {
       if (storedBytes) await this.put(PREVIOUS_KEY, storedBytes);
       return later ? { data: closing.data, from: 'closing-copy', unsaved: true, note: null, ...mine } : { data: stored.data, from: 'store', unsaved: false, note: null, ...mine };
     }
-    const why: Unreadable = stored.why;
+    const why = stored.why;
     if (why === 'newer') {
       this.stopped = 'newer-build';
       return { data: null, from: 'nothing', unsaved: false, note: NOTES.newer, ...none };
     }
     if (why === 'empty') {
       if (closing.ok) return { data: closing.data, from: 'closing-copy', unsaved: true, note: null, ...none };
+      // Only a close-time copy, and from the earlier layout (a page that could not reach its store): kept, not opened.
+      const earlier = closing.why === 'earlier';
+      if (earlier && closingBytes) await this.put(EARLIER_KEY, closingBytes);
       this.pending.clear();
-      return { data: null, from: 'nothing', unsaved: false, note: null, ...none };
+      return { data: null, from: 'nothing', unsaved: earlier, note: earlier ? NOTES.earlier : null, ...none };
+    }
+    if (why === 'earlier') {
+      // A valley from before the home was rebuilt. It is kept under its own key, so the fresh valley's first write
+      // destroys nothing; the only copy that may be opened in its place is a close-time one from this layout.
+      if (storedBytes) await this.put(EARLIER_KEY, storedBytes);
+      if (closing.ok) return { data: closing.data, from: 'closing-copy', unsaved: true, note: null, ...none };
+      this.pending.clear();
+      return { data: null, from: 'nothing', unsaved: true, note: NOTES.earlier, ...none };
     }
     // Something is stored and cannot be read: keep it aside, then fall back.
     await this.setAside(storedBytes);

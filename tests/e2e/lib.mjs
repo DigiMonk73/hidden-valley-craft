@@ -191,6 +191,12 @@ export async function start(query = 'rd=4&hour=12') {
     if (await g(() => window.__hv.game.screen.isOpen || window.__hv.game.paper.isOpen)) await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
   };
+  // Waits for the game's own clock, not the wall's: a slow machine draws a few frames a second and the
+  // game's clock then runs at a fraction of real time, so a wait counted in real time ends too soon.
+  const gameWait = async (seconds) => {
+    const t0 = await g(() => window.__hv.game.time);
+    await page.waitForFunction(([t0, s]) => window.__hv.game.time - t0 >= s, [t0, seconds], { timeout: 120_000, polling: 100 }).catch(() => {});
+  };
   const walkWest = async (x0, z, untilX) => {
     await ensureLook();
     await g(([x0, z]) => { const gm = window.__hv.game; gm.hour = 11; gm.player.flying = false; gm.player.setPosition(x0, 125, z); gm.player.yaw = Math.PI / 2; gm.player.pitch = 0; }, [x0, z]);
@@ -199,7 +205,7 @@ export async function start(query = 'rd=4&hour=12') {
     await page.keyboard.down('KeyW');
     await page.waitForFunction((x) => { const p = window.__hv.game.player; p.yaw = Math.PI / 2; p.pitch = 0; return p.x < x; }, untilX, { timeout: 90_000, polling: 100 }).catch(() => {});
     await page.keyboard.up('KeyW');
-    await page.waitForTimeout(1300); // the places are checked once a second
+    await gameWait(1.3); // the places are checked once a second, of the game's clock
   };
   const P = await g(() => JSON.parse(JSON.stringify(window.__hv.places)));
   const flags = () => g(() => [...window.__hv.game.flags]);
@@ -244,5 +250,5 @@ export async function start(query = 'rd=4&hour=12') {
     process.exit(failed ? 1 : 0);
   };
 
-  return { page, g, check, idle, errors, ensureLook, keepAlive, useAt, closeScreens, walkWest, P, flags, LONG, groundY, standAt, walkTo, waitFlag, aimAt, hold, raiders, finish };
+  return { page, g, check, idle, errors, ensureLook, keepAlive, useAt, closeScreens, walkWest, gameWait, P, flags, LONG, groundY, standAt, walkTo, waitFlag, aimAt, hold, raiders, finish };
 }

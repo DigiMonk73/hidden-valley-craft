@@ -6,6 +6,7 @@ import { drawTexture, TEX } from '../render/textures.ts';
 import { drawItemIcon } from '../render/itemIcons.ts';
 import { itemDef } from '../world/items.ts';
 import { cpuCanvas } from '../platform/canvas.ts';
+import { modelIconPixels } from './modelIcon.ts';
 
 const cache = new Map<number, string>();
 
@@ -30,7 +31,7 @@ export function iconFor(id: number): string {
   if (item) ctx.drawImage(pixelCanvas(drawItemIcon(item.icon)), 4, 4, S - 8, S - 8);
   else if (B_RENDER[id] === RENDER.cube || B_RENDER[id] === RENDER.liquid) {
     const top = textureCanvas(B_FACE_TEX[id * 6 + 2]);
-    const left = textureCanvas(B_FACE_TEX[id * 6 + 4]);
+    const left = textureCanvas(B_FACE_TEX[id * 6 + 5]); // the north face: a block with a front (a fridge, a safe) shows it
     const right = textureCanvas(B_FACE_TEX[id * 6 + 0]);
     const face = (tex: HTMLCanvasElement, a: number, b: number, cc: number, d: number, e: number, f: number, dark: number) => {
       ctx.setTransform(a * k, b * k, cc * k, d * k, e, f);
@@ -41,6 +42,11 @@ export function iconFor(id: number): string {
     face(left, 20, 10, 0, 22, 4, 14, 0.18);
     face(right, 20, -10, 0, 22, 24, 24, 0.36);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  } else if (B_RENDER[id] === RENDER.model) {
+    // Furniture: a picture of the piece itself, box by box (src/ui/modelIcon.ts).
+    const img = ctx.createImageData(S, S);
+    img.data.set(modelIconPixels(id, S));
+    ctx.putImageData(img, 0, 0);
   } else {
     ctx.drawImage(textureCanvas(B_FACE_TEX[id * 6]), 4, 4, S - 8, S - 8);
   }

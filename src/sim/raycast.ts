@@ -1,6 +1,6 @@
 // Finds the first block along a ray (the one the player is looking at), stepping cell to cell.
 
-import { B_RENDER, RENDER } from '../world/blocks.ts';
+import { B_RENDER, B_SOLID, RENDER } from '../world/blocks.ts';
 
 export interface RayHit {
   x: number; y: number; z: number; // the block hit
@@ -28,7 +28,10 @@ export function raycast(
   while (t <= maxDist) {
     const id = blockAt(x, y, z);
     const r = B_RENDER[id];
-    if (r !== RENDER.none && (liquids || r !== RENDER.liquid)) return { x, y, z, nx, ny, nz, id, dist: t };
+    // The cell the eye itself is in is looked out of, not at, unless it is solid or water: standing in an open
+    // doorway or under a mantel's shelf, you click what is in front of you, not the door or shelf round your head.
+    const lookedOutOf = t === 0 && !B_SOLID[id] && r !== RENDER.liquid;
+    if (r !== RENDER.none && !lookedOutOf && (liquids || r !== RENDER.liquid)) return { x, y, z, nx, ny, nz, id, dist: t };
     if (tMaxX < tMaxY && tMaxX < tMaxZ) { x += stepX; t = tMaxX; tMaxX += tDeltaX; nx = -stepX; ny = 0; nz = 0; }
     else if (tMaxY < tMaxZ) { y += stepY; t = tMaxY; tMaxY += tDeltaY; nx = 0; ny = -stepY; nz = 0; }
     else { z += stepZ; t = tMaxZ; tMaxZ += tDeltaZ; nx = 0; ny = 0; nz = -stepZ; }

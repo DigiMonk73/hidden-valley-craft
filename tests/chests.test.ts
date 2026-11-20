@@ -20,7 +20,7 @@ describe('the builder’s chests', () => {
     const w = home();
     const all = new Map<number, number>();
     for (const c of HOME_CHESTS) {
-      expect(w.blockAt(c.x, c.y, c.z)).toBe(c.safe ? blockId('wall_safe') : blockId('chest'));
+      expect(w.blockAt(c.x, c.y, c.z), c.title).toBe(blockId(c.safe ? 'wall_safe' : c.block ?? 'chest'));
       for (const s of w.containerAt(c.x, c.y, c.z)!) if (s) all.set(s.id, (all.get(s.id) ?? 0) + s.count);
     }
     // The plan's promise: weapons, ammo, food, tools, medicine and gear from day one.
@@ -33,7 +33,7 @@ describe('the builder’s chests', () => {
 
   it('a chest with things in it cannot be taken apart; an empty one can', () => {
     const w = home();
-    const c = HOME_CHESTS[0];
+    const c = HOME_CHESTS.find((h) => h.title === 'Tool wall')!;
     expect(breakBlock(w, new Inventory(), c.x, c.y, c.z).keepsItems).toBe(true);
     w.containerAt(c.x, c.y, c.z)!.fill(null);
     const inv = new Inventory();
