@@ -146,22 +146,22 @@ _A read-only agent that wrote none of this (2026-11-20, at 98b2652): the diff, t
 ### Bugs
 
 1. OPEN (the lead's call) — **A version-13 save meets new growth in air the player never touched.** A save holds only edited cells; 70% of the valley's broadleaves changed shape, so where a tree was felled in version 13 the new shape's limbs and leaves stand in other cells, floating (416 cells in the bowl are solid now where version 13 had air), and anything hung on an old crown hangs on nothing. Nothing built is replaced. The fix is to grow a save without a marker with `'v13'` plants (the path exists) and new valleys with today's; that needs a field in the save, which is Track B's ground.
-2. OPEN — **Night gets darker at dusk, then brighter.** Moonlight was lifted and dusk was not: the land at 18:30 is darker than at 19:30.
-3. OPEN — **`Glows.rebuild` throws** if the first chunk with a lamp is removed before a frame is drawn.
-4. OPEN — **A window seat is a whole block**: sitting on it puts the eye 0.17 m above the cushion, inside the potted orchid that stands on one.
-5. OPEN — **Sitting:** a held move key stands you up at once; you can sit in mid-air and in water; while seated the body's water flags freeze.
-6. OPEN — **A seat under the cross takes a gun's shot:** the right-click sits you down instead of firing.
-7. OPEN — **F3's whole-frame count is lost when the WebGL context is restored.**
-8. OPEN — **An emergent's buttresses float on a slope** (1,437 of 9,073 hang a block clear).
-9. OPEN — **Smaller:** the crucible furnace's glow sits above it (it is a cube, treated as set in a wall); no vines on a column's two edge rows (a bare seam every 32 m); three ore blocks have a vine over them; the quetzal's line is said by distance alone; the under-water look starts 12 cm above the water.
+2. FIXED — **Night got darker at dusk, then brighter.** Moonlight was lifted and dusk was not: the land at 18:30 was darker than at 19:30. The light on the land is never let below the night's now (`src/render/sky.ts`; `tests/sky9a.test.ts` fails on the old code).
+3. FIXED — **`Glows.rebuild` threw** if the first chunk with a lamp was removed before a frame was drawn (`tests/glow.test.ts`).
+4. FIXED — **A window seat is a whole block**: sitting on it put the eye 0.17 m above the cushion, inside the potted orchid that stands on one. It is sat on at its own height, and a seat with something standing on it is not sat on (`tests/phase9a.game.test.ts`).
+5. FIXED — **Sitting:** a held move key stood you up at once (a fresh press only, now); you could sit in mid-air and in water (from your feet on the ground only); while seated the body's water flags froze (cleared). Tests for each.
+6. FIXED — **A seat under the cross took a gun's shot:** the right-click sat you down instead of firing. With a bow or a gun in hand a seat is not something to use (test).
+7. FIXED, not tested (it needs a real context) — **F3's whole-frame count was lost when the WebGL context was restored:** `Renderer.restore` sets it again.
+8. FIXED — **An emergent's buttresses floated on a slope** (1,437 of 9,073 hung a block clear): each stands on its own ground (`tests/plants.test.ts`).
+9. **Smaller.** FIXED: the crucible furnace's glow sat above it (only the sealed lamp and the sludge are "in a wall" now; test); three ore blocks had a vine over them (a strand stops at anything that is not its rock; test); the under-water look started 12 cm above the water; the quetzal's perch was looked for every frame (once a second). OPEN, known: no vines on a column's two edge rows (a bare seam two blocks wide every 32 m: the generator sees one column at a time); the quetzal's line is said when you are within 40 m, whether or not you are looking.
 
 ### Pictures that are not improvements, or are doubtful
 
-- OPEN — **Under water the tunnel mouth's lamps do not show across the pool** (a glow dies with the fog at 18 m): against "easy to find".
-- OPEN — **The tunnel's gate, four metres ahead, is black murk** where it was a readable wall.
-- OPEN — **The sump by day is a neon lime disc** (mostly the vapour).
-- OPEN — **Street lights at 60 to 100 m are puffballs** wider than their posts.
-- OPEN — **The quetzal cannot be made out** from the path, and leaves before you are close enough to see it.
+- CHANGED, to be looked at again — **Under water the tunnel mouth's lamps did not show across the pool** (a glow died with the fog at 18 m): against "easy to find". A lamp's glow now carries two and a half times as far under water as what it lights (45 m).
+- CHANGED, to be looked at again — **The tunnel's gate, four metres ahead, was black murk** where it had been a readable wall: lamplight under water is hardly dimmed now, and the water's colour is lighter.
+- CHANGED, to be looked at again — **The sump by day was a neon lime disc** (mostly the vapour): the vapour is less than half as thick and greyer, and it is under the Effects setting now.
+- CHANGED, to be looked at again — **Street lights at 60 to 100 m were puffballs** wider than their posts: a big light grows a quarter as much with distance as a lamp does.
+- CHANGED, to be looked at again — **The quetzal could not be made out** from the path, and left before you were close enough to see it: it is drawn 1.7 times its size and lets you come to seven metres.
 - ANSWERED below, not changed: the balcony sunset is indistinguishable from version 13's (no loss, no gain: at 256 m the far wall is real blocks); sitting on the lounger hides the valley floor behind the parapet; the waterfall at night is the brightest thing in the valley; a limb's sawn end shows from below; the guarumo's leaves read close to as slabs; held food and parts are the pack icon given a thickness (the reviewer names it as another game's look, for the lead to weigh); no picture shows a fire.
 
 ### Claims on this page that did not hold

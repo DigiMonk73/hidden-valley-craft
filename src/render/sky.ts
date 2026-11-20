@@ -49,6 +49,13 @@ export function skyAt(hour: number): SkyState {
     pal = { zenith: lerp3(NIGHT.zenith, DUSK.zenith, t), horizon: lerp3(NIGHT.horizon, DUSK.horizon, t), light: lerp3(NIGHT.light, DUSK.light, t) };
   }
   const daylight = 0.3 + 0.7 * THREE.MathUtils.smoothstep(h, -0.15, 0.3); // moonlit nights stay readable
+  // Never darker than full night: moonlight is drawn bright (above), so without this the land dimmed at dusk and
+  // brightened again an hour later (and the same before dawn).
+  if (h < 0.05) {
+    const lum = (c: THREE.Color) => 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+    const floor = lum(NIGHT.light) * 0.3, now = lum(pal.light) * daylight;
+    if (now < floor) pal.light = pal.light.clone().multiplyScalar(floor / now);
+  }
   const sunGlow = h > -0.1 ? C('#ffd7a0').lerp(C('#fff6e0'), THREE.MathUtils.smoothstep(h, 0.05, 0.5)) : C('#000000');
   // Mist gathers before dawn and burns off by mid-morning (DESIGN.md: misty mornings).
   const mist = THREE.MathUtils.smoothstep(hour, 3.5, 5.5) * (1 - THREE.MathUtils.smoothstep(hour, 7.5, 9.8));

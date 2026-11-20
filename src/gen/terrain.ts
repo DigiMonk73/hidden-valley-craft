@@ -898,7 +898,11 @@ function placeTrees(col: Uint16Array, x0: number, z0: number, plants: Plants = '
         // A giant above the canopy: a tall bare trunk on buttresses, limbs high up, a crown in three tiers.
         const height = 15 + Math.floor(r(8) * 6);
         for (let y = g; y < g + height; y++) set(t.x, y, t.z, LOG, true);
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) for (let y = g; y < g + (r(dx + 2 * dz + 12) < 0.5 ? 3 : 2); y++) set(t.x + dx, y, t.z + dz, LOG, true);
+        // Each buttress stands on its own ground (on a slope the downhill ones hung a block clear of it).
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const own = t.zone === 'valley' ? valleyFloorHeight(t.x + dx, t.z + dz) : outsideHeight(t.x + dx, t.z + dz);
+          for (let y = Math.min(own, g); y < g + (r(dx + 2 * dz + 12) < 0.5 ? 3 : 2); y++) set(t.x + dx, y, t.z + dz, LOG, true);
+        }
         const top = g + height, a = r(16) * Math.PI * 2;
         // The lowest tier hangs out to one side on a limb; the middle is the widest; the top is a cap.
         const lx = Math.round(Math.cos(a) * 2), lz = Math.round(Math.sin(a) * 2);
@@ -1090,8 +1094,10 @@ function placeVines(col: Uint16Array, x0: number, z0: number): void {
         for (let n = 0; n < len; n++) {
           const yy = y - n;
           if (yy <= floorH + 2 || col[ci(lx, yy, lz)] !== AIR) break;
-          // It may hang a block or two past the foot of its rock, no more.
-          if (!rock(col[ci(lx + dx, yy, lz + dz)]) && ++free > 2) break;
+          // It may hang a block or two past the foot of its rock into open air, no more; and it stops at anything
+          // that is not its rock (ore in the wall must not be hidden behind one).
+          const wall = col[ci(lx + dx, yy, lz + dz)];
+          if (!rock(wall) && (wall !== AIR || ++free > 2)) break;
           col[ci(lx, yy, lz)] = VINES[k];
         }
         y -= len; // one strand to a stretch of wall

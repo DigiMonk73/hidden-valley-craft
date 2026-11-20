@@ -29,8 +29,8 @@ void main() {
     float t = uTime * 9.0 + iShape.y;
     flick = 0.86 + 0.09 * sin(t) + 0.05 * sin(t * 2.3 + 1.7) + 0.04 * sin(t * 0.37);
   }
-  // Larger than life from afar: by 60 m it is three times its size, and never smaller than a point of light.
-  float reach = iShape.x * flick * (1.0 + 2.0 * smoothstep(14.0, 60.0, dist));
+  // Larger than life from afar: by 60 m a lamp is three times its size, and never smaller than a point of light.
+  float reach = iShape.x * flick * (1.0 + 2.0 * smoothstep(14.0, 60.0, dist) * (iShape.x > 1.5 ? 0.25 : 1.0)); // (a street light is big already: at 80 m it was a puffball wider than its post)
   reach = max(reach, dist * 0.0045);
   centre.xy += position.xy * reach;
   vAt = position.xy;
@@ -122,7 +122,8 @@ export class Glows {
     }
     this.count = i;
     g.instanceCount = i;
-    for (const name of ['iPos', 'iColor', 'iShape']) (g.getAttribute(name) as THREE.InstancedBufferAttribute).needsUpdate = true;
+    // (No attribute exists until the first glow has been seen: a chunk added and taken away before any frame leaves none.)
+    if (this.capacity) for (const name of ['iPos', 'iColor', 'iShape']) (g.getAttribute(name) as THREE.InstancedBufferAttribute).needsUpdate = true;
   }
 
   sync(s: SkyState, fogNear: number, fogFar: number, time: number): void {

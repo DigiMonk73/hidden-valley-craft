@@ -34,7 +34,7 @@ const WATER_FOG_FAR = 18;
 /** What water does to light: the red goes first. */
 const UNDERWATER_LIGHT = new THREE.Color(0.5, 0.86, 0.95);
 /** Lamplight under water: greener, and hardly dimmer (the tunnel's rule is "well lit"). */
-const UNDERWATER_LAMP = new THREE.Color(0.74, 0.97, 1.0);
+const UNDERWATER_LAMP = new THREE.Color(0.86, 1.08, 1.1);
 /** The colour of lamplight and firelight on what they light. */
 const BLOCK_LIGHT = new THREE.Color('#ffd08c');
 
@@ -374,7 +374,7 @@ export class Renderer {
   private underwaterSky(s: SkyState): SkyState {
     const w = (this.waterSky ??= { ...s, zenith: new THREE.Color(), horizon: new THREE.Color(), sunGlow: new THREE.Color(0, 0, 0), skyLight: new THREE.Color(), fog: new THREE.Color(), mistColor: new THREE.Color() });
     const l = this.lightColor(this.eyeLight);
-    const b = 0.5 + 0.5 * Math.min(1, Math.max(l.r, l.g, l.b));
+    const b = 0.62 + 0.38 * Math.min(1, Math.max(l.r, l.g, l.b));
     w.zenith.setRGB(0.1 * b, 0.5 * b, 0.56 * b);
     w.horizon.copy(w.zenith); w.fog.copy(w.zenith);
     w.skyLight.copy(s.skyLight).multiply(UNDERWATER_LIGHT);
@@ -395,6 +395,7 @@ export class Renderer {
   private restore(): void {
     this.gl.setClearColor(this.clearColor);
     this.gl.setViewport(this.gl.getViewport(new THREE.Vector4()));
+    this.gl.info.autoReset = false; // three makes a new counter with the new context: F3 counts the whole frame again
   }
 
   /** Looking through a telescope (docs/PHASE8.md, 5): the view narrowed `zoom` times, nothing nearer than `near` drawn. 1 puts it back. */
@@ -504,7 +505,9 @@ export class Renderer {
     this.chimney.sync(s, fogNear, fogFar, time);
     this.flue.sync(s, fogNear, fogFar, time);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time, this.rain.level);
-    this.glows.sync(s, fogNear, fogFar, time);
+    // Under water a lamp's glow carries two and a half times as far as what it lights: the tunnel mouth's lamps show
+    // from across the pool, as they did before there was any fog ("easy to find").
+    this.glows.sync(s, fogNear, this.under ? fogFar * 2.5 : fogFar, time);
     this.birds.sync(s, fogNear, fogFar);
   }
 

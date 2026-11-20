@@ -99,4 +99,22 @@ describe('the glows drawn', () => {
     const p = g.mesh.geometry.getAttribute('iPos') as THREE.InstancedBufferAttribute;
     expect([p.getX(0), p.getY(0), p.getZ(0)]).toEqual([2 * CS, 3 * CS + 2, 4 * CS + 3]);
   });
+
+  it('a chunk with a lamp that comes and goes before any frame is drawn harms nothing (it threw: no attribute had been made yet)', () => {
+    const g = new Glows();
+    g.setChunk(1, 0, 0, 0, new Float32Array([1, 2, 3, blockId('lantern'), 0]));
+    g.removeChunk(1);
+    expect(() => g.sync(skyAt(21), 150, 1350, 0)).not.toThrow();
+    expect(g.count).toBe(0);
+  });
+
+  it('only a lamp sealed in rock and the sump\'s sludge sit "in a wall": a furnace that stands free glows from its own middle', () => {
+    expect(GLOW_OF[blockId('sealed_lamp')]!.inWall).toBe(true);
+    expect(GLOW_OF[blockId('sludge')]!.inWall).toBe(true);
+    expect(GLOW_OF[blockId('crucible_furnace')]!.inWall).toBe(false);
+    const c = chunk(AIR);
+    c.set(4, 4, 4, blockId('crucible_furnace'));
+    const g = meshChunk(c.blocks, c.light).glows;
+    expect([g[0], g[1], g[2]]).toEqual([4.5, 4.5, 4.5]); // (it sat 0.22 above the furnace's top)
+  });
 });

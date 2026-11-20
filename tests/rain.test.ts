@@ -73,7 +73,7 @@ describe('the rain drawn', () => {
     expect(wet.skyLight.r).toBeLessThan(dry.skyLight.r);
     expect(wet.daylight).toBe(dry.daylight); // the number the Ashen live by is not the weather's to change
     // And the day after is as blue as ever: the sky's own palette was not touched (it is handed out by reference).
-    expect(skyAt(15).zenith.equals(dry.zenith)).toBe(true);
+    expect(skyAt(15).zenith.getHexString()).toBe('3f7fc4');
     expect(blue(skyAt(12).zenith)).toBeGreaterThan(0.3);
   });
 });

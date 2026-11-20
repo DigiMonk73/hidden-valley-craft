@@ -568,7 +568,9 @@ export class Game {
     this.sky = skyAt(this.hour);
     // Where the eye is (docs/PHASE9A.md, 2): under water the picture is the water's, whatever body the camera has.
     const ex = Math.floor(cam.position.x), ey = Math.floor(cam.position.y), ez = Math.floor(cam.position.z);
-    this.renderer.setEye(isWaterId(this.world.blockAt(ex, ey, ez)), this.world.lightAt(ex, ey, ez), dt, !this.opts.test || !!this.opts.effects);
+    // (Open water is drawn an eighth of a block low: an eye in that top eighth is in the air.)
+    const wet = isWaterId(this.world.blockAt(ex, ey, ez)) && (cam.position.y - ey < 0.875 || this.world.blockAt(ex, ey + 1, ez) !== 0);
+    this.renderer.setEye(wet, this.world.lightAt(ex, ey, ez), dt, !this.opts.test || !!this.opts.effects);
     this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
     if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
@@ -924,7 +926,7 @@ export class Game {
     const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationAt((x, y, z) => this.world.blockAt(x, y, z), t.x, t.y, t.z) || /^steel_door|^snare_caught/.test(blockName(t.id))
-      || blockName(t.id).startsWith('wardrobe_upper') || /^door_wood/.test(blockName(t.id)) || SEATS.has(name)
+      || blockName(t.id).startsWith('wardrobe_upper') || /^door_wood/.test(blockName(t.id)) || (SEATS.has(name) && !isWeapon(this.hotbar.current?.id))
       || ['bed', 'bed_head', 'bed_foot', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
         'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate',
         'logbook_desk', 'hydro_generator', 'turbine', 'old_lathe', 'foundry_crucible', 'cenizos_board'].includes(name);
@@ -1182,7 +1184,7 @@ export class Game {
     }
     // Zone-4's sump breathes (docs/PHASE9A.md, 8): what the signs say, the pond shows.
     const sump = ZONE4.sump;
-    if (Math.hypot(p.x - sump.x, p.z - sump.z) < 90 && Math.random() < dt * 9) {
+    if (this.renderer.effects && Math.hypot(p.x - sump.x, p.z - sump.z) < 90 && Math.random() < dt * 5) {
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * sump.pond;
       const x = sump.x + Math.cos(a) * r, z = sump.z + Math.sin(a) * r;
       parts.fume(x, outsideHeight(Math.floor(x), Math.floor(z)) + 0.2, z);
@@ -1336,7 +1338,10 @@ export class Game {
   private sit(x: number, y: number, z: number, id: number): void {
     const p = this.player;
     if (this.seat && this.seat.x === x && this.seat.y === y && this.seat.z === z) { this.stand(); return; }
-    if (p.flying) return;
+    // From your feet, on the ground, out of the water; and not onto a seat with something standing on it.
+    if (p.flying || (!this.seat && (!p.onGround || p.inWater))) return;
+    const above = this.world.blockAt(x, y + 1, z);
+    if (BLOCK_DEFS[above]?.rests || BLOCK_DEFS[above]?.solid) { this.hud.toast('Something is on that seat'); return; }
     const from: [number, number, number] = this.seat ? this.seat.from : [p.x, p.y, p.z];
     this.endFocus();
     this.home.cancel();
@@ -1348,11 +1353,19 @@ export class Game {
     this.once('sat_down', 'Sitting. Step or jump to stand up.', 4000);
   }
 
+  /** How high this seat is above its block's floor: a chair's seat is under half a block up, a window seat is a whole block. */
+  private seatHeight(): number {
+    const s = this.seat!, id = this.world.blockAt(s.x, s.y, s.z);
+    return (BLOCK_DEFS[id]?.base ?? blockName(id)) === 'window_seat' ? 1 : SEAT_HEIGHT;
+  }
+
   /** Where a body on this seat is: its eye at a sitter's height (the feet, 1.62 below the eye, are under the seat). */
   private seatBody(): void {
     const s = this.seat!;
-    this.player.setPosition(s.x + 0.5, s.y + SEAT_HEIGHT - SEATED_EYE, s.z + 0.5);
+    this.player.setPosition(s.x + 0.5, s.y + this.seatHeight() - SEATED_EYE, s.z + 0.5);
+    // The body's own step does not run while seated: what it would have found is set here.
     this.player.onGround = true;
+    this.player.inWater = this.player.headInWater = false;
   }
 
   /**
@@ -1362,7 +1375,7 @@ export class Game {
   private keepSeat(): void {
     const p = this.player, s = this.seat;
     if (!s) return;
-    if (Math.abs(p.x - (s.x + 0.5)) > 0.01 || Math.abs(p.z - (s.z + 0.5)) > 0.01 || Math.abs(p.y - (s.y + SEAT_HEIGHT - SEATED_EYE)) > 0.01) { this.seat = null; return; }
+    if (Math.abs(p.x - (s.x + 0.5)) > 0.01 || Math.abs(p.z - (s.z + 0.5)) > 0.01 || Math.abs(p.y - (s.y + this.seatHeight() - SEATED_EYE)) > 0.01) { this.seat = null; return; }
     const under = this.world.blockAt(s.x, s.y, s.z);
     if (!SEATS.has(BLOCK_DEFS[under]?.base ?? blockName(under))) { this.stand(); return; }
     this.seatBody();
@@ -1384,7 +1397,8 @@ export class Game {
   /** The builder's things: the bed (any of its blocks), bookshelves, computer, phone, map table. True if one was used. */
   private useFurniture(x: number, y: number, z: number, id: number): boolean {
     const name = BLOCK_DEFS[id]?.base ?? blockName(id);
-    if (SEATS.has(name)) { this.sit(x, y, z, id); return true; }
+    // (Not with a bow or a gun in hand: a seat in front of what you are shooting at must not take the shot.)
+    if (SEATS.has(name) && !isWeapon(this.hotbar.current?.id)) { this.sit(x, y, z, id); return true; }
     if (name === 'bed' || name === 'bed_head' || name === 'bed_foot') {
       if (this.hour < 17 && this.hour >= 6) { this.hud.toast('You can sleep from five in the evening'); return true; }
       // A night's sleep (up to thirteen hours) moves the garden on as if those hours had passed.
@@ -1804,7 +1818,8 @@ export class Game {
         if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.endScope();
         return;
       }
-      if (this.seat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.stand();
+      // (A fresh press: a key still held from walking up to the seat does not stand you straight up again.)
+      if (this.seat && !e.repeat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.stand();
       if (e.code === 'Escape' && this.playing) this.pause();
       if (e.code === 'KeyE' && this.playing) { this.openScreen(null); return; }
       if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }

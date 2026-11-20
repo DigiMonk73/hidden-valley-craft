@@ -38,7 +38,7 @@ export interface Bird {
 
 export const FOLDED = -1.5;
 /** A bird of this kind is never nearer the eye than this while it can help it (it leaves first). */
-export const SHY: Record<BirdKind, number> = { hummingbird: 1.4, dove: 5.5, quetzal: 9 };
+export const SHY: Record<BirdKind, number> = { hummingbird: 1.4, dove: 5.5, quetzal: 7 };
 const DAY: Record<BirdKind, [number, number]> = { hummingbird: [6.2, 17.8], dove: [5.6, 18.4], quetzal: [5.75, 10.5] };
 const WANT: Record<BirdKind, number> = { hummingbird: 3, dove: 4, quetzal: 1 };
 
@@ -123,6 +123,16 @@ export class Flock {
    * may), so it shows against the sky from all round; null if the tree is not there (or not loaded).
    */
   perch(f: BirdFrame): [number, number, number] | null {
+    if (!f.tree) return null;
+    // Looked for once a second, not every frame (it is some hundreds of block look-ups).
+    if (this.perchAt && f.time - this.perchAt.time < 1 && f.time >= this.perchAt.time && this.perchAt.tree === f.tree) return this.perchAt.at;
+    const at = this.findPerch(f);
+    this.perchAt = { time: f.time, tree: f.tree, at };
+    return at;
+  }
+  private perchAt: { time: number; tree: object; at: [number, number, number] | null } | null = null;
+
+  private findPerch(f: BirdFrame): [number, number, number] | null {
     if (!f.tree) return null;
     let best: [number, number, number] | null = null;
     for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
@@ -326,6 +336,7 @@ in vec3 iPos;
 in vec3 iPose; // heading, nose up, wings' angle
 in vec3 iLight;
 uniform vec2 uHinge;
+uniform float uSize;
 out vec3 vColor;
 out vec3 vWorld;
 out float vDist;
@@ -346,7 +357,7 @@ void main() {
   float cp = cos(iPose.y), sp = sin(iPose.y), cy = cos(iPose.x), sy = sin(iPose.x);
   p = vec3(p.x, p.y * cp - p.z * sp, p.y * sp + p.z * cp);
   p = vec3(p.x * cy + p.z * sy, p.y, -p.x * sy + p.z * cy);
-  vec4 world = vec4(p + iPos, 1.0);
+  vec4 world = vec4(p * uSize + iPos, 1.0);
   vWorld = world.xyz;
   vec4 view = viewMatrix * world;
   vDist = length(view.xyz);
@@ -368,6 +379,8 @@ void main() {
 }`;
 
 const MAX_EACH = 8;
+/** How much larger than modelled each kind is drawn. The quetzal at its own size could not be made out on its crown from the path. */
+const SIZE: Record<BirdKind, number> = { hummingbird: 1, dove: 1, quetzal: 1.7 };
 
 export class Birds {
   readonly flock = new Flock();
@@ -403,7 +416,7 @@ export class Birds {
       const mat = new THREE.ShaderMaterial({
         glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG, side: THREE.DoubleSide,
         uniforms: {
-          uHinge: { value: new THREE.Vector2(m.hinge[0], m.hinge[1]) }, uFogNear: { value: 150 }, uFogFar: { value: 1350 },
+          uHinge: { value: new THREE.Vector2(m.hinge[0], m.hinge[1]) }, uSize: { value: SIZE[kind] }, uFogNear: { value: 150 }, uFogFar: { value: 1350 },
           uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uSunGlow: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
         },
       });

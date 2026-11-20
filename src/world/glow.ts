@@ -31,6 +31,9 @@ const KINDS: Record<string, [string, number, boolean?]> = {
   sludge: ['#111e06', 1.5],
 };
 
+/** Lit blocks that are set whole into a wall or a floor (their glow sits at the open face). A furnace is a cube too, but stands free. */
+const IN_WALL = new Set(['sealed_lamp', 'sludge']);
+
 /** The glow of each block, by id; undefined for a block with none. */
 export const GLOW_OF: (GlowDef | undefined)[] = BLOCK_DEFS.map((d, id) => {
   const kind = KINDS[d.base ?? d.name];
@@ -47,7 +50,7 @@ export const GLOW_OF: (GlowDef | undefined)[] = BLOCK_DEFS.map((d, id) => {
     for (const b of of) { x += (b[0] + b[3]) / 32; y += (b[1] + b[4]) / 32; z += (b[2] + b[5]) / 32; }
     x /= of.length; y /= of.length; z /= of.length;
   }
-  return { x, y, z, r: c[0], g: c[1], b: c[2], size, fire: !!fire, inWall: d.render === 'cube' };
+  return { x, y, z, r: c[0], g: c[1], b: c[2], size, fire: !!fire, inWall: IN_WALL.has(d.base ?? d.name) };
 });
 
 /** Numbers per glow in a chunk's list: x, y, z (in the chunk), the block's id, the sky's light there (0–15). */

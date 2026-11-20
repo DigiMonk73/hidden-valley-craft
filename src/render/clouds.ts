@@ -23,7 +23,7 @@ uniform sampler2D uClouds;
 uniform vec2 uOffset;
 uniform float uDaylight;
 uniform vec3 uSkyLight;
-uniform float uRain; // 0–1: rain clouds are grey, and nearly close the sky's gaps to the eye
+uniform float uRain; // 0–1: rain clouds are grey
 out vec4 outColor;
 ${SKY_COLOR_GLSL}
 void main() {

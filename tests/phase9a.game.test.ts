@@ -18,11 +18,12 @@ import { blockId, blockName, BLOCK_DEFS } from '../src/world/blocks.ts';
 import { CS } from '../src/world/constants.ts';
 import { HOME } from '../src/gen/layout.ts';
 import { EYE } from '../src/sim/player.ts';
+import { itemId } from '../src/world/items.ts';
 import { SEATS } from '../src/game.ts';
 
 vi.setConfig({ testTimeout: 120_000 });
 
-interface In9 { target: unknown; placeBlock(): void; seat: unknown; breakBlock(x: number, y: number, z: number): void; wildEvents(ev: unknown): void; tick(dt: number): void }
+interface In9 { target: unknown; placeBlock(): void; seat: unknown; usableTarget(): boolean; breakBlock(x: number, y: number, z: number): void; wildEvents(ev: unknown): void; tick(dt: number): void }
 const inside = (p: Page) => p.game as unknown as In9;
 
 async function begun(): Promise<Page> {
@@ -48,6 +49,7 @@ function seatsAtHome(p: Page): { x: number; y: number; z: number; id: number; na
 /** Stands the player a step from a seat and right-clicks it. */
 function useSeat(p: Page, s: { x: number; y: number; z: number; id: number }, from: [number, number, number]): void {
   p.game.player.setPosition(...from);
+  p.game.player.onGround = true; // standing there
   inside(p).target = { x: s.x, y: s.y, z: s.z, id: s.id, nx: 0, ny: 1, nz: 0, dist: 1.5 };
   inside(p).placeBlock();
 }
@@ -143,6 +145,75 @@ describe('sitting (docs/PHASE9A.md, 8)', () => {
     play(p, 0.2);
     expect(inside(p).seat).toBeNull();
     expect(p.game.player.x).toBeCloseTo(1798.5, 1); // and it was not pulled back to the chair
+  });
+});
+
+describe('sitting: what the fresh review found (docs/PHASE9A.md)', () => {
+  const from: [number, number, number] = [1806.5, HOME.floor, 1024.5];
+
+  it('a window seat is a whole block: you sit on top of it, and not on one with a pot standing on it', async () => {
+    const p = await begun();
+    land(p, 1788, 1004, 1832, 1042);
+    const w = p.game.world, id = blockId('window_seat');
+    w.setBlock(1806, HOME.floor, 1022, id);
+    w.setBlock(1806, HOME.floor + 1, 1022, 0);
+    useSeat(p, { x: 1806, y: HOME.floor, z: 1022, id }, from);
+    expect(inside(p).seat).not.toBeNull();
+    expect(p.game.player.eyeY - HOME.floor).toBeGreaterThan(1.6); // above the cushion, as on a chair (it was 1.17: inside the block's top)
+    fire('window', 'keydown', { code: 'Space' });
+    w.setBlock(1806, HOME.floor + 1, 1022, blockId('potted_orchid'));
+    useSeat(p, { x: 1806, y: HOME.floor, z: 1022, id }, from);
+    expect(inside(p).seat).toBeNull();
+    expect(p.hud.toasts.some((t) => t.includes('on that seat'))).toBe(true);
+  });
+
+  it('not from mid-air or from the water; and a key still held from walking up does not stand you up again', async () => {
+    const p = await begun();
+    land(p, 1788, 1004, 1832, 1042);
+    const s = seatsAtHome(p).find((q) => q.name === 'armchair')!;
+    const pl = p.game.player;
+    useSeat(p, s, from); pl.onGround = false; // (useSeat stands the player; undo that: falling)
+    fire('window', 'keydown', { code: 'Space' });
+    pl.setPosition(...from); pl.onGround = false;
+    inside(p).target = { x: s.x, y: s.y, z: s.z, id: s.id, nx: 0, ny: 1, nz: 0, dist: 1.5 };
+    inside(p).placeBlock();
+    expect(inside(p).seat).toBeNull();
+    pl.onGround = true; pl.inWater = true;
+    inside(p).placeBlock();
+    expect(inside(p).seat).toBeNull();
+    pl.inWater = false;
+    inside(p).placeBlock();
+    expect(inside(p).seat).not.toBeNull();
+    fire('window', 'keydown', { code: 'KeyW', repeat: true }); // the W that walked you here, repeating
+    expect(inside(p).seat).not.toBeNull();
+    fire('window', 'keydown', { code: 'KeyW' });
+    expect(inside(p).seat).toBeNull();
+  });
+
+  it('seated, the body is not left in the water it sat down beside: its water flags are cleared', async () => {
+    const p = await begun();
+    land(p, 1788, 1004, 1832, 1042);
+    const s = seatsAtHome(p).find((q) => q.name === 'armchair')!;
+    useSeat(p, s, from);
+    p.game.player.inWater = p.game.player.headInWater = true; // as if they had been set when it sat
+    play(p, 0.3);
+    expect(p.game.player.inWater).toBe(false);
+    expect(p.game.player.headInWater).toBe(false);
+  });
+
+  it('with a gun or a bow in hand a seat under the cross is not something to use: the click is the weapon\'s', async () => {
+    const p = await begun();
+    land(p, 1788, 1004, 1832, 1042);
+    const s = seatsAtHome(p).find((q) => q.name === 'armchair')!;
+    const slots = (p.game.hotbar as unknown as { slots: ({ id: number; count: number } | null)[] }).slots;
+    p.game.player.setPosition(...from); p.game.player.onGround = true;
+    inside(p).target = { x: s.x, y: s.y, z: s.z, id: s.id, nx: 0, ny: 1, nz: 0, dist: 1.5 };
+    slots[0] = null; p.game.hotbar.select(0);
+    expect(inside(p).usableTarget()).toBe(true); // empty-handed: a seat is used
+    slots[0] = { id: itemId('hunting_rifle'), count: 1 };
+    expect(inside(p).usableTarget()).toBe(false); // the rifle fires instead (it sat you down, and no round was spent)
+    inside(p).placeBlock();
+    expect(inside(p).seat).toBeNull();
   });
 });
 

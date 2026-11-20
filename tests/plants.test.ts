@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateColumn } from '../src/gen/terrain.ts';
 import { blockName, blockId, B_SOLID, BLOCK_DEFS } from '../src/world/blocks.ts';
-import { GARDEN, VALLEY, SPRINGS, distToValley, valleyFloorHeight, ravineX } from '../src/gen/layout.ts';
+import { GARDEN, VALLEY, SPRINGS, distToValley, valleyFloorHeight, ravineX, outsideHeight } from '../src/gen/layout.ts';
 import { CS, WORLD_Y, PADDED_VOLUME, paddedIndex } from '../src/world/constants.ts';
 import { meshChunk } from '../src/mesh/mesher.ts';
 
@@ -194,5 +194,43 @@ describe('a bunch of bananas (scenery now; Track B makes it something to pick)',
       }
     }
     expect(n).toBeGreaterThan(3);
+  });
+});
+
+describe('what the fresh review found in the plants', () => {
+  it('no trunk or buttress hangs clear of its ground (an emergent\'s buttresses did, on a slope)', () => {
+    const LOG = blockId('log');
+    let low = 0;
+    for (const [cx, cz] of [[40, 31], [41, 31], [38, 30], [30, 32], [44, 33], [26, 30]]) {
+      const col = generateColumn(cx, cz);
+      for (let lz = 0; lz < CS; lz++) for (let lx = 0; lx < CS; lx++) {
+        const g = outsideHeight(cx * CS + lx, cz * CS + lz);
+        // The lowest log within three blocks of the ground here (a limb is higher) must have something under it.
+        for (let y = g; y <= g + 2; y++) {
+          if (col[at(lx, y, lz)] !== LOG) continue;
+          low++;
+          expect(col[at(lx, y - 1, lz)], `a log at ${cx * CS + lx}, ${y}, ${cz * CS + lz} with air under it`).not.toBe(0);
+          break;
+        }
+      }
+    }
+    expect(low).toBeGreaterThan(50);
+  });
+
+  it('a vine hangs only against limestone: never across ore in the wall (three did)', () => {
+    const VINE = [blockId('vine'), blockId('vine@east'), blockId('vine@south'), blockId('vine@west')], SIDE = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+    const ok = new Set([0, blockId('limestone'), blockId('limestone_mossy')]);
+    let n = 0;
+    for (let cz = 28; cz <= 36; cz++) for (let cx = 49; cx <= 57; cx++) {
+      const col = generateColumn(cx, cz);
+      for (let y = 1; y < WORLD_Y - 1; y++) for (let lz = 1; lz < CS - 1; lz++) for (let lx = 1; lx < CS - 1; lx++) {
+        const k = VINE.indexOf(col[at(lx, y, lz)]);
+        if (k < 0) continue;
+        n++;
+        const wall = col[at(lx + SIDE[k][0], y, lz + SIDE[k][1])];
+        if (!ok.has(wall)) throw new Error(`a vine at ${cx * CS + lx}, ${y}, ${cz * CS + lz} hangs over ${blockName(wall)}`);
+      }
+    }
+    expect(n).toBeGreaterThan(1000);
   });
 });
