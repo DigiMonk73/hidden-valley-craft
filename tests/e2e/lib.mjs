@@ -18,6 +18,8 @@ export async function start(query = 'rd=4&hour=12') {
   // HC=8 makes the page believe the machine has that many cores (the game starts up to six workers by it):
   // for reproducing what happens on a bigger machine than this one.
   if (process.env.HC) await page.addInitScript((n) => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => n }), Number(process.env.HC));
+  // NOAUDIO=1 takes Web Audio away from the page (the game then runs silent): for telling whether sound is what grows.
+  if (process.env.NOAUDIO) await page.addInitScript(() => { delete window.AudioContext; delete window.webkitAudioContext; });
   const errors = [];
   page.on('crash', () => { errors.push('the page crashed'); console.log('FAIL the page crashed (the renderer died: memory?)'); });
   page.on('pageerror', (e) => errors.push(e.message));
