@@ -19,6 +19,9 @@ _The page to resume from. Keep it short; history lives in git._
   4. Phase 8 (Zone-4, the tower, M5): the lead's brief is docs/PHASE8.md; its session is running on branch `phase8` (plan, map and land first; it stays out of `src/game.ts` until the home makeover and the fixes are merged, and the lead tells it when).
   5. Phase 9 (finish), with the review's "worth doing at the end" list.
 
+- **The fixes are built** (branch `fixes`, docs/FIXES.md; 2026-11-20) and are being merged with the home makeover by their own session; the lead merges and publishes when it reports. **Two things it found and left, for Phase 9:**
+  - **The valley can be walked into over its rim** (from the canyon up the outer slope, across at about (1734, 115, 1125), down the south cliff by harmless falls; so on `main` too). No hostile can use it and M1 no longer counts it. To mend only where the walk test finds a crossing, with pictures for the owner; the check is written and skipped in `tests/review_land.test.ts`.
+  - **The outpost's stealth route does not hide you from the lookout** on two stretches (he sees over the brush at (906, 1028) and along x 889–883, z 1046): taller brush. Check written and skipped.
 - **Version 11's checks** (2026-11-20, `main`): 427 unit tests; all 161 play-through checks (valley 41, near 23, mid 20, Zone-2 34, Zone-3 43).
   - **Old saves:** a valley saved before the home was rebuilt is not opened; a fresh one starts and says so (`WORLD_LAYOUT` in `src/save/save.ts`). The owner has been told.
   - **For Phase 9, from the home session:** sitting in chairs; a gun rack in the vault; about 30 lanterns in the home sell for 1 each (the money pass); stray texels on the jerky rack; nothing was judged on a real graphics card (motion, flicker, sound).
