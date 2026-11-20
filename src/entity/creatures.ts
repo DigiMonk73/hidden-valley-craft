@@ -145,6 +145,47 @@ export function fits(c: Creature, x: number, y: number, z: number, blockAt: Bloc
   return true;
 }
 
+/**
+ * Settles a newborn where it was put: its whole body must be outside the sanctuary and out of every block
+ * (the review, N5b and N5c: spawners looked at the middle point only, so some were born across the
+ * sanctuary's line or with a flank in a tree, and stood rooted for good). On a slope the ground beside
+ * it may be a block higher: then it stands on that, if `standOn` allows every block it would then have
+ * under it (the spawners allow the land only: nothing is born perched on a fence, a roof or a stump).
+ * False if it fits neither way: it is not born.
+ */
+export function settle(c: Creature, blockAt: BlockAt, standOn: (id: number) => boolean = () => true): boolean {
+  if (fits(c, c.x, c.y, c.z, blockAt)) return true;
+  const y = Math.floor(c.y), h = KINDS[c.kind].width / 2;
+  for (let bz = Math.floor(c.z - h); bz <= Math.floor(c.z + h - 1e-6); bz++)
+    for (let bx = Math.floor(c.x - h); bx <= Math.floor(c.x + h - 1e-6); bx++) {
+      const id = blockAt(bx, y, bz);
+      if (B_SOLID[id] && !standOn(id)) return false;
+    }
+  if (!fits(c, c.x, y + 1, c.z, blockAt)) return false;
+  c.y = y + 1;
+  return true;
+}
+
+/**
+ * Can the player see any of a creature: is a straight line from their eyes to its head, its middle, its
+ * feet or either flank clear of solid blocks? Nothing vanishes while this is true, unless it is far off.
+ */
+export function inPlayersView(c: Creature, px: number, py: number, pz: number, blockAt: BlockAt): boolean {
+  const ax = px, ay = py + 1.6, az = pz, d = KINDS[c.kind];
+  // The flanks: half its width (and a little, for a body drawn longer than its box) either side, across the line of sight.
+  const len = Math.hypot(c.x - px, c.z - pz) || 1, sx = (-(c.z - pz) / len) * (d.width / 2 + 0.3), sz = ((c.x - px) / len) * (d.width / 2 + 0.3);
+  const points: [number, number, number][] = [[0, 0.95, 0], [0, 0.5, 0], [0, 0.1, 0], [sx, 0.5, sz], [-sx, 0.5, -sz]];
+  return points.some(([ox, f, oz]) => {
+    const bx = c.x + ox, by = c.y + d.height * f, bz = c.z + oz;
+    const n = Math.ceil(Math.hypot(bx - ax, by - ay, bz - az) / 0.2);
+    for (let k = 1; k < n; k++) {
+      const t = k / n;
+      if (B_SOLID[blockAt(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t), Math.floor(az + (bz - az) * t))]) return false;
+    }
+    return true;
+  });
+}
+
 /** Moves a body: gravity, then each horizontal axis, stepping up single blocks and stopping at drops > 3 m. */
 export function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
   c.vy = Math.max(-30, c.vy - 26 * dt);
@@ -165,9 +206,10 @@ export function moveBody(c: Creature, dt: number, blockAt: BlockAt): void {
     if (!cliff && !wet && c.onGround && !c.tame && fits(c, nx, Math.floor(c.y) + 1, nz, blockAt) && fits(c, c.x, Math.floor(c.y) + 1, c.z, blockAt)) {
       c.y = Math.floor(c.y) + 1; c.x = nx; c.z = nz; continue;
     }
-    // Blocked: turn away next time it chooses.
+    // Blocked: a wanderer turns away next time it chooses. Only a wanderer: the same cut used to end a
+    // wind-up, a stumble or a recovery early beside a tree (the review, N5d: a 0.25 s warning before a blow).
     if (axis === 0) c.vx = 0; else c.vz = 0;
-    c.timer = Math.min(c.timer, 0.2);
+    if (c.mind === 'wander') c.timer = Math.min(c.timer, 0.2);
   }
 }
 
@@ -187,6 +229,9 @@ export interface Hit { damage: number; by: Kind }
 
 /** How far above or below a creature the player can be and still be struck. */
 export const STRIKE_HEIGHT = 1.5;
+/** A hunter comes for a player this far above or below it, or this much of the distance between them (a slope). */
+export const REACH_HEIGHT = 3;
+export const REACH_SLOPE = 0.5;
 
 /** Can the creature see the player: no solid block between its head and the player's chest? */
 export function canSee(c: Creature, s: Senses, blockAt: BlockAt): boolean {
@@ -211,7 +256,10 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   c.angry = Math.max(0, c.angry - dt);
   const dx = s.px - c.x, dz = s.pz - c.z;
   const dist = Math.hypot(dx, dz);
-  const reachable = !s.playerInSanctuary && Math.abs(s.py - c.y) < 3;
+  // In reach: never in the sanctuary, and not straight above or below (a ledge, a pillar, a pit). Up or down
+  // a slope the player is in reach: within three blocks of height, or half the distance if that is more.
+  // (On real hills a puma four blocks down the slope used to take no notice of the player at all.)
+  const reachable = !s.playerInSanctuary && Math.abs(s.py - c.y) < Math.max(REACH_HEIGHT, dist * REACH_SLOPE);
   let hit: Hit | null = null;
 
   // Caught in a leghold: it struggles where it stands until the trap lets it go.

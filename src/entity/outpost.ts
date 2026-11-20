@@ -9,7 +9,7 @@
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 import { POSTS, OUTPOST_AT } from '../gen/zone1far.ts';
-import { makeCreature, moveBody, canSee, KINDS, RAIDER_KINDS, ROLE, isMan, STRIKE_HEIGHT, type Creature, type Kind, type Senses } from './creatures.ts';
+import { makeCreature, moveBody, canSee, settle, KINDS, RAIDER_KINDS, ROLE, isMan, STRIKE_HEIGHT, type Creature, type Kind, type Senses } from './creatures.ts';
 
 type BlockAt = (x: number, y: number, z: number) => number;
 
@@ -59,8 +59,8 @@ const roleOf = (c: Creature): 'lookout' | 'gunman' | 'rusher' => ROLE[c.kind]!;
 /** A faction man's second look at a stranger who comes close wearing the armband (docs/PHASE6.md). */
 export const CHALLENGE = 1.5;
 
-/** The raiders still alive who are not about: each at his post, if the land there is loaded. */
-export function manOutpost(creatures: Creature[], st: OutpostState, px: number, pz: number, loaded: (x: number, z: number) => boolean): Creature[] {
+/** The raiders still alive who are not about: each at his post, if the land there is loaded and the post is clear. */
+export function manOutpost(creatures: Creature[], st: OutpostState, px: number, pz: number, loaded: (x: number, z: number) => boolean, blockAt: BlockAt = () => 0): Creature[] {
   if (Math.hypot(px - OUTPOST_AT[0], pz - OUTPOST_AT[1]) > OUTPOST_NEAR || !loaded(OUTPOST_AT[0], OUTPOST_AT[1])) return [];
   const made: Creature[] = [];
   for (const kind of ['lookout', 'gunman', 'rusher'] as const) {
@@ -69,7 +69,8 @@ export function manOutpost(creatures: Creature[], st: OutpostState, px: number, 
     if (inSanctuary(p.x, p.z)) continue;
     // Each stands exactly where he is posted: the lookout on the roof, not on the ground below it.
     const c = makeCreature(kind, p.x, p.y, p.z);
-    c.post = { ...p };
+    if (!settle(c, blockAt)) continue; // something has been built on his post
+    c.post = { ...p, y: c.y };
     c.yaw = p.yaw;
     c.mind = st.alert ? 'alerted' : 'watch';
     made.push(c);

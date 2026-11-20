@@ -78,21 +78,22 @@ function start(data: unknown): void {
       /** Puts the outpost's living raiders at their posts now (screenshots and checks run with spawning off). */
       manOutpost: () => {
         const w = game.wild, p = game.player;
-        const made = manOutpost(w.creatures, w.outpost, p.x, p.z, () => true);
+        const made = manOutpost(w.creatures, w.outpost, p.x, p.z, () => true, (bx, by, bz) => game.world.blockAt(bx, by, bz));
         w.creatures.push(...made);
         return made.length;
       },
       /** Puts Zone-3's Ashen in their nests now (and, by day the first time, one out in the road): for screenshots and checks with spawning off. */
       manAshen: (night = false) => {
         const w = game.wild, p = game.player;
-        const made = manAshen(w.creatures, w.ashen, p.x, p.z, night, () => true, (x, y, z) => floorNear(x, y, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)));
+        const made = manAshen(w.creatures, w.ashen, p.x, p.z, night, () => true, (x, y, z) => floorNear(x, y, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)), (bx, by, bz) => game.world.blockAt(bx, by, bz));
         w.creatures.push(...made);
         return made.length;
       },
       /** Starts the jaguar's crossing of the camp's clearing. */
       jaguar: () => {
-        const j = makeJaguar((x, z) => groundAt(x, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)));
-        return j && game.wild.add(j) ? j : null;
+        const blockAt = (bx: number, by: number, bz: number) => game.world.blockAt(bx, by, bz);
+        const j = makeJaguar((x, z) => groundAt(x, z, blockAt), blockAt);
+        return j && game.wild.add(j, blockAt) ? j : null;
       },
       rifleId: itemId('hunting_rifle'),
       itemId,

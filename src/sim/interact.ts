@@ -4,7 +4,7 @@
 import { AIR, WATER, B_RENDER, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
 import { dropOf, isBlockItem } from '../world/items.ts';
 import { packPos } from '../world/light.ts';
-import { cropDrops } from './farming.ts';
+import { cropDrops, cropOf } from './farming.ts';
 import type { World } from '../world/world.ts';
 import type { Inventory } from './inventory.ts';
 import type { RayHit } from './raycast.ts';
@@ -53,6 +53,10 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
   if (!stack || !isBlockItem(stack.id)) return null; // only blocks are placed; items are used
   const [x, y, z] = placeTarget(t);
   const there = world.blockAt(x, y, z);
+  // Wild grass and ferns give way to a block set into them. A crop does not, whether it is the thing
+  // clicked or stands against the face clicked: it is the player's own planting, and a block put on it
+  // used to wipe it out, with no harvest and no seed back (the review, N5).
+  if (cropOf(there)) return null;
   if (there !== AIR && !isWaterId(there) && B_RENDER[there] !== RENDER.cross) return null;
   // Furniture with a front (chairs, stoves, stairs…) turns to face whoever places it.
   const id = facingVariant(stack.id, body.yaw ?? 0);
