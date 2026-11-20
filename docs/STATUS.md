@@ -13,6 +13,7 @@ _The page to resume from. Keep it short; history lives in git._
   - **Life and weather:** hummingbirds at the flowers, doves on the valley floor, the quetzal on its tree some mornings with its call; rain most afternoons. All scenery; all off with the one new setting, "Effects".
   - **From the phases' lists:** sitting on chairs, sofas, benches and loungers; the jerky rack has legs; the sump glows and breathes.
   - **Not built:** water edges; a gun rack; Ray's face; the thermal optic and the dish were not photographed.
+  - **Checks:** 906 unit tests; the play-through's six parts, 220 of 220. A fresh review found nine bugs: eight fixed with tests, one answered by the lead (a version-13 valley gets today's plants: where trees were felled, leaves may hang in the air and can be mined away). PHASE9A.md, "The fresh review" and "Checks".
   - **Engine changes others will meet:** `ChunkMesh.glows`; the WebGL context asks for a stencil buffer; `gl.info.autoReset` is off (F3 counts the whole frame); `generateColumn` takes a third argument; the shading byte's third bit marks a vine; `Renderer.effects`, `setEye`, `hand`, `birds`, `rain`, `glows`; five new blocks (`leaves_pale`, `banana_trunk`, `banana_leaves`, `banana_bunch`, `vine`); saving the settings keeps keys it does not know.
 
 - **The home is rebuilt on branch `home`** (with `main` and Phase 7 merged in), waiting for the lead's review. What was built, what differs from the review's plan and why: [HOME.md](HOME.md).

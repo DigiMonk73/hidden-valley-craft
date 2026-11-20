@@ -4,14 +4,14 @@ _Track A of [PHASE9.md](PHASE9.md), built on branch `phase9a` (2026-11-20). The 
 
 ## Resume here
 
-_Kept current, in case the session that built this is cut off. Last written 2026-11-20 15:45 UTC._
+_Kept current, in case the session that built this is cut off. Last written 2026-11-20 16:40 UTC._
 
-- **Branch `phase9a` is pushed and whole** (draft pull request #11). Nothing is half-done in the working tree.
-- **Built, pictured and pushed:** items 1 to 6, rain (7), and from item 8 sitting, the jerky rack's legs and the sump. Not built: water edges, the gun rack, Ray's face; the thermal optic and the dish were not photographed.
-- **The fresh review is in** (15:25 UTC, at 98b2652): no blocker; its findings are listed in "The fresh review" at the end of this page, each marked FIXED, CHANGED, ANSWERED or OPEN. **Every bug is fixed but the first, which the lead has answered** (a version-13 save and the new trees: left as it is). The five "CHANGED, to be looked at again" need one more picture each (`BASE=… ONLY=sump_day,sump_dusk,quetzal,quetzal_from_path,tunnel_inside,pool_under node tools/shots9a.mjs a8 sump life water`).
-- **Still to do, in order:** (1) fix or answer the review's findings, each fix with a test, pushing after each; (2) `git merge origin/main` (it had not moved from 7e0d74d at 14:45); (3) `npm test` once (last full run: 890 passed, 2 skipped, before the bunch, the settings test and the CI fix; the files touched since pass on their own); (4) the play-through's six parts, once (**started 15:24 UTC on the build of 74d098b, before the review's fixes**; its result goes in "Checks" below); (5) the message to the lead (what the brief's "Ending" asks: what was built, test counts, draw calls and triangles before and after, eight camera lines, weak spots).
-- **Numbers for the report:** the balcony sunset at 256 m, version 13 against this branch: 314 → 317 draw calls, 1,569k → 1,583k triangles (`tools/shots9a.mjs` prints them). A column near the valley builds in about 16 ms, as version 13's does.
-- **Pictures** are in `out/9a/` on the machine that made them (not in git): `before-*` is version 13; the newest of each view is the highest of `a2`…`a7`. To take them again: `node tools/shots9a.mjs <tag> valley water road far life rain sump sit hand` against a served build.
+- **Branch `phase9a` is pushed and whole** (draft pull request #11), with `origin/main` (ba02742) merged in. Nothing is half-done.
+- **Built:** items 1 to 6, rain (7), and from item 8 sitting, the jerky rack's legs and the sump. Not built: water edges, the gun rack, Ray's face; the thermal optic and the dish were not photographed.
+- **The fresh review is in and worked through** ("The fresh review", at the end): eight bugs fixed with tests, the ninth answered by the lead, five picture findings changed and looked at again.
+- **Checks:** see "Checks" at the end. All pass.
+- **Left to do:** nothing but the report to the lead, if "Checks" below shows the last play-through parts.
+- **Pictures** are in `out/9a/` on the machine that made them (not in git): `before-*` is version 13; the newest of each view is the highest of `a2`…`a9`; the reviewer's own are `r1-*`. To take them again: `node tools/shots9a.mjs <tag> valley water road far life rain sump sit hand` against a served build.
 
 ## The rule
 
@@ -160,13 +160,20 @@ _A read-only agent that wrote none of this (2026-11-20, at 98b2652): the diff, t
 
 ### Pictures that are not improvements, or are doubtful
 
-- CHANGED, to be looked at again — **Under water the tunnel mouth's lamps did not show across the pool** (a glow died with the fog at 18 m): against "easy to find". A lamp's glow now carries two and a half times as far under water as what it lights (45 m).
-- CHANGED, to be looked at again — **The tunnel's gate, four metres ahead, was black murk** where it had been a readable wall: lamplight under water is hardly dimmed now, and the water's colour is lighter.
-- CHANGED, to be looked at again — **The sump by day was a neon lime disc** (mostly the vapour): the vapour is less than half as thick and greyer, and it is under the Effects setting now.
-- CHANGED, to be looked at again — **Street lights at 60 to 100 m were puffballs** wider than their posts: a big light grows a quarter as much with distance as a lamp does.
-- CHANGED, to be looked at again — **The quetzal could not be made out** from the path, and left before you were close enough to see it: it is drawn 1.7 times its size and lets you come to seven metres.
+- CHANGED, **not confirmed by a picture** — **Under water the tunnel mouth's lamps did not show across the pool** (a glow died with the fog at 18 m): against "easy to find". A lamp's glow now carries two and a half times as far under water as what it lights (45 m) and is drawn at full strength whatever the daylight. From this page's own camera in the deep of the pool (`a9-pool_under.png`) the mouth's lamps still do not show: the basin's ledge stands between (they did not show from there in version 13 either). It wants a look from the surface side of the basin, on a real graphics card.
+- CHANGED, a little — **The tunnel's gate, four metres ahead, was black murk** where it had been a readable wall: lamplight under water is hardly dimmed now, and the water's colour is lighter. `a8-tunnel_inside.png`: the walls are lighter, the lamps lead, the gate is still the darkest thing in view. A weak spot.
+- CHANGED, and better (`a8-sump_day.png`: black sludge with a dull green sheen) — **The sump by day was a neon lime disc** (mostly the vapour): the vapour is less than half as thick and greyer, and it is under the Effects setting now.
+- CHANGED (`a8-sump_dusk.png`) — **Street lights at 60 to 100 m were puffballs** wider than their posts: a big light grows a quarter as much with distance as a lamp does.
+- CHANGED, and it can be made out now (`a8-quetzal.png`: on top of its crown, green with its red breast) — **The quetzal could not be made out** from the path, and left before you were close enough to see it: it is drawn 1.7 times its size and lets you come to seven metres.
 - ANSWERED below, not changed: the balcony sunset is indistinguishable from version 13's (no loss, no gain: at 256 m the far wall is real blocks); sitting on the lounger hides the valley floor behind the parapet; the waterfall at night is the brightest thing in the valley; a limb's sawn end shows from below; the guarumo's leaves read close to as slabs; held food and parts are the pack icon given a thickness (the reviewer names it as another game's look, for the lead to weigh); no picture shows a fire.
 
 ### Claims on this page that did not hold
 
 - FIXED, each corrected in place above: the cells that differ from version 13 (2,065,982, not 3.4 million); where the bananas are (635 of 732 stems are in the buffer, 10 in the valley); the largest held shape (a fireplace, 6,128 triangles); "a handful of block look-ups a frame" (the quetzal's perch was looked for every frame, about 575); "every lamp and fire" (the smoke pot and the lure have no glow); "block for block" in the old-growth strips (trunk for trunk: a crown's reach at a strip's edge differs); `glows` cannot be released after upload (the renderer keeps and re-reads it); the rain test's last line compared an object with itself (it names the colour now).
+
+## Checks
+
+- **Unit tests:** 906 passed, 2 skipped (58 files), on the final code (2026-11-20 16:35 UTC, here); GitHub's checks (type check, tests, build) pass on 715f9da.
+- **The play-through, all six parts:** 220 of 220 checks (valley 42, near 25, mid 21, Zone-2 35, Zone-3 44, Zone-4 53; 61 minutes), on the build of 74d098b: everything but the review's fixes. The valley and Zone-4 parts are being run again on the final build as this is written (the review's fixes changed sitting and the mouse-down path).
+- **Frame cost at the balcony's sunset, 256 m** (`tools/shots9a.mjs` prints it): version 13: 314 draw calls, 1,569k triangles. This branch: 317 and 1,583k. In play the hand adds two more calls and at most a few thousand triangles; birds up to three calls; rain one.
+- **A column near the valley builds** in about 16 ms, as version 13's does (the reviewer's ratio: 1.00).
