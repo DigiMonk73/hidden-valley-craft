@@ -6,7 +6,8 @@ import { HOME_FIT } from '../src/gen/home.ts';
 import { HOME_CHESTS } from '../src/gen/inheritance.ts';
 import { AIR, B_BOXES, B_BOX_GLOW, B_BOX_TEX, B_EMIT, B_SOLID, BLOCK_DEFS, BOX_FLAME, BOX_LIT, TEXTURE_NAMES, blockId, blockName } from '../src/world/blocks.ts';
 import { hasTexture } from '../src/render/textures.ts';
-import { stationOf } from '../src/sim/crafting.ts';
+import { stationOf, stationAt } from '../src/sim/crafting.ts';
+import { raycast } from '../src/sim/raycast.ts';
 import { toggleDoor, breakBlock, placeBlock } from '../src/sim/interact.ts';
 import { Inventory } from '../src/sim/inventory.ts';
 import { Player, EYE } from '../src/sim/player.ts';
@@ -113,9 +114,80 @@ describe('the home, rebuilt', () => {
   });
 
   it('cooks at the range and at the hearth, whichever part is clicked', () => {
-    for (const n of ['range_firebox@west', 'range_oven@west', 'range_tank@west', 'cook_pot', 'kettle', 'hearth_fire', 'hearth_flames', 'ember_bed', 'stove', 'fireplace'])
+    for (const n of ['range_firebox@west', 'range_oven@west', 'range_tank@west', 'hearth_fire', 'hearth_flames', 'ember_bed', 'stove', 'fireplace'])
       expect(stationOf(blockId(n)), n).toBe('stove');
     expect(stationOf(blockId('range_hood@west'))).toBeNull();
+  });
+
+  it('the pot and the kettle on the range cook; the kettle on the sideboard, or one carried off, does not', () => {
+    const w = home(), at = (x: number, y: number, z: number) => w.blockAt(x, y, z), R = HOME_FIT.range;
+    expect(name(w, R.x, F + 1, R.z)).toBe('cook_pot');
+    expect(stationAt(at, R.x, F + 1, R.z)).toBe('stove');
+    expect(name(w, R.x, F + 1, R.z + 1)).toBe('kettle');
+    expect(stationAt(at, R.x, F + 1, R.z + 1)).toBe('stove');
+    expect(name(w, 1804, F + 1, 1032)).toBe('kettle');
+    expect(stationAt(at, 1804, F + 1, 1032)).toBeNull();
+    expect(stationOf(blockId('kettle'))).toBeNull();
+    expect(stationAt(at, R.x, F, R.z)).toBe('stove');
+  });
+
+  it('standing anywhere in front of the hearth, the hearthstone included, a click on the fire cooks', () => {
+    // On the raised hearthstone the eye is at the height of the mantel's shelf, inside its block: the ray must look
+    // out of the cell the eye is in, not hit it.
+    const w = home(), at = (x: number, y: number, z: number) => w.blockAt(x, y, z), H = HOME_FIT.hearth;
+    const walk = walkable(w, 1797, 1024);
+    let stood = 0;
+    for (let x = H.x - 2; x <= H.x + 2; x++) for (let z = H.z + 2; z <= H.z + 4; z++) {
+      const y = walk.get(`${x},${z}`);
+      if (y === undefined) continue;
+      if (z === H.z + 2 && Math.abs(x - H.x) === 2) continue; // hard against a jamb, the jamb hides the fire
+      stood++;
+      const [ox, oy, oz] = [x + 0.5, y + EYE, z + 0.5];
+      const [dx, dy, dz] = [H.x + 0.5 - ox, F + 1.4 - oy, H.z + 0.5 - oz];
+      const len = Math.hypot(dx, dy, dz);
+      const hit = raycast(at, ox, oy, oz, dx / len, dy / len, dz / len, 5);
+      expect(hit && stationAt(at, hit.x, hit.y, hit.z), `from ${x},${z}: ${hit && blockName(hit.id)}`).toBe('stove');
+    }
+    expect(stood).toBeGreaterThanOrEqual(12);
+    expect(walk.get(`${H.x},${H.z + 2}`)).toBe(F + 0.5); // the hearthstone itself is stood on
+  });
+
+  it('the ray looks out of the cell the eye is in, unless that cell is solid or water', () => {
+    const shelf = blockId('mantel_shelf'), stone = blockId('stone_bricks'), water = blockId('water');
+    const world = (inCell: number) => (x: number, y: number, z: number) => (x === 0 && y === 0 && z === 0 ? inCell : x === 2 && y === 0 && z === 0 ? stone : AIR);
+    expect(raycast(world(shelf), 0.5, 0.5, 0.5, 1, 0, 0, 5)).toMatchObject({ x: 2, id: stone });
+    expect(raycast(world(stone), 0.5, 0.5, 0.5, 1, 0, 0, 5)).toMatchObject({ x: 0, id: stone, dist: 0 });
+    expect(raycast(world(water), 0.5, 0.5, 0.5, 1, 0, 0, 5, true)).toMatchObject({ x: 0, id: water, dist: 0 });
+    // From outside, the shelf is hit like anything else.
+    expect(raycast(world(shelf), -1.5, 0.5, 0.5, 1, 0, 0, 5)).toMatchObject({ x: 0, id: shelf });
+  });
+
+  it('no furniture beside the balcony’s railing gets you over it: walking, sprinting or jumping', () => {
+    const w = home(), at = (x: number, y: number, z: number) => w.blockAt(x, y, z), b = HOME.balcony;
+    const over: string[] = [];
+    for (let x = b.x0; x <= b.x1; x++) for (let z = b.z0; z <= b.z1; z++) {
+      const id = at(x, F, z);
+      if (!B_SOLID[id] || /railing/.test(blockName(id))) continue;
+      const p = new Player();
+      let top = F + 1;
+      while (top > F && p.fitsAt(x + 0.5, top - 1 / 16, z + 0.5, at)) top -= 1 / 16;
+      if (!p.fitsAt(x + 0.5, top, z + 0.5, at)) continue; // something stands on it
+      // Eight ways, jumping all the while. The one way off is north, through the gap between the lantern posts.
+      for (let dir = 0; dir < 8; dir++) for (const sprint of [false, true]) {
+        p.setPosition(x + 0.5, top, z + 0.5);
+        p.yaw = dir * Math.PI / 4;
+        let crossed = '';
+        for (let i = 0; i < 60 * 5 && !crossed; i++) {
+          const wasZ = p.z;
+          p.step(1 / 60, { forward: 1, strafe: 0, jump: true, sprint, descend: false }, at);
+          if (p.x < b.x0 && p.z >= b.z0) crossed = 'west';
+          else if (p.z >= b.z1 && p.x < b.x1) crossed = 'south';
+          else if (wasZ >= b.z0 && p.z < b.z0 && (p.x < 1795 || p.x >= 1798)) crossed = 'north';
+        }
+        if (crossed) over.push(`${blockName(id)} at ${x},${z}, yaw ${dir * 45}°${sprint ? ', sprinting' : ''}: over the ${crossed} railing`);
+      }
+    }
+    expect(over).toEqual([]);
   });
 
   it('the place you wake is free, at the foot of the bed, and looks straight out of the window at the valley', () => {
@@ -207,6 +279,24 @@ describe('the home, rebuilt', () => {
     for (const y of [F, F + 1]) { expect(name(d, l[0], y, l[2])).toBe('door_wood_open'); expect(name(d, r[0], y, r[2])).toBe('door_wood_r_open'); }
   });
 
+  it('a door leaf taken out goes back matching: either leaf, either half, open or shut', () => {
+    const [l, r] = HOME_FIT.door;
+    for (const shut of [false, true]) for (const [leaf, x] of [['door_wood', l[0]], ['door_wood_r', r[0]]] as [string, number][]) {
+      const d = home(), z = l[2], inv = new Inventory();
+      if (shut) toggleDoor(d, l[0], F, z);
+      const was = leaf + (shut ? '' : '_open');
+      for (const y of [F + 1, F]) { expect(name(d, x, y, z)).toBe(was); expect(breakBlock(d, inv, x, y, z).changed).toBe(true); }
+      expect(inv.count(blockId('door_wood'))).toBe(2); // both leaves come up as the one kind of door
+      inv.select(inv.slots.findIndex((s) => s && s.id === blockId('door_wood')));
+      // Put back from the living room, facing south, onto the floor and then onto the lower half.
+      for (const y of [F, F + 1]) placeBlock(d, inv, { intersectsBlock: () => false, yaw: Math.PI }, { x, y: y - 1, z, nx: 0, ny: 1, nz: 0, id: d.blockAt(x, y - 1, z), dist: 1 });
+      for (const y of [F, F + 1]) expect(name(d, x, y, z), `${was} put back`).toBe(was);
+      // And the pair still shuts and opens as one.
+      expect(toggleDoor(d, x, F, z)).toBe(true);
+      for (const y of [F, F + 1]) { expect(name(d, l[0], y, z)).toBe(shut ? 'door_wood_open' : 'door_wood'); expect(name(d, r[0], y, z)).toBe(shut ? 'door_wood_r_open' : 'door_wood_r'); }
+    }
+  });
+
   it('the fire’s flames go out with it when it is taken up, and burn again where it is set down; they cannot be mined alone', () => {
     const d = home(), H = HOME_FIT.hearth;
     const inv = new Inventory();
@@ -265,8 +355,8 @@ describe('furniture made of several boxes', () => {
     const lamp = blockId('table_lamp');
     const names = [...B_BOX_TEX[lamp]!].map((l) => TEXTURE_NAMES[l]);
     expect(names.slice(0, 6).every((n) => n === 'brass')).toBe(true);
-    expect(names.slice(12).every((n) => n === 'lit_shade')).toBe(true);
-    expect([...B_BOX_GLOW[lamp]!]).toEqual([0, 0, BOX_LIT]);
+    expect(names.slice(12, 24).every((n) => n === 'lit_shade')).toBe(true);
+    expect([...B_BOX_GLOW[lamp]!]).toEqual([0, 0, BOX_LIT, BOX_LIT, 0]);
     expect([...B_BOX_GLOW[blockId('hearth_flames')]!]).toEqual([BOX_FLAME, BOX_FLAME, BOX_FLAME]);
     // In the mesh a glowing face carries face 7 (lit from within), and a flame is a sheet of two faces.
     const w = load(1790, 1010, 1830, 1040);

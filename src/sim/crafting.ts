@@ -7,7 +7,7 @@ import { itemId } from '../world/items.ts';
 import { blockName, BLOCK_DEFS } from '../world/blocks.ts';
 import type { Inventory, Stack } from './inventory.ts';
 
-export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge' | 'powder_mill';
+export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge' | 'powder_mill' | 'crucible_furnace' | 'lathe';
 
 /** `learn`: a flag that must be earned before the recipe shows (the leghold, learned at the camp). */
 export interface Recipe { station: Station; out: [number, number]; in: [number, number][]; returns: [number, number][]; learn?: string }
@@ -23,7 +23,7 @@ export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
 }));
 
 export const STATION_LABEL: Record<Station, string> = {
-  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill',
+  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill', crucible_furnace: 'Crucible furnace', lathe: 'Lathe',
 };
 
 /** Which station a block is, if any. The hearth cooks like the range, and so does any part of either. */
@@ -35,13 +35,26 @@ export function stationOf(block: number): Station | null {
     case 'smelter': return 'smelter';
     case 'anvil': return 'anvil';
     case 'stove': case 'fireplace': return 'stove';
-    case 'range_firebox': case 'range_oven': case 'range_tank': case 'cook_pot': case 'kettle': return 'stove';
+    case 'range_firebox': case 'range_oven': case 'range_tank': return 'stove';
     case 'hearth_fire': case 'hearth_flames': case 'ember_bed': return 'stove';
     case 'tannery_rack': return 'tannery';
     case 'forge': return 'forge';
     case 'powder_mill': return 'powder_mill';
+    case 'crucible_furnace': return 'crucible_furnace';
+    case 'lathe': return 'lathe';
     default: return null;
   }
+}
+
+/**
+ * The station at a place in the world. A pot or a kettle is part of the stove it stands on, and nothing by
+ * itself: on a sideboard, or carried off and set down, it cooks nothing.
+ */
+export function stationAt(blockAt: (x: number, y: number, z: number) => number, x: number, y: number, z: number): Station | null {
+  const id = blockAt(x, y, z);
+  const base = BLOCK_DEFS[id]?.base ?? blockName(id);
+  if (base === 'cook_pot' || base === 'kettle') return stationOf(blockAt(x, y - 1, z)) === 'stove' ? 'stove' : null;
+  return stationOf(id);
 }
 
 /** The recipes made at a station; those still to be learned are left out unless `known` has their flag. */

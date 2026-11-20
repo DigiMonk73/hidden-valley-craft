@@ -1,6 +1,6 @@
 // Chickens (docs/PHASE4.md, step 6): caught by hand at the farmstead, taken home to a coop. A coop with
 // two or more hens lays one egg per hen each morning, up to eight waiting, and drops a feather as it lays.
-// Like the hutch, it works while its chunk is loaded.
+// Like the hutch, it works wherever the player is: each dawn counts, loaded or not (docs/PHASE7.md, 7).
 
 import { blockId } from '../world/blocks.ts';
 import { itemId, maxStack } from '../world/items.ts';
@@ -31,13 +31,13 @@ function addTo(slots: (Stack | null)[], id: number, n: number): number {
   return n - left;
 }
 
-/** Each loaded coop with two or more chickens lays one egg per chicken (up to eight waiting) and a feather. Returns eggs laid. */
+/** Each coop with two or more chickens lays one egg per chicken (up to eight waiting) and a feather. Returns eggs laid. */
 export function layEggs(world: World): number {
   const hen = itemId('live_chicken'), egg = itemId('egg'), feather = itemId('feather');
   let laid = 0;
   for (const [key, slots] of world.containers) {
     const x = key & 2047, z = (key >> 11) & 2047, y = key >>> 22;
-    if (world.blockAt(x, y, z) !== COOP) continue;
+    if (world.blockKnown(x, y, z) !== COOP) continue; // loaded or not: the days away count
     const hens = count(slots, hen);
     if (hens < 2) continue;
     const want = Math.min(hens, EGGS_MAX - count(slots, egg));
@@ -55,7 +55,7 @@ export function layEggs(world: World): number {
 const coopAt = (key: number): [number, number, number] => [key & 2047, key >>> 22, (key >> 11) & 2047];
 
 /**
- * Morning: each loaded coop with two or more hens and an egg left in it from before hatches one egg into
+ * Morning: each coop with two or more hens and an egg left in it from before hatches one egg into
  * a hen (eight at most). Call before this morning's laying, so only eggs the player chose to leave hatch.
  */
 export function hatchEggs(world: World): number {
@@ -63,7 +63,7 @@ export function hatchEggs(world: World): number {
   let hatched = 0;
   for (const [key, slots] of world.containers) {
     const [x, y, z] = coopAt(key);
-    if (world.blockAt(x, y, z) !== COOP) continue;
+    if (world.blockKnown(x, y, z) !== COOP) continue; // loaded or not: the days away count
     const hens = count(slots, hen);
     if (hens < 2 || hens >= HENS_MAX || count(slots, egg) < 1) continue;
     if (!addTo(slots, hen, 1)) continue; // no room for her

@@ -1,7 +1,7 @@
 // M1, the first outside run (docs/PHASE4.md, step 7). DESIGN.md's four M1 unlocks are narrative, with no
 // new recipes; here each is a flag the game sets when the player has done it. Pure.
 
-import { inSanctuary, zoneAt, GATE, ZONE2 } from '../gen/layout.ts';
+import { inSanctuary, zoneAt, GATE, ZONE2, ZONE3 } from '../gen/layout.ts';
 
 export interface Step { flag: string; label: string }
 
@@ -107,4 +107,46 @@ export function trackM3(flags: Set<string>, x: number, z: number, home: { arrays
 /** A death outside before reaching home from the ruins: the run has to be walked again. */
 export function diedOutsideM3(flags: Set<string>): void {
   if (!flags.has('zone2_home')) flags.delete('ruins_reached');
+}
+
+// ---- M4, hydro (docs/PHASE7.md, 6) --------------------------------------------------------------------
+// DESIGN.md's M4 bundles six unlocks; here each is a thing the player has done, ticked on the computer. The
+// run across the dam to Zone-3's works, and home alive, is its own line; the mods and the armour are two.
+
+export const M4_STEPS: Step[] = [
+  { flag: 'zone3_home', label: 'Cross the dam to the works (Zone 3), and come home alive' },
+  { flag: 'steel_made', label: 'Make steel: a crucible furnace (the foundry’s crucible)' },
+  { flag: 'lathe_built', label: 'Workshop tier 2: a lathe (the machine shop’s parts)' },
+  { flag: 'hydro_built', label: 'A hydro generator turning in the creek (Ray’s plans, the turbine parts)' },
+  { flag: 'farm_running', label: 'A mining farm: three rigs running at once' },
+  { flag: 'uplink_plans', label: 'Ray’s uplink plans (call him once the generator turns)' },
+  { flag: 'gun_modded', label: 'Fit a found gun at the lathe' },
+  { flag: 'armor2_made', label: 'Plate armour (tier 2)' },
+];
+
+/** At Zone-3's works: within this of the powerhouse, the machine shop or the foundry. */
+export function atWorks(x: number, z: number): boolean {
+  const near = (b: { x0: number; x1: number; z0: number; z1: number }) => Math.hypot(Math.max(b.x0 - x, x - b.x1, 0), Math.max(b.z0 - z, z - b.z1, 0)) < 20;
+  return near(ZONE3.powerhouse) || near(ZONE3.shop) || near(ZONE3.foundry);
+}
+
+/**
+ * Notes where the player is and what runs at home (once a second), and sets the M4 flags it earns. The rest
+ * (steel, the lathe, the mods, the armour, Ray's plans) are set where they happen. Returns flags newly set,
+ * ending with 'm4_done'.
+ */
+export function trackM4(flags: Set<string>, x: number, z: number, home: { hydro: number; rigs: number }): string[] {
+  const added: string[] = [];
+  const set = (f: string) => { if (!flags.has(f)) { flags.add(f); added.push(f); } };
+  if (atWorks(x, z)) set('works_reached');
+  if (inSanctuary(x, z) && flags.has('works_reached')) set('zone3_home');
+  if (home.hydro > 0) set('hydro_built');
+  if (home.rigs >= 3) set('farm_running');
+  if (M4_STEPS.every((s) => flags.has(s.flag))) set('m4_done');
+  return added;
+}
+
+/** A death outside before reaching home from the works: the run has to be walked again. */
+export function diedOutsideM4(flags: Set<string>): void {
+  if (!flags.has('zone3_home')) flags.delete('works_reached');
 }

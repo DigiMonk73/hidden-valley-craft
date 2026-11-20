@@ -51,8 +51,8 @@ node tests/e2e/play.mjs
 ```
 
 The play-through is in parts, each a standalone script that sets its own scene and runs in about 15–25
-minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `play-mid.mjs` (Zone-1) and `play-zone2.mjs`
-(Zone-2 and power). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
+minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `play-mid.mjs` (Zone-1), `play-zone2.mjs`
+(Zone-2 and power) and `play-zone3.mjs` (Zone-3, the Ashen and hydro). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
 tests/e2e/play.mjs` runs only some, and `node tests/e2e/play-zone2.mjs` runs one directly.
 
 ```bash
@@ -81,8 +81,15 @@ node --experimental-strip-types tools/texsheet.ts
 `tools/landhash.ts` hashes the land outside the home, to show a change to the home changed nothing else (docs/HOME.md).
 
 `npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
-tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`); the second command draws every block texture
-side by side.
+tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, and `tools/zone3map.ts` Zone-3's into
+`docs/phase7-map.png`); the second command draws every block texture side by side.
+
+`node --experimental-strip-types --no-warnings tools/worldhash.ts out/now.json 21 63 0 63` hashes every generated
+column east of the river's gorge, and `tools/worldhash.ts --diff tests/fixtures/east-of-ravine.json out/now.json` lists
+those that differ from the land as it was before Phase 7. Run it after any change to the generator: only the
+dam road's five columns may differ. The gorge's east rim west of those columns is hashed row by row
+(`tools/worldhash.ts --rim out/rim.json`, baseline `tests/fixtures/east-rim.json`): a unit test checks that only
+the reservoir's shore and the dam's east end differ.
 
 ## How it is built
 

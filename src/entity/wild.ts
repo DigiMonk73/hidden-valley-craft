@@ -9,6 +9,7 @@ import { think, hurt, KINDS, PACK_KINDS, RAIDER_KINDS, FACTION_KINDS, TRAPPABLE,
 import { manFaction, standDown, newFaction, PASS, type FactionState } from './faction.ts';
 import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, SHOT_HEARD, type OutpostState, type RaiderEvent } from './outpost.ts';
 import { thinkJaguar } from './jaguar.ts';
+import { thinkAshen, manAshen, standDownAshen, ashenHear, provokeAshen, isHunting, newAshen, SHOT_HEARD as ASHEN_SHOT_HEARD, QUIET_SHOT_HEARD, type AshenEvent, type AshenState } from './ashen.ts';
 import { LEGHOLD, HOLD_SECONDS } from '../sim/preserve.ts';
 import { OUTPOST_AT } from '../gen/zone1far.ts';
 import { trySpawn, despawnFar, denPack, groundAt, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
@@ -46,6 +47,12 @@ export interface WildSenses {
   sprint?: boolean;
   /** Does the player carry the scout's armband (Zone-2's men take them for one of theirs, from afar)? */
   armband?: boolean;
+  /** A suppressed shot since the last update: heard only close by (docs/PHASE7.md). */
+  quietShot?: boolean;
+  /** The light at a block, 0–15: the brighter of the daylight reaching it and lamplight (the Ashen live by it). Bright everywhere if not given. */
+  lightAt?: (x: number, y: number, z: number) => number;
+  /** Is the player mining? */
+  mining?: boolean;
 }
 
 export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit' | 'bark' | 'snarl' | 'yip' | 'cluck'; x: number; y: number; z: number };
@@ -66,10 +73,13 @@ export interface WildEvents {
   jaguar: ('gone' | 'provoked')[];
   /** Arrows that killed a raider who never saw it coming (silent: the others are not told). */
   silent: number;
+  /** What the Ashen did: noticed, shrieked, lunged, missed, hit, breathed (docs/PHASE7.md). */
+  ashen: AshenEvent[];
 }
 
 /** How much of a blow gets through what the player carries: the best of the vest and leather armour. */
 export function armourFactor(count: (name: string) => number): number {
+  if (count('plate_armor') > 0) return 0.5; // M4's tier 2 (docs/PHASE7.md)
   if (count('armor_vest') > 0) return 0.7;
   if (count('leather_armor') > 0) return 0.85;
   return 1;
@@ -91,11 +101,15 @@ export class Wild {
   outpost: OutpostState = { left: ALL_RAIDERS, alert: false };
   /** Zone-2's faction: who is down until dawn, whether they are alerted, whether the armband is seen through. */
   faction: FactionState = newFaction();
+  /** Zone-3's Ashen: who is down until dawn (saved), and whether the first one still stands out in the road. */
+  ashen: AshenState = newAshen();
+  private quietHeard = false;
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
-    const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [], raiders: [], jaguar: [], silent: 0 };
+    const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [], raiders: [], jaguar: [], silent: 0, ashen: [] };
     if (s.shot) this.shotHeard = true;
+    if (s.quietShot) this.quietHeard = true;
     this.acc += dt;
     while (this.acc >= STEP) {
       this.acc -= STEP;
@@ -115,6 +129,8 @@ export class Wild {
       this.creatures.push(...manOutpost(this.creatures, this.outpost, s.px, s.pz, s.loaded));
       this.creatures = standDown(this.creatures, this.faction, s.px, s.pz);
       this.creatures.push(...manFaction(this.creatures, this.faction, s.px, s.pz, s.loaded, (x, z) => groundAt(x, z, s.blockAt)));
+      this.creatures = standDownAshen(this.creatures, s.px, s.pz);
+      this.creatures.push(...manAshen(this.creatures, this.ashen, s.px, s.pz, s.night, s.loaded, (x, y, z) => floorNear(x, y, z, s.blockAt)));
       // Once the player has gone well away and the raiders are no longer about, the outpost stands down.
       if (!this.creatures.some((c) => RAIDER_KINDS.has(c.kind)) && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) > 130) this.outpost.alert = false;
     }
@@ -123,7 +139,17 @@ export class Wild {
     if (this.shotHeard && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) < SHOT_HEARD && this.outpost.left) alertOutpost(this.creatures, this.outpost);
     // And near any of Zone-2's men, all of them: the disguise is over for this visit.
     if (this.shotHeard && this.creatures.some((c) => FACTION_KINDS.has(c.kind) && Math.hypot(s.px - c.x, s.pz - c.z) < SHOT_HEARD)) this.alertFaction();
+    // The Ashen come to where a shot was fired (not to the player): a suppressed one carries only a little way.
+    if (this.shotHeard) ashenHear(this.creatures, s.px, s.pz, ASHEN_SHOT_HEARD);
+    else if (this.quietHeard) {
+      ashenHear(this.creatures, s.px, s.pz, QUIET_SHOT_HEARD);
+      const near = (c: Creature) => Math.hypot(s.px - c.x, s.pz - c.z) < QUIET_SHOT_HEARD;
+      if (this.outpost.left && this.creatures.some((c) => RAIDER_KINDS.has(c.kind) && near(c))) alertOutpost(this.creatures, this.outpost);
+      if (this.creatures.some((c) => FACTION_KINDS.has(c.kind) && near(c))) this.alertFaction();
+    }
     this.shotHeard = false;
+    this.quietHeard = false;
+    const ashenSenses = { ...senses, lightAt: s.lightAt ?? (() => 15), mining: s.mining };
     for (const c of [...this.creatures]) {
       if (!s.loaded(c.x, c.z)) continue; // its ground isn't there: it waits
       const before: Mind = c.mind;
@@ -145,6 +171,14 @@ export class Wild {
           if (e.kind === 'blow') ev.hits.push({ damage: e.damage, by: c.kind });
         }
         if (this.outpost.alert && !alertBefore) alertOutpost(this.creatures, this.outpost);
+        continue;
+      }
+      if (c.kind === 'ashen') {
+        const others = this.creatures.filter((o) => o !== c && isHunting(o)).length;
+        for (const e of thinkAshen(c, STEP, ashenSenses, others, s.blockAt, s.rand)) {
+          ev.ashen.push(e);
+          if (e.kind === 'hit') ev.hits.push({ damage: e.damage, by: 'ashen' });
+        }
         continue;
       }
       if (c.kind === 'jaguar') {
@@ -223,9 +257,15 @@ export class Wild {
         // An arrow in a raider who hasn't seen you does three times its harm; a kill so is silent.
         const faction = FACTION_KINDS.has(hit.kind);
         const unseen = (RAIDER_KINDS.has(hit.kind) && !this.outpost.alert && hit.mind === 'watch') || (faction && !this.faction.alert && hit.mind === 'watch');
-        if (hurt(hit, unseen ? a.damage * 3 : a.damage)) { ev.kills.push(hit); this.remove(hit); if (unseen) ev.silent++; }
+        if (hurt(hit, unseen ? a.damage * 3 : a.damage)) {
+          ev.kills.push(hit); this.remove(hit); if (unseen) ev.silent++;
+          // Down until dawn from this moment: the next step's roll-call must not find the place empty and fill it.
+          if (hit.squad && faction) this.faction.down |= hit.squad;
+          if (hit.squad && hit.kind === 'ashen') this.ashen.down |= hit.squad;
+        }
         if (RAIDER_KINDS.has(hit.kind) && (!unseen || hit.hp > 0)) alertOutpost(this.creatures, this.outpost);
         if (faction && (!unseen || hit.hp > 0)) this.alertFaction();
+        if (hit.kind === 'ashen' && hit.hp > 0) this.provoke(hit, s.px, s.pz);
         // The arrow drops where the animal was, to be picked up again.
         a.x = hit.x; a.y = hit.y + 0.2; a.z = hit.z; a.stuck = true; a.age = 0;
         keep.push(a);
@@ -242,6 +282,11 @@ export class Wild {
   alertFaction(): void {
     alertOutpost(this.creatures, this.faction, FACTION_KINDS);
     this.faction.blown = true;
+  }
+
+  /** An Ashen hurt and still standing turns on whoever hurt it (if three aren't hunting already, else it comes to look). */
+  provoke(c: Creature, px: number, pz: number): void {
+    provokeAshen(c, px, pz, this.creatures.filter((o) => o !== c && isHunting(o)).length);
   }
 
   remove(c: Creature): void { this.creatures = this.creatures.filter((o) => o !== c); }
@@ -304,4 +349,14 @@ export function arrowHitCreature(cs: Creature[], sx: number, sy: number, sz: num
     if (ok && t0 < bestT) { best = c; bestT = t0; }
   }
   return best;
+}
+
+/** The floor nearest to a height at (x, z): solid underfoot and room to stand, within a few blocks up or down. */
+export function floorNear(x: number, y: number, z: number, blockAt: BlockAt): number | null {
+  const bx = Math.floor(x), bz = Math.floor(z), y0 = Math.round(y);
+  for (const dy of [0, -1, 1, -2, 2, -3, 3]) {
+    const fy = y0 + dy;
+    if (B_SOLID[blockAt(bx, fy - 1, bz)] && !B_SOLID[blockAt(bx, fy, bz)] && !B_SOLID[blockAt(bx, fy + 1, bz)]) return fy;
+  }
+  return null;
 }

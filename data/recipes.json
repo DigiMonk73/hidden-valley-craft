@@ -87,6 +87,18 @@
     {"station": "forge", "out": ["bullet", 8], "in": [["scrap_lead", 1], ["coal", 1], ["bullet_mold", 0]]},
     {"station": "workbench", "out": ["pistol_rounds", 4], "in": [["gunpowder", 1], ["brass_casing", 4], ["bullet", 4], ["primer", 4]]},
     {"station": "workbench", "out": ["rifle_rounds", 4], "in": [["gunpowder", 2], ["brass_casing", 4], ["bullet", 4], ["primer", 4]]},
-    {"station": "workbench", "out": ["rain_awning", 2], "in": [["planks", 2], ["canvas", 1]]}
+    {"station": "workbench", "out": ["rain_awning", 2], "in": [["planks", 2], ["canvas", 1]]},
+
+    {"station": "workbench", "out": ["crucible_furnace", 1], "in": [["crucible", 1], ["cobble", 8], ["clay", 4], ["iron_ingot", 2]]},
+    {"station": "crucible_furnace", "out": ["steel_ingot", 2], "in": [["steel_stock", 2], ["coal", 1]]},
+    {"station": "crucible_furnace", "out": ["steel_ingot", 2], "in": [["steel_stock", 2], ["charcoal", 2]]},
+    {"station": "crucible_furnace", "out": ["steel_ingot", 1], "in": [["iron_ingot", 2], ["coal", 2]]},
+    {"station": "workbench", "out": ["lathe", 1], "in": [["lathe_parts", 1], ["steel_ingot", 4], ["wiring", 2], ["planks", 2]]},
+    {"station": "workbench", "out": ["hydro_generator", 1], "in": [["turbine_parts", 1], ["steel_ingot", 6], ["wiring", 4], ["sluice_tools", 0]], "learn": "hydro_plans"},
+    {"station": "lathe", "out": ["pistol_suppressed", 1], "in": [["pistol", 1], ["steel_ingot", 2], ["pipe_fittings", 1]]},
+    {"station": "lathe", "out": ["rifle_rebuilt", 1], "in": [["raider_rifle", 1], ["steel_ingot", 3], ["glass", 1]]},
+    {"station": "lathe", "out": ["plate_armor", 1], "in": [["armor_vest", 1], ["steel_ingot", 4], ["leather", 2]]},
+    {"station": "lathe", "out": ["steel_pickaxe", 1], "in": [["steel_ingot", 3], ["stick", 2]]},
+    {"station": "workbench", "out": ["planter_box", 2], "in": [["planks", 3], ["dirt", 1]]}
   ]
 }

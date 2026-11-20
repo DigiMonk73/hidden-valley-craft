@@ -51,6 +51,13 @@ export interface SaveData {
   dose?: number;
   /** Zone-2's men killed since dawn, as bits (Phase 6): they stay down across a reload. Absent: none. */
   factionDown?: number;
+  /** Zone-3's Ashen put down since dawn, as bits (Phase 7): they stay down across a reload. Absent: none. */
+  ashenDown?: number;
+  /**
+   * The solar arrays under open sky and the hydro generators at the water when saved (Phase 7): away from
+   * home their land is not loaded, and they count as last seen. Absent (an older save): none count until seen.
+   */
+  live?: { solar: [number, number, number][]; hydro: [number, number, number][] };
 }
 
 export function collectContainers(world: World): NonNullable<SaveData['containers']> {

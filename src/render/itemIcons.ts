@@ -152,6 +152,18 @@ const DRAW: Record<string, (i: Icon) => void> = {
   bullet_mold: (i) => { i.line(2, 14, 7, 9, WOOD, 2); i.line(4, 15, 9, 10, WOOD_D, 1); i.rect(8, 3, 6, 7, IRON); i.line(11, 3, 11, 9, '#6b655e'); i.disc(11, 6, 1, '#3a3632'); },
   bullet: (i) => { for (const x of [4, 9]) { i.rect(x, 7, 3, 6, '#7d848a'); i.disc(x + 1, 6, 1, '#7d848a'); i.set(x + 1, 5, '#9aa0a6'); } },
   cold_water: (i) => { i.rect(4, 5, 8, 9, '#a8d8ec'); i.rect(6, 2, 4, 3, '#d0d6da'); i.rect(4, 5, 8, 2, '#d4eef8'); i.set(5, 9, '#ffffff'); i.set(10, 11, '#ffffff'); i.set(7, 12, '#ffffff'); },
+  // Zone-3 and M4 (docs/PHASE7.md).
+  steel_stock: (i) => { i.rect(2, 9, 12, 3, '#6f7c88'); i.rect(2, 9, 12, 1, '#c2cad2'); i.rect(4, 5, 9, 2, '#8f9aa4'); i.rect(4, 4, 9, 1, '#d8dee4'); i.rect(6, 7, 2, 2, '#4a525a'); },
+  steel_ingot: (i) => { i.rect(3, 7, 10, 5, '#8f9aa4'); i.rect(4, 6, 8, 1, '#d8dee4'); i.rect(3, 11, 10, 1, '#4a525a'); i.set(5, 8, '#e8eef2'); },
+  turbine_runner: (i) => { i.disc(8, 8, 6, '#7d8790'); i.disc(8, 8, 2, '#c9d0d6'); for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; i.line(8 + Math.cos(a) * 2, 8 + Math.sin(a) * 2, 8 + Math.cos(a + 0.7) * 6, 8 + Math.sin(a + 0.7) * 6, '#d8dee4'); } },
+  sluice_tools: (i) => { i.disc(6, 6, 4, '#7d8790'); i.disc(6, 6, 2, '#2d2d2d'); i.line(6, 6, 13, 13, '#c9d0d6', 2); i.rect(11, 3, 2, 5, '#c9a227'); i.set(12, 2, '#c9a227'); },
+  lathe_parts: (i) => { i.rect(2, 6, 6, 6, '#3e6a52'); i.disc(10, 9, 3, '#c9d0d6'); i.disc(10, 9, 1, '#4a525a'); i.line(2, 13, 14, 13, '#9aa0a6'); for (let x = 3; x < 14; x += 2) i.set(x, 14, '#6a6e72'); },
+  crucible: (i) => { i.rect(4, 5, 8, 9, '#34322f'); i.rect(3, 4, 10, 2, '#4a4640'); i.rect(5, 5, 6, 1, '#ff8a2e'); i.set(12, 4, '#4a4640'); i.set(13, 3, '#4a4640'); },
+  plans: (i) => { i.rect(2, 3, 12, 10, '#e6dab8'); i.line(4, 10, 7, 6, '#4a5a8a'); i.line(7, 6, 11, 10, '#4a5a8a'); i.disc(7, 6, 1, '#4a5a8a'); for (let x = 4; x < 12; x += 2) i.set(x, 11, '#8a7a5a'); },
+  plans_blue: (i) => { i.rect(2, 3, 12, 10, '#2c5a9c'); i.line(4, 11, 8, 5, '#eef2f5'); i.line(8, 5, 12, 11, '#eef2f5'); for (let a = 0; a < 7; a++) i.set(8 + Math.round(4 * Math.cos(Math.PI + (a / 6) * Math.PI)), 5 + Math.round(2 * Math.sin(Math.PI + (a / 6) * Math.PI)), '#eef2f5'); },
+  pistol_suppressed: (i) => { i.rect(2, 5, 7, 3, '#2f3133'); i.rect(9, 5, 6, 3, '#111111'); i.rect(9, 5, 6, 1, '#3a3a3a'); i.rect(3, 8, 3, 5, '#3b2a1c'); i.set(7, 9, '#2f3133'); },
+  rifle_rebuilt: (i) => { i.rect(1, 9, 5, 3, '#4a3020'); i.rect(5, 8, 10, 2, '#c9d0d6'); i.rect(5, 9, 10, 1, '#7d8790'); i.rect(6, 5, 6, 2, '#1f1f1f'); i.set(6, 6, '#6fb6e0'); i.set(6, 10, '#3c3c3c'); },
+  plate_armor: (i) => { i.rect(3, 4, 3, 10, '#4b5320'); i.rect(10, 4, 3, 10, '#4b5320'); i.rect(5, 6, 6, 8, '#8f9aa4'); i.rect(5, 6, 6, 1, '#d8dee4'); i.line(8, 7, 8, 13, '#4a525a'); },
 };
 
 export function hasIcon(name: string): boolean { return name in DRAW; }

@@ -1,7 +1,7 @@
 // Mining and placing: what happens to the world and the hotbar when the player breaks or places a
 // block. Kept apart from the game loop so it can be tested on its own.
 
-import { AIR, WATER, B_RENDER, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
+import { AIR, WATER, B_BOXES, B_RENDER, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
 import { dropOf, isBlockItem } from '../world/items.ts';
 import { packPos } from '../world/light.ts';
 import { cropDrops } from './farming.ts';
@@ -54,13 +54,35 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
   const there = world.blockAt(x, y, z);
   if (there !== AIR && !isWaterId(there) && B_RENDER[there] !== RENDER.cross) return null;
   // Furniture with a front (chairs, stoves, stairs…) turns to face whoever places it.
-  const id = facingVariant(stack.id, body.yaw ?? 0);
+  const id = doorLeafFor(world, x, y, z, facingVariant(stack.id, body.yaw ?? 0));
   if (B_SOLID[id] && body.intersectsBlock(x, y, z)) return null;
   if (B_RENDER[id] === RENDER.cross && !B_SOLID[world.blockAt(x, y - 1, z)]) return null; // plants need ground
   if (!world.setBlock(x, y, z, id)) return null; // outside the world, or not loaded
   if (id === HEARTH_FIRE && world.blockAt(x, y + 1, z) === AIR) world.setBlock(x, y + 1, z, HEARTH_FLAMES); // a fire set down burns
   hotbar.take();
   return [x, y, z];
+}
+
+const WOOD_LEAF = /^door_wood(_r)?(_open)?(@\w+)?$/;
+
+/**
+ * A wooden door comes up as one kind of leaf. Set back on or under a half that still stands, it becomes that
+ * half's twin; set beside a leaf, it becomes the other leaf of the pair, open or shut as that one is. So a leaf
+ * taken out of a double door goes back matching, whichever leaf it was.
+ */
+function doorLeafFor(world: World, x: number, y: number, z: number, id: number): number {
+  const placed = blockName(id).match(/^door_wood(@\w+)?$/);
+  if (!placed) return id;
+  for (const dy of [-1, 1]) { const n = world.blockAt(x, y + dy, z); if (WOOD_LEAF.test(blockName(n))) return n; }
+  // Which side the left leaf's hinge is on, from where it stands when open (a strip along one edge of its cell).
+  const f = placed[1] ?? '';
+  const [x0, , z0, x1, , z1] = B_BOXES[blockId('door_wood_open' + f)]![0];
+  const hx = x1 - x0 < 16 ? (x0 === 0 ? -1 : 1) : 0, hz = z1 - z0 < 16 ? (z0 === 0 ? -1 : 1) : 0;
+  const left = blockName(world.blockAt(x + hx, y, z + hz)).match(WOOD_LEAF); // a left leaf on the hinge side: this is its right leaf
+  if (left && !left[1] && (left[3] ?? '') === f) return blockId('door_wood_r' + (left[2] ?? '') + f);
+  const right = blockName(world.blockAt(x - hx, y, z - hz)).match(WOOD_LEAF); // a right leaf on the other side: this is its left leaf
+  if (right && right[1] && (right[3] ?? '') === f) return blockId('door_wood' + (right[2] ?? '') + f);
+  return id;
 }
 
 /**

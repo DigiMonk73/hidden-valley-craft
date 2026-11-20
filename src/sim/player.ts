@@ -16,8 +16,8 @@ const HEIGHT = 1.8;
 export const EYE = 1.62;
 const GRAVITY = 28;
 const JUMP_SPEED = 8.6;
-const WALK = 4.0;
-const SPRINT = 5.6;
+export const WALK = 4.0;
+export const SPRINT = 5.6;
 const SWIM = 2.6;
 const FLY = 12;
 export const BREATH_MAX = 20; // seconds
@@ -114,8 +114,9 @@ export class Player {
   /** The highest top of any solid block the body would overlap at (x, y, z); −Infinity if none. */
   private obstacleTop(x: number, y: number, z: number, blockAt: BlockAt): number {
     const x0 = Math.floor(x - WIDTH / 2), x1 = Math.floor(x + WIDTH / 2 - 1e-6);
-    // From one block below the feet: a railing's collision stands taller than its block.
-    const y0 = Math.floor(y) - 1, y1 = Math.floor(y + HEIGHT - 1e-6);
+    // From two blocks below the feet: a railing's collision stands two and a half blocks tall, so that a jump
+    // from a counter or a lounger beside it (1.32 up from one block) still meets it.
+    const y0 = Math.floor(y) - 2, y1 = Math.floor(y + HEIGHT - 1e-6);
     const z0 = Math.floor(z - WIDTH / 2), z1 = Math.floor(z + WIDTH / 2 - 1e-6);
     let top = -Infinity;
     for (let by = y0; by <= y1; by++)
@@ -144,6 +145,19 @@ export class Player {
   shutIn(blockAt: BlockAt): boolean {
     if (!this.collides(this.x, this.y, this.z, blockAt)) return false;
     return [1, 2].every((up) => this.collides(this.x, Math.floor(this.y) + up, this.z, blockAt));
+  }
+
+  /**
+   * A save made before the land changed can stand inside rock (docs/PHASE7.md: Zone-3's west bank rose).
+   * Called once when a loaded save's land has come in: lifts a buried player straight up to the first open
+   * space. Returns whether it moved them. (Day to day, `move` climbs two blocks at most, by design.)
+   */
+  liftOut(blockAt: BlockAt, ceiling: number): boolean {
+    if (!this.collides(this.x, this.y, this.z, blockAt)) return false;
+    for (let y = Math.floor(this.y) + 1; y <= ceiling; y++) {
+      if (!this.collides(this.x, y, this.z, blockAt)) { this.y = y; this.vy = 0; return true; }
+    }
+    return false;
   }
 
   /** True if a block at (bx, by, bz) would overlap the player's body. */

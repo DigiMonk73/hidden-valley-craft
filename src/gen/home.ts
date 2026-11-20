@@ -119,8 +119,10 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   for (const z of [1022, 1026]) { put(1794, F, z, 'lounger_head@west'); put(1793, F, z, 'lounger_foot@west'); }
   put(1794, F, 1024, 'patio_side_table');
   // The solar panel, on a post in the south-west corner, out of the way.
+  // The post is two high: a panel one block up was a step from the firewood onto the railing.
   put(1793, F, 1033, 'fence_post');
-  put(1793, F + 1, 1033, 'solar_panel');
+  put(1793, F + 1, 1033, 'fence_post');
+  put(1793, F + 2, 1033, 'solar_panel');
 
   // ---- The living room ----------------------------------------------------------------------------------
   // The hearth, on the north wall: a firebox three wide set back into the rock and lined with firebrick, stone

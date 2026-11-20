@@ -26,7 +26,7 @@ function each(world: World, block: number, fn: (slots: (Stack | null)[]) => numb
   let n = 0;
   for (const [key, slots] of world.containers) {
     const x = key & 2047, z = (key >> 11) & 2047, y = key >>> 22;
-    if (world.blockAt(x, y, z) === block) n += fn(slots);
+    if (world.blockKnown(x, y, z) === block) n += fn(slots); // loaded or not: the hours away count
   }
   return n;
 }

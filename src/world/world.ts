@@ -104,6 +104,18 @@ export class World implements LightHost {
     return ch.blocks ? ch.blocks[((y & 31) << 10) | ((z & 31) << 5) | (x & 31)] : ch.uniformBlock;
   }
 
+  /**
+   * The block at a position even where the land is not loaded: there, what the player put (their edits
+   * outlive unloading), or −1 if they changed nothing at that spot. A hutch, a coop, a smoker are all things
+   * the player placed, so they can be found, and keep working, while the player is away.
+   */
+  blockKnown(x: number, y: number, z: number): number {
+    if (this.isLoaded(x, z)) return this.blockAt(x, y, z);
+    if (y < 0 || y >= WORLD_Y || x < 0 || z < 0 || x >= WORLD_X || z >= WORLD_Z) return -1;
+    const id = this.edits.get(chunkKey(x >> 5, y >> 5, z >> 5))?.get(((y & 31) << 10) | ((z & 31) << 5) | (x & 31));
+    return id === undefined ? -1 : id;
+  }
+
   isLoaded(x: number, z: number): boolean {
     if (x < 0 || z < 0 || x >= WORLD_X || z >= WORLD_Z) return false;
     return this.columns[(z >> 5) * COLS_X + (x >> 5)] !== null;

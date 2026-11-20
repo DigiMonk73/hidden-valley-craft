@@ -699,4 +699,63 @@ export class Sound {
     for (let i = 0; i < 3 + Math.floor(Math.random() * 4); i++) this.chirp(p, t + i * 0.09 + Math.random() * 0.05, 300 + Math.random() * 500, 700 + Math.random() * 400, 0.05, 0.06);
     this.noiseAt(p, t, 0.9, 'highpass', 2500, 0.6, 0.05, 0.2);
   }
+
+  // ---- Zone-3 (docs/PHASE7.md): the Ashen's voice, in the deep band's stinger's family ---------------------
+
+  /** A throat that isn't quite one: a voice from `f0` to `f1` with a rattle through it, from where it is. */
+  private ashenVoice(x: number, y: number, z: number, f0: number, f1: number, len: number, gain: number, rattle: number): void {
+    const ctx = this.ctx!;
+    const p = this.at(x, y, z), t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len);
+    const trem = ctx.createOscillator(); trem.type = 'square'; trem.frequency.setValueAtTime(rattle, t); trem.frequency.linearRampToValueAtTime(rattle * 1.8, t + len);
+    const depth = ctx.createGain(); depth.gain.value = gain * 0.6;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.setValueAtTime(f0 * 3, t); bp.frequency.exponentialRampToValueAtTime(f1 * 3, t + len); bp.Q.value = 2.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + Math.min(0.08, len * 0.3)); g.gain.setValueAtTime(gain, t + len * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.1);
+    trem.connect(depth).connect(g.gain);
+    o.connect(bp).connect(g).connect(p);
+    o.start(t); o.stop(t + len + 0.15); trem.start(t); trem.stop(t + len + 0.15);
+    this.noiseAt(p, t, len, 'bandpass', 1500, 3, gain * 0.35, 0.05);
+  }
+
+  /** An Ashen standing unaware: a dry, rattling breath. The warning that one is near. */
+  ashenBreath(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    for (let i = 0; i < 9; i++) this.noiseAt(p, t + i * 0.075 + Math.random() * 0.02, 0.05, 'bandpass', 900 + i * 40, 3, 0.07 + 0.01 * i, 0.01);
+    this.noiseAt(p, t + 0.75, 0.6, 'bandpass', 700, 1.5, 0.05, 0.2);
+  }
+
+  /** A bare foot on the road as it runs at you: a soft slap, quicker and harder when it is keen. */
+  ashenStep(x: number, y: number, z: number, keen: boolean): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.noiseAt(p, t, 0.05, 'lowpass', keen ? 520 : 340, 0.9, keen ? 0.2 : 0.12);
+    this.noiseAt(p, t + 0.012, 0.03, 'bandpass', 1900, 2, keen ? 0.07 : 0.04);
+  }
+
+  /** It has noticed something: a short, climbing rattle. */
+  ashenNotice(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    this.ashenVoice(x, y, z, 95, 170, 0.5, 0.3, 14);
+  }
+
+  /** The lunge's warning: a rising, rattling shriek while it rears. Step back. */
+  ashenShriek(x: number, y: number, z: number, keen: boolean): void {
+    if (!this.ctx) return;
+    this.ashenVoice(x, y, z, keen ? 240 : 190, keen ? 640 : 520, keen ? 0.55 : 0.75, 0.5, 22);
+  }
+
+  /** The lunge itself: a rush of air; and after a miss, the stumble. */
+  ashenLunge(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    this.noiseAt(this.at(x, y, z), this.ctx.currentTime, 0.28, 'bandpass', 800, 0.8, 0.35, 0.03);
+  }
+  ashenMiss(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.chirp(p, t, 90, 55, 0.2, 0.4);
+    this.noiseAt(p, t + 0.05, 0.3, 'lowpass', 500, 0.8, 0.2);
+  }
 }
