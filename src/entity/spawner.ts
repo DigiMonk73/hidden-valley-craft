@@ -7,7 +7,7 @@ import { B_SOLID, isWaterId, blockId, BLOCK_DEFS } from '../world/blocks.ts';
 const hasBlock = (n: string) => BLOCK_DEFS.some((d) => d.name === n);
 
 /** Tree crowns and trunks: a creature never stands on these; the search goes on down to the ground. */
-const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds', 'leaves_pale', 'banana_trunk', 'banana_leaves', 'banana_bunch'].map(blockId));
+const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds', 'leaves_pale', 'banana_trunk', 'banana_leaves', 'banana_bunch', 'banana_bunch_green'].map(blockId));
 import { makeCreature, settle, KINDS, PACK_KINDS, type Creature, type Kind, FACTION_KINDS } from './creatures.ts';
 import { DEN, YARD } from '../gen/zone1.ts';
 

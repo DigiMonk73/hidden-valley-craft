@@ -231,7 +231,7 @@ describe('the Effects setting (docs/PHASE9A.md)', () => {
     expect((await read(store)).fx).toBe(false);
     const second = await openPage(store); // the page opened again
     expect(renderer(second).effects).toBe(false);
-    expect((second.hud.settingsInputs as unknown as { fx: { checked: boolean } }).fx.checked).toBe(false);
+    expect(second.hud.shownSettings).toMatchObject({ fx: false }); // the menu shows it (Hud.showSettings, since the tracks met)
   });
 
   it('a setting this build does not know is kept across a load and a save, not dropped', async () => {

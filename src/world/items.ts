@@ -54,7 +54,7 @@ export function dropOf(block: number): number {
 }
 
 const SHOVEL = new Set(['dirt', 'grass', 'forest_floor', 'clay', 'sand', 'gravel', 'mud', 'moss']);
-const AXE = new Set(['log', 'planks', 'tree_fern_trunk', 'bamboo', 'leaves', 'fern_fronds', 'leaves_pale', 'banana_trunk', 'banana_leaves', 'banana_bunch']);
+const AXE = new Set(['log', 'planks', 'tree_fern_trunk', 'bamboo', 'leaves', 'fern_fronds', 'leaves_pale', 'banana_trunk', 'banana_leaves', 'banana_bunch', 'banana_bunch_green']);
 
 /** Which tool mines a block at full speed (null: anything, e.g. plants). */
 export function toolFor(block: number): ToolDef['kind'] | null {
@@ -65,10 +65,23 @@ export function toolFor(block: number): ToolDef['kind'] | null {
   return 'pickaxe';
 }
 
+/** Things that were built, not dug: planks, bricks, glass, and everything made of boxes (furniture, slabs, stairs, railings, stations). */
+const BUILT = new Set(['planks', 'stone_bricks', 'cobble', 'glass', 'cinder_block', 'tin_roof', 'bookshelf']);
+/** Drawn of boxes, and grown, not built: a fallen branch, a banana stem, a vine (the fresh review after Track A's merge, 1). */
+const GROWN = new Set(['dead_branch', 'banana_trunk', 'vine']);
+export function isBuilt(block: number): boolean {
+  const d = BLOCK_DEFS[block];
+  if (GROWN.has(d?.base ?? d?.name ?? '')) return false;
+  return B_RENDER[block] === RENDER.model || BUILT.has(d?.name ?? '');
+}
+/** The builder's hammer takes built things apart this many times faster than their own tool does (docs/PHASE9B.md, 6). */
+export const HAMMER_SPEED = 2;
+
 /** Seconds to mine a block with what is in hand: the right tool at its speed, else much slower. */
 export function mineSeconds(block: number, held: number): number {
   const hardness = BLOCK_DEFS[block]?.hardness ?? 0;
   if (hardness <= 0) return hardness;
+  if (held >= BLOCK_COUNT && items[held - BLOCK_COUNT]?.name === 'hammer' && isBuilt(block)) return hardness / HAMMER_SPEED;
   const want = toolFor(block);
   const tool = toolOf(held);
   if (!want) return hardness;

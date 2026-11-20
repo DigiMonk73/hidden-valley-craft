@@ -1,5 +1,5 @@
 {
-  "_comment": "Marco's trade (docs/PHASE4.md, step 4). Prices are in units of one bandage's worth (DESIGN.md anchors every price to wound care, and a bandage is this game's wound care before Doc); `unit` is that in satoshis. catalog: what he sells, a lot at a time, before M3 (no guns or ammunition). value: what he pays for one of an item is half its value (DESIGN.md A3: sell = 0.5x). Every catalogue item has its own (low) resale value, so nothing he sells can be made cheaply and sold back at a profit. Live animals are not bought: the farm flock is finite but regrows. Saves store item names. Phase 6 (docs/PHASE6.md): catalogM3 is what Marco adds once he trusts you (trust 2): guns and rounds, priced as multiples of P_wc (4 units). doc: Doc's flat fees per service, in units. rigSatsPerDay: what a powered mining rig earns in a game day. Rounds have their own low resale value (Marco sells them dear, buys them cheap), so Zone-2's men, who come back each dawn, are no fortune to farm. Fixes (docs/FIXES.md, 6): purse is the most Marco can pay in a day, in units (he is one man with a mule, not a bank), so a hill of iron is many days' selling and a rig's steady pay matters; keep lists the parts a milestone step needs, each with that step's flag: Marco will not take one until its step is done, so no sale can lock a milestone. Guns have their own modest resale value (he sells them dear, buys them cheap). Ray's prices are the premium the script gives him. Phase 8 (docs/PHASE8.md): catalogRayM5 is what Ray adds once you have met him at the refuge: tablets, and the parts M5 hangs on, so nothing in it can be lost for good; priced as his other things are since the fixes (a rig earns 4 units a day). None of M5's parts has a resale value: Marco does not buy them.",
+  "_comment": "Phase 9B (docs/PHASE9B.md, 6): Marco sells bananas, wild avocados and papayas, carried up from the lowlands (the three fruits had no source at all); each has its own low resale value, like everything he sells. Marco's trade (docs/PHASE4.md, step 4). Prices are in units of one bandage's worth (DESIGN.md anchors every price to wound care, and a bandage is this game's wound care before Doc); `unit` is that in satoshis. catalog: what he sells, a lot at a time, before M3 (no guns or ammunition). value: what he pays for one of an item is half its value (DESIGN.md A3: sell = 0.5x). Every catalogue item has its own (low) resale value, so nothing he sells can be made cheaply and sold back at a profit. Live animals are not bought: the farm flock is finite but regrows. Saves store item names. Phase 6 (docs/PHASE6.md): catalogM3 is what Marco adds once he trusts you (trust 2): guns and rounds, priced as multiples of P_wc (4 units). doc: Doc's flat fees per service, in units. rigSatsPerDay: what a powered mining rig earns in a game day. Rounds have their own low resale value (Marco sells them dear, buys them cheap), so Zone-2's men, who come back each dawn, are no fortune to farm. Fixes (docs/FIXES.md, 6): purse is the most Marco can pay in a day, in units (he is one man with a mule, not a bank), so a hill of iron is many days' selling and a rig's steady pay matters; keep lists the parts a milestone step needs, each with that step's flag: Marco will not take one until its step is done, so no sale can lock a milestone. Guns have their own modest resale value (he sells them dear, buys them cheap). Ray's prices are the premium the script gives him. Phase 8 (docs/PHASE8.md): catalogRayM5 is what Ray adds once you have met him at the refuge: tablets, and the parts M5 hangs on, so nothing in it can be lost for good; priced as his other things are since the fixes (a rig earns 4 units a day). None of M5's parts has a resale value: Marco does not buy them.",
   "unit": 25000,
   "startWallet": 1000000,
   "sellRatio": 0.5,
@@ -55,12 +55,30 @@
       "price": 6
     },
     {
+      "item": "banana",
+      "lot": 4,
+      "price": 1
+    },
+    {
+      "item": "avocado",
+      "lot": 3,
+      "price": 1
+    },
+    {
+      "item": "papaya",
+      "lot": 3,
+      "price": 1
+    },
+    {
       "item": "seeds_quinoa",
       "lot": 6,
       "price": 3
     }
   ],
   "value": {
+    "banana": 0.1,
+    "avocado": 0.12,
+    "papaya": 0.12,
     "hide": 1.5,
     "puma_pelt": 12,
     "leather": 2,

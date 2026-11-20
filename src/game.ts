@@ -15,9 +15,13 @@ import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationAt, type Station } from './sim/crafting.ts';
 import { Gate, GATE_LEVER } from './sim/gate.ts';
-import { randomTicks, till, sow, pickCoffee, growWhileAway, FARMLAND } from './sim/farming.ts';
+import { randomTicks, till, sow, pickCoffee, pickBananas, growWhileAway, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
-import { Hud, nearestViewChunks } from './ui/hud.ts';
+import { Hud } from './ui/hud.ts';
+import { DEFAULT_SETTINGS, FALLBACK_VIEW, parseSettings, encodeSettings, nearestViewChunks, nearestScale, type Settings } from './game/settings.ts';
+import { FrameWatch, lighter, lighterLine, type Picture } from './game/quality.ts';
+import { readHint, writeHint } from './platform/hints.ts';
+import { listenInput } from './platform/input.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
 import { PaperScreen } from './ui/paperScreen.ts';
 import { drawMap } from './ui/mapView.ts';
@@ -31,8 +35,8 @@ import { openStore, pendingFor, type Store, type PendingIo } from './platform/st
 import { tabLock } from './platform/tablock.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData, type Slot, type Mode } from './save/save.ts';
-import { newSave, normaliseSave, START, BEGUN } from './save/state.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, WORLD_GEN, type SaveData, type Slot, type Mode } from './save/save.ts';
+import { newSave, normaliseSave, START, BEGUN, BOOKS_READ } from './save/state.ts';
 import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
 import { OPENING, HINTS, nextGoal } from './sim/guide.ts';
 import { isBow, isBlade, isWeapon, gunOf } from './sim/weapons.ts';
@@ -45,6 +49,7 @@ import { packPos, skyOf } from './world/light.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
 import { leaveLostPack, losesPack } from './sim/death.ts';
+import { setDown, clearEmptySack, SACK } from './sim/drop.ts';
 import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
 import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt, FLOCK_SIZE } from './entity/spawner.ts';
@@ -82,18 +87,15 @@ import { rainAt } from './render/rain.ts';
 // Zone-4 and the uplink (docs/PHASE8.md).
 import { absorb, doseRate, meterLine, roadDose } from './sim/radiation.ts';
 import { isMedicine, useMedicine, medicineIdle, blowFelt, stepAdrenaline } from './sim/medicine.ts';
-import { ridgePlaceAt, ridgeToast, rayWaiting, canAskMeeting, gateRefuge, RAY_SPOT, RAY_FROM, RAY_UNTIL } from './sim/ridge.ts';
-import { trackM5, craftedFlag, diedOutsideM5 } from './sim/m5.ts';
-import { startDevice, stepDevices, smokeOf, devicesFromSave, LURE_HEARD, type Device } from './sim/countermeasures.ts';
-import { scopeTargets, aimedAt, scopeLabel, satTrain, SCOPE_ZOOM, SCOPE_NEAR } from './sim/telescope.ts';
-import { hoursToDusk, MIRA, type LinkNeeds } from './sim/uplink.ts';
-import { uplinkView, findPlaced } from './game/uplink.ts';
+import { canAskMeeting, gateRefuge } from './sim/ridge.ts';
+import { diedOutsideM5 } from './sim/m5.ts';
+import { smokeOf, devicesFromSave, type Device } from './sim/countermeasures.ts';
+import { SCOPE_ZOOM } from './sim/telescope.ts';
+import { MIRA, type LinkNeeds } from './sim/uplink.ts';
+import { uplinkView } from './game/uplink.ts';
+import { Ridge } from './game/ridge.ts';
 import { askRayToMeet, meetRay } from './game/people.ts';
-import { ScopeView } from './ui/scopeView.ts';
-import { antennaBlocks, antennaSpot } from './gen/antenna.ts';
-import { HUT_LOG, DOME_PAGE, RELAY_PAGE } from './gen/zone4.ts';
-import { ZONE4, ridgeRoadAt, ridgeRoadLength, ridgeRoadMark, inFallout } from './gen/layout.ts';
-import { NESTS } from './entity/ashen.ts';
+import { ZONE4, ridgeRoadAt, ridgeRoadLength, ridgeRoadMark, inFallout, inRimMend } from './gen/layout.ts';
 import { isPerson } from './entity/creatures.ts';
 
 const KILL_LINE: Record<Creature['kind'], string> = {
@@ -118,22 +120,18 @@ const HELD_HINT: Record<string, string> = {
   engineer_armor: 'Engineer’s armour. It works from your pack: about a third of a blow gets through.',
   spirit: 'Spirit, from the distiller. The medical bench makes medicines with it. Not for drinking.',
 };
-/** Said the first time each of M5's things is made. */
-const MADE_LINE: Record<string, string> = {
-  hazard_suit: 'A hazard suit. It works from your pack. Call Ray: he will meet someone who carries one.',
-  sat_antenna: 'The satellite antenna, assembled. Take it to the builder’s hoist in the balcony’s north corner.',
-  telescope: 'A telescope. Set it down under open sky at home: the balcony will do. The uplink needs it to find the satellites.',
-  uplink_terminal: 'The uplink terminal. Right-click the builder’s computer with it in your hand.',
-  med_bench: 'A medical bench. It works while a hydro generator turns: blue tablets, antibiotics, adrenaline. It needs spirit from a distiller.',
-  distiller: 'A distiller. It works while a hydro generator turns: corn or potatoes, water and charcoal make spirit.',
-  rad_tablets: 'Blue tablets of your own. Each binds thirty of your dose.',
-  antibiotics: 'Antibiotics. One brings your health back to the most your dose allows, at once.',
-  adrenaline: 'Adrenaline. For a minute blows hurt half as much and your focus is full. None of these cures what the Ashen have.',
-  thermal_optic: 'The thermal optic. Carry it, and hold focus (Q) with a weapon in hand: they glow.',
-  sonic_lure: 'Sonic lures. Set one down, right-click it, and walk the other way.',
-  smoke_pot: 'Smoke pots. Set one down and right-click it: they will not come into its smoke.',
-  engineer_armor: 'Engineer’s armour: about a third of a blow gets through. Carry it in your pack.',
+/** The builder's kit (docs/PHASE9B.md, 6): what each of its tools does, said on a right-click with it in hand. */
+const KIT_HINT: Record<string, string> = {
+  hammer: 'The builder’s hammer. Held, it takes apart anything built (furniture, planks, brick, glass) twice as fast as any other tool; at the anvil it makes twelve nails from an ingot, not eight.',
+  handsaw: 'The builder’s handsaw. Carried, it cuts six planks from a log by hand, not four.',
+  water_filter: 'The builder’s water filter. It works from your pack: with it, water outside the valley is safe to drink and to carry home.',
+  headlamp: 'The builder’s headlamp. It works from your pack: in the dark it lights the ground a few steps round you.',
 };
+/** How much nearer the binoculars bring things. */
+export const BINOCULAR_ZOOM = 4;
+/** Unfiltered water outside the valley: what a drink of it costs in health. */
+export const BAD_WATER_HP = 6;
+
 /** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
 const ASHEN_HOLDS_H = 30;
 /** What a running Ashen kicks up. */
@@ -248,13 +246,13 @@ export class Game {
    * there). While seated the body does not move; a step, a jump or a blow stands it up.
    */
   private seat: { x: number; y: number; z: number; from: [number, number, number] } | null = null;
-  /** Looking through a telescope: where it stands (docs/PHASE8.md, 5). */
-  private scoping: { x: number; y: number; z: number } | null = null;
-  private scope: ScopeView | null = null;
-  /** A telescope stands under the sky at home (as last seen: the home's land may not be loaded). */
-  private scopeOk = false;
-  private rayGreeted = false;
-  private ui: HTMLElement;
+  /** Zone-4 and the uplink in play: the ridge, the lures and pots, the hoist, the telescope (src/game/ridge.ts). */
+  readonly ridge: Ridge;
+  /** Looking through a telescope, and a telescope standing under the sky at home: the ridge's (kept here for the checks). */
+  private get scoping(): { x: number; y: number; z: number } | null { return this.ridge.scoping; }
+  private get scopeOk(): boolean { return this.ridge.scopeOk; }
+  private set scopeOk(v: boolean) { this.ridge.scopeOk = v; }
+  readonly ui: HTMLElement;
   private doseToasted = false;
   private wallToast = -Infinity;
   /** Where the player wakes after a death or a night's sleep. */
@@ -294,6 +292,8 @@ export class Game {
    * In Survival the keys for flying, endless blocks and the clock do nothing.
    */
   mode: Mode = 'survival';
+  /** The world generator's version this valley was begun in, kept as it was loaded and written back unchanged. */
+  gen = WORLD_GEN;
   /** Has the game been played since the last save? Position, health and the hour are saved even with no edit. */
   private playedSince = false;
   private accumulator = 0;
@@ -310,13 +310,44 @@ export class Game {
   private cachedCode: string | null = null;
   private sky: SkyState = skyAt(16.5);
   private downloads: Downloads | null = null;
+  /** The player's settings (docs/PHASE9B.md, 2): applied at boot, shown in the menu, saved when one changes. */
+  settings: Settings = { ...DEFAULT_SETTINGS };
+  /** A line to say when the paper on screen is put down (what reading it taught). */
+  private sayAfterPaper: string | null = null;
+  /** Looking through the binoculars (the right mouse button held with them in hand). */
+  private glassing = false;
+  /** When unfiltered water was last drunk outside the valley (play time): its line is not said at every sip. */
+  private badWaterSaid = -Infinity;
+  /** When play was last paused (the frames' clock): Esc resumes only a moment later. */
+  private pausedAt = -Infinity;
+  /** Health the body lost by itself this tick (hunger, thirst, no air): not "danger", so it does not stop hold H. */
+  private bodyLoss = 0;
+  /** Where the sack that is open on screen stands, if a sack is (an emptied one is taken away when the screen closes). */
+  private openSack: [number, number, number] | null = null;
+  /** Said once, when play begins, where the land is built on the page's own thread and the view was shortened for it. */
+  private fallbackLine: string | null = null;
+  /** Watches the frame rate while playing, to make the picture lighter on a computer that can't keep up. */
+  private watch = new FrameWatch();
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
     this.ui = ui;
+    // (The game is the ridge's host: what it reads is the game's own, and the few things only the game may do are
+    // passed as calls.)
+    const game = this;
+    this.ridge = new Ridge({
+      get player() { return game.player; }, get flags() { return game.flags; }, get world() { return game.world; }, get wild() { return game.wild; },
+      get sound() { return game.sound; }, get hud() { return game.hud; }, get paper() { return game.paper; }, get streamer() { return game.streamer; },
+      get renderer() { return game.renderer; }, get hotbar() { return game.hotbar; }, get ui() { return game.ui; },
+      get hour() { return game.hour; }, get time() { return game.time; }, get running() { return game.running; },
+      edited: () => this.edited(), once: (f, l, ms) => this.once(f, l, ms), suited: () => this.suited(), openPaper: (show) => this.openPaper(show),
+      stopActions: () => { this.endFocus(); this.home.cancel(); this.mining.active = false; this.drawing = null; },
+      shakeBy: (a) => { this.shake = a; },
+    });
     this.player.flow = riverCurrent;
     this.wild.spawning = !opts.test;
-    this.renderer = new Renderer(canvas);
+    // Smoothed edges are fixed when the picture is made, before the saved settings can be read: a hint says which.
+    this.renderer = new Renderer(canvas, { antialias: readHint('aa') !== 'off' });
     this.look = new Look(canvas);
     this.screen = new InventoryScreen(ui);
     this.paper = new PaperScreen(ui);
@@ -338,11 +369,23 @@ export class Game {
       }
       if (r.out[0] === itemId('plate_armor')) { this.flags.add('armor2_made'); this.hud.toast('Plate armour: it stops half of every blow. Carry it in your pack.', 7000); }
       if (r.out[0] === blockId('hydro_generator')) this.once('hydro_toast', 'The hydro generator. Set it in the valley’s creek, at the water: it makes power day and night.', 9000);
-      this.madePhase8(itemName(r.out[0]));
+      this.ridge.made(itemName(r.out[0]));
       if (r.out[0] === blockId('powder_mill')) this.once('mill_toast', 'A powder mill. Set it down and right-click it: saltpeter, charcoal and sulfur make gunpowder.', 7000);
     };
     this.screen.known = this.flags;
     this.screen.onFull = () => this.hud.toast('No room in your pack for that');
+    // Something picked up in the pack and let go outside the window is set down in a sack at your feet.
+    this.screen.onDrop = (s) => {
+      const p = this.player;
+      const at = setDown(this.world, s, p.x, p.y + 0.2, p.z);
+      if (!at) { this.hud.toast('No room to set that down here'); return false; }
+      this.streamer.markUrgentAround(at[0], at[1], at[2]);
+      this.sound.place('wood');
+      this.hud.toast('Set down in a sack at your feet.');
+      this.edited();
+      return true;
+    };
+    this.screen.onOutside = () => this.closeScreen();
     this.hud = new Hud(ui, {
       play: () => this.resume(),
       saveNow: () => void this.save(true),
@@ -353,15 +396,28 @@ export class Game {
       newGame: () => void this.newGame(),
       openBackup: () => void this.openBackup(),
       pickMode: (m) => this.pickMode(m),
-      setRenderDistance: (c) => this.setRenderDistance(c, true),
-      setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
-      setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
-      setVolume: (v) => { this.sound.volume = v; void this.saveSettings(); },
-      setEffects: (on) => { this.renderer.effects = on; void this.saveSettings(); },
+      setRenderDistance: (c) => { this.settings.rdOwn = true; this.setRenderDistance(c, true); this.watch.reset(); },
+      setSensitivity: (v) => this.changeSettings({ sens: v }),
+      setInvertY: (v) => this.changeSettings({ inv: v }),
+      setVolume: (v) => this.changeSettings({ vol: v }),
+      setScale: (v) => { this.changeSettings({ scale: v }); this.watch.reset(); },
+      setAntialias: (v) => {
+        this.changeSettings({ aa: v });
+        // The choice works only through the hint, read before the picture is made. Where the browser's simplest
+        // storage is blocked it cannot be kept, so the menu does not promise it (the fresh review, 5).
+        if (!v && readHint('aa') !== 'off') {
+          this.changeSettings({ aa: true });
+          this.hud.toast('This page can’t keep that choice here, so smooth edges stay on.', 6000);
+          return;
+        }
+        this.hud.toast(v ? 'Smooth edges will be on the next time the page is opened.' : 'Smooth edges will be off the next time the page is opened.', 5000);
+      },
+      setAuto: (v) => { this.changeSettings({ auto: v }); this.watch.reset(); },
+      setEffects: (on) => this.changeSettings({ fx: on }),
     });
     this.look.onDelta = (dx, dy) => {
       // Through the telescope the hand is as much finer as the view is narrower.
-      const fine = this.scoping ? 1 / SCOPE_ZOOM : 1;
+      const fine = this.scoping ? 1 / SCOPE_ZOOM : this.glassing ? 1 / BINOCULAR_ZOOM : 1;
       this.player.yaw -= dx * fine;
       this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch - dy * fine));
     };
@@ -375,7 +431,11 @@ export class Game {
       if (this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
       this.hud.notice('The picture was lost. It will come back in a moment…');
     };
-    this.renderer.onContextRestored = () => this.hud.notice('The picture is back.', 4000);
+    this.renderer.onContextRestored = () => {
+      // The card has lost every chunk, and the page keeps no copy of what it sent: mesh them all again.
+      this.streamer?.remeshAll();
+      this.hud.notice('The picture is back.', 4000);
+    };
     this.renderer.onContextStuck = () => this.hud.notice('The picture has not come back. Save from the menu, then reload the page.');
     const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
     window.addEventListener('resize', resize);
@@ -393,7 +453,16 @@ export class Game {
     this.streamer = new Streamer(this.world, this.exec, this.renderer);
     this.streamer.onDrawnChange = (mask) => this.renderer.setDrawnColumns(mask);
     void this.exec.submit({ kind: 'far' }).then((r) => { if (r.kind === 'far') this.renderer.setFarLand(r.mesh); }, (e) => console.error('distant land failed', e));
-    this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
+    // Where the page must build the land on its own thread, a long view means a long, halting wait: keep it short
+    // unless the player has chosen one (docs/PHASE9B.md, 1).
+    // (For this page only: the setting kept is still the player's, for a browser where workers start.)
+    let view = this.settings.rd;
+    if (this.exec.kind === 'main-thread' && !this.settings.rdOwn && view > FALLBACK_VIEW && this.opts.renderChunks === undefined) {
+      view = FALLBACK_VIEW;
+      this.hud.showSettings({ ...this.settings, rd: view });
+      this.fallbackLine = `This page can’t build the land in the background here, so the view is kept short (${FALLBACK_VIEW * 32} m). Settings (Esc) can lengthen it.`;
+    }
+    this.setRenderDistance(this.opts.renderChunks ?? view, false);
 
     // One tab plays a valley at a time.
     if (!this.opts.test && (await tabLock('hidden-valley-blocks:play', () => void this.otherTabClosed())) === 'taken') {
@@ -427,25 +496,38 @@ export class Game {
    */
   private async openValley(): Promise<void> {
     let opened: SaveData | null = null, unsaved = false;
-    const stored: { id: string | null; seq: number } = { id: null, seq: 0 };
+    const stored: { id: string | null; seq: number; at?: string } = { id: null, seq: 0 };
     this.notice = null;
     if (!this.opts.test) {
       try {
         const r = await this.keeper.load();
         opened = r.data; unsaved = r.unsaved; this.notice = r.note;
-        stored.id = r.storedId; stored.seq = r.storedSeq;
+        stored.id = r.storedId; stored.seq = r.storedSeq; stored.at = r.storedAt;
       } catch (e) {
         console.error('the stored save could not be opened', e);
         this.notice = NOTES.fresh;
       }
     }
+    // (Whether the page that handed it on gave valleys names at all: a version-1 save carries no id.)
+    const rawHanded = this.opts.handover as { id?: unknown } | null | undefined;
+    const handedNameless = !!rawHanded && typeof rawHanded === 'object' && typeof rawHanded.id !== 'string';
     let handed = this.opts.handover ? normaliseSave(this.opts.handover) : null;
     this.opts.handover = undefined;
     // Handed on by a page from before the home was rebuilt: not opened, like any save from that layout.
     if (handed && fromEarlierLayout(handed)) { handed = null; if (!opened && !this.notice) this.notice = EARLIER_BUILD; }
     // A hand-over takes the stored save's place only as the same valley, written no earlier than the store's copy
     // (or when the store holds nothing that can be read). Anything else is some other page's valley, or a stale one.
-    const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq));
+    // One more case (docs/PHASE9B.md, 3): a page from before valleys had names hands on a save whose name is made
+    // from its own contents, so it never matches the store's copy of the same valley, and the play since the last
+    // autosave was dropped. Two such copies are taken for the same valley, and the later-saved one is used.
+    // Only when both were written by such a page: the hand-over carried no name, and the store's copy has never been
+    // written since by a build that counts its writes (seq 0). A valley named `v-old-…` keeps that name for ever, and
+    // every hand-over is stamped with the moment it is made, so without this any later page's hand-over of any
+    // nameless-born valley would pass, stale or not (the fresh review, docs/PHASE9B.md, "The fresh review", 1).
+    const unnamed = (id: string | null | undefined) => !!id && id.startsWith('v-old-');
+    const later = (a: string | undefined, b: string | undefined) => { const ta = Date.parse(a ?? ''), tb = Date.parse(b ?? ''); return Number.isFinite(ta) && Number.isFinite(tb) && ta >= tb; };
+    const sameOld = !!handed && handedNameless && unnamed(stored.id) && stored.seq === 0 && later(handed.savedAt, stored.at);
+    const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq) || sameOld);
     if (handed && theirs && !this.keeper.stopped && !this.store.degraded) { opened = handed; unsaved = true; this.fromHandover = true; }
     try {
       this.applySave(opened ?? newSave(), !opened);
@@ -488,14 +570,20 @@ export class Game {
 
   private frame(now: number): void {
     requestAnimationFrame((t) => this.frame(t));
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const gap = (now - this.last) / 1000;
+    const dt = Math.min(0.1, gap);
     this.frameDt = dt;
     this.last = now;
     this.time += dt;
     const p = this.player;
 
-    this.exec.pump(this.ready ? 6 : 14);
-    this.streamer.update(p.x, p.z, this.ready ? 4 : 12);
+    // Bringing the land in is given a share of each frame, not a fixed few milliseconds: a computer that draws
+    // slowly used to load slowly as well (at one frame a second the far valley never came in).
+    // (At 60 frames a second the share is the old fixed budget; at one frame a second, about a tenth of the frame.)
+    const share = Math.max(1, Math.min(24, gap / (1 / 60) / 4));
+    this.exec.pump((this.ready ? 6 : 14) * share);
+    this.streamer.update(p.x, p.z, (this.ready ? 4 : 12) * share, (this.ready ? 2 : 12) * share);
+    this.watchFrames(gap);
 
     if (!this.ready) {
       const r = 2;
@@ -512,7 +600,8 @@ export class Game {
         // overhead, so the cave is the safe place, and it is the fallback anywhere the lift finds no room.
         if (this.checkBuried && !p.flying && !inHome && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
         // And one from when the ridge stood higher hangs in the air: it is set down, unhurt (docs/PHASE8.md, 9).
-        else if (this.checkBuried && !p.flying && !inHome && inFallout(p.x, p.z) && p.setDown((x, y, z) => this.world.blockAt(x, y, z))) this.hud.toast('The land here has changed since this save: you have been set down on the ground.', 7000);
+        // So does one saved on a ledge of the valley's cliff that a mend took away (docs/PHASE9B.md, 3).
+        else if (this.checkBuried && !p.flying && !inHome && (inFallout(p.x, p.z) || inRimMend(p.x, p.y, p.z)) && p.setDown((x, y, z) => this.world.blockAt(x, y, z))) this.hud.toast('The land here has changed since this save: you have been set down on the ground.', 7000);
         this.checkBuried = false;
         this.dropSpill();
         if (!this.opts.cam) this.settleIn();
@@ -521,6 +610,8 @@ export class Game {
       }
     }
 
+    // The binoculars come down when they are put away, a screen opens or the game pauses.
+    if (this.glassing && (!this.playing || this.screen.isOpen || this.paper.isOpen || this.hotbar.current?.id !== itemId('binoculars'))) this.endGlass();
     if (this.playing && !this.screen.isOpen && !this.paper.isOpen) {
       if (this.focus.active && !isWeapon(this.hotbar.current?.id)) this.endFocus();
       if (this.focus.update(dt) === 'ended') this.sound.focus(false);
@@ -577,7 +668,10 @@ export class Game {
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
     // The thermal optic (docs/PHASE8.md, 4): carried, it shows warm bodies while focus runs.
     this.renderer.creatures.thermal = this.focus.active && this.hotbar.count(itemId('thermal_optic')) > 0;
-    this.tickScope();
+    // The headlamp (docs/PHASE9B.md, 6): carried, it lights the land a few steps round you (a floor under the light
+    // there, so it shows only in the dark).
+    this.renderer.setHeadlamp(this.hotbar.count(itemId('headlamp')) > 0);
+    this.ridge.tickScope();
     this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
     this.updateSound();
@@ -644,7 +738,7 @@ export class Game {
       aiming: (this.focus.active && isWeapon(held)) || this.drawing !== null,
       draw: this.drawing !== null ? drawOf(this.playTime - this.drawing) : 0,
       walked, turnX: p.yaw - was.yaw, turnY: p.pitch - was.pitch,
-      light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z))),
+      light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z)), undefined, true),
     });
     was.x = p.x; was.z = p.z; was.yaw = p.yaw; was.pitch = p.pitch;
   }
@@ -676,13 +770,16 @@ export class Game {
     }
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
-    this.tickDevices(world);
+    this.ridge.tickDevices(world);
     this.tickWild(world);
     this.tickSurvival(dt, input);
     this.tickRadiation(world);
     this.tickGate(world);
-    // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
-    const hurt = this.vitals.hp < this.hpBefore - 0.01;
+    // A loss of health from outside is "hurt" (a blow, a shot, a fall, the ridge's dose): it cancels heading home,
+    // and keeps H from starting for a while. What the body loses by itself (hunger, thirst, no air) is not danger
+    // close by: a starving or drowning player holding H used to be told "Not with danger this close", and died.
+    const hurt = this.vitals.hp < this.hpBefore - this.bodyLoss - 0.01;
+    this.bodyLoss = 0;
     if (hurt) { this.lastHurt = this.playTime; this.endScope(); this.stand(); }
     this.hpBefore = this.vitals.hp;
     const h = this.home.update(dt, this.keys.has('KeyH'), hurt || (this.home.held !== null && this.ashenOnYou()));
@@ -752,6 +849,7 @@ export class Game {
     const p = this.player;
     const ev = this.wild.update(dt, {
       px: p.x, py: p.y, pz: p.z, night: this.hour >= 19 || this.hour < 5.5, shot: this.shotFired,
+      pyaw: p.yaw, // which way the player faces: the puma keeps out of it
       blockAt: (x, y, z) => this.world.blockAt(x, y, z),
       loaded: (x, z) => !!this.world.column(Math.floor(x / CS), Math.floor(z / CS)),
       rand: Math.random,
@@ -764,9 +862,9 @@ export class Game {
       lightAt: (x, y, z) => { const l = this.world.lightAt(x, y, z); return Math.max((l >> 4) * this.sky.daylight, l & 15); },
       mining: this.mining.active && this.mining.progress > 0,
       smoke: smokeOf(this.running),
-      calls: this.lureCalls,
+      calls: this.ridge.lureCalls,
     });
-    this.lureCalls = [];
+    this.ridge.lureCalls = [];
     this.shotFired = false;
     this.quietShot = false;
     this.wildEvents(ev);
@@ -938,6 +1036,15 @@ export class Game {
   private aim(): boolean {
     const held = this.hotbar.current?.id;
     if (held === undefined || this.usableTarget()) return false;
+    if (held === itemId('binoculars')) {
+      // Held to the eyes for as long as the button is down.
+      this.glassing = true;
+      this.endFocus();
+      this.mining.active = false;
+      this.renderer.setZoom(BINOCULAR_ZOOM);
+      this.once('glass_used', 'Through the binoculars: hold the right mouse button to look, let go to lower them.', 5000);
+      return true;
+    }
     if (isBow(held)) {
       if (this.hotbar.count(itemId('arrow')) === 0) { this.hud.toast('No arrows'); return true; }
       this.drawing = this.playTime;
@@ -1015,6 +1122,7 @@ export class Game {
     const exertion = p.inWater ? 1.5 : input.sprint && moving ? 1.8 : 1;
     const before = v.hp;
     tickVitals(v, dt, exertion, p.headInWater && p.breath <= 0);
+    this.bodyLoss += Math.max(0, before - v.hp);
     const hurt = fallDamage(fall);
     if (hurt) { v.hp = Math.max(0, v.hp - hurt); this.sound.footstep('stone'); }
     if (v.hp < before - 0.5 || hurt) this.hud.flashHurt();
@@ -1276,6 +1384,7 @@ export class Game {
       const title = homeChestAt(t.x, t.y, t.z)?.title;
       if (title === 'Armory' && !this.flags.has('armory_found')) { this.flags.add('armory_found'); this.edited(); }
       this.openScreen({ title: title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest });
+      this.openSack = t.id === SACK ? [t.x, t.y, t.z] : null;
       return;
     }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
@@ -1309,6 +1418,10 @@ export class Game {
     const apples = pickApple(this.world, this.hotbar, t.x, t.y, t.z);
     if (apples === 'full') { this.hud.toast('No room in your pack for the apples'); return; }
     if (apples) { this.sound.place('leaves'); this.hud.toast('Apples. The tree will fruit again.'); this.edited(); return; }
+    const bananas = pickBananas(this.world, this.hotbar, t.x, t.y, t.z);
+    if (bananas === 'full') { this.hud.toast('No room in your pack for the bananas'); return; }
+    if (bananas) { this.sound.place('leaves'); this.once('bananas_picked', 'Bananas. A green bunch hangs in its place: it will yellow in a few hours.', 7000); this.edited(); return; }
+    if (blockName(t.id) === 'banana_bunch_green') { this.hud.toast('Still green. It will yellow in a few hours.'); return; }
     const held = this.hotbar.current;
     if (held && held.id === itemId('steel_hoe') && till(this.world, t.x, t.y, t.z)) { this.hotbar.wearTool(); this.sound.dig('soil'); this.edited(); return; }
     const sowing = held ? sows(held.id) : undefined;
@@ -1460,7 +1573,7 @@ export class Game {
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
     if (this.usePhase6(name, x, y, z)) return true;
     if (this.usePhase7(name)) return true;
-    if (this.usePhase8(name, x, y, z)) return true;
+    if (this.ridge.use(name, x, y, z)) return true;
     if (name === 'computer') { this.useComputer(); return true; }
     if (name === 'phone') {
       // The builder's phone works from the cave: carried off and set down elsewhere it finds no signal (Doc is not a field medic).
@@ -1485,6 +1598,12 @@ export class Game {
   /** The builder's journal, and after it the player's own notes as they are earned. */
   private openJournal(): void {
     if (!this.flags.has('journal_read')) { this.flags.add('journal_read'); this.edited(); }
+    // The builder's handbooks stand on the same shelves (docs/PHASE9B.md, 6): the workshop's stations are learned here.
+    if (!this.flags.has(BOOKS_READ)) {
+      this.flags.add(BOOKS_READ);
+      this.edited();
+      this.sayAfterPaper = 'Beside the journal, the builder’s handbooks: smelting, smithing, the kiln, tanning. The workshop’s stations now show what you can make.';
+    }
     const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
     const all = [...journalData.entries, ...notes];
     this.openPaper(() => this.paper.journal(all, notes.length ? all.length - 1 : 0)); // at your newest note
@@ -1596,7 +1715,7 @@ export class Game {
     this.tickFarPlaces();
     this.tickZone2();
     this.tickZone3();
-    this.tickZone4();
+    this.ridge.tick();
     // The first ten minutes (docs/FIXES.md, 7): the goal on screen, and how to eat and drink the first time it is needed.
     if (!inSanctuary(p.x, p.z) && p.x < GATE.x0) this.learned('left_valley');
     if (!this.hotbar.creative && f.has('ate') && this.vitals.hunger < 35) this.once('hint_hungry', HINTS.hungry, 9000);
@@ -1652,7 +1771,7 @@ export class Game {
       this.once('outpost_seen', 'The raiders’ outpost. A lookout on the roof watches the road. Leave the road and go round through the brush to the south to come at them unseen: a blade from behind is silent. Or fight from cover.', 12000);
     if ((zone === 'mid' || zone === 'deep') && isWeapon(this.hotbar.current?.id))
       this.once('focus_hint', 'Focus: press Q with a gun or bow in hand to slow the world for a careful shot. It lasts four seconds, then needs time to come back.', 9000);
-    if (near(F.mine.x, F.mine.z, 9)) this.once('mine_seen', 'An old mine, lit all the way down. Iron and coal lie thick in the walls of the chamber below. Underground, the danger is one higher.', 9000);
+    if (near(F.mine.x, F.mine.z, 9)) this.once('mine_seen', 'An old mine, lit all the way down. Iron and coal lie thick in the walls of the chamber below.', 9000);
     if (near(CAMP_MARKER[0], CAMP_MARKER[2], 9)) this.once('camp_marker', 'COTO DE CAZA: a hunting reserve. A lit trail runs north to the hunters’ camp.', 7000);
     // The jaguar crosses the clearing once, the first time you come to it.
     if (atCampClearing(p.x, p.z) && !f.has('jaguar_seen') && this.world.column(Math.floor(F.camp.x0 / CS), Math.floor(F.camp.z0 / CS))) {
@@ -1701,6 +1820,7 @@ export class Game {
     if (this.paper.isOpen) return;
     this.hud.showWorldHud(true);
     if (this.playing) this.look.engage();
+    if (this.sayAfterPaper) { this.hud.toast(this.sayAfterPaper, 9000); this.sayAfterPaper = null; }
   }
 
   /** Right-click with an item in hand: returns true if the item did something. */
@@ -1711,12 +1831,26 @@ export class Game {
     const [dx, dy, dz] = p.lookDir();
     const wet = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, REACH, true);
     const water = wet && (wet.id === WATER || wet.id === FALLING_WATER) && (!this.target || wet.dist <= this.target.dist);
+    // The valley's water comes through the limestone, clean. Outside it is safe only through the builder's filter,
+    // carried in the pack (docs/PHASE9B.md, 6): without it a drink still quenches but costs health, and a jug is not filled.
+    const clean = inSanctuary(p.x, p.z) || this.hotbar.count(itemId('water_filter')) > 0 || this.hotbar.creative;
     if (water && !held) {
-      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); this.learned('drank'); }
+      if (consume(this.vitals, { thirst: 25 })) {
+        this.sound.splash();
+        if (clean) this.hud.toast(inSanctuary(p.x, p.z) ? 'Cold, clear water' : 'Water, through the filter: clean');
+        else {
+          this.vitals.hp = Math.max(1, this.vitals.hp - BAD_WATER_HP);
+          this.bodyLoss += BAD_WATER_HP; // (a bad stomach is not a blow: it does not stop hold H)
+          this.hud.flashHurt();
+          if (this.playTime - this.badWaterSaid > 30) { this.badWaterSaid = this.playTime; this.hud.toast('It quenches, and it turns your stomach: the water out here is not clean. The builder’s water filter, carried, makes it safe.', 7000); }
+        }
+        this.learned('drank');
+      }
       else this.hud.toast('You are not thirsty');
       return true;
     }
     if (water && held && held.id === itemId('empty_jug')) {
+      if (!clean) { this.hud.toast('Not to carry home: the water out here is not clean. The builder’s water filter, in your pack, makes it safe.', 6000); return true; }
       this.hotbar.take();
       if (this.hotbar.add(itemId('water_jug')) > 0) this.hotbar.add(itemId('empty_jug'));
       this.sound.splash();
@@ -1762,6 +1896,7 @@ export class Game {
       return true;
     }
     if (HELD_HINT[heldName]) { this.hud.toast(HELD_HINT[heldName], 6000); return true; }
+    if (KIT_HINT[heldName]) { this.hud.toast(KIT_HINT[heldName], 7000); return true; }
     if (held.id === itemId('armband')) { this.hud.toast('A red armband, a white broken circle stitched on it. Whoever sent him wears the same.', 5000); return true; }
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
@@ -1806,6 +1941,12 @@ export class Game {
 
   private closeScreen(): void {
     if (!this.screen.close()) { this.hud.toast('No room to put that down: make space first'); return; }
+    // A sack emptied is taken away with the last thing out of it.
+    if (this.openSack) {
+      const [x, y, z] = this.openSack;
+      this.openSack = null;
+      if (clearEmptySack(this.world, x, y, z)) this.streamer.markUrgentAround(x, y, z);
+    }
     this.hud.showWorldHud(true);
     this.edited();
     if (this.playing) this.look.engage();
@@ -1813,82 +1954,92 @@ export class Game {
 
   // ---- Input ---------------------------------------------------------------------------------
 
+  /** The page's input, listened to in src/platform/input.ts; what each key and button does is here. */
   private bindInput(canvas: HTMLCanvasElement): void {
-    window.addEventListener('keydown', (e) => {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3'].includes(e.code)) e.preventDefault();
-      this.keys.add(e.code);
-      if (this.screen.isOpen) {
-        if (e.code === 'Escape' || e.code === 'KeyE') this.closeScreen();
-        return;
-      }
-      if (this.paper.isOpen) {
-        // (Not on a held key's repeats: the E that put the uplink's page down would close the card it brought up.)
-        if (e.code === 'Escape' || e.code === 'KeyE') { if (!e.repeat) this.closePaper(); }
-        else this.paper.key(e.code);
-        return;
-      }
-      // At the telescope: E, Esc or a step away puts it down.
-      if (this.scoping) {
-        if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.endScope();
-        return;
-      }
-      // (A fresh press: a key still held from walking up to the seat does not stand you straight up again.)
-      if (this.seat && !e.repeat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.stand();
-      if (e.code === 'Escape' && this.playing) this.pause();
-      if (e.code === 'KeyE' && this.playing) { this.openScreen(null); return; }
-      if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
-      if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
-      if (!this.playing) return;
-      if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
-      // The key left of 1 (` on most keyboards; § on a Mac's international one) is the bare hand.
-      if (e.code === 'Backquote' || e.code === 'IntlBackslash') this.hotbar.select(HAND);
-      if (e.code === 'KeyQ') this.toggleFocus();
-      if (e.code === 'KeyH' && !e.repeat) {
-        // Not an escape from the Ashen: with one hunting you close by, H does nothing (docs/PHASE7.md).
-        if (this.ashenOnYou() && !(this.player.flying && this.hotbar.creative)) { this.home.cancel(); this.hud.toast('Not with one of them on you'); return; }
-        const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
-        if (r === 'go') this.goHome();
-        else if (r === 'danger') this.hud.toast('Not with danger this close');
-      }
-      // Builder's mode only (docs/FIXES.md, N2): in Survival these keys do nothing at all.
-      if (this.mode !== 'builder') return;
-      if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
-      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.edited(); this.hud.toast(this.hotbar.creative ? 'Blocks never run out' : 'Blocks are counted again'); }
-      if (e.code === 'BracketRight') this.turnSky(1);
-      if (e.code === 'BracketLeft') this.turnSky(-1);
+    listenInput(canvas, {
+      key: (code, repeat) => this.keyDown(code, repeat),
+      keyUp: (code) => this.keys.delete(code),
+      blur: () => { this.keys.clear(); this.mining.active = false; this.drawing = null; this.endGlass(); },
+      press: (button) => this.mouseDown(button),
+      release: (button) => {
+        if (button === 0) this.mining.active = false;
+        if (button === 2) { this.loose(); this.endGlass(); }
+      },
+      wheel: (down) => {
+        if (!this.playing) return false;
+        this.hotbar.select(this.hotbar.selected + (down ? 1 : -1));
+        return true;
+      },
+      // Leaving: the write has to start before this event returns, so it skips compression.
+      hidden: () => { this.saveNow(); this.sound.suspend(); },
+      shown: () => {
+        if (this.playing) this.sound.resume();
+        // Back in front: has another tab saved this valley meanwhile?
+        if (this.booted && !this.opts.test) void this.keeper.check().then((stopped) => { if (stopped) this.stoppedSaving(); });
+      },
+      leaving: () => this.saveNow(),
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; });
-    canvas.addEventListener('mousedown', (e) => {
-      if (!this.playing) return;
-      if (this.look.mode === 'off') { this.look.engage(); return; }
-      if (this.scoping) { if (e.button === 2) this.endScope(); return; }
-      if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
-      const shot = this.lastShot;
-      if (e.button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
-      // The hand answers the click (docs/PHASE9A.md, 1): a blow or a thing set down swings it, a shot kicks it; a bow only bends.
-      if (this.lastShot !== shot) this.renderer.hand.kick();
-      else if (e.button === 0 || (e.button === 2 && this.drawing === null)) this.renderer.hand.swing();
-    });
-    window.addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.mining.active = false;
-      if (e.button === 2) this.loose();
-    });
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    canvas.addEventListener('wheel', (e) => {
-      if (!this.playing) return;
-      e.preventDefault();
-      this.hotbar.select(this.hotbar.selected + (e.deltaY > 0 ? 1 : -1));
-    }, { passive: false });
-    // Leaving: the write has to start before this event returns, so it skips compression.
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { this.saveNow(); this.sound.suspend(); return; }
-      if (this.playing) this.sound.resume();
-      // Back in front: has another tab saved this valley meanwhile?
-      if (this.booted && !this.opts.test) void this.keeper.check().then((stopped) => { if (stopped) this.stoppedSaving(); });
-    });
-    window.addEventListener('pagehide', () => this.saveNow());
+  }
+
+  /** A key pressed (`repeat`: held down, not a fresh press). */
+  private keyDown(code: string, repeat: boolean): void {
+    this.keys.add(code);
+    if (this.screen.isOpen) {
+      if (code === 'Escape' || code === 'KeyE') this.closeScreen();
+      return;
+    }
+    if (this.paper.isOpen) {
+      // (Not on a held key's repeats: the E that put the uplink's page down would close the card it brought up.)
+      if (code === 'Escape' || code === 'KeyE') { if (!repeat) this.closePaper(); }
+      else this.paper.key(code);
+      return;
+    }
+    // At the telescope: E, Esc or a step away puts it down.
+    if (this.scoping) {
+      if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(code)) this.endScope();
+      return;
+    }
+    // (A fresh press: a key still held from walking up to the seat does not stand you straight up again.)
+    if (this.seat && !repeat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(code)) this.stand();
+    if (code === 'Escape' && this.playing) this.pause();
+    // Esc on the pause menu goes back to the game (docs/PHASE9B.md, 3). Not on a key's repeats, and not in the
+    // moment after the pause: where the browser hands the page the same Esc that took the mouse away, that press
+    // must not undo its own pause. If the browser will not give the mouse back yet, play goes on and it says "Click to look around".
+    else if (code === 'Escape' && !repeat && !this.playing && this.ready && this.flags.has(BEGUN) && !this.hud.introOpen && this.time - this.pausedAt > 0.4) this.resume();
+    if (code === 'KeyE' && this.playing) { this.openScreen(null); return; }
+    if (code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
+    if (code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
+    if (!this.playing) return;
+    if (code.startsWith('Digit')) { const n = Number(code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
+    // The key left of 1 (` on most keyboards; § on a Mac's international one) is the bare hand.
+    if (code === 'Backquote' || code === 'IntlBackslash') this.hotbar.select(HAND);
+    if (code === 'KeyQ') this.toggleFocus();
+    if (code === 'KeyH' && !repeat) {
+      // Not an escape from the Ashen: with one hunting you close by, H does nothing (docs/PHASE7.md).
+      if (this.ashenOnYou() && !(this.player.flying && this.hotbar.creative)) { this.home.cancel(); this.hud.toast('Not with one of them on you'); return; }
+      const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
+      if (r === 'go') this.goHome();
+      else if (r === 'danger') this.hud.toast('Not with danger this close');
+    }
+    // Builder's mode only (docs/FIXES.md, N2): in Survival these keys do nothing at all.
+    if (this.mode !== 'builder') return;
+    if (code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
+    if (code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.edited(); this.hud.toast(this.hotbar.creative ? 'Blocks never run out' : 'Blocks are counted again'); }
+    if (code === 'BracketRight') this.turnSky(1);
+    if (code === 'BracketLeft') this.turnSky(-1);
+  }
+
+  /** A mouse button pressed over the picture. */
+  private mouseDown(button: number): void {
+    if (!this.playing) return;
+    if (this.look.mode === 'off') { this.look.engage(); return; }
+    if (this.scoping) { if (button === 2) this.endScope(); return; }
+    if (button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
+    const shot = this.lastShot;
+    if (button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
+    // The hand answers the click (docs/PHASE9A.md, 1): a blow or a thing set down swings it, a shot kicks it; a bow only bends.
+    if (this.lastShot !== shot) this.renderer.hand.kick();
+    else if (button === 0 || (button === 2 && this.drawing === null)) this.renderer.hand.swing();
   }
 
   /** Before play first begins in a valley: Survival or Builder's mode. After that it is fixed. */
@@ -1938,9 +2089,11 @@ export class Game {
     this.hud.showMenu(false);
     this.look.engage();
     if (this.sayAtPlay) { this.hud.toast(this.sayAtPlay, 8000); this.sayAtPlay = null; }
+    if (this.fallbackLine) { this.hud.notice(this.fallbackLine, 12000); this.fallbackLine = null; }
   }
 
   private pause(): void {
+    this.pausedAt = this.time;
     this.endFocus();
     this.home.cancel();
     this.playing = false;
@@ -1958,12 +2111,63 @@ export class Game {
   }
 
   private setRenderDistance(chunks: number, persist: boolean): void {
-    // At least 224 m from the menu; a test address may ask for less (?rd=…).
-    chunks = Math.max(this.opts.renderChunks !== undefined && !persist ? 2 : 7, Math.min(12, chunks || 8));
+    // From the menu, one of the offered distances; a test address may ask for less (?rd=…).
+    chunks = this.opts.renderChunks !== undefined && !persist ? Math.max(2, Math.min(12, chunks || 8)) : nearestViewChunks(chunks || 8);
     this.streamer.radius = chunks;
     this.renderer.setRenderDistance(chunks * CS);
-    this.hud.settingsInputs.rd.value = String(chunks);
-    if (persist) void this.saveSettings();
+    if (persist) { this.settings.rd = chunks; this.hud.showSettings(this.settings); void this.saveSettings(); }
+  }
+
+  /** The player changed settings in the menu: apply them, and keep them. */
+  private changeSettings(change: Partial<Settings>): void {
+    Object.assign(this.settings, change);
+    this.applySettings();
+    this.hud.showSettings({ ...this.settings, rd: this.streamer?.radius ?? this.settings.rd });
+    void this.saveSettings();
+  }
+
+  /** Puts the settings to work (all but the view distance, which the streamer has to exist for: setRenderDistance). */
+  private applySettings(): void {
+    const s = this.settings;
+    this.look.sensitivity = 0.0022 * s.sens;
+    this.look.invertY = s.inv;
+    this.sound.volume = s.vol;
+    this.renderer.setScale(s.scale);
+    this.renderer.effects = s.fx;
+    writeHint('aa', s.aa ? 'on' : 'off');
+  }
+
+  /** Sets the picture's scale and view by hand, as the menu would (for the measuring tool and the checks). */
+  setPicture(p: Partial<Picture>): void {
+    if (p.scale !== undefined) this.changeSettings({ scale: nearestScale(p.scale) });
+    if (p.view !== undefined) this.setRenderDistance(p.view, true);
+    this.watch.reset();
+  }
+
+  /**
+   * Each frame: while the game is being played and runs slowly for long enough, the picture is made one step
+   * lighter and the player is told (docs/PHASE9B.md, 1). Not while loading, paused, or with the page hidden; not on
+   * a test address that fixes the view; and not at all once the player has turned it off.
+   */
+  private watchFrames(gap: number): void {
+    if (!this.settings.auto || this.opts.test || this.opts.renderChunks !== undefined) return;
+    if (!this.playing || !this.ready || document.hidden || this.renderer.contextLost) { this.watch.reset(); return; }
+    if (!this.watch.frame(gap)) return;
+    const now: Picture = { scale: this.settings.scale, view: this.streamer.radius };
+    const next = lighter(now);
+    if (!next) return;
+    this.settings.scale = next.scale;
+    this.applySettings();
+    // A view this page chose for itself (workers blocked: the fallback's short view) is shortened for this page
+    // only: the kept view is still the player's, for a browser where workers start (the fresh review, 2).
+    const ownView = now.view === this.settings.rd;
+    if (next.view !== now.view && ownView) this.setRenderDistance(next.view, true); // (keeps the settings and shows them in the menu)
+    else {
+      if (next.view !== now.view) this.setRenderDistance(next.view, false);
+      this.hud.showSettings({ ...this.settings, rd: next.view });
+      void this.saveSettings();
+    }
+    this.hud.toast(lighterLine(now, next), 9000);
   }
 
   // ---- Saving ------------------------------------------------------------------------------
@@ -1992,7 +2196,7 @@ export class Game {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
-      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, savedAt: new Date().toISOString(),
+      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, gen: this.gen, savedAt: new Date().toISOString(),
       mode: this.mode, endless: this.hotbar.creative, hour: this.hour,
       // Saved while sitting, the player is where they stood before sitting down (the seated body's feet are put
       // under the seat: a save would open with them inside the floor).
@@ -2041,10 +2245,8 @@ export class Game {
     this.introShown = false;
     this.wakeHold = null;
     this.doseToasted = false;
-    this.endScope();
+    this.ridge.reset();
     this.adrenaline = 0;
-    this.rayGreeted = false;
-    this.lureCalls = [];
     this.doseLine = { text: '', alarm: false };
     this.shotFired = false;
     this.quietShot = false;
@@ -2059,6 +2261,7 @@ export class Game {
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
     this.mode = d.mode === 'builder' ? 'builder' : 'survival';
+    this.gen = d.gen ?? WORLD_GEN;
     // Nobody flies in Survival, whatever a save says.
     this.player.flying = d.player.flying && this.mode === 'builder';
     this.player.breath = BREATH_MAX;
@@ -2089,8 +2292,7 @@ export class Game {
     this.lastPull = Number.isFinite(d.lastPull) ? d.lastPull! : null;
     this.running = devicesFromSave(d.running);
     // A telescope counted when saved counts until the home's land is looked at again.
-    this.scopeOk = this.flags.has('telescope_set');
-    this.scopesAt = null;
+    this.ridge.loaded();
     // A save made unsuited on the ridge's poisoned ground (any save from before the fallout was there) would load
     // into certain death, the pack left where no one can fetch it: such a player wakes outside the gate instead.
     if (!fresh && this.mode === 'survival' && !this.suited() && doseRate(this.player.x, this.player.z, false) > 0 && inFallout(this.player.x, this.player.z)) {
@@ -2181,10 +2383,16 @@ export class Game {
     else if (k.stopped === 'store-error') say(NOTES.storeError);
     else if (k.stopped === 'other-tab') say(NOTES.otherTab);
     else if (this.secondTab) say(SECOND_TAB);
-    else if (this.notice) say(this.notice);
-    else if (this.store.kind === 'memory') say('This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe.');
-    else if (this.lastWriteFailed) say('The last save did not go through: this browser’s storage may be full or blocked. Use “Copy save code” and keep the code somewhere safe.');
-    else say('Saves in this browser every minute while you play, when you pause and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer.', false);
+    else {
+      // What the player can still do something about comes with any line about how this valley was opened, never
+      // behind it: "made by an earlier build" used to hide "can't keep saves" and "the last save failed" all session.
+      const cant = this.store.kind === 'memory' ? 'This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe.'
+        : this.lastWriteFailed ? 'The last save did not go through: this browser’s storage may be full or blocked. Use “Copy save code” and keep the code somewhere safe.' : null;
+      // (The line about storage that did not open already says what is and is not kept: nothing is added to it.)
+      if (this.notice === DEGRADED) say(DEGRADED);
+      else if (this.notice || cant) say([this.notice, cant].filter(Boolean).join(' '));
+      else say('Saves in this browser every minute while you play, when you pause and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer.', false);
+    }
   }
 
   private async downloadSave(): Promise<void> {
@@ -2304,27 +2512,16 @@ export class Game {
     this.hud.setLoadingVisible();
   }
 
-  /** The settings as last read from the store, whole: what is saved is laid over them. */
-  private settingsKept: Record<string, unknown> = {};
   private async saveSettings(): Promise<void> {
-    // (Over whatever was stored: a key this build does not know, another build's setting, is kept as it was.)
-    const s = { ...this.settingsKept, rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume, fx: this.renderer.effects };
-    await this.store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify(s)));
+    try { await this.store.set(SETTINGS_KEY, encodeSettings(this.settings)); } catch (e) { console.warn('settings could not be kept', e); }
   }
 
   private async loadSettings(): Promise<void> {
-    try {
-      const b = await this.store.get(SETTINGS_KEY);
-      if (!b) return;
-      const s = JSON.parse(new TextDecoder().decode(b));
-      if (s && typeof s === 'object' && !Array.isArray(s)) this.settingsKept = s;
-      // Older builds allowed 4 and 6; the least now is 7 (224 m), and the menu offers 7, 8, 10 and 12.
-      if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(nearestViewChunks(s.rd));
-      if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }
-      if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
-      if (typeof s.vol === 'number') { this.sound.volume = s.vol; this.hud.settingsInputs.vol.value = String(s.vol); }
-      if (typeof s.fx === 'boolean') { this.renderer.effects = s.fx; this.hud.settingsInputs.fx.checked = s.fx; }
-    } catch { /* bad settings are ignored */ }
+    let bytes: Uint8Array | null = null;
+    try { bytes = await this.store.get(SETTINGS_KEY); } catch { /* settings that can't be read are the defaults */ }
+    this.settings = parseSettings(bytes);
+    this.applySettings();
+    this.hud.showSettings(this.settings);
   }
 
   // ---- Zone-2 and power (docs/PHASE6.md) ----------------------------------------------------------
@@ -2551,160 +2748,12 @@ export class Game {
 
   // ---- Zone-4 and the uplink (docs/PHASE8.md) ------------------------------------------------------
 
-  /** The telescopes set down at home, as last looked for (null: not yet since the valley was opened). */
-  private scopesAt: [number, number, number][] | null = null;
-
-  /** Lures that called this tick, for the Ashen to hear. */
-  private lureCalls: { x: number; z: number; r: number }[] = [];
-
-  /** Each tick: the lures wail and the pots burn their time; a spent one is gone. */
-  private tickDevices(dt: number): void {
-    if (!this.running.length) return;
-    const { calls, spent } = stepDevices(this.running, dt);
-    for (const d of calls) {
-      this.lureCalls.push({ x: d.x + 0.5, z: d.z + 0.5, r: LURE_HEARD });
-      this.sound.lure(d.x + 0.5, d.y + 0.5, d.z + 0.5);
-    }
-    for (const d of this.running) if (d.kind === 'pot' && Math.random() < dt * 16) this.renderer.particles.smoke(d.x + 0.5, d.y + 0.8, d.z + 0.5, 2);
-    for (const d of spent) {
-      // Only its own block goes: something built there since stays.
-      const name = blockName(this.world.blockAt(d.x, d.y, d.z));
-      if (name === 'sonic_lure_on' || name === 'smoke_pot_lit') { this.world.setBlock(d.x, d.y, d.z, 0); this.streamer.markUrgentAround(d.x, d.y, d.z); }
-      this.edited();
-    }
-  }
-
-  /** Once a second: the ridge's places, Ray at the refuge, the telescope at home, the uplink's chips, M5. */
-  private tickZone4(): void {
-    const p = this.player, f = this.flags;
-    const suited = this.suited();
-    const place = ridgePlaceAt(p.x, p.z);
-    if (place) this.once(`ridge_${place}`, ridgeToast(place, suited), place === 'gate' ? 13000 : 10000);
-    // Ray keeps the meeting by day, at the refuge's door, until he has been met (as Marco at his shelter).
-    const ray = this.wild.creatures.find((c) => c.kind === 'ray');
-    const dist = Math.hypot(p.x - RAY_SPOT.x, p.z - RAY_SPOT.z);
-    // (After the hand-over he stays while you are by him: he used to vanish under his own words.)
-    const here = rayWaiting(f, this.hour) || (!!ray && f.has('ray_met') && dist < 40 && this.hour >= RAY_FROM && this.hour < RAY_UNTIL);
-    if (here && !ray && dist < 120 && this.world.column(Math.floor(RAY_SPOT.x / CS), Math.floor(RAY_SPOT.z / CS))) {
-      const y = groundAt(RAY_SPOT.x, RAY_SPOT.z, (bx, by, bz) => this.world.blockAt(bx, by, bz));
-      if (y !== null) { const r = makeCreature('ray', RAY_SPOT.x, y, RAY_SPOT.z); r.yaw = RAY_SPOT.yaw; this.wild.add(r); }
-    } else if (!here && ray) this.wild.remove(ray);
-    if (here && ray && dist < 12 && !this.rayGreeted) {
-      this.rayGreeted = true;
-      this.sound.whistle(ray.x, ray.y + 1.6, ray.z);
-      this.hud.toast('Ray is here, by the refuge’s door: the man in the orange suit. Right-click him.', 7000);
-    }
-    if (dist > 30) this.rayGreeted = false;
-    // The tower's beacon ticks, near it.
-    const T = PLACES.ridgeTower;
-    if (Math.hypot(p.x - T.x, p.z - T.z) < 90) this.sound.beacon(T.x, p.y + 30, T.z);
-    // A telescope under open sky at home (the valley, or the home's grounds); away from home, as last seen.
-    // (Looked for only while you are at home, or after a load: away from home nothing there changes, and the
-    // search reads every edit. Keyed on where you are, not on a count of edits that some path might forget to move.)
-    if (this.scopesAt === null || inSanctuary(p.x, p.z)) this.scopesAt = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5));
-    const scopes = this.scopesAt;
-    if (!scopes.length) this.scopeOk = false;
-    else if (scopes.some(([x, , z]) => this.world.isLoaded(x, z))) this.scopeOk = scopes.some(([x, y, z]) => this.world.isLoaded(x, z) && skyOf(this.world.lightAt(x, y + 1, z)) >= 13);
-    // What the uplink's answers add to the screen: the time left to dusk outside (EPH), a nest close by (BIO).
-    const chips: string[] = [];
-    if (!this.hotbar.creative && !inSanctuary(p.x, p.z)) {
-      if (f.has('agi_eph')) { const h = hoursToDusk(this.hour); chips.push(h > 0 ? `dusk in ${Math.floor(h)}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}` : 'dark: they are out'); }
-      if (f.has('agi_bio')) {
-        const near = Math.min(...NESTS.map((n) => Math.hypot(p.x - n.x, p.z - n.z)));
-        if (near < 40) chips.push(`nest ${Math.round(near)} m`);
-      }
-    }
-    this.hud.setChip(chips.join(' · '));
-    // M5.
-    const m5 = trackM5(f, p.x, p.z, { telescope: this.scopeOk });
-    if (m5.length) this.edited();
-    if (m5.includes('yard_reached')) this.hud.setGoal(nextGoal(f));
-    if (m5.includes('ridge_home')) this.hud.toast('Home from the ridge, alive.', 6000);
-    if (m5.includes('telescope_set')) this.hud.toast('The telescope stands under the sky. Right-click it to look: the falls, the moon, and at night the satellites, still crossing.', 9000);
-    if (m5.includes('m5_done')) this.hud.toast('M5 · the uplink. Everything the builder began is running. What comes next is not in his drawings. (In your notes.)', 12000);
-  }
-
   /** Meeting Ray at the refuge (src/game/people.ts): the modem, once. */
   private meetRay(): void {
     const first = !this.flags.has('ray_met');
     const say = meetRay(this);
     this.hud.toast(say, first && this.flags.has('ray_met') ? 22000 : 6000);
     if (first && this.flags.has('ray_met')) this.hud.setGoal(nextGoal(this.flags));
-  }
-
-  /** Something made that M5 counts, or that needs a word the first time. */
-  private madePhase8(name: string): void {
-    const flag = craftedFlag(name);
-    if (flag && !this.flags.has(flag)) { this.flags.add(flag); this.edited(); }
-    const line = MADE_LINE[name];
-    if (line) this.once(`made_${name}`, line, 9000);
-  }
-
-  /** A page left on a desk, or the manual on its shelf: it is read, and kept in the notes. */
-  private readNote(flag: string, by: string): void {
-    const n = journalData.notes.find((q) => q.flag === flag);
-    if (!n) return;
-    if (!this.flags.has(flag)) { this.flags.add(flag); this.edited(); }
-    this.openPaper(() => this.paper.journal([{ title: n.title, text: n.text, by }]));
-  }
-
-  /** Right-click on Phase 8's things. True if handled. */
-  private usePhase8(name: string, x: number, y: number, z: number): boolean {
-    const at = (q: readonly number[]) => q[0] === x && q[1] === y && q[2] === z;
-    if (name === 'note_desk') {
-      this.readNote(at(HUT_LOG) ? 'hut_log' : at(DOME_PAGE) ? 'dome_page' : at(RELAY_PAGE) ? 'relay_page' : Math.hypot(x - ZONE4.observatory.x, z - ZONE4.observatory.z) < 12 ? 'dome_page' : x < ZONE4.yard.x1 ? 'relay_page' : 'hut_log', 'A page left here');
-      return true;
-    }
-    if (name === 'manual_shelf') {
-      const first = !this.flags.has('pharma_learned');
-      this.readNote('pharma_learned', 'The field pharmacy manual');
-      if (first) this.hud.toast('The manual is in your notes. A medical bench and a distiller can be made at the workbench now.', 8000);
-      return true;
-    }
-    if (name === 'antenna_hoist') { this.useHoist(); return true; }
-    if (name === 'telescope') { this.startScope(x, y, z); return true; }
-    if (name === 'sonic_lure' || name === 'smoke_pot') {
-      const lure = name === 'sonic_lure';
-      this.world.setBlock(x, y, z, blockId(lure ? 'sonic_lure_on' : 'smoke_pot_lit'));
-      this.streamer.markUrgentAround(x, y, z);
-      this.running.push(startDevice(lure ? 'lure' : 'pot', x, y, z));
-      if (lure) this.hud.toast('The lure wails. For forty seconds every one of them in earshot comes to it, not to you. Then it is spent.', 6000);
-      else { this.sound.hiss(x + 0.5, y + 0.5, z + 0.5); this.hud.toast('The pot catches. For a minute none of them will step within eight paces of it. Then it is spent.', 6000); }
-      this.edited();
-      return true;
-    }
-    if (name === 'sonic_lure_on' || name === 'smoke_pot_lit') {
-      // One left running by a save that lost its clock is simply spent.
-      if (!this.running.some((d) => d.x === x && d.y === y && d.z === z)) { this.world.setBlock(x, y, z, 0); this.streamer.markUrgentAround(x, y, z); this.edited(); this.hud.toast('Spent.'); }
-      else this.hud.toast(name === 'sonic_lure_on' ? 'It is wailing. Get clear of it.' : 'It is burning. Stay inside its smoke.');
-      return true;
-    }
-    return false;
-  }
-
-  /** The builder's hoist on the balcony: with the assembled antenna in hand, the mast and dish go up on the cliff. */
-  private useHoist(): void {
-    const f = this.flags;
-    if (f.has('antenna_up')) { this.hud.toast('The hoist. The antenna is up on the cliff above the cave’s mouth: look from the garden.', 6000); return; }
-    const held = this.hotbar.current;
-    if (!held || held.id !== itemId('sat_antenna')) {
-      this.hud.toast(f.has('uplink_plans')
-        ? 'The builder’s hoist: a winch, and a cable up the cliff. With the satellite antenna assembled (Ray’s plans, at the workbench) and in your hand, right-click it.'
-        : 'The builder’s hoist: a winch, and a cable up the cliff to a bracket with nothing on it. He meant to lift something heavy up there.', 8000);
-      return;
-    }
-    const spot = antennaSpot(HOME_FIT.mast, (bx, by, bz) => (this.world.isLoaded(bx, bz) ? (BLOCK_DEFS[this.world.blockAt(bx, by, bz)]?.solid ?? false) : null));
-    if (!spot) { this.hud.toast('The cable won’t run: the cliff above the cave’s mouth is not as he left it.', 6000); return; }
-    for (const [bx, by, bz, block] of antennaBlocks(...spot)) this.world.setBlock(bx, by, bz, blockId(block));
-    this.streamer.markUrgentAround(...spot);
-    this.streamer.markUrgentAround(spot[0], spot[1] + 6, spot[2]);
-    this.hotbar.take();
-    f.add('antenna_up');
-    this.sound.gate();
-    this.shake = 0.6;
-    this.hud.setGoal(nextGoal(f));
-    this.hud.toast('The winch takes it up. The dish stands on the cliff above the cave’s mouth, turned to the western sky: you can see it from the garden.', 10000);
-    this.edited();
   }
 
   /** The builder's computer: fitting the terminal to it; its pages. */
@@ -2745,45 +2794,14 @@ export class Game {
     void this.save(false);
   }
 
-  /** Right-click a telescope: the view narrows twelve times; the mouse aims; E, Esc or a step puts it down. */
-  private startScope(x: number, y: number, z: number): void {
-    if (this.scoping) { this.endScope(); return; }
-    this.endFocus();
-    this.home.cancel();
-    this.mining.active = false;
-    this.drawing = null;
-    this.scope ??= new ScopeView(this.ui);
-    this.scoping = { x, y, z };
-    this.scope.show();
-    this.hud.showWorldHud(false);
-    this.renderer.setZoom(SCOPE_ZOOM, SCOPE_NEAR);
-    this.once('scope_used', 'Through the telescope: move the mouse to aim. E or Esc to step back.', 5000);
+  /** The binoculars are lowered. */
+  private endGlass(): void {
+    if (!this.glassing) return;
+    this.glassing = false;
+    if (!this.scoping) this.renderer.setZoom(1);
   }
 
-  private endScope(): void {
-    if (!this.scoping) return;
-    this.scoping = null;
-    this.scope?.hide();
-    this.hud.showWorldHud(true);
-    this.renderer.setZoom(1);
-  }
-
-  /** Each frame: the satellites' train in the night sky, and what the telescope is aimed at. */
-  private tickScope(): void {
-    const p = this.player;
-    this.renderer.setSats(satTrain(this.time, this.hour));
-    if (!this.scoping) return;
-    // Walked off, or the telescope mined: it is put down. (Being hurt puts it down too: `tick`.)
-    const s = this.scoping;
-    if (Math.hypot(p.x - s.x - 0.5, p.z - s.z - 0.5) > 4 || blockName(this.world.blockAt(s.x, s.y, s.z)).split('@')[0] !== 'telescope') { this.endScope(); return; }
-    // Nothing is named through a roof or a wall: the first 120 m of the line must be clear of blocks
-    // (the far land beyond that is the telescope's own reckoning: "behind the land from here").
-    const [dx, dy, dz] = p.lookDir();
-    // (From where the glass begins to draw: the telescope's own block, beside the eye, is not in the way.)
-    const open = clearShot((bx, by, bz) => this.world.blockAt(bx, by, bz), p.x + dx * SCOPE_NEAR, p.eyeY + dy * SCOPE_NEAR, p.z + dz * SCOPE_NEAR, dx, dy, dz, 120);
-    const aimed = open ? aimedAt(p.yaw, p.pitch, scopeTargets([p.x, p.eyeY, p.z], this.hour, this.time)) : null;
-    this.scope?.setLabel(scopeLabel(aimed));
-  }
+  private endScope(): void { this.ridge.endScope(); }
 
   // ---- Debug and test hooks --------------------------------------------------------------------
 
@@ -2798,6 +2816,7 @@ export class Game {
       `time ${Math.floor(this.hour)}:${String(Math.floor((this.hour % 1) * 60)).padStart(2, '0')} · light sky ${light >> 4} block ${light & 15}`,
       `columns ${s.columns} · gen queue ${s.genQueued} · mesh queue ${s.meshQueued}`,
       `chunk meshes ${r.chunks} · quads ${Math.round(r.quads / 1000)}k · draw calls ${this.renderer.gl.info.render.calls}`,
+      `picture ${this.renderer.gl.domElement.width}×${this.renderer.gl.domElement.height} · scale ${this.settings.scale} · view ${this.streamer.radius * CS} m · smooth edges ${this.renderer.antialias ? 'on' : 'off'} · auto ${this.settings.auto ? 'on' : 'off'}`,
       this.target ? `target ${this.target.x} ${this.target.y} ${this.target.z} (${this.target.id})` : 'target —',
     ].join('\n');
   }

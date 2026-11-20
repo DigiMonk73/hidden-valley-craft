@@ -495,7 +495,7 @@ describe('M2: the forge, the bow, preserving, the garden, traps', () => {
     expect(stationOf(blockId('forge'))).toBe('forge');
     // The forge gets more iron from scrap than the smelter.
     const better = recipesAt('forge').find((r) => r.in.some(([id]) => id === itemId('scrap_metal')))!;
-    const smelter = recipesAt('smelter').find((r) => r.in.some(([id]) => id === itemId('scrap_metal')))!;
+    const smelter = recipesAt('smelter', new Set(['books_read'])).find((r) => r.in.some(([id]) => id === itemId('scrap_metal')))!;
     expect(better.out[1] / better.in[0][1]).toBeGreaterThan(smelter.out[1] / smelter.in[0][1]);
     // Making the forge gives a tool rack too.
     const inv = new Inventory(18);

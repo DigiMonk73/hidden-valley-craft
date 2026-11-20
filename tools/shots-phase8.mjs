@@ -34,7 +34,7 @@ await shot('meter_suit');
 // 2. Home: the telescope, the uplink page, the card, the map table.
 await g(() => { const gm = window.__hv.game; gm.dose = 0; gm.player.flying = true; gm.player.setPosition(1797, 84, 1022.5); });
 await settle(12000);
-await g(() => { const gm = window.__hv.game, id = window.__hv.itemId; gm.world.setBlock(1795, 82, 1021, id('telescope')); gm.player.flying = false; gm.player.setPosition(1796.4, 82, 1022.6); gm.hotbar.slots[0] = { id: id('sat_antenna'), count: 1 }; gm.hotbar.selected = 0; gm.useHoist(); gm.startScope(1795, 82, 1021); const t = window.__hv.scopeTargets().find((q) => q.id === 'falls'); gm.player.yaw = t.yaw; gm.player.pitch = t.pitch; });
+await g(() => { const gm = window.__hv.game, id = window.__hv.itemId; gm.world.setBlock(1795, 82, 1021, id('telescope')); gm.player.flying = false; gm.player.setPosition(1796.4, 82, 1022.6); gm.hotbar.slots[0] = { id: id('sat_antenna'), count: 1 }; gm.hotbar.selected = 0; gm.ridge.useHoist(); gm.ridge.startScope(1795, 82, 1021); const t = window.__hv.scopeTargets().find((q) => q.id === 'falls'); gm.player.yaw = t.yaw; gm.player.pitch = t.pitch; });
 await page.waitForTimeout(6000);
 await shot('scope_falls');
 await g(() => { const gm = window.__hv.game; gm.endScope(); gm.flags.add('uplink_fitted'); gm.scopeOk = true; gm.devices.hydro_generator = [[0, 0, 0]]; gm.useComputer(); document.querySelector('[data-action="Uplink"]').click(); });

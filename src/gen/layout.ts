@@ -382,6 +382,35 @@ export function inValleyBowl(x: number, z: number): boolean {
   return distToValley(x, z) < VALLEY.radius + 8;
 }
 
+/**
+ * Where the valley's cliff is made sheer (docs/PHASE9B.md, 3). The cliff's ledges come from noise, and at two
+ * places they lined up into a stair: from the plateau a walker came down to the valley's floor by steps and falls
+ * that do no harm, which the script's premise forbids (the tunnel is the only way in). In each place a band of the
+ * cliff, between two heights and two bearings, is made an overhang: on the way down it the face only ever steps
+ * back, never forward, so the band has roofs and hollows but no ledge, and is too high to come down alive. The
+ * cliff above and below it is left as it was. Bearings are degrees from the valley's centre, 0 east, 90 south.
+ * Only these places: the walk test (tests/review_land.test.ts) found no other way down.
+ */
+export const RIM_MENDS: readonly { name: string; from: number; to: number; lo: number; hi: number }[] = [
+  { name: 'the south-east stair', from: 50, to: 59, lo: 86, hi: 98 },
+  { name: 'the north-east stair', from: -32, to: -23, lo: 101, hi: 113 },
+];
+
+/** For a cell inside a mended band, the band's top (the cell's face stands back as far as any height from its own up to there); else the cell's own height. */
+export function rimMendHeight(x: number, y: number, z: number): number {
+  for (const m of RIM_MENDS) {
+    if (y < m.lo || y >= m.hi) continue;
+    const deg = (Math.atan2(z - VALLEY.cz, x - VALLEY.cx) * 180) / Math.PI;
+    if (deg >= m.from && deg <= m.to) return m.hi;
+  }
+  return y;
+}
+
+/** Is the point inside a mended band of the cliff (where a ledge may have stood when an older save was made)? */
+export function inRimMend(x: number, y: number, z: number): boolean {
+  return rimMendHeight(Math.floor(x), Math.floor(y), Math.floor(z)) !== Math.floor(y);
+}
+
 /** The builder's home: its rooms run from the cliff face deep into the east rock, past the bowl's edge. */
 export const HOME_GROUNDS = { x0: 1786, x1: 1842, z0: 998, z1: 1050 };
 

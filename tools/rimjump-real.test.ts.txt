@@ -1,0 +1,77 @@
+// The rim with running jumps, each long leap tried by the real Player (docs/PHASE9B.md, "The fresh review", 3).
+// About 16 minutes, so not part of the suite: to run it, copy it to tests/zz_rimjump.test.ts and run
+// `npx vitest run tests/zz_rimjump.test.ts --silent=false`, then delete the copy.
+import { it, vi } from 'vitest';
+import { Land, Flood, standing, show, measureRules, type Spot } from './walk.ts';
+import { VALLEY, HOME, HOME_GROUNDS, GATE, CANYON_FALLS, distToValley, inValleyBowl } from '../src/gen/layout.ts';
+import { WORLD_X } from '../src/world/constants.ts';
+import { Player } from '../src/sim/player.ts';
+import { fallDamage } from '../src/sim/survival.ts';
+vi.setConfig({ testTimeout: 3_600_000 });
+it('probe: the flood with every long leap tried by the real Player', () => {
+  const land = new Land(); const at = land.blockAt; const R = measureRules();
+  const M = 200;
+  const x0 = VALLEY.cx - VALLEY.radius - M, x1 = Math.min(WORLD_X - 1, HOME_GROUNDS.x1 + M), z0 = VALLEY.cz - VALLEY.radius - M, z1 = VALLEY.cz + VALLEY.radius + M;
+  const inside = (x: number, z: number) => x >= x0 && x <= x1 && z >= z0 && z <= z1;
+  const starts = standing(at, Math.floor(CANYON_FALLS.x) - 12, GATE.z0 + 1).slice(-1);
+  let tried = 0, passed = 0;
+  const cache = new Map<string, boolean>();
+  const real = (a: Spot, b: Spot, dx: number, dz: number, n: number): boolean => {
+    const k = `${a.x},${a.y},${a.z},${b.x},${b.y},${b.z}`;
+    const c = cache.get(k); if (c !== undefined) return c;
+    tried++;
+    let ok = false;
+    for (let back = 0; back <= 3 && !ok; back++) {
+      const sx = a.x - dx * back, sz = a.z - dz * back;
+      if (back && !standing(at, sx, sz, Math.floor(a.y) - 1, Math.floor(a.y) + 2).some((s) => Math.abs(s.y - a.y) < 0.01 && !s.swim)) break;
+      for (const stopAt of [99, 0.5, 0, -0.5, -1]) for (const jumpAt of [0.3, 0.45, 0.6, 0.75, 0.9]) {
+        if (ok) break;
+        const p = new Player();
+        p.setPosition(sx + 0.5, a.y, sz + 0.5);
+        p.yaw = Math.atan2(-dx, -dz);
+        for (let t = 0; t < 0.2; t += 1 / 60) p.step(1 / 60, { forward: 0, strafe: 0, jump: false, sprint: false, descend: false }, at);
+        let jumped = false, worst = 0;
+        for (let t = 0; t < 2.5; t += 1 / 60) {
+          const along = (p.x - (a.x + 0.5)) * dx + (p.z - (a.z + 0.5)) * dz;
+          const jump = !jumped && along >= jumpAt;
+          if (jump) jumped = true;
+          const go = along < n + stopAt ? 1 : 0;
+          p.step(1 / 60, { forward: go, strafe: 0, jump, sprint: go > 0, descend: false }, at);
+          worst = Math.max(worst, p.landedFall); p.landedFall = 0;
+          if (fallDamage(worst) > 0) break;
+          if (jumped && p.onGround && Math.floor(p.x) === b.x && Math.floor(p.z) === b.z && Math.abs(p.y - b.y) < 0.6) { ok = true; break; }
+          if (jumped && p.onGround && p.y < b.y - 0.6) break;
+        }
+      }
+    }
+    if (ok) passed++;
+    cache.set(k, ok);
+    return ok;
+  };
+  // The flood's leap, with every leap past the level leap (R.gap) tried by the real Player before it counts.
+  const proto = Flood.prototype as unknown as { leap(i: number, s: Spot, dx: number, dz: number): void };
+  const was = proto.leap;
+  proto.leap = function (this: any, i: number, s: Spot, dx: number, dz: number) {
+    const R2 = this.rules, ins = this.opts.inside;
+    const far = R2.gap + Math.floor(Math.sqrt(this.drop));
+    for (let n = 1; n <= far; n++) {
+      const mx = s.x + dx * n, mz = s.z + dz * n, tx = mx + dx, tz = mz + dz;
+      if (this.blockedSpan(mx, mz, s.y, s.y + R2.height)) break;
+      if (ins && !ins(tx, tz)) break;
+      if (n <= 2) for (const up of this.ledges(tx, tz, s.y, s.y + R2.step)) this.add(up, i);
+      const land = this.settle(tx, tz, s.y);
+      if (land && n <= R2.gap + Math.floor(Math.sqrt(Math.max(0, s.y - land.y)))) {
+        if (n <= R2.gap || land.swim || real(s, land, dx, dz, n + 1)) this.add(land, i);
+      }
+    }
+  };
+  try {
+    const flood = new Flood(at, starts, { inside, drop: R.safeFall, jumps: true });
+    const onFloor = (s: Spot) => Math.abs(s.y - VALLEY.floor) < 3 && distToValley(s.x, s.z) < VALLEY.radius - 20;
+    const atHome = (s: Spot) => s.x >= HOME_GROUNDS.x0 && s.x < HOME_GROUNDS.x1 && s.z >= HOME_GROUNDS.z0 && s.z < HOME_GROUNDS.z1 && s.y < HOME.floor + 12;
+    const floor = flood.spots.filter(onFloor), home = flood.spots.filter(atHome);
+    const bowl = flood.spots.filter((s) => inValleyBowl(s.x, s.z));
+    console.info(`VALIDATED spots ${flood.spots.length}, bowl ${bowl.length}, floor ${floor.length}, home ${home.length} (y ${home.length ? Math.min(...home.map((s) => s.y)) : "-"}..${home.length ? Math.max(...home.map((s) => s.y)) : "-"}); long leaps tried ${tried}, made ${passed}; lowest in bowl ${Math.min(...bowl.map((s) => s.y))}`);
+    if (floor.length) { const w = flood.wayTo(floor[0]); console.info('WAY', w.filter((s, k) => k % 3 === 0).map(show).join(' ')); }
+  } finally { proto.leap = was; }
+});

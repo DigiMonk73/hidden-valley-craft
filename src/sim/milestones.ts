@@ -1,7 +1,7 @@
 // M1, the first outside run (docs/PHASE4.md, step 7). DESIGN.md's four M1 unlocks are narrative, with no
 // new recipes; here each is a flag the game sets when the player has done it. Pure.
 
-import { inSanctuary, zoneAt, GATE, TUNNEL, VALLEY, ZONE2, ZONE3 } from '../gen/layout.ts';
+import { inSanctuary, zoneAt, GATE, TUNNEL, VALLEY, HOME, ZONE2, ZONE3 } from '../gen/layout.ts';
 
 export interface Step { flag: string; label: string }
 
@@ -21,6 +21,9 @@ export const M1_STEPS: Step[] = [
  * taken from his pockets (`scoutPistolTaken`), not any pistol carried. And the way home has to be travelled:
  * `notWalkedHome` below undoes a run that ended with hold H or a death.
  */
+/** The highest a player's feet can be and still be "home": above the home's rooms, below anywhere the cliff's top can be walked down to. */
+export const HOME_LEVEL = HOME.floor + 12;
+
 export function trackM1(flags: Set<string>, x: number, z: number, scoutPistolTaken: boolean, y = 0): string[] {
   const added: string[] = [];
   const set = (f: string) => { if (!flags.has(f)) { flags.add(f); added.push(f); } };
@@ -33,7 +36,9 @@ export function trackM1(flags: Set<string>, x: number, z: number, scoutPistolTak
   if (home && flags.has('been_out') && flags.has('swum_back')) set('gate_both');
   const zone = zoneAt(x, z);
   if (zone === 'near' || zone === 'mid' || zone === 'deep') set('reached_near');
-  if (home && flags.has('reached_near')) set('extracted');
+  // Home means down in the valley or in the builder's rooms, not on the plateau above them: the sanctuary's circle
+  // takes in the cliff's top edge, which is walked onto from outside (docs/PHASE9B.md, 3).
+  if (home && y <= HOME_LEVEL && flags.has('reached_near')) set('extracted');
   if (scoutPistolTaken) set('pistol_taken');
   if (M1_STEPS.every((s) => flags.has(s.flag))) set('m1_done');
   return added;

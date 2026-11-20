@@ -1719,11 +1719,11 @@ DRAW.banana_leaves = (c) => {
   }
   for (let y = 12; y < TEX; y++) { c.set(7, y, hex('#8aa24a')); c.set(8, y, hex('#7c9442')); } // the stalks, together at the foot
 };
-// A bunch of bananas, hanging from its stalk under the leaves: hands of green fruit going yellow, the purple bud below.
-DRAW.banana_bunch = (c) => {
+// A bunch of bananas, hanging from its stalk under the leaves: hands of fruit, the purple bud below. Ripe, they are
+// yellow and can be picked; picked, a green bunch grows in its place and yellows (docs/PHASE9B.md, 6).
+const bananaBunch = (fruit: RGB[]) => (c: Canvas16) => {
   c.clearAlpha();
   for (let y = 0; y < 14; y++) c.set(7 + (y > 9 ? 1 : 0), y, hex('#6b7a36'));
-  const fruit = [hex('#b9c94a'), hex('#d8cf4e'), hex('#9fb840')];
   for (const [y, half] of [[3, 3], [5, 4], [7, 4], [9, 3]]) {
     for (let d = 1; d <= half; d++) for (const side of [-1, 1]) {
       c.set(7 + side * d + (side > 0 ? 1 : 0), y + (d > 2 ? -1 : 0), fruit[(d + y) % 3]);
@@ -1732,6 +1732,8 @@ DRAW.banana_bunch = (c) => {
   }
   for (const [x, y] of [[8, 13], [8, 14], [7, 14], [8, 15]]) c.set(x, y, hex('#6a2f4a'));
 };
+DRAW.banana_bunch = bananaBunch([hex('#e2cf48'), hex('#f0de5c'), hex('#c8c444')]);
+DRAW.banana_bunch_green = bananaBunch([hex('#86a23c'), hex('#9bb446'), hex('#72903a')]);
 // A vine on rock: four stems hanging down the face, heart-shaped leaves crowding along them, dark gaps between.
 DRAW.vine = (c) => {
   c.clearAlpha();
