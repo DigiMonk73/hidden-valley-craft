@@ -8,8 +8,8 @@ _Kept current, in case the session that built this is cut off. Last written 2026
 
 - **Branch `phase9a` is pushed and whole** (draft pull request #11; GitHub's checks pass on 98b2652). Nothing is half-done in the working tree.
 - **Built, pictured and pushed:** items 1 to 6, rain (7), and from item 8 sitting, the jerky rack's legs and the sump. Not built: water edges, the gun rack, Ray's face; the thermal optic and the dish were not photographed.
-- **The fresh review:** started 14:40 UTC, a read-only agent; **it had not reported when this was written.** Its findings, and what was done about each, go in "The fresh review" at the end of this page. If that section is missing, the review must be run again: the brief for it is to find faults in `git diff origin/main...phase9a`, to compare `out/9a/before-*.png` with the later pictures and say which changes are not improvements, and to verify this page's claims by running things.
-- **Still to do, in order:** (1) fix or answer the review's findings, each fix with a test, pushing after each; (2) `git merge origin/main` (it had not moved from 7e0d74d at 14:45); (3) `npm test` once (last full run: 890 passed, 2 skipped, before the bunch, the settings test and the CI fix; the files touched since pass on their own); (4) the play-through's six parts, once: `npm run build`, `npx vite preview --port 4173 --strictPort`, `node tests/e2e/play.mjs` (**not yet run on this branch at all**; sitting and the new trees are what could surprise it); (5) the message to the lead (what the brief's "Ending" asks: what was built, test counts, draw calls and triangles before and after, eight camera lines, weak spots).
+- **The fresh review is in** (15:25 UTC, at 98b2652): no blocker; its findings are listed in "The fresh review" at the end of this page, each marked FIXED, ANSWERED or OPEN. Work down the OPEN ones.
+- **Still to do, in order:** (1) fix or answer the review's findings, each fix with a test, pushing after each; (2) `git merge origin/main` (it had not moved from 7e0d74d at 14:45); (3) `npm test` once (last full run: 890 passed, 2 skipped, before the bunch, the settings test and the CI fix; the files touched since pass on their own); (4) the play-through's six parts, once (**started 15:24 UTC on the build of 74d098b, before the review's fixes**; its result goes in "Checks" below); (5) the message to the lead (what the brief's "Ending" asks: what was built, test counts, draw calls and triangles before and after, eight camera lines, weak spots).
 - **Numbers for the report:** the balcony sunset at 256 m, version 13 against this branch: 314 → 317 draw calls, 1,569k → 1,583k triangles (`tools/shots9a.mjs` prints them). A column near the valley builds in about 16 ms, as version 13's does.
 - **Pictures** are in `out/9a/` on the machine that made them (not in git): `before-*` is version 13; the newest of each view is the highest of `a2`…`a7`. To take them again: `node tools/shots9a.mjs <tag> valley water road far life rain sump sit hand` against a served build.
 
@@ -136,3 +136,34 @@ Track B's first push (`phase9b` at 16cb1a3, seen 2026-11-20) meets this branch i
 ## The build machine
 
 - **GitHub's checks failed once on this branch** (bf80e1f): `tests/plants.test.ts`, "version 13's plants have none of them", made one assertion for each of eight million cells and took 35 s there against the 30 s limit (it passed here). It counts and asserts once now. Nothing was skipped.
+
+## The fresh review
+
+_A read-only agent that wrote none of this (2026-11-20, at 98b2652): the diff, the pictures before and after, and this page's claims, verified by running things. It ran the whole suite (895 passed, 2 skipped) and took eleven pictures of its own (`out/9a/r1-*.png`). Each finding is marked as it stands._
+
+**Held up (verified by the reviewer):** `'v13'` is name for name what `main` generates, in all 4,096 columns; the cheaper vines left the world identical; a column builds as fast as version 13's (ratio 1.00); save version 4 and world layout 2 unchanged, `src/save/` and `src/world/streamer.ts` untouched; the night's `daylight` is 0.300; the Effects setting stops glow, bubbles, rain and birds; no sky colour is changed in place; F3's counts are zeroed every frame; the hand pass leaves the stencil sane; the hand's cache never disposes a geometry in use; the vine's mark has no other reader; every banana stem stands on ground; birds import nothing from `src/entity`, are at most eight, and have no path to a NaN; the rain's roof map is right and costs nothing when dry; no 2D canvas in the new files.
+
+### Bugs
+
+1. OPEN (the lead's call) — **A version-13 save meets new growth in air the player never touched.** A save holds only edited cells; 70% of the valley's broadleaves changed shape, so where a tree was felled in version 13 the new shape's limbs and leaves stand in other cells, floating (416 cells in the bowl are solid now where version 13 had air), and anything hung on an old crown hangs on nothing. Nothing built is replaced. The fix is to grow a save without a marker with `'v13'` plants (the path exists) and new valleys with today's; that needs a field in the save, which is Track B's ground.
+2. OPEN — **Night gets darker at dusk, then brighter.** Moonlight was lifted and dusk was not: the land at 18:30 is darker than at 19:30.
+3. OPEN — **`Glows.rebuild` throws** if the first chunk with a lamp is removed before a frame is drawn.
+4. OPEN — **A window seat is a whole block**: sitting on it puts the eye 0.17 m above the cushion, inside the potted orchid that stands on one.
+5. OPEN — **Sitting:** a held move key stands you up at once; you can sit in mid-air and in water; while seated the body's water flags freeze.
+6. OPEN — **A seat under the cross takes a gun's shot:** the right-click sits you down instead of firing.
+7. OPEN — **F3's whole-frame count is lost when the WebGL context is restored.**
+8. OPEN — **An emergent's buttresses float on a slope** (1,437 of 9,073 hang a block clear).
+9. OPEN — **Smaller:** the crucible furnace's glow sits above it (it is a cube, treated as set in a wall); no vines on a column's two edge rows (a bare seam every 32 m); three ore blocks have a vine over them; the quetzal's line is said by distance alone; the under-water look starts 12 cm above the water.
+
+### Pictures that are not improvements, or are doubtful
+
+- OPEN — **Under water the tunnel mouth's lamps do not show across the pool** (a glow dies with the fog at 18 m): against "easy to find".
+- OPEN — **The tunnel's gate, four metres ahead, is black murk** where it was a readable wall.
+- OPEN — **The sump by day is a neon lime disc** (mostly the vapour).
+- OPEN — **Street lights at 60 to 100 m are puffballs** wider than their posts.
+- OPEN — **The quetzal cannot be made out** from the path, and leaves before you are close enough to see it.
+- ANSWERED below, not changed: the balcony sunset is indistinguishable from version 13's (no loss, no gain: at 256 m the far wall is real blocks); sitting on the lounger hides the valley floor behind the parapet; the waterfall at night is the brightest thing in the valley; a limb's sawn end shows from below; the guarumo's leaves read close to as slabs; held food and parts are the pack icon given a thickness (the reviewer names it as another game's look, for the lead to weigh); no picture shows a fire.
+
+### Claims on this page that did not hold
+
+- OPEN — to be corrected in place: the cells that differ from version 13 (2,065,982, not 3.4 million); where the bananas are (635 of 732 stems are in the buffer, 10 in the valley); the largest held shape (a fireplace, 6,128 triangles); "a handful of block look-ups a frame" (the quetzal's perch was looked for every frame, about 575); "every lamp and fire" (the smoke pot and the lure have no glow); "block for block" in the old-growth strips (trunk for trunk: a crown's reach at a strip's edge differs); `glows` cannot be released after upload (the renderer keeps and re-reads it); the rain test's last line compared an object with itself.
