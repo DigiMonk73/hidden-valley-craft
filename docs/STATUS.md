@@ -2,16 +2,19 @@
 
 _The page to resume from. Keep it short; history lives in git._
 
-## Now (2026-11-19)
+## Now (2026-11-20)
 
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
-  1. Phase 7: merged into `main` (2026-11-19).
+  1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).
   2. The home makeover (running in parallel, branch `home`): merge after Phase 7 and publish.
   3. The review's fixes, on `main` after Phase 7, one session after another because they share `src/game.ts`: saves (N1), stakes (N2, N4), traps and the world-walk test (N3), creatures (N5), the first ten minutes (N6), failures (N8), splitting `src/game.ts` (N10).
-  4. Phase 8 (Zone-4, the tower, M5).
+  4. Phase 8 (Zone-4, the tower, M5): the lead's brief is docs/PHASE8.md; its session is running on branch `phase8` (plan, map and land first; it stays out of `src/game.ts` until the home makeover and the fixes are merged, and the lead tells it when).
   5. Phase 9 (finish), with the review's "worth doing at the end" list.
 
-- **Phase 7 ("Zone-3 and hydro", M4) is built on branch `phase7`** and has had its fresh review (twelve findings, each fixed with a test: docs/PHASE7.md, "The fresh review"). The owner approved the map. Three findings from the review of Phases 0–6 are in it too: a fed player can now be killed (a blow that takes the last health kills), the Ashen keep their designed doors rather than path-finding (the reason is in docs/PHASE7.md), and they are tested on the generated land. 394 unit tests and all 152 play-through checks pass. It waits for the lead's merge and the owner's play. Details and progress are in docs/PHASE7.md; the map is docs/phase7-map.png.
+- **Version 10's checks** (2026-11-20, `main`): 396 unit tests; all 157 checks of the five play-through parts (valley 37, near 23, mid 20, Zone-2 34, Zone-3 43), about 27 minutes here.
+  - Publishing it found two faults in how the game is tested and one in the game, all fixed (docs/PHASE7.md, "After the merge"): item icons and the map are drawn on CPU canvases (`src/platform/canvas.ts`); the play-through no longer captures the mouse; and it waits on the game's clock, not the wall's (`gameWait`), because a busy machine draws 2–4 frames a second.
+  - **For Phase 9:** the play-through now never plays with the mouse captured, so losing capture (pause), re-capture on closing a screen and captured sensitivity are covered only by `tests/look.test.ts`. Check them by hand in a real browser window, or with a headed browser, before version 1.
+- **Phase 7 ("Zone-3 and hydro", M4) was built on branch `phase7`** and has had its fresh review (twelve findings, each fixed with a test: docs/PHASE7.md, "The fresh review"). The owner approved the map. Three findings from the review of Phases 0–6 are in it too: a fed player can now be killed (a blow that takes the last health kills), the Ashen keep their designed doors rather than path-finding (the reason is in docs/PHASE7.md), and they are tested on the generated land. 394 unit tests and all 152 play-through checks pass. It waits for the lead's merge and the owner's play. Details and progress are in docs/PHASE7.md; the map is docs/phase7-map.png.
   - **Places:** the ravine is the gorge of a river. A lit side road leaves the highway 10 m inside Zone-2 ("PRESA RÍO SECO") for a dam across it; the faction's barricade stops short of it. Over the dam, one lit avenue runs south past the control house, the powerhouse, the machine shop and the foundry, the rail yard and its mine, to the old road's far side at the broken bridge, where Phase 5's body lies.
   - **The Ashen:** nine, in five nests in the dark halves of the buildings, the engine shed and the mine's unlit drift. Dull in daylight and lamplight (slow, half blind), keen in the dark (fast). From the dark they see someone in light only from 6 m. They hear running and shots through walls, a walk or a pick only with nothing between. One attack, a telegraphed lunge you step out of. Never more than three hunt; never on the dam, east of the gorge or in the sanctuary. Hold H does nothing with one hunting close by.
   - **M4:** steel (the crucible furnace), the lathe, a hydro generator in the creek (2 kW day and night), a farm of rigs (beyond the first only on hydro), the suppressed pistol, the rebuilt rifle, plate armour, Ray by phone with his plans and then the uplink plans.

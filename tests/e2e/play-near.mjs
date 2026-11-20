@@ -119,7 +119,7 @@ for (let attempt = 0; attempt < 3; attempt++) {
     (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
-await page.waitForTimeout(500);
+await page.waitForFunction((c) => window.__hv.game.world.containerAt(...c).some((s) => s && s.id === window.__hv.itemId('egg')), coopAt, { timeout: 60_000, polling: 250 }).catch(() => {});
 const eggs = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('egg') ? s.count : 0), 0), coopAt);
 check('in the morning the coop has eggs', eggs === 2, `eggs ×${eggs}`);
 // The eggs are left in: another night, and one hatches. Her hens walk round the coop, one per hen.
