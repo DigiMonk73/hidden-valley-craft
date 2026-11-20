@@ -27,6 +27,11 @@ describe('settings kept across sessions (docs/PHASE9B.md, 2)', () => {
   it('a copy saved by version 13 (view, sensitivity, invert, volume only) keeps those and takes the defaults for the rest', () => {
     const v13 = new TextEncoder().encode(JSON.stringify({ rd: 10, sens: 1.4, inv: true, vol: 0.5 }));
     expect(parseSettings(v13)).toEqual({ ...DEFAULT_SETTINGS, rd: 10, sens: 1.4, inv: true, vol: 0.5 });
+    // A view kept by a build before version 13 (4 or 6) opened there as 224 m, and still does; ties go down, as there
+    // (the fresh review, 4). Written by this build, the same numbers mean today's list.
+    for (const [rd, was] of [[4, 7], [6, 7], [9, 8], [11, 10], [7, 7], [12, 12]]) expect(readSettings({ rd }).rd, `rd ${rd}`).toBe(was);
+    expect(readSettings({ rd: 4, rdOwn: false }).rd).toBe(4);
+    expect(readSettings({ rd: 5, rdOwn: true }).rd).toBe(5);
   });
 
   it('nothing saved, or something unreadable, gives the defaults', () => {

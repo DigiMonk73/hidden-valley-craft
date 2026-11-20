@@ -39,6 +39,14 @@ function nearest(offered: number[], n: number): number {
   return offered.reduce((a, b) => (Math.abs(b - n) <= Math.abs(a - n) ? b : a));
 }
 export const nearestViewChunks = (n: number): number => nearest(VIEW_CHUNKS, n);
+/**
+ * A view distance as version 13 and before read it: its menu began at 224 m, and it took the nearer of two equally
+ * near (the lower). Builds before it wrote 4 and 6, which version 13 opened as 224 m; read with today's list they
+ * would be 128 m and 160 m. Settings written by this build always carry `rdOwn`, so a copy without it is read this
+ * way and keeps the meaning the player last saw (the fresh review, 4).
+ */
+const V13_VIEWS = [7, 8, 10, 12];
+const nearestV13 = (n: number): number => V13_VIEWS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
 export const nearestScale = (n: number): number => nearest([...SCALES].reverse(), n);
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
@@ -49,7 +57,7 @@ export function readSettings(raw: unknown): Settings {
   const s = { ...DEFAULT_SETTINGS };
   if (!raw || typeof raw !== 'object') return s;
   const r = raw as Record<string, unknown>;
-  if (num(r.rd)) s.rd = nearestViewChunks(r.rd);
+  if (num(r.rd)) s.rd = typeof r.rdOwn === 'boolean' ? nearestViewChunks(r.rd) : nearestV13(r.rd);
   if (typeof r.rdOwn === 'boolean') s.rdOwn = r.rdOwn;
   if (num(r.sens)) s.sens = clamp(r.sens, 0.5, 2.5);
   if (typeof r.inv === 'boolean') s.inv = r.inv;
