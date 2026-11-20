@@ -310,7 +310,7 @@ _After Track A's merge. Behaviour unchanged throughout; the Node harness (`tests
 | **Zone-4 and the uplink's play** (the lead's list): `tickZone4`, the lures and smoke pots (`tickDevices`), `usePhase8` and the pages on the desks, `useHoist`, the telescope (`startScope`, `endScope`, `tickScope`), what M5's made things say (`MADE_LINE`), and Phase 8's own state (`scopesAt`, `scopeOk`, `scoping`, `rayGreeted`, `lureCalls`) | `src/game/ridge.ts`, class `Ridge`, handed a narrow view of the game (`RidgeHost`: what it reads, and the four things only the game may do, as calls) | `tests/phase8.game.test.ts`'s 33 tests, unchanged but for one helper that reaches the moved methods on `game.ridge`; the screenshot tool `tools/shots-phase8.mjs` likewise |
 | **The page's input** (FIXES.md 8, item 4): the keys, buttons, wheel, the page hidden or left | `src/platform/input.ts` (`listenInput`): the browser's events become plain calls; what each one does stays in the game (`keyDown`, `mouseDown`) | every harness test that presses keys or hides and leaves the page; `tests/input.test.ts` for the module itself (which keys the page keeps, the wheel, text fields) |
 
-`src/game.ts` is 2,830 lines (3,008 after Track A's merge). It no longer touches `window` or `document` for its input; three browser touches are left (the window's resize, one timer, `document.hidden` in the frame watch).
+`src/game.ts` is 2,826 lines (3,008 after Track A's merge). It no longer touches `window` or `document` for its input; three browser touches are left (the window's resize, one timer, `document.hidden` in the frame watch).
 
 **Left, each with its reason** (docs/FIXES.md, 8; each can be done alone later):
 
