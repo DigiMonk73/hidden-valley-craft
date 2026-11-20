@@ -126,9 +126,10 @@ export class Glows {
     if (this.capacity) for (const name of ['iPos', 'iColor', 'iShape']) (g.getAttribute(name) as THREE.InstancedBufferAttribute).needsUpdate = true;
   }
 
-  sync(s: SkyState, fogNear: number, fogFar: number, time: number): void {
+  /** `full`: every glow at its full strength whatever the daylight (under water: the lamps are what you swim to). */
+  sync(s: SkyState, fogNear: number, fogFar: number, time: number, full = false): void {
     if (this.dirty) this.rebuild();
     const u = this.mesh.material.uniforms;
-    u.uTime.value = time; u.uDaylight.value = s.daylight; u.uFogNear.value = fogNear; u.uFogFar.value = fogFar;
+    u.uTime.value = time; u.uDaylight.value = full ? 0 : s.daylight; u.uFogNear.value = fogNear; u.uFogFar.value = fogFar;
   }
 }

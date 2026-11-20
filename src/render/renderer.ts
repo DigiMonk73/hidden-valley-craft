@@ -507,7 +507,7 @@ export class Renderer {
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time, this.rain.level);
     // Under water a lamp's glow carries two and a half times as far as what it lights: the tunnel mouth's lamps show
     // from across the pool, as they did before there was any fog ("easy to find").
-    this.glows.sync(s, fogNear, this.under ? fogFar * 2.5 : fogFar, time);
+    this.glows.sync(s, fogNear, this.under ? fogFar * 2.5 : fogFar, time, this.under);
     this.birds.sync(s, fogNear, fogFar);
   }
 

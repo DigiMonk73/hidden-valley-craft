@@ -117,4 +117,12 @@ describe('the glows drawn', () => {
     const g = meshChunk(c.blocks, c.light).glows;
     expect([g[0], g[1], g[2]]).toEqual([4.5, 4.5, 4.5]); // (it sat 0.22 above the furnace's top)
   });
+
+  it('by day a lamp under the open sky is drawn faint, but not when the eye is under water: the tunnel mouth\'s lamps are what a swimmer looks for', () => {
+    const g = new Glows(), noon = skyAt(12);
+    g.sync(noon, 150, 1350, 0);
+    expect(g.mesh.material.uniforms.uDaylight.value).toBe(noon.daylight);
+    g.sync(noon, -2, 45, 0, true);
+    expect(g.mesh.material.uniforms.uDaylight.value).toBe(0); // the shader dims by sky light × daylight
+  });
 });
