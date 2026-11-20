@@ -51,16 +51,42 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
 
   // ---- The brush: thick low bushes either side of a game trail, from the road round to the outpost's back.
   const o = F.outpost, OF = o.floor;
+  /** Is (x, z) ground the brush grows on (a bush, or a gap between bushes)? */
+  const brushGround = (x: number, z: number) => {
+    if (z < 1018 || z >= 1056 || x < 850 || x >= 912) return false;
+    const nearHouse = x >= o.x0 - 1 && x <= o.x1 + 1 && z >= o.z0 - 6 && z <= o.z1 + 1;
+    return !onRoad(x, z, 1) && !nearHouse && inBrush(x, z);
+  };
+  /** The height a walker stands at on the brush's own bush at (x, z): the ground, in a gap. */
+  const bushTop = (x: number, z: number) => {
+    const g = outsideHeight(x, z);
+    return r(x, 2, z) < 0.08 ? g : r(x, 4, z) < 0.25 ? g + 3 : r(x, 3, z) < 0.85 ? g + 2 : g + 1;
+  };
+  /**
+   * The height the brush stands to at (x, z). No bush, and no gap, stands two blocks or more below its
+   * neighbour on the trail's side: so from anywhere in the brush there is a way down to the trail a step at a
+   * time. (Gaps and low bushes walled in by taller ones were pits: thirteen of them, docs/REVIEW.md, N3c.)
+   */
+  const brushTop = (x: number, z: number): number => {
+    if (!brushGround(x, z)) return outsideHeight(x, z);
+    let near = brushTrailDist(x, z), toward: [number, number] | null = null;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const d = brushTrailDist(x + dx, z + dz); if (d < near) { near = d; toward = [x + dx, z + dz]; } }
+    return toward ? Math.max(bushTop(x, z), brushTop(toward[0], toward[1]) - 1) : bushTop(x, z);
+  };
   for (let z = Math.max(z0, 1018); z < Math.min(z0 + CS, 1056); z++)
     for (let x = Math.max(x0, 850); x < Math.min(x0 + CS, 912); x++) {
       const nearHouse = x >= o.x0 - 1 && x <= o.x1 + 1 && z >= o.z0 - 6 && z <= o.z1 + 1;
       if (onRoad(x, z, 1) || nearHouse) continue;
       const g = outsideHeight(x, z);
       if (brushTrailDist(x, z) <= 1.4) { clear(x, g, g + 4, z); put(x, g - 1, z, r(x, 1, z) < 0.3 ? 'dirt' : 'forest_floor'); continue; }
-      if (!inBrush(x, z) || r(x, 2, z) < 0.08) continue;
-      put(x, g, z, 'leaves');
-      if (r(x, 3, z) < 0.85) put(x, g + 1, z, 'leaves');
-      if (r(x, 4, z) < 0.25) put(x, g + 2, z, 'leaves');
+      if (!inBrush(x, z)) continue;
+      if (r(x, 2, z) >= 0.08) {
+        put(x, g, z, 'leaves');
+        if (r(x, 3, z) < 0.85) put(x, g + 1, z, 'leaves');
+        if (r(x, 4, z) < 0.25) put(x, g + 2, z, 'leaves');
+      }
+      const top = brushTop(x, z);
+      if (top > bushTop(x, z)) for (let y = g; y < top; y++) put(x, y, z, 'leaves');
     }
 
   // ---- The outpost: a cinder-block tienda, two rooms, a flat roof with a lookout platform.
@@ -256,7 +282,10 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
       for (let x = b.near - 1; x <= b.near + 2; x++) for (let y = deckY - 14; y <= deckY; y++) put(x, y, z, 'concrete');
       // The deck sections, the parapet along their edges, broken off at the end.
       for (let x = b.deckEnd; x < b.near - 1; x++) {
-        const broken = x - b.deckEnd < 2 && r(x, 12, z) < 0.45;
+        // Broken only at the very end: a hole one block back, with sound deck beyond it, lay on the road's
+        // centre line (docs/REVIEW.md, N3g). A missing block is now always one the end itself has lost too.
+        const gone = (xx: number) => xx - b.deckEnd < 2 && r(xx, 12, z) < 0.45;
+        const broken = gone(x) && (x === b.deckEnd || gone(b.deckEnd));
         if (!broken) put(x, deckY, z, 'concrete');
         if (edge && !broken && r(x, 13, z) < 0.8) put(x, deckY + 1, z, 'concrete');
         if (!edge) clear(x, deckY + 1, deckY + 5, z);

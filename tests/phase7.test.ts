@@ -102,6 +102,8 @@ describe('Zone-3’s layout', () => {
 });
 
 // ---- The land east of the gorge is as it was (docs/PHASE7.md, "Design calls") ------------------------------
+// (The baseline also holds what the N3 fixes then changed on purpose east of the gorge: 38 columns of the valley's
+// ring and 4 of the brush by the outpost, listed in tests/walk.test.ts, which pins the rest of the world.)
 import baseline from './fixtures/east-of-ravine.json' with { type: 'json' };
 import { hashColumn } from '../tools/worldhash.ts';
 

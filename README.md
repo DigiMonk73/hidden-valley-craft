@@ -99,6 +99,12 @@ dam road's five columns may differ. The gorge's east rim west of those columns i
 (`tools/worldhash.ts --rim out/rim.json`, baseline `tests/fixtures/east-rim.json`): a unit test checks that only
 the reservoir's shore and the dam's east end differ.
 
+`tests/fixtures/before-n3.json` is the whole world (`… tools/worldhash.ts out/now.json 0 63 0 63`) as it was before
+the fixes to the review's finding N3 (the pit by the home path, the cave under the valley's cliff, the gorge's west
+wall). `tests/walk.test.ts` lists the 117 columns that differ and checks that their neighbours do not; it also
+walks every named route on the generated land with the real `Player`'s step rules (about 50 s). The 42 of those
+columns east of the gorge have their new hashes in `east-of-ravine.json`.
+
 ## How it is built
 
 The stack is TypeScript, Vite and Three.js (WebGL 2), with Web Workers.
