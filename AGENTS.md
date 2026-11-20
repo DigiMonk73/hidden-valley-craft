@@ -41,6 +41,8 @@ The owner has handed over the finish: "just finish building it to the best of yo
 
 ## Sessions (the owner, 2026-11-17)
 
+- **2026-11-20, hand-over:** the lead is now session `session_01EXF2m7f6xMYiFcWXyCnS3G` ("lead, tweaks from the owner's play"). The owner plays and pastes screenshots; the lead makes each tweak, checks it, publishes it and reports. It also merges Phase 9's Track B (`phase9b`) when that reports.
+
 - **One lead session** owns `main`, the published page and the reviews. It writes each phase's plan into `docs/PHASEn.md` and starts a **phase session** to build it, so no one conversation grows too long.
 - **A phase session** works only on its own branch (`phase3`, `phase4`…). It:
   - commits each finished step there with its tests and pushes the branch;

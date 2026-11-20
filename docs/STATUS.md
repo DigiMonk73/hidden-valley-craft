@@ -4,6 +4,7 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-20)
 
+- **The lead handed over** (2026-11-20, on the owner's word) to a new lead session, `session_01EXF2m7f6xMYiFcWXyCnS3G`, for tweaks from the owner's play, one at a time, each published. Version 14 is live. Track B (`phase9b`, session `session_01EXF2m8fnv5dF2jPzNy23cX`) reports to the new lead, who merges and publishes it.
 - **Tweaks from play** (the owner plays the published build and sends pictures; the lead answers and, when the owner says so, changes). Newest first:
   - **Version 15 (2026-11-20): the garden says what to do.** The owner's beans did nothing on plain dirt, and the hoe did nothing on grass (the eye's ray stopped on the tall grass on top). Now the hoe clears tall grass, ferns and flowers as it tills; seeds and beans on untilled ground say to till it first; a hoe on what it can't till says what it tills; digging up a coffee bush says to right-click a ripe one instead. Tests: `tests/farming.test.ts`, `tests/garden.game.test.ts` (fail on the old code).
   - **Answered, nothing changed:** the "tower" on the balcony is the builder's solar panel (the owner likes it as it is; a waist-high redraw was shown and declined); how replanting and coffee work.
