@@ -667,6 +667,9 @@ export class Game {
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
     // The thermal optic (docs/PHASE8.md, 4): carried, it shows warm bodies while focus runs.
     this.renderer.creatures.thermal = this.focus.active && this.hotbar.count(itemId('thermal_optic')) > 0;
+    // The headlamp (docs/PHASE9B.md, 6): carried, it lights the land a few steps round you (a floor under the light
+    // there, so it shows only in the dark).
+    this.renderer.setHeadlamp(this.hotbar.count(itemId('headlamp')) > 0);
     this.ridge.tickScope();
     this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
@@ -733,7 +736,7 @@ export class Game {
       aiming: (this.focus.active && isWeapon(held)) || this.drawing !== null,
       draw: this.drawing !== null ? drawOf(this.playTime - this.drawing) : 0,
       walked, turnX: p.yaw - was.yaw, turnY: p.pitch - was.pitch,
-      light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z))),
+      light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z)), undefined, true),
     });
     was.x = p.x; was.z = p.z; was.yaw = p.yaw; was.pitch = p.pitch;
   }

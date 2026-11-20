@@ -2,7 +2,7 @@
 // vertices the card has; a lost picture comes back whole; the picture's scale and smooth edges do what Settings
 // says and are kept across a reload; with workers blocked the land still comes in, a part a frame; and the game
 // runs inside a sandboxed frame (no storage, no workers, no mouse capture), as the published page may.
-// Needs the build served: npx vite preview --port 4173. Run: node tests/e2e/engine.mjs   (PARTS=picture,lost,settings,fallback,sandbox picks some)
+// Needs the build served: npx vite preview --port 4173. Run: node tests/e2e/engine.mjs   (PARTS=picture,lost,settings,fallback,headlamp,sandbox picks some)
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
@@ -10,7 +10,7 @@ const BASE = process.env.BASE || 'http://localhost:4173/';
 // How long the game is left running in the sandboxed frame, on its own clock (which runs at a fraction of the wall's
 // on a machine that draws in software: MINUTES=5 is the review's five-minute smoke test and takes about half an hour here).
 const MINUTES = Number(process.env.MINUTES || 1);
-const PARTS = (process.env.PARTS || 'picture,lost,settings,fallback,sandbox').split(',');
+const PARTS = (process.env.PARTS || 'picture,lost,settings,fallback,headlamp,sandbox').split(',');
 const results = [];
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`); };
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -169,6 +169,50 @@ if (PARTS.includes('fallback')) {
   check('a frame’s share of building overruns its budget by one small part, not a whole column (it was 25–75 ms)', p95 < 15 && over[over.length - 1] < 25, `over budget by: median ${med.toFixed(1)} ms, 95th ${p95.toFixed(1)} ms, worst ${over[over.length - 1].toFixed(1)} ms over ${over.length} frames`);
   await ready(page);
   check('the land round the new place comes in all the same', true);
+  check('no error on the page', errors.length === 0, errors.join(' | ').slice(0, 300));
+  await ctx.close();
+}
+
+// ---- 4b. The headlamp's light (docs/PHASE9B.md, 6): carried, it lights the ground round you in the dark ----------
+if (PARTS.includes('headlamp')) {
+  const ctx = await context();
+  const page = await open(ctx, 'rd=3&hour=0');
+  await page.evaluate(() => { const g = window.__hv.game; g.hud.showMenu(false); g.hud.showWorldHud(false); });
+  /** The picture's mean brightness (0–255), a few frames after a change. */
+  const brightness = async () => {
+    await page.evaluate(() => new Promise((done) => { const info = window.__hv.game.renderer.gl.info.render, f = info.frame; const t = setInterval(() => { if (info.frame > f + 3) { clearInterval(t); done(); } }, 50); }));
+    const png = (await page.screenshot()).toString('base64');
+    return page.evaluate((b64) => new Promise((done) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+        const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+        const d = x.getImageData(0, 0, c.width, c.height).data;
+        let sum = 0; for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        done(sum / (d.length / 4));
+      };
+      img.src = 'data:image/png;base64,' + b64;
+    }), png);
+  };
+  const carry = (on) => page.evaluate((on) => {
+    const g = window.__hv.game, id = window.__hv.itemId('headlamp');
+    for (let i = 0; i < g.hotbar.slots.length; i++) if (g.hotbar.slots[i]?.id === id) g.hotbar.slots[i] = null;
+    if (on) g.hotbar.slots[20] = { id, count: 1 };
+  }, on);
+  // Standing on open ground in the valley, looking down at the grass a few steps ahead, at midnight.
+  await page.evaluate(() => { const g = window.__hv.game, p = g.player; g.setCamera(p.x, p.y + 1.62, p.z, p.yaw, -1.1); g.player.flying = false; });
+  await carry(false);
+  const dark = await brightness();
+  await carry(true);
+  const lit = await brightness();
+  check('at midnight the headlamp, carried in the pack, lights the ground in front of you', lit > dark * 1.4 && lit - dark > 8, `mean brightness ${dark.toFixed(1)} without, ${lit.toFixed(1)} with`);
+  check('the renderer says it is on', await page.evaluate(() => window.__hv.game.renderer.headlamp));
+  await page.evaluate(() => { window.__hv.game.hour = 12; });
+  await carry(false);
+  const day = await brightness();
+  await carry(true);
+  const dayLit = await brightness();
+  check('at noon it changes nothing to speak of (the day is brighter than it)', Math.abs(dayLit - day) < day * 0.03, `${day.toFixed(1)} without, ${dayLit.toFixed(1)} with`);
   check('no error on the page', errors.length === 0, errors.join(' | ').slice(0, 300));
   await ctx.close();
 }

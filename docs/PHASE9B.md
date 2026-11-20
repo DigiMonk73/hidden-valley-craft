@@ -47,7 +47,7 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 | 3 | The faults found and left (the rim, the stealth route, the three save notes, Esc, H, dropping, N5j, N9) | DONE |
 | 4 | Play with the mouse captured | DONE |
 | 5 | Other browsers | DONE: none can be run here; what was read, one fault fixed, and a list for the owner |
-| 6 | What the script promises and is not there | DONE, but for the headlamp's light (it needs the block shader: after Track A) and spoilage (not simple) |
+| 6 | What the script promises and is not there | DONE (the headlamp's light after Track A's merge); spoilage left (not simple) |
 | 7 | Tests (streamer walk, random light edits, sandboxed frame, mesh budget) | DONE |
 | 8 | The rest of the `src/game.ts` split (last, once Track A is merged) | |
 
@@ -272,7 +272,7 @@ And in Firefox, if it is to hand: 1, 2 and 4.
 | Water filter | In the kit, did nothing | **Water outside the valley is safe only with the filter in the pack.** Without it a drink still quenches but costs 6 health and says why (never the last of it), and a jug is not filled. In the valley water is clean as before. |
 | Binoculars | In the kit, did nothing | **Hold the right mouse button with them in hand:** four times nearer, the hand as much finer. Let go, choose something else, open a screen or pause, and they come down. |
 | The puma stalks from cover | It walked in, then ran | **It comes round behind you, and stops while you look at it.** Facing it holds it still (from 7 m in it rushes whatever you do); watched for 8 seconds it gives the hunt up and goes. A turned back is what it waits for. |
-| Headlamp | In the kit, did nothing | **Not built yet.** Its light has to be drawn by the block shader, which is Track A's this phase. It is one uniform and two lines there; to do with step 8, once Track A is merged. A right-click with it in hand already says what it will do. |
+| Headlamp | In the kit, did nothing | **Carried anywhere in the pack, it lights the land a few steps round you** (built after Track A's merge): a floor under the block shader's light, a cool white about a lamp's 11 of 15, full to 4 m and gone by 10 m, and the same on the held thing. By day or beside a lamp the brighter light wins, so it shows only in the dark. Measured in a real browser (`tests/e2e/engine.mjs`, part `headlamp`): at midnight the picture's mean brightness 38.5 without, 87.3 with; at noon 194.3 either way. Pictures: `docs/phase9b/headlamp.jpg` (the patio at 22:00, without and with). It does not light creatures or birds. |
 | Spoilage | Nothing spoils | **Left.** It is not simple here: a stack has no age, so spoiling means a date on every stack, in every chest, through every save. The fridge and the smoker keep their present uses. |
 
 A right-click with the hammer, the saw, the filter or the headlamp in hand says what it is for, as M5's things already did.

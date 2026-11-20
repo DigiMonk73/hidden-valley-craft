@@ -120,6 +120,7 @@ uniform vec3 uValley; // centre x, centre z, radius
 uniform float uDaylight;
 uniform vec3 uSkyLight;
 uniform vec3 uBlockLight;
+uniform float uHeadlamp;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uOpacity;
@@ -127,6 +128,7 @@ uniform bool uCutout;
 out vec4 outColor;
 ${SKY_COLOR_GLSL}
 float curve(float l) { return l / (2.2 - 1.2 * l); } // light level → brightness, like a lightmap
+const vec3 HEADLAMP = vec3(0.56, 0.55, 0.5); // about a lamp's light at 11 of 15, whiter
 void main() {
   vec3 tc = vec3(vUv, vLayer);
   vec4 tex = texture(uTex, tc);
@@ -144,6 +146,9 @@ void main() {
   float sunUp = smoothstep(-0.04, 0.12, uSunDir.y);
   float direct = smoothstep(0.8, 1.0, vLight.x) * sunUp;
   vec3 light = max(uSkyLight * sky * (0.8 + 0.55 * vSun * direct), uBlockLight * blk);
+  // The builder's headlamp, carried (docs/PHASE9B.md, 6): a cool light a few steps round the eye, gone by ten
+  // metres. A floor, not an addition: by day, or by a lamp, the brighter light wins and nothing changes.
+  light = max(light, HEADLAMP * (uHeadlamp * (1.0 - smoothstep(4.0, 10.0, vDist))));
   light = max(light, vec3(0.035));
   float ao = mix(0.42, 1.0, vAo);
   vec3 col = tex.rgb * light * ao * vShade;
@@ -294,6 +299,7 @@ export class Renderer {
       uDaylight: { value: 1 },
       uSkyLight: { value: new THREE.Color(1, 1, 1) },
       uBlockLight: { value: BLOCK_LIGHT.clone() },
+      uHeadlamp: { value: 0 },
       uZenith: { value: new THREE.Color() },
       uHorizon: { value: new THREE.Color() },
       uSunGlow: { value: new THREE.Color() },
@@ -616,13 +622,22 @@ export class Renderer {
    * The light on something at a place, as the block shader lights a face there: the sky's light by the hour, or
    * the lamps', whichever is brighter. `lv` is the world's light byte (sky in the high half, lamps in the low).
    */
-  lightColor(lv: number, out = this.scratchLight): THREE.Color {
+  lightColor(lv: number, out = this.scratchLight, atEye = false): THREE.Color {
     const curve = (l: number) => l / (2.2 - 1.2 * l);
     const u = this.solidMat.uniforms;
     const sky = curve((lv >> 4) / 15) * u.uDaylight.value, blk = curve((lv & 15) / 15);
     const s = u.uSkyLight.value as THREE.Color, b = u.uBlockLight.value as THREE.Color;
-    return out.setRGB(Math.max(s.r * sky, b.r * blk, 0.06), Math.max(s.g * sky, b.g * blk, 0.06), Math.max(s.b * sky, b.b * blk, 0.06));
+    // (At the eye, the headlamp lights what the hand holds as it lights the ground: the shader's HEADLAMP.)
+    const h = atEye ? u.uHeadlamp.value : 0;
+    return out.setRGB(Math.max(s.r * sky, b.r * blk, 0.06, 0.56 * h), Math.max(s.g * sky, b.g * blk, 0.06, 0.55 * h), Math.max(s.b * sky, b.b * blk, 0.06, 0.5 * h));
   }
 
   get renderDistance(): number { return this.fogDist; }
+
+  /** The headlamp's light on the land round the eye: 1 while one is carried, 0 without (docs/PHASE9B.md, 6). */
+  setHeadlamp(on: boolean): void {
+    const v = on ? 1 : 0;
+    for (const m of [this.solidMat, this.waterMat]) m.uniforms.uHeadlamp.value = v;
+  }
+  get headlamp(): boolean { return this.solidMat.uniforms.uHeadlamp.value > 0; }
 }

@@ -233,6 +233,21 @@ describe('the binoculars do something', () => {
     expect(inner(p).glassing).toBe(false);
   });
 
+  it('the headlamp lights the land round you while it is in the pack, anywhere in it, and not once it is gone', async () => {
+    const p = await onLand();
+    const g = p.game;
+    const lit: boolean[] = [];
+    (g.renderer as unknown as { setHeadlamp(on: boolean): void }).setHeadlamp = (on) => { lit.push(on); };
+    const frame = (k: number) => { inner(p).frame(performance.now() + 5e7 + k * 1e6); return lit.at(-1); };
+    g.hotbar.slots.fill(null);
+    expect(frame(1)).toBe(false);
+    g.hotbar.slots[30] = { id: itemId('headlamp'), count: 1 }; // deep in the pack, not in hand
+    g.hotbar.select(0);
+    expect(frame(2)).toBe(true);
+    g.hotbar.slots[30] = null;
+    expect(frame(3)).toBe(false);
+  });
+
   it('a right-click with the hammer, the saw, the filter or the headlamp in hand says what it is for', async () => {
     const p = await onLand();
     const g = p.game;
