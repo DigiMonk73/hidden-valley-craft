@@ -4,13 +4,13 @@ _Track A of [PHASE9.md](PHASE9.md), built on branch `phase9a` (2026-11-20). The 
 
 ## Resume here
 
-_Kept current, in case the session that built this is cut off. Last written 2026-11-20 16:40 UTC._
+_Kept current, in case the session that built this is cut off. Last written 2026-11-20 17:05 UTC._
 
 - **Branch `phase9a` is pushed and whole** (draft pull request #11), with `origin/main` (ba02742) merged in. Nothing is half-done.
 - **Built:** items 1 to 6, rain (7), and from item 8 sitting, the jerky rack's legs and the sump. Not built: water edges, the gun rack, Ray's face; the thermal optic and the dish were not photographed.
 - **The fresh review is in and worked through** ("The fresh review", at the end): eight bugs fixed with tests, the ninth answered by the lead, five picture findings changed and looked at again.
 - **Checks:** see "Checks" at the end. All pass.
-- **Left to do:** nothing but the report to the lead, if "Checks" below shows the last play-through parts.
+- **Left to do:** nothing. The report went to the lead on 2026-11-20 at about 17:05 UTC.
 - **Pictures** are in `out/9a/` on the machine that made them (not in git): `before-*` is version 13; the newest of each view is the highest of `a2`…`a9`; the reviewer's own are `r1-*`. To take them again: `node tools/shots9a.mjs <tag> valley water road far life rain sump sit hand` against a served build.
 
 ## The rule
@@ -174,6 +174,6 @@ _A read-only agent that wrote none of this (2026-11-20, at 98b2652): the diff, t
 ## Checks
 
 - **Unit tests:** 906 passed, 2 skipped (58 files), on the final code (2026-11-20 16:35 UTC, here); GitHub's checks (type check, tests, build) pass on 715f9da.
-- **The play-through, all six parts:** 220 of 220 checks (valley 42, near 25, mid 21, Zone-2 35, Zone-3 44, Zone-4 53; 61 minutes), on the build of 74d098b: everything but the review's fixes. The valley and Zone-4 parts are being run again on the final build as this is written (the review's fixes changed sitting and the mouse-down path).
+- **The play-through, all six parts:** 220 of 220 checks (valley 42, near 25, mid 21, Zone-2 35, Zone-3 44, Zone-4 53; 61 minutes), on the build of 74d098b: everything but the review's fixes. The valley and Zone-4 parts were run again on the final build (the review's fixes changed sitting and the mouse-down path): 95 of 95 (valley 42, Zone-4 53). The near, mid, Zone-2 and Zone-3 parts were not run again after the review's fixes.
 - **Frame cost at the balcony's sunset, 256 m** (`tools/shots9a.mjs` prints it): version 13: 314 draw calls, 1,569k triangles. This branch: 317 and 1,583k. In play the hand adds two more calls and at most a few thousand triangles; birds up to three calls; rain one.
 - **A column near the valley builds** in about 16 ms, as version 13's does (the reviewer's ratio: 1.00).
