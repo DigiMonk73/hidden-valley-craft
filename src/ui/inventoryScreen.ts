@@ -5,7 +5,7 @@ import { iconFor } from './icons.ts';
 import { itemLabel, toolOf } from '../world/items.ts';
 import { BLOCK_DEFS, B_RENDER, RENDER } from '../world/blocks.ts';
 import { clickSlot, quickMove, HOTBAR, type Inventory, type Stack } from '../sim/inventory.ts';
-import { recipesAt, waitingAt, canMake, make, AFTER_LABEL, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
+import { recipesAt, waitingAt, canMake, make, taughtByBooks, AFTER_LABEL, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
 import { putAway, pickFromPalette } from '../sim/cursor.ts';
 
 const CSS = `
@@ -41,6 +41,9 @@ const CSS = `
 .iv-make { cursor: pointer; border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; font-weight: 700; background: #c98f3e; color: #1b130a; }
 .iv-make:disabled { background: #444; color: #999; cursor: default; }
 `;
+
+/** Said at a workshop station before the builder's handbooks are read (docs/PHASE9B.md, 6). */
+export const BOOKS_HINT = 'How to work this is in the builder’s handbooks: right-click the bookshelves in the cave.';
 
 export class InventoryScreen {
   private wrap: HTMLDivElement;
@@ -197,7 +200,13 @@ export class InventoryScreen {
     if (!recipes.length && !waitingAt(this.station, this.known).length) {
       const p = document.createElement('div');
       p.className = 'iv-help';
-      p.textContent = this.station === 'tannery' ? 'Hides come from hunting outside the valley.' : 'Nothing to make here yet.';
+      p.textContent = taughtByBooks(this.station, this.known) ? BOOKS_HINT : this.station === 'tannery' ? 'Hides come from hunting outside the valley.' : 'Nothing to make here yet.';
+      list.append(p);
+    } else if (taughtByBooks(this.station, this.known)) {
+      // Some of this station's work is known already (a milestone's); the rest is in the handbooks.
+      const p = document.createElement('div');
+      p.className = 'iv-help';
+      p.textContent = BOOKS_HINT;
       list.append(p);
     }
     for (const r of recipes) {

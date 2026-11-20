@@ -609,7 +609,7 @@ describe('saves', () => {
     delete old.day; delete old.lastPull; delete old.running;
     const d = normaliseSave(old)!;
     expect([d.version, d.day, d.lastPull, d.running]).toEqual([SAVE_VERSION, 0, null, []]);
-    expect(SAVE_VERSION).toBe(4);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(4); // (5 since Phase 9B: tests/promises9b.test.ts)
     expect(migrate({ ...old })).toBe(true);
   });
 

@@ -9,10 +9,10 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 | 1 | A path for weaker computers | DONE |
 | 2 | Settings, kept across sessions | DONE |
 | 3 | The faults found and left (the rim, the stealth route, the three save notes, Esc, H, dropping, N5j, N9) | DONE |
-| 4 | Play with the mouse captured | |
-| 5 | Other browsers | |
-| 6 | What the script promises and is not there | |
-| 7 | Tests (streamer walk, random light edits, sandboxed frame, mesh budget) | |
+| 4 | Play with the mouse captured | DONE |
+| 5 | Other browsers | DONE: none can be run here; what was read, one fault fixed, and a list for the owner |
+| 6 | What the script promises and is not there | DONE, but for the headlamp's light (it needs the block shader: after Track A) and spoilage (not simple) |
+| 7 | Tests (streamer walk, random light edits, sandboxed frame, mesh budget) | DONE |
 | 8 | The rest of the `src/game.ts` split (last, once Track A is merged) | |
 
 ## Rules this track keeps
@@ -165,3 +165,92 @@ What I saw in them: from the floor each mend is a patch of slightly smoother, sh
 
 - **N5j, a slab one block across a chunk's edge darkened the faces beside it.** `lightForDrawing` (`src/mesh/mesher.ts`) now corrects the padded chunk's border cells as well, from those of their neighbours the padded chunk holds. The test fails on the old code exactly as the review measured (corners 180, 180, 240, 240 against 240 all round).
 - **N9, path-finding: answered, not built.** The review's own recommendation was to keep enemies outdoors or at posts, and Phases 7 and 8 did (the Ashen keep their designed doors; docs/PHASE7.md has the reason). Nothing since has needed an enemy to find its way indoors. What was false was a line of text: the old mine's toast promised "Underground, the danger is one higher", and nothing can spawn underground. The line is gone; the mine is lit all the way down and safe, which is what the owner asked of every such place.
+
+## 4. Play with the mouse captured (DONE)
+
+**It could be made stable.** `tests/e2e/capture.mjs` (new) captures the mouse for real in headless Chromium, for under a minute in all, on a small picture; the flood of empty moves that kills a long run (README) does no harm in that time. It passed each of the runs made here (three), 15 checks each:
+
+| What | Checked |
+|---|---|
+| Play captures the mouse | the browser's lock is on the game's picture |
+| Captured sensitivity | a move of 100 turns the view by exactly 100 × the sensitivity, without free-look's extra 1.4; sensitivity 2 turns twice as far; invert flips up and down |
+| A screen takes the mouse and gives it back | E opens the pack: the mouse is free, the game not paused, the view does not turn; E again: captured again by itself |
+| Esc | pauses, the menu up, the mouse free |
+| Resume | plays with the mouse captured (at once, or after the one click the game asks for) |
+| Esc on the menu | the Esc that paused does not also resume; a second one a moment later does |
+| Capture lost with no key (another window in front) | the game pauses, nothing is left held down, and it stays paused |
+
+**What only the owner can check, in a real window:**
+
+1. After Esc, press Resume (or Esc again) at once. A real browser may refuse to take the mouse back for about a second: the game should then say "Click to look around", and one click should bring the look back. (Headless Chromium has no such pause, so this path is covered only by `tests/look.test.ts`.)
+2. Whether mouse sensitivity 1 feels right on your mouse or trackpad, and whether the slider's ends (0.5 and 2.5) are useful.
+3. Switch to another window with Cmd+Tab while playing, and come back: the game should be paused on the menu, and nothing should be moving by itself after Resume.
+
+## 5. Other browsers (DONE, as far as it can be here)
+
+**Neither WebKit nor Firefox can be run here.** Playwright 1.63 is installed with Chromium only (`/opt/pw-browsers` holds no `webkit-2359` or `firefox-1543`; both `launch()` calls answer "Executable doesn't exist"), and the brief says not to install another. So nothing below was run in Safari or Firefox: it is what reading the code against each browser's known differences found.
+
+**One fault found and fixed**
+
+- **Safari 15.0 to 15.3 refused every save.** `normaliseSave` copied a save with `structuredClone`, which those versions lack (they do have WebGL 2, so the game runs). The copy threw, the save was refused, and every reload began a fresh valley with the real one "kept aside". It now copies the save as the text it is where `structuredClone` is missing (`tests/faults9b.test.ts`, with the function taken away).
+
+**Read and found sound**
+
+| Thing | Safari | Firefox |
+|---|---|---|
+| WebGL 2, array textures, the block shader | 15 and later | yes |
+| Workers made from the page's own script | yes | yes |
+| Mouse capture | `requestPointerLock()` returns nothing there, not a promise: handled (`src/platform/look.ts`) | yes |
+| Save compression (`CompressionStream`) | 16.4 and later; before that saves are plain text, and still read | 113 and later; the same |
+| The tab lock (`navigator.locks`) | 15.4 and later; before that the save's own counter guards | yes |
+| Sound | made on the first click; `AudioListener.positionX` and the older `setPosition` are both handled | the same |
+| Placed sounds | panners are let go now (step 1): this was the review's Safari and Firefox risk | the same |
+
+**For the owner to try in Safari on the Mac** (ten minutes):
+
+1. Open the page, press Play: does the mouse look work, and does F3's first line say `workers ×N` and `store indexeddb`?
+2. Play two minutes, press Esc, close the tab, open the page again: is the valley as you left it? **This is the one that matters most.** Safari keeps a page's storage apart, and sometimes for only a short time, when the page sits inside another site's frame, as the published page does. If the valley is gone, the save code and "Download save file" are the way to keep it, and the game should be saying so in the menu.
+3. Open the pack with E and close it with E, then again with Esc: does the mouse look come back without a click each time? (If Safari wants a click, the game says "Click to look around".)
+4. Play ten minutes outside the valley with sound on: does the sound stay clean (no crackle, no silence)?
+5. Settings: set Picture to Soft and view distance to 128 m, reload: are both kept?
+
+And in Firefox, if it is to hand: 1, 2 and 4.
+
+## 6. What the script promises and is not there (DONE, with two things left)
+
+| Promise | Before | Now |
+|---|---|---|
+| Builder's books unlock recipes | Everything known from the start | **The builder's handbooks stand on the bookshelves beside the journal.** A right-click on the shelves (already the third thing a new player is told to do) teaches the workshop: the kiln, the smelter, the anvil and the tannery show their recipes only after. Until then each says "How to work this is in the builder's handbooks: right-click the bookshelves in the cave." When the journal is put down the game says what was learned. |
+| Banana, avocado, papaya | Items with no source | **Marco sells all three** (a lot of four bananas, three avocados or three papayas for one unit), and the builder's pantry holds the last of his. |
+| Hammer | In the kit, did nothing | **Held, it takes apart anything built** (furniture, planks, brick, glass) twice as fast as any other tool; carried, the anvil makes twelve nails from an ingot instead of eight. |
+| Handsaw | In the kit, did nothing | **Carried, a log gives six planks by hand** instead of four. |
+| Water filter | In the kit, did nothing | **Water outside the valley is safe only with the filter in the pack.** Without it a drink still quenches but costs 6 health and says why (never the last of it), and a jug is not filled. In the valley water is clean as before. |
+| Binoculars | In the kit, did nothing | **Hold the right mouse button with them in hand:** four times nearer, the hand as much finer. Let go, choose something else, open a screen or pause, and they come down. |
+| The puma stalks from cover | It walked in, then ran | **It comes round behind you, and stops while you look at it.** Facing it holds it still (from 7 m in it rushes whatever you do); watched for 8 seconds it gives the hunt up and goes. A turned back is what it waits for. |
+| Headlamp | In the kit, did nothing | **Not built yet.** Its light has to be drawn by the block shader, which is Track A's this phase. It is one uniform and two lines there; to do with step 8, once Track A is merged. A right-click with it in hand already says what it will do. |
+| Spoilage | Nothing spoils | **Left.** It is not simple here: a stack has no age, so spoiling means a date on every stack, in every chest, through every save. The fridge and the smoker keep their present uses. |
+
+A right-click with the hammer, the saw, the filter or the headlamp in hand says what it is for, as M5's things already did.
+
+**Calls**
+
+- **One flag for the handbooks, and the workshop only.** Nothing made by hand, at the workbench or on the stove waits for a book: the first day plays as it did. The bookshelf is steps from the bed and is the third goal on screen, so the gate is felt as "that is what those books are", not as a wall.
+- **Save version 5, by the upgrade chain.** A valley begun before the handbooks existed has been using the workshop all along, so the upgrade from version 4 marks them read (`MIGRATIONS[4]`, `src/save/state.ts`). A valley not yet begun is left to read them. Tested on the real version 13 save: it opens knowing the workshop and is saved from then on as version 5. The world layout stays 2. (If Track A also raised the save version, the two steps go one after the other when the branches meet.)
+- **The fruit is sold, not grown.** Growing it needs plants, and plants and their textures are Track A's (banana is on its list). When those plants exist, picking from them is a small step; until then the items have a source and a price.
+- **The filter makes thirst matter outside without making it deadly.** Refusing the drink outright would kill a careless player beside a river. A cost of 6 health a drink, said in plain words, teaches the same thing. The filter is in the armory chest the fourth goal sends every player to, so a player who follows the goals carries it and sees no change.
+- **The hammer is as good as it is on built things only.** On rock, earth and wood it is a fist: it does not replace the pickaxe, the shovel or the axe.
+- **The puma's new rule is the script's, and it is fair.** The player is given a defence that costs nothing but attention, and a tell (it stops when seen). Where the game does not say which way the player faces, it stalks as before, so every older test of it stands.
+
+## 7. Tests the review asked for (DONE)
+
+| The review's item (E5) | What there is now | Where |
+|---|---|---|
+| 1. A streamer walk with a fake executor | The fixes branch had a healthy one-kilometre walk. Added: **two kilometres** across the whole world on an executor that answers one to four frames late and out of order, as a pool of workers does. Every chunk drawn at eight stops, every mesh belonging to a loaded column near the player, no column built twice, the loaded land never past what the view keeps. Then with **one job in ten failing**: each asked for once more and no hole left. Then **a column that never builds**: asked for four times, then left, the rest drawn, the place still "settled". And the player's edits outliving the land's unloading. | `tests/e5.test.ts` |
+| 2. Seeded random edits against light lit from scratch | **Three seeds, 240 edits each**, on the real land of the home's cliff: lamps of every strength, glass, leaves, water, slabs, rock, and one edit in four undoing an earlier one; half of them within two blocks of a seam between columns, a third at the seams between chunks in height. After every 40 the middle column and a block into each neighbour are compared, cell for cell, with the same edits lit from scratch. **No difference found.** | `tests/e5.test.ts` |
+| 3. A smoke test in a sandboxed frame | The game inside `<iframe sandbox="allow-scripts">` in a real browser: storage is blocked and the game starts, keeps the valley in memory and says so in the menu; the mouse cannot be captured and the game looks with the free mouse and says so; walk, pack, pause, resume; then left running. One minute of the game's clock by default, **five with `MINUTES=5`** (about half an hour here). No error. | `tests/e2e/engine.mjs` (part `sandbox`) |
+| 4. A mesh budget at fixed viewpoints | The quads within 96 m of five places (the balcony 424,000; the valley floor's middle 359,000; the outpost 390,000; the dam's crest 332,000; the relay tower's yard 330,000), generated, lit and meshed as the game does it. More than a tenth off either way fails. | `tests/e5.test.ts` |
+| 5. `playwright` declared | Done before this phase (it is a dev dependency in `package.json`). | |
+
+**Found by them:** nothing in the engine. (Chromium will not let a page from another address hold a frame of this machine's page, so the sandbox test's holding page is served from the same address; the frame is sandboxed all the same and its origin is opaque.)
+
+**What they showed about the sandboxed frame:** workers do start there (`workers ×3`), so the main-thread fallback is for pages that block workers outright, which `tests/e2e/engine.mjs` (part `fallback`) checks by taking `Worker` away.

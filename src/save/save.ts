@@ -14,8 +14,9 @@ export const SAVE_FORMAT = 'hidden-valley-blocks-save';
  * 2: each valley has an id and each write a counter (docs/FIXES.md, N1).
  * 3: each valley has a mode, Survival or Builder's, chosen when it is begun (docs/FIXES.md, N2).
  * 4: the days are counted, and the uplink's last drawing and the lures and pots still running are kept (docs/PHASE8.md).
+ * 5: the builder's handbooks are read or not (docs/PHASE9B.md, 6); a valley begun before has read them.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** How a valley is played: Survival is the game; Builder's mode adds flying, endless blocks and the sky's clock. */
 export type Mode = 'survival' | 'builder';

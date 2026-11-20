@@ -8,7 +8,7 @@
   "goals": [
     { "flag": "ate", "text": "You are hungry. Choose the tinned food (keys 1–9 or the wheel) and right-click to eat" },
     { "flag": "drank", "text": "You are thirsty. Choose the water jug and right-click to drink (or right-click any water with an empty hand)" },
-    { "flag": "journal_read", "text": "Read the builder’s journal: right-click the bookshelves in the cave behind you" },
+    { "flag": "journal_read", "text": "Read the builder’s journal and his handbooks: right-click the bookshelves in the cave behind you" },
     { "flag": "armory_found", "text": "Find the armory: the chest in the vault, through the hall at the back of the cave" },
     { "flag": "slept", "text": "Sleep in the builder’s bed, through the double door on the cave’s south side (from five in the evening): you wake there from then on" },
     { "flag": "left_valley", "text": "The way out: down the path at the balcony’s north end, across the valley, and dive under the waterfall. The tunnel is lit" }

@@ -79,7 +79,7 @@ describe('the choice', () => {
     delete old.mode; delete old.endless;
     const d = normaliseSave(old)!;
     expect([d.version, d.mode, d.endless]).toEqual([SAVE_VERSION, 'survival', false]);
-    expect(d.flags).toEqual(['safe_open', BEGUN]);
+    expect(d.flags).toEqual(['safe_open', BEGUN, 'books_read']); // (and, begun before the handbooks existed, it has read them: docs/PHASE9B.md, 6)
   });
 
   it('nobody flies or has endless blocks in Survival, whatever a save says', async () => {

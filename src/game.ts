@@ -34,7 +34,7 @@ import { tabLock } from './platform/tablock.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData, type Slot, type Mode } from './save/save.ts';
-import { newSave, normaliseSave, START, BEGUN } from './save/state.ts';
+import { newSave, normaliseSave, START, BEGUN, BOOKS_READ } from './save/state.ts';
 import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
 import { OPENING, HINTS, nextGoal } from './sim/guide.ts';
 import { isBow, isBlade, isWeapon, gunOf } from './sim/weapons.ts';
@@ -119,6 +119,18 @@ const HELD_HINT: Record<string, string> = {
   engineer_armor: 'Engineer’s armour. It works from your pack: about a third of a blow gets through.',
   spirit: 'Spirit, from the distiller. The medical bench makes medicines with it. Not for drinking.',
 };
+/** The builder's kit (docs/PHASE9B.md, 6): what each of its tools does, said on a right-click with it in hand. */
+const KIT_HINT: Record<string, string> = {
+  hammer: 'The builder’s hammer. Held, it takes apart anything built (furniture, planks, brick, glass) twice as fast as any other tool; at the anvil it makes twelve nails from an ingot, not eight.',
+  handsaw: 'The builder’s handsaw. Carried, it cuts six planks from a log by hand, not four.',
+  water_filter: 'The builder’s water filter. It works from your pack: with it, water outside the valley is safe to drink and to carry home.',
+  headlamp: 'The builder’s headlamp. It works from your pack: in the dark it lights the ground a few steps round you.',
+};
+/** How much nearer the binoculars bring things. */
+export const BINOCULAR_ZOOM = 4;
+/** Unfiltered water outside the valley: what a drink of it costs in health. */
+export const BAD_WATER_HP = 6;
+
 /** Said the first time each of M5's things is made. */
 const MADE_LINE: Record<string, string> = {
   hazard_suit: 'A hazard suit. It works from your pack. Call Ray: he will meet someone who carries one.',
@@ -302,6 +314,12 @@ export class Game {
   private downloads: Downloads | null = null;
   /** The player's settings (docs/PHASE9B.md, 2): applied at boot, shown in the menu, saved when one changes. */
   settings: Settings = { ...DEFAULT_SETTINGS };
+  /** A line to say when the paper on screen is put down (what reading it taught). */
+  private sayAfterPaper: string | null = null;
+  /** Looking through the binoculars (the right mouse button held with them in hand). */
+  private glassing = false;
+  /** When unfiltered water was last drunk outside the valley (play time): its line is not said at every sip. */
+  private badWaterSaid = -Infinity;
   /** When play was last paused (the frames' clock): Esc resumes only a moment later. */
   private pausedAt = -Infinity;
   /** Health the body lost by itself this tick (hunger, thirst, no air): not "danger", so it does not stop hold H. */
@@ -381,7 +399,7 @@ export class Game {
     });
     this.look.onDelta = (dx, dy) => {
       // Through the telescope the hand is as much finer as the view is narrower.
-      const fine = this.scoping ? 1 / SCOPE_ZOOM : 1;
+      const fine = this.scoping ? 1 / SCOPE_ZOOM : this.glassing ? 1 / BINOCULAR_ZOOM : 1;
       this.player.yaw -= dx * fine;
       this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch - dy * fine));
     };
@@ -567,6 +585,8 @@ export class Game {
       }
     }
 
+    // The binoculars come down when they are put away, a screen opens or the game pauses.
+    if (this.glassing && (!this.playing || this.screen.isOpen || this.paper.isOpen || this.hotbar.current?.id !== itemId('binoculars'))) this.endGlass();
     if (this.playing && !this.screen.isOpen && !this.paper.isOpen) {
       if (this.focus.active && !isWeapon(this.hotbar.current?.id)) this.endFocus();
       if (this.focus.update(dt) === 'ended') this.sound.focus(false);
@@ -754,6 +774,7 @@ export class Game {
     const p = this.player;
     const ev = this.wild.update(dt, {
       px: p.x, py: p.y, pz: p.z, night: this.hour >= 19 || this.hour < 5.5, shot: this.shotFired,
+      pyaw: p.yaw, // which way the player faces: the puma keeps out of it
       blockAt: (x, y, z) => this.world.blockAt(x, y, z),
       loaded: (x, z) => !!this.world.column(Math.floor(x / CS), Math.floor(z / CS)),
       rand: Math.random,
@@ -940,6 +961,15 @@ export class Game {
   private aim(): boolean {
     const held = this.hotbar.current?.id;
     if (held === undefined || this.usableTarget()) return false;
+    if (held === itemId('binoculars')) {
+      // Held to the eyes for as long as the button is down.
+      this.glassing = true;
+      this.endFocus();
+      this.mining.active = false;
+      this.renderer.setZoom(BINOCULAR_ZOOM);
+      this.once('glass_used', 'Through the binoculars: hold the right mouse button to look, let go to lower them.', 5000);
+      return true;
+    }
     if (isBow(held)) {
       if (this.hotbar.count(itemId('arrow')) === 0) { this.hud.toast('No arrows'); return true; }
       this.drawing = this.playTime;
@@ -1017,7 +1047,7 @@ export class Game {
     const exertion = p.inWater ? 1.5 : input.sprint && moving ? 1.8 : 1;
     const before = v.hp;
     tickVitals(v, dt, exertion, p.headInWater && p.breath <= 0);
-    this.bodyLoss = Math.max(0, before - v.hp);
+    this.bodyLoss += Math.max(0, before - v.hp);
     const hurt = fallDamage(fall);
     if (hurt) { v.hp = Math.max(0, v.hp - hurt); this.sound.footstep('stone'); }
     if (v.hp < before - 0.5 || hurt) this.hud.flashHurt();
@@ -1407,6 +1437,12 @@ export class Game {
   /** The builder's journal, and after it the player's own notes as they are earned. */
   private openJournal(): void {
     if (!this.flags.has('journal_read')) { this.flags.add('journal_read'); this.edited(); }
+    // The builder's handbooks stand on the same shelves (docs/PHASE9B.md, 6): the workshop's stations are learned here.
+    if (!this.flags.has(BOOKS_READ)) {
+      this.flags.add(BOOKS_READ);
+      this.edited();
+      this.sayAfterPaper = 'Beside the journal, the builder’s handbooks: smelting, smithing, the kiln, tanning. The workshop’s stations now show what you can make.';
+    }
     const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
     const all = [...journalData.entries, ...notes];
     this.openPaper(() => this.paper.journal(all, notes.length ? all.length - 1 : 0)); // at your newest note
@@ -1623,6 +1659,7 @@ export class Game {
     if (this.paper.isOpen) return;
     this.hud.showWorldHud(true);
     if (this.playing) this.look.engage();
+    if (this.sayAfterPaper) { this.hud.toast(this.sayAfterPaper, 9000); this.sayAfterPaper = null; }
   }
 
   /** Right-click with an item in hand: returns true if the item did something. */
@@ -1633,12 +1670,26 @@ export class Game {
     const [dx, dy, dz] = p.lookDir();
     const wet = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, REACH, true);
     const water = wet && (wet.id === WATER || wet.id === FALLING_WATER) && (!this.target || wet.dist <= this.target.dist);
+    // The valley's water comes through the limestone, clean. Outside it is safe only through the builder's filter,
+    // carried in the pack (docs/PHASE9B.md, 6): without it a drink still quenches but costs health, and a jug is not filled.
+    const clean = inSanctuary(p.x, p.z) || this.hotbar.count(itemId('water_filter')) > 0 || this.hotbar.creative;
     if (water && !held) {
-      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); this.learned('drank'); }
+      if (consume(this.vitals, { thirst: 25 })) {
+        this.sound.splash();
+        if (clean) this.hud.toast(inSanctuary(p.x, p.z) ? 'Cold, clear water' : 'Water, through the filter: clean');
+        else {
+          this.vitals.hp = Math.max(1, this.vitals.hp - BAD_WATER_HP);
+          this.bodyLoss += BAD_WATER_HP; // (a bad stomach is not a blow: it does not stop hold H)
+          this.hud.flashHurt();
+          if (this.playTime - this.badWaterSaid > 30) { this.badWaterSaid = this.playTime; this.hud.toast('It quenches, and it turns your stomach: the water out here is not clean. The builder’s water filter, carried, makes it safe.', 7000); }
+        }
+        this.learned('drank');
+      }
       else this.hud.toast('You are not thirsty');
       return true;
     }
     if (water && held && held.id === itemId('empty_jug')) {
+      if (!clean) { this.hud.toast('Not to carry home: the water out here is not clean. The builder’s water filter, in your pack, makes it safe.', 6000); return true; }
       this.hotbar.take();
       if (this.hotbar.add(itemId('water_jug')) > 0) this.hotbar.add(itemId('empty_jug'));
       this.sound.splash();
@@ -1684,6 +1735,7 @@ export class Game {
       return true;
     }
     if (HELD_HINT[heldName]) { this.hud.toast(HELD_HINT[heldName], 6000); return true; }
+    if (KIT_HINT[heldName]) { this.hud.toast(KIT_HINT[heldName], 7000); return true; }
     if (held.id === itemId('armband')) { this.hud.toast('A red armband, a white broken circle stitched on it. Whoever sent him wears the same.', 5000); return true; }
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
@@ -1787,7 +1839,7 @@ export class Game {
       if (e.code === 'BracketLeft') this.turnSky(-1);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; this.endGlass(); });
     canvas.addEventListener('mousedown', (e) => {
       if (!this.playing) return;
       if (this.look.mode === 'off') { this.look.engage(); return; }
@@ -1797,7 +1849,7 @@ export class Game {
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mining.active = false;
-      if (e.button === 2) this.loose();
+      if (e.button === 2) { this.loose(); this.endGlass(); }
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('wheel', (e) => {
@@ -2720,6 +2772,13 @@ export class Game {
     this.hud.showWorldHud(false);
     this.renderer.setZoom(SCOPE_ZOOM, SCOPE_NEAR);
     this.once('scope_used', 'Through the telescope: move the mouse to aim. E or Esc to step back.', 5000);
+  }
+
+  /** The binoculars are lowered. */
+  private endGlass(): void {
+    if (!this.glassing) return;
+    this.glassing = false;
+    if (!this.scoping) this.renderer.setZoom(1);
   }
 
   private endScope(): void {

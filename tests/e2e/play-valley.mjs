@@ -70,6 +70,26 @@ const hasRifle = await g(() => window.__hv.game.hotbar.slots.some((s) => s && s.
 await page.keyboard.press('Escape');
 check('Shift-click takes the rifle', hasRifle);
 
+// The workshop's anvil before the builder's handbooks are read (docs/PHASE9B.md, 6): nothing to make, and it says where to learn.
+const atAnvil = async () => {
+  await page.mouse.click(400, 225);
+  await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
+  await g(() => {
+    const gm = window.__hv.game, p = gm.player, at = (x, y, z) => gm.world.blockAt(x, y, z);
+    // A free place to stand beside the anvil at (1820, 82, 1012), facing it.
+    const spot = [[-1, 0, -Math.PI / 2], [0, -1, Math.PI], [0, 1, 0], [1, 0, Math.PI / 2]].find(([dx, dz]) => p.fitsAt(1820.5 + dx, 82, 1012.5 + dz, at));
+    p.setPosition(1820.5 + spot[0], 82, 1012.5 + spot[1]); p.yaw = spot[2]; p.pitch = -0.6;
+  });
+  await page.waitForFunction(() => { const t = window.__hv.game.target; return t && t.x === 1820 && t.y === 82 && t.z === 1012; }, null, { timeout: 30_000, polling: 200 }).catch(() => {});
+  await page.mouse.click(400, 225, { button: 'right' });
+  await page.waitForFunction(() => window.__hv.game.screen.isOpen, null, { timeout: 10_000 }).catch(() => {});
+  const seen = { recipes: await page.locator('.iv-recipe').count(), text: (await page.locator('.iv-recipes').textContent().catch(() => '')) ?? '' };
+  await page.keyboard.press('Escape');
+  return seen;
+};
+const anvilBefore = await atAnvil();
+check('before the handbooks are read the anvil shows nothing to make and says where to learn it', anvilBefore.recipes === 0 && /builder’s handbooks: right-click the bookshelves/.test(anvilBefore.text), JSON.stringify(anvilBefore).slice(0, 160));
+
 // Read the journal at the bookshelves, then open the vault safe with the code it gives.
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
@@ -80,6 +100,10 @@ await page.waitForTimeout(400);
 const journal = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the bookshelf opens the builder’s journal', /builder's journal/i.test(journal ?? ''), (journal ?? '').slice(0, 60));
 await page.keyboard.press('KeyE');
+await page.waitForTimeout(300);
+check('putting the journal down says what the handbooks beside it taught', /builder’s handbooks: smelting, smithing, the kiln, tanning/.test((await page.locator('.hv-toast').textContent()) ?? ''), ((await page.locator('.hv-toast').textContent()) ?? '').slice(0, 80));
+const anvilAfter = await atAnvil();
+check('and now the anvil shows what can be made', anvilAfter.recipes >= 3 && !/handbooks/.test(anvilAfter.text), JSON.stringify(anvilAfter).slice(0, 160));
 await page.mouse.click(400, 225);
 await page.waitForFunction(() => window.__hv.game.look.mode !== 'off', null, { timeout: 10_000 }).catch(() => {});
 await g(() => { const p = window.__hv.game.player; p.setPosition(1829.5, 82, 1024.5); p.yaw = Math.PI; p.pitch = -0.15; });

@@ -75,6 +75,12 @@ in the frame for five minutes of its own clock.
 node tests/e2e/engine.mjs
 ```
 
+`node tests/e2e/capture.mjs` plays for under a minute with the mouse really captured (the play-through refuses
+capture: see below): capture on Play, the captured sensitivity, Esc and Resume, a screen opened and closed.
+
+`node --experimental-strip-types --no-warnings tools/rimwalk.ts` lists every place where a walk from the canyon gets
+below the valley's rim (`jumps` adds running jumps and falls that hurt): run it after any change to the valley's cliff.
+
 `node tools/perf.mjs` measures the load at the balcony (draw calls, triangles, memory, the main thread's time on a
 walk); `RD=4` and `SET='{"scale":0.5}'` try other settings, `NOWORKERS=1` the main-thread fallback.
 

@@ -179,11 +179,14 @@ if (PARTS.includes('sandbox')) {
   const page = await ctx.newPage();
   const frameErrors = [];
   page.on('pageerror', (e) => frameErrors.push(e.message));
-  // A page of another origin holding the game in a frame that may run scripts and nothing else: its origin is
-  // opaque, so storage throws, workers made from the page's own script are refused, and the mouse can't be captured.
-  await page.route('http://sandbox.test/', (r) => r.fulfill({ contentType: 'text/html', body: `<!doctype html><body style="margin:0"><iframe id="f" sandbox="allow-scripts" src="${BASE}?hour=12" style="border:0;width:640px;height:360px"></iframe></body>` }));
-  await page.goto('http://sandbox.test/');
-  const frame = page.frames().find((fr) => fr.url().startsWith(BASE)) ?? (await page.waitForEvent('framenavigated', { predicate: (fr) => fr.url().startsWith(BASE), timeout: 30_000 }));
+  // A page holding the game in a frame that may run scripts and nothing else: the frame's origin is opaque, so
+  // storage throws, the mouse can't be captured, and the page's own workers may be refused. (The holding page is
+  // served from the same address as the game: Chromium will not let a page from elsewhere reach into this machine.)
+  const HOST = `${BASE}sandbox-host`;
+  await page.route(HOST, (r) => r.fulfill({ contentType: 'text/html', body: `<!doctype html><body style="margin:0"><iframe id="f" sandbox="allow-scripts" src="${BASE}?hour=12" style="border:0;width:640px;height:360px"></iframe></body>` }));
+  await page.goto(HOST);
+  const frame = page.frames().find((fr) => fr !== page.mainFrame() && fr.url().startsWith(BASE));
+  if (!frame) throw new Error(`the game's frame did not load: ${page.frames().map((f) => f.url()).join(', ')}`);
   await frame.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 600_000, polling: 300 });
   const s = await frame.evaluate(() => {
     const g = window.__hv.game;
@@ -192,7 +195,8 @@ if (PARTS.includes('sandbox')) {
     return { storage, store: g.store.kind, exec: g.exec.kind, view: g.streamer.radius, origin: window.origin };
   });
   check('in a sandboxed frame the browser’s storage is blocked, and the game starts all the same', s.storage === 'blocked' && s.origin === 'null', JSON.stringify(s));
-  check('it keeps the valley in memory and says saves can’t be kept', s.store === 'memory' && /can.t keep|not be kept|won.t be kept|can’t be kept/i.test(await frame.locator('.hv-status').first().textContent()), `${s.store}: ${await frame.locator('.hv-status').first().textContent()}`);
+  const status = (await frame.locator('.hv-status').allTextContents()).join(' ').trim();
+  check('it keeps the valley in memory and says in the menu that this page isn’t allowed to keep saves', s.store === 'memory' && /isn’t allowed to keep saves.*Copy save code/.test(status), `${s.store}: ${status.slice(0, 120)}`);
   await frame.getByRole('button', { name: 'Play' }).click();
   await frame.locator('.hv-intro .skip').click().catch(() => {});
   await frame.waitForFunction(() => window.__hv.game.playing && window.__hv.game.look.mode !== 'off', null, { timeout: 60_000 });
@@ -213,7 +217,7 @@ if (PARTS.includes('sandbox')) {
   await page.keyboard.press('KeyE');
   await page.keyboard.press('Escape');
   await frame.waitForFunction(() => !window.__hv.game.playing, null, { timeout: 20_000 });
-  check('Esc pauses; the menu says the valley is kept only while the page is open', /Resume/.test(await frame.locator('.hv-btn.primary').textContent()));
+  check('Esc pauses, and the menu offers Resume', /Resume/.test(await frame.locator('.hv-btn.primary').textContent()));
   await frame.getByRole('button', { name: 'Resume' }).click();
   await frame.waitForFunction(() => window.__hv.game.playing, null, { timeout: 20_000 });
   // The rest of the time: the game left running, the clock moving, land still coming in.

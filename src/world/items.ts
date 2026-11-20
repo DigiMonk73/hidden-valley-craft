@@ -65,10 +65,19 @@ export function toolFor(block: number): ToolDef['kind'] | null {
   return 'pickaxe';
 }
 
+/** Things that were built, not dug: planks, bricks, glass, and everything made of boxes (furniture, slabs, stairs, railings, stations). */
+const BUILT = new Set(['planks', 'stone_bricks', 'cobble', 'glass', 'cinder_block', 'tin_roof', 'bookshelf']);
+export function isBuilt(block: number): boolean {
+  return B_RENDER[block] === RENDER.model || BUILT.has(BLOCK_DEFS[block]?.name ?? '');
+}
+/** The builder's hammer takes built things apart this many times faster than their own tool does (docs/PHASE9B.md, 6). */
+export const HAMMER_SPEED = 2;
+
 /** Seconds to mine a block with what is in hand: the right tool at its speed, else much slower. */
 export function mineSeconds(block: number, held: number): number {
   const hardness = BLOCK_DEFS[block]?.hardness ?? 0;
   if (hardness <= 0) return hardness;
+  if (held >= BLOCK_COUNT && items[held - BLOCK_COUNT]?.name === 'hammer' && isBuilt(block)) return hardness / HAMMER_SPEED;
   const want = toolFor(block);
   const tool = toolOf(held);
   if (!want) return hardness;

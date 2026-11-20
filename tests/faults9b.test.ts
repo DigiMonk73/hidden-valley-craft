@@ -249,3 +249,24 @@ describe('the land, against version 13’s', () => {
     }
   }, 120_000);
 });
+
+// ---- Other browsers (docs/PHASE9B.md, 5) ---------------------------------------------------------------------
+import { normaliseSave } from '../src/save/state.ts';
+
+describe('a browser without structuredClone (Safari before 15.4)', () => {
+  it('still opens a save: it was refused there, so every reload began a fresh valley', () => {
+    const g = globalThis as unknown as { structuredClone?: unknown };
+    const had = g.structuredClone;
+    const save = valley(4242, { flags: [BEGUN, 'safe_open'] });
+    try {
+      delete g.structuredClone;
+      expect(typeof structuredClone).toBe('undefined');
+      const d = normaliseSave(save);
+      expect(d).not.toBeNull();
+      expect(d!.wallet).toBe(4242);
+      expect(d!.flags).toContain('safe_open');
+      expect(d).not.toBe(save); // still a copy: checking a save never changes what it was given
+    } finally { g.structuredClone = had; }
+    expect(normaliseSave(save)).toEqual(normaliseSave(JSON.parse(JSON.stringify(save))));
+  });
+});

@@ -32,7 +32,7 @@ describe('what the wild gives, and what is made of it', () => {
     inv.add(itemId('hide'), 3);
     inv.add(itemId('salt'), 3);
     inv.add(itemId('cordage'), 2);
-    const tan = recipesAt('tannery').find((x) => x.in[0][0] === itemId('hide'))!;
+    const tan = recipesAt('tannery', new Set(['books_read'])).find((x) => x.in[0][0] === itemId('hide'))!;
     for (let k = 0; k < 3; k++) expect(make(inv, tan)).toBe('made');
     expect(inv.count(itemId('leather'))).toBe(6);
     const armour = recipesAt('workbench').find((x) => x.out[0] === itemId('leather_armor'))!;
@@ -43,7 +43,7 @@ describe('what the wild gives, and what is made of it', () => {
   it('the workbench makes snares and the hutch; the anvil makes arrowheads', () => {
     expect(recipesAt('workbench').some((r) => r.out[0] === blockId('snare'))).toBe(true);
     expect(recipesAt('workbench').some((r) => r.out[0] === blockId('hutch'))).toBe(true);
-    expect(recipesAt('anvil').some((r) => r.out[0] === itemId('arrowhead'))).toBe(true);
+    expect(recipesAt('anvil', new Set(['books_read'])).some((r) => r.out[0] === itemId('arrowhead'))).toBe(true);
     expect(recipesAt('workbench').some((r) => r.out[0] === itemId('arrow') && r.in.some(([id]) => id === itemId('arrowhead')))).toBe(true);
   });
 });

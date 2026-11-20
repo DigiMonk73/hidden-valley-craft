@@ -290,7 +290,7 @@ const saves = v13 as unknown as Record<'home' | 'ledgeA' | 'ledgeB' | 'madeBy', 
 
 describe('a valley saved by version 13 opens in this build and keeps everything', () => {
   it('the fixture really is version 13’s: save version 4, world layout 2, written by its own code', async () => {
-    expect([SAVE_VERSION, WORLD_LAYOUT]).toEqual([4, 2]); // neither number was raised by this phase
+    expect([SAVE_VERSION, WORLD_LAYOUT]).toEqual([5, 2]); // the layout was not raised; the save's version went up one step, with an upgrade (step 6)
     for (const name of ['home', 'ledgeA', 'ledgeB'] as const) {
       const r = await parseSave(bytesOf(saves[name]), (raw) => raw as SaveData);
       expect(r.ok).toBe(true);
@@ -329,7 +329,7 @@ describe('a valley saved by version 13 opens in this build and keeps everything'
     await settle(p);
     const now = await parseSave(await store.get(SAVE_KEY), normaliseSave);
     if (!now.ok) throw new Error('this build’s save did not parse');
-    expect([now.data.version, now.data.layout, now.data.id]).toEqual([4, 2, was.data.id]);
+    expect([now.data.version, now.data.layout, now.data.id]).toEqual([5, 2, was.data.id]);
     expect(now.data.seq).toBeGreaterThan(was.data.seq!);
     expect(now.data.edits.length).toBe(was.data.edits.length);
     expect(now.data.containers).toEqual(was.data.containers);
