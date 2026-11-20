@@ -1372,3 +1372,58 @@ describe('the antenna, hoisted', () => {
     for (const [x, y, z] of blocks) { let held = false; for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) if (at.has([x + dx, y + dy, z + dz].join())) held = true; expect(held, `${x},${y},${z}`).toBe(true); }
   });
 });
+
+// ---- The hoist on the balcony, and where the antenna goes (docs/PHASE8.md, 5) -----------------------------
+import { HOME_FIT } from '../src/gen/home.ts';
+import { antennaSpot } from '../src/gen/antenna.ts';
+import { GARDEN, POOL } from '../src/gen/layout.ts';
+
+describe('the builder’s hoist and the antenna’s place', () => {
+  const w = load(1728, 1000, 1823, 1055);
+  const name = (x: number, y: number, z: number) => blockName(w.blockAt(x, y, z));
+  const solidAt = (x: number, y: number, z: number) => (w.isLoaded(x, z) ? !!B_SOLID[w.blockAt(x, y, z)] : null);
+  const F = HOME.floor;
+
+  it('stands the hoist on the balcony in the corner by the rock; it is no step toward the railing, and cannot be mined', () => {
+    const [x, y, z] = HOME_FIT.hoist;
+    expect(name(x, y, z)).toBe('antenna_hoist');
+    // Not solid (tests/home.test.ts floods the balcony for ways onto the railing: a solid one here was one).
+    expect(B_SOLID[blockId('antenna_hoist')]).toBe(0);
+    expect(BLOCK_DEFS[blockId('antenna_hoist')].hardness).toBeLessThan(0);
+    expect(name(x, y + 1, z)).toBe('air');
+    expect(x >= HOME.balcony.x0 && x < HOME.balcony.x1 && z >= HOME.balcony.z0 && z < HOME.balcony.z1).toBe(true);
+    // It can be walked up to: the cell west of it is open paving.
+    expect(B_SOLID[w.blockAt(x - 1, F, z)] + B_SOLID[w.blockAt(x - 1, F + 1, z)]).toBe(0);
+    // And it is not in the way of anything the makeover reserved.
+    for (const r of Object.values(HOME_FIT.reserved)) expect(x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1).toBe(false);
+  });
+
+  it('finds the mast’s foot on the cliff’s edge above the cave’s mouth: rock under it, open sky over it', () => {
+    const spot = antennaSpot(HOME_FIT.mast, solidAt)!;
+    expect(spot).not.toBe(null);
+    const [x, y, z] = spot;
+    expect(z).toBe(HOME_FIT.mast.z);
+    expect(y).toBeGreaterThan(F + 22); // well above the balcony's overhang
+    expect(B_SOLID[w.blockAt(x, y - 1, z)]).toBe(1);
+    for (const [bx, by, bz] of antennaBlocks(x, y, z)) expect(name(bx, by, bz), `room for the antenna at ${bx},${by},${bz}`).toBe('air');
+    expect(skyOf(w.lightAt(x, y + ANTENNA_HEIGHT, z))).toBe(15);
+    expect(inSanctuary(x, z)).toBe(true);
+    // Unloaded land gives no spot, rather than a wrong one.
+    expect(antennaSpot(HOME_FIT.mast, () => null)).toBe(null);
+  });
+
+  it('shows the dish from the valley floor: from the garden and from the pool’s shore nothing stands between the eye and it', () => {
+    const [x, y, z] = antennaSpot(HOME_FIT.mast, solidAt)!;
+    const dish: [number, number, number] = [x - 1.5, y + 5.5, z + 0.5];
+    const eyes: [number, number, number][] = [[GARDEN.x0 + 12.5, VALLEY.floor + 1.6, (GARDEN.z0 + GARDEN.z1) / 2], [1760.5, VALLEY.floor + 1.6, 1024.5]];
+    for (const eye of eyes) {
+      const len = Math.hypot(dish[0] - eye[0], dish[1] - eye[1], dish[2] - eye[2]);
+      for (let k = 2; k < len - 2; k += 0.5) {
+        const p = [0, 1, 2].map((i) => eye[i] + ((dish[i] - eye[i]) * k) / len);
+        const id = w.blockAt(Math.floor(p[0]), Math.floor(p[1]), Math.floor(p[2]));
+        expect(B_SOLID[id] && !/leaves|fronds/.test(blockName(id)), `from ${eye}: ${blockName(id)} at ${p.map((v) => v.toFixed(0))}`).toBeFalsy();
+      }
+    }
+    expect(POOL.cx).toBeLessThan(x); // (the pool is across the valley, west of it)
+  });
+});

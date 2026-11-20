@@ -20,3 +20,19 @@ export function antennaBlocks(x: number, y: number, z: number): [number, number,
 
 /** How high the antenna stands over the block its mast is set on. */
 export const ANTENNA_HEIGHT = 8;
+
+/**
+ * The block the mast's foot stands in: on the cliff's edge above the cave's mouth, the first column from the
+ * valley side whose rock stands above the overhang. `solidAt` reads the world; null if the land is not loaded
+ * or the cliff has been dug away.
+ */
+export function antennaSpot(mast: { z: number; x0: number; x1: number; above: number }, solidAt: (x: number, y: number, z: number) => boolean | null): [number, number, number] | null {
+  for (let x = mast.x0; x <= mast.x1; x++) {
+    for (let y = mast.above + 30; y >= mast.above; y--) {
+      const s = solidAt(x, y, mast.z);
+      if (s === null) return null;
+      if (s) return [x, y + 1, mast.z];
+    }
+  }
+  return null;
+}
