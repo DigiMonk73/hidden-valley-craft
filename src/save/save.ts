@@ -9,12 +9,20 @@ import { itemId, itemName, hasItem } from '../world/items.ts';
 
 export const SAVE_FORMAT = 'hidden-valley-blocks-save';
 export const SAVE_VERSION = 1;
+/**
+ * The designed world's layout, counted up when a change to it moves what a save points at (chests, the bed, rooms).
+ * 2: the home rebuilt (docs/HOME.md). A save from an earlier layout is not opened: a fresh valley starts, and says so.
+ * (Before version 1 saves are not carried across such changes; after it, a change ships with a map from old to new.)
+ */
+export const WORLD_LAYOUT = 2;
 
 export interface Slot { name: string; count: number; wear?: number }
 
 export interface SaveData {
   format: string;
   version: number;
+  /** The world layout the save was made in (absent: the first). */
+  layout?: number;
   savedAt: string;
   hour: number;
   player: { x: number; y: number; z: number; yaw: number; pitch: number; flying: boolean };
@@ -130,4 +138,9 @@ export async function decodeSave(bytes: Uint8Array): Promise<SaveData | null> {
   } catch {
     return null;
   }
+}
+
+/** Was this save made in an earlier layout of the world (before the home was rebuilt)? Such a save is not opened. */
+export function fromEarlierLayout(d: SaveData): boolean {
+  return (Number.isFinite(d.layout) ? d.layout! : 1) < WORLD_LAYOUT;
 }

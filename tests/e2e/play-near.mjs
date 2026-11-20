@@ -3,7 +3,7 @@
 // Needs the build served: npx vite preview --port 4173. Run on its own, or all parts with: node tests/e2e/play.mjs
 import { start } from './lib.mjs';
 
-const { page, g, check, ensureLook, keepAlive, useAt, closeScreens, walkWest, P, flags, finish } = await start();
+const { page, g, check, ensureLook, keepAlive, useAt, closeScreens, walkWest, gameWait, P, flags, finish } = await start();
 // The scene part 1 leaves behind: the rifle from the armory and its rounds, a cooked steak to sell, and the
 // gate swum both ways (part 1 checks the swim itself).
 await g(() => {
@@ -21,8 +21,8 @@ await walkWest(P.SADDLE.x - 20, 1027.5, (P.ZONE1.shelter.x0 + P.ZONE1.shelter.x1
 check('reaches the lit bus shelter and finds Marco’s number', (await flags()).includes('shelter_found'));
 
 // 3. Home to the phone in the cave, and call him.
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1804.5, 82, 1027.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1806 && t.y === 83 && t.z === 1027; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1813 && t.y === 83 && t.z === 1029; });
 const phoneText = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the builder’s phone now has Marco', /Marco/.test(phoneText ?? ''), (phoneText ?? '').slice(0, 80));
 await page.locator('.pp-call').first().click().catch(() => {});
@@ -58,7 +58,7 @@ const pockets = await page.locator('.iv-title').first().textContent().catch(() =
 check('the scout’s pockets open', /scout/i.test(pockets ?? ''), `title: ${pockets}`);
 await page.locator('.iv-grid').first().locator('.iv-slot').first().click({ modifiers: ['Shift'] }).catch(() => {});
 await closeScreens();
-await page.waitForTimeout(1200);
+await gameWait(1.3);
 const scout = await g(() => ({ pistol: window.__hv.game.hotbar.count(window.__hv.itemId('pistol')), f: [...window.__hv.game.flags] }));
 check('takes the pistol, and the lore goes into the notes', scout.pistol === 1 && scout.f.includes('scout_searched') && scout.f.includes('pistol_taken'), scout.f.join(' '));
 
@@ -113,35 +113,47 @@ await closeScreens();
 const inCoop = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
 check('the pair goes into the coop', inCoop === 2, `chickens in the coop ×${inCoop}`);
 for (let attempt = 0; attempt < 3; attempt++) {
-  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
+  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
     // The clock is set once, before aiming: setting it again while waiting could put a slept night back to
     // 21:00, and a second sleep lays a second morning's eggs.
-    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1810 && t.z === 1037; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
-await page.waitForTimeout(500);
+await page.waitForFunction((c) => window.__hv.game.world.containerAt(...c).some((s) => s && s.id === window.__hv.itemId('egg')), coopAt, { timeout: 60_000, polling: 250 }).catch(() => {});
 const eggs = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('egg') ? s.count : 0), 0), coopAt);
 check('in the morning the coop has eggs', eggs === 2, `eggs ×${eggs}`);
 // The eggs are left in: another night, and one hatches. Her hens walk round the coop, one per hen.
+// (A record of the night, printed if the hatch fails: the clock as each frame saw it, and what was said.)
+await g(() => {
+  const gm = window.__hv.game, log = window.__night = [];
+  const toast = gm.hud.toast.bind(gm.hud);
+  gm.hud.toast = (line, ms) => { log.push(`said: ${String(line).slice(0, 40)}`); return toast(line, ms); };
+  let last = '';
+  const f = () => { const now = `${gm.hour.toFixed(2)}/${gm.dayClock.toFixed(2)}`; if (now !== last && log.length < 60) log.push(last = now); if (window.__night === log) requestAnimationFrame(f); };
+  requestAnimationFrame(f);
+});
 for (let attempt = 0; attempt < 3; attempt++) {
-  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1811.5, 82, 1019.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
-    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
+  await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
+    (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1810 && t.z === 1037; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
+// The hatch is the game's to do in its own time: wait for it, not for the wall clock.
+await page.waitForFunction((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0) === 3, coopAt, { timeout: 60_000, polling: 250 }).catch(() => {});
 const hens3 = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
-check('an egg left in hatches: three hens in the coop', hens3 === 3, `hens ×${hens3}`);
+check('an egg left in hatches: three hens in the coop', hens3 === 3, `hens ×${hens3}` + (hens3 === 3 ? '' : ' · the night: ' + (await g(() => window.__night.join(' | ')))));
+await g(() => { window.__night = null; });
 await g((c) => { const p = window.__hv.game.player; p.setPosition(c[0] + 0.5, c[1], c[2] + 3.5); }, coopAt);
 const walkers = await page.waitForFunction(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length === 3, null, { timeout: 300_000, polling: 300 }).then(() => true, () => false);
 check('her three hens walk round the coop', walkers, `${await g(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length)} walking`);
 
 // 8. Home alive from Zone-1, with the gate swum both ways, Marco's trust and the pistol: M1 is done.
-await page.waitForTimeout(1300);
+await gameWait(1.3);
 const m1 = await g(() => ({ done: window.__hv.game.flags.has('m1_done'), f: [...window.__hv.game.flags] }));
 check('M1, the first outside run, is done', m1.done, m1.f.join(' '));
 check('the meeting with Marco ended once you left him', !m1.f.includes('marco_meeting'));
 // The journal opens at the newest of your own notes.
-await useAt(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1029.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; },
-  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.1; const t = gm.target; return t && t.x === 1814; });
+await useAt(() => { const p = window.__hv.game.player; p.setPosition(1812.5, 82, 1031.5); p.yaw = -Math.PI / 2; p.pitch = -0.1; },
+  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.1; const t = gm.target; return t && t.x === 1814 && t.z === 1031; });
 const notesPage = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the journal opens at your newest note', /Your notes/.test(notesPage ?? '') && /first run/i.test(notesPage ?? ''), (notesPage ?? '').slice(0, 70));
 await closeScreens();
