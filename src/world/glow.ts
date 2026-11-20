@@ -25,6 +25,9 @@ const KINDS: Record<string, [string, number, boolean?]> = {
   fireplace: [FIRE, 1.5, true], hearth_fire: [FIRE, 1.5, true], hearth_flames: [FIRE, 1.3, true], ember_bed: [EMBER, 1.1, true], oil_drum_fire: [FIRE, 1.6, true],
   stove: [EMBER, 0.8, true], range_firebox: [EMBER, 0.8, true], smelter: [EMBER, 0.9, true], kiln: [EMBER, 0.8, true], forge: [EMBER, 0.9, true],
   raider_forge: [EMBER, 0.9, true], crucible_furnace: [EMBER, 0.9, true],
+  // Zone-4's sump (docs/PHASE9A.md, 8): the black sludge gives off a sick green light of its own, dim by day and
+  // plain at dusk. It lights nothing (the block emits no light): it is a warning, like the signs round it.
+  sludge: ['#3f6a14', 1.7],
 };
 
 /** The glow of each block, by id; undefined for a block with none. */

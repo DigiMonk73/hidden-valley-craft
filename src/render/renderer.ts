@@ -22,6 +22,8 @@ import { watchContext, type ContextWatch } from '../platform/context.ts';
 import { HandView } from './hand.ts';
 import { Glows } from './glow.ts';
 import { hideFarLand } from './farmask.ts';
+import { Birds } from './birds.ts';
+import { Rain } from './rain.ts';
 
 /** One atmosphere for everything: blocks, distant land and particles fade into the sky alike. */
 const FOG_NEAR = 150;
@@ -31,6 +33,8 @@ const WATER_FOG_NEAR = -2;
 const WATER_FOG_FAR = 18;
 /** What water does to light: the red goes first. */
 const UNDERWATER_LIGHT = new THREE.Color(0.5, 0.86, 0.95);
+/** Lamplight under water: greener, and hardly dimmer (the tunnel's rule is "well lit"). */
+const UNDERWATER_LAMP = new THREE.Color(0.74, 0.97, 1.0);
 /** The colour of lamplight and firelight on what they light. */
 const BLOCK_LIGHT = new THREE.Color('#ffd08c');
 
@@ -49,6 +53,7 @@ out vec3 vWorld;
 out float vWaterTop;
 out float vSun;
 out float vFlicker;
+out float vThin;
 uniform vec3 uSunDirV;
 void main() {
   int flags = int(aPack.x + 0.5);
@@ -66,7 +71,10 @@ void main() {
   vec3 n = face == 0 ? vec3(1, 0, 0) : face == 1 ? vec3(-1, 0, 0) : face == 2 ? vec3(0, 1, 0)
          : face == 3 ? vec3(0, -1, 0) : face == 4 ? vec3(0, 0, 1) : face == 5 ? vec3(0, 0, -1) : vec3(0.0);
   vSun = face == 6 ? 0.5 : max(dot(n, uSunDirV), 0.0);
-  vAo = aPack.y / 3.0;
+  // The corner's shading in the low two bits; a third bit marks a thin thing that is let go far off (a vine).
+  int shade = int(aPack.y + 0.5);
+  vAo = float(shade & 3) / 3.0;
+  vThin = (shade & 4) != 0 ? 1.0 : 0.0;
   vLight = aPack.zw / 240.0;
   // Fixed shading per face direction gives blocks their form: top brightest, bottom darkest.
   vShade = glow ? 2.0 : face == 2 ? 1.0 : face == 3 ? 0.55 : (face == 0 || face == 1) ? 0.72 : face == 6 ? 0.92 : 0.84;
@@ -104,6 +112,7 @@ in vec3 vWorld;
 in float vWaterTop;
 in float vSun;
 in float vFlicker;
+in float vThin;
 uniform sampler2DArray uTex;
 uniform float uMist;
 uniform vec3 uMistColor;
@@ -124,6 +133,9 @@ void main() {
   if (uCutout) {
     // Test alpha on the sharpest level so leaves don't thin out with distance.
     if (textureLod(uTex, tc, 0.0).a < 0.5) discard;
+    // Vines are let go with distance, strand by strand, between 60 and 140 m: close to they are leaves on rock,
+    // far off they were dark specks on the cliffs of the balcony's view.
+    if (vThin > 0.5 && vDist + 80.0 * fract(sin(dot(floor(vWorld.xz), vec2(12.9898, 78.233))) * 43758.5453) > 140.0) discard;
     tex.a = 1.0;
   }
   float sky = curve(vLight.x) * uDaylight;
@@ -212,6 +224,10 @@ export class Renderer {
   private fx = true;
   get effects(): boolean { return this.fx; }
   set effects(on: boolean) { this.fx = on; this.glows.mesh.visible = on; }
+  /** The valley's birds (docs/PHASE9A.md, 6): scenery. */
+  readonly birds = new Birds();
+  /** Afternoon rain (docs/PHASE9A.md, 7). */
+  readonly rain = new Rain();
   /** Is the eye under water, and the light there (docs/PHASE9A.md, 2)? Set by the game each frame. */
   private under = false;
   private eyeLight = 0xf0;
@@ -332,6 +348,8 @@ export class Renderer {
     this.scene.add(this.chimney.mesh);
     this.scene.add(this.flue.mesh);
     this.scene.add(this.glows.mesh);
+    for (const m of this.birds.meshes) this.scene.add(m);
+    this.scene.add(this.rain.mesh);
   }
 
   /**
@@ -356,7 +374,7 @@ export class Renderer {
   private underwaterSky(s: SkyState): SkyState {
     const w = (this.waterSky ??= { ...s, zenith: new THREE.Color(), horizon: new THREE.Color(), sunGlow: new THREE.Color(0, 0, 0), skyLight: new THREE.Color(), fog: new THREE.Color(), mistColor: new THREE.Color() });
     const l = this.lightColor(this.eyeLight);
-    const b = 0.4 + 0.6 * Math.min(1, Math.max(l.r, l.g, l.b));
+    const b = 0.5 + 0.5 * Math.min(1, Math.max(l.r, l.g, l.b));
     w.zenith.setRGB(0.1 * b, 0.5 * b, 0.56 * b);
     w.horizon.copy(w.zenith); w.fog.copy(w.zenith);
     w.skyLight.copy(s.skyLight).multiply(UNDERWATER_LIGHT);
@@ -453,6 +471,8 @@ export class Renderer {
   applySky(s: SkyState, time: number): void {
     // Under water: the water's colour in place of the sky's, and a fog a few metres deep in place of the long haze.
     let fogNear = FOG_NEAR, fogFar = FOG_FAR;
+    // Rain greys the sky and brings the haze in.
+    fogFar = this.rain.weather(s, fogFar);
     if (this.under) { s = this.underwaterSky(s); fogNear = WATER_FOG_NEAR; fogFar = WATER_FOG_FAR; }
     applySky(this.sky, s);
     if (this.under) this.sky.material.uniforms.uDaylight.value = 1; // no stars or moon through the water
@@ -464,7 +484,7 @@ export class Renderer {
       u.uSkyLight.value.copy(s.skyLight);
       // Lamplight too loses its red under water: the tunnel's walls go from warm brown to green.
       u.uBlockLight.value.copy(BLOCK_LIGHT);
-      if (this.under) u.uBlockLight.value.multiply(UNDERWATER_LIGHT);
+      if (this.under) u.uBlockLight.value.multiply(UNDERWATER_LAMP);
       u.uZenith.value.copy(s.zenith);
       u.uHorizon.value.copy(s.horizon);
       u.uSunGlow.value.copy(s.sunGlow);
@@ -485,6 +505,7 @@ export class Renderer {
     this.flue.sync(s, fogNear, fogFar, time);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
     this.glows.sync(s, fogNear, fogFar, time);
+    this.birds.sync(s, fogNear, fogFar);
   }
 
   private makePart(part: MeshPart, mat: THREE.Material, key: number, cx: number, cy: number, cz: number): THREE.Mesh | undefined {

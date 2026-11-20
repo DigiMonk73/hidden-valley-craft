@@ -3,7 +3,7 @@
 // set and moves the camera, so a set of ten costs little more than one.
 // Needs the build served: npx vite preview --port 4173.
 // Usage: node tools/shots9a.mjs <tag> [set ...] [name=x,y,z,yawDeg,pitchDeg,hour ...]
-//   writes out/9a/<tag>-<name>.png. Sets: valley, water, road, far, hand (see below).
+//   writes out/9a/<tag>-<name>.png. Sets: valley, water, road, far, life, hand (see below).
 // A shot may carry a script to run in the page once the land is in ({ run }), and `play: true` to set the game
 // playing (the hand and what it holds are drawn only in play).
 // For checking the look by eye; not a pass/fail test.
@@ -11,6 +11,11 @@ import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
+/** After the wait: stands the camera `dist` from the first bird of a kind, `up` above it, looking at it (and says how many there are). */
+const closeTo = (kind, dist, up, zoom = 1) => `(() => { const g = window.__hv.game, all = g.renderer.birds.flock.birds, b = all.find((q) => q.kind === '${kind}' && q.mode !== 'leave');
+  console.log('BIRDS ' + all.map((q) => q.kind + ':' + q.mode).join(' '));
+  if (!b) return; g.renderer.setZoom(${zoom}); const a = b.yaw + 2.2, x = b.x + Math.sin(a) * ${dist}, z = b.z + Math.cos(a) * ${dist}, y = b.y + ${up};
+  window.__hv.setCamera(x, y, z, Math.atan2(-(b.x - x), -(b.z - z)), Math.atan2(b.y + 0.1 - y, Math.hypot(b.x - x, b.z - z))); })()`;
 const hold = (name) => `(() => { const g = window.__hv.game, id = window.__hv.itemId('${name}'); g.hotbar.slots[0] = { id, count: 1 }; g.hotbar.selected = 0; })()`;
 const SETS = {
   // The valley at 256 m: the owner's sunset, the home by night, the pool and falls, the cliffs.
@@ -48,6 +53,13 @@ const SETS = {
     far_wall_garden: '1750,72.6,1030,90,8,12',
     far_wall_balcony: '1796.5,83.62,1024.5,90,-6,17.6',
     far_wall_morning: '1750,72.6,1030,60,10,9',
+  } },
+  // The valley's birds (they need a little time to arrive: `wait`, in milliseconds of the page's own clock).
+  life: { rd: 4, shots: {
+    hummingbirds: { cam: '1746.5,71.9,1031.5,60,-8,9', wait: 45000, run: closeTo('hummingbird', 2.4, 0.3, 3) },
+    doves: { cam: '1722,72.2,1062,40,-6,9', wait: 30000, run: closeTo('dove', 8, 1.2, 4) },
+    quetzal: { cam: '1742,72.6,1054,56,14,7', pre: `window.__hv.game.day = 1`, wait: 20000, run: closeTo('quetzal', 17, -5, 5) },
+    quetzal_from_path: { cam: '1752,73,1052,72,8,7', pre: `window.__hv.game.day = 1`, wait: 12000 },
   } },
   // In hand (drawn only in play).
   hand: { rd: 4, shots: {
@@ -92,7 +104,7 @@ for (const job of jobs) {
   const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: Number(process.env.DSF || 1) });
   await page.addInitScript(() => { Element.prototype.requestPointerLock = function () { return Promise.reject(new Error('no')); }; });
   page.on('pageerror', (e) => console.log('[page error]', e.message));
-  page.on('console', (m) => { if (m.type() === 'error' && !/GPU stall/.test(m.text())) console.log('[page]', m.text()); });
+  page.on('console', (m) => { if ((m.type() === 'error' && !/GPU stall/.test(m.text())) || m.text().startsWith('BIRDS')) console.log('[page]', m.text()); });
   const entries = Object.entries(job.shots).filter(([n]) => !only || only.has(n)).map(([n, s]) => [n, typeof s === 'string' ? { cam: s } : s]);
   if (!entries.length) { await page.close(); continue; }
   const first = entries[0][1].cam.split(',').map(Number);
@@ -106,6 +118,7 @@ for (const job of jobs) {
     await page.evaluate(([x, y, z, yaw, hour, play]) => {
       const g = window.__hv.game;
       window.__hv.setCamera(x, y, z, yaw, -1.55);
+      g.renderer.setZoom(1);
       g.hour = hour;
       g.playing = !!play;
     }, [x, y, z, rad(yaw), hour, shot.play]);
@@ -116,6 +129,8 @@ for (const job of jobs) {
       const tick = () => (++n >= 3 ? done() : requestAnimationFrame(tick));
       requestAnimationFrame(tick);
     }), [x, y, z, rad(yaw), rad(pitch)]);
+    if (shot.pre) await page.evaluate(shot.pre);
+    if (shot.wait) await page.waitForTimeout(shot.wait);
     if (shot.run) await page.evaluate(shot.run);
     if (process.env.EVAL) await page.evaluate(process.env.EVAL);
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));

@@ -22,7 +22,7 @@ describe('which blocks glow', () => {
     for (let id = 0; id < BLOCK_DEFS.length; id++) {
       const name = BLOCK_DEFS[id].name;
       if (B_EMIT[id] >= 7) expect(GLOW_OF[id], name).toBeDefined();
-      if (B_EMIT[id] === 0) expect(GLOW_OF[id], name).toBeUndefined();
+      if (B_EMIT[id] === 0 && name !== 'sludge') expect(GLOW_OF[id], name).toBeUndefined(); // (the sump's sludge glows and lights nothing)
     }
   });
 

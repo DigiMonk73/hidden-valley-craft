@@ -17,6 +17,8 @@ export class FakeRenderer {
   particles = blank({ fireflies: () => 0, morphos: () => 0 });
   creatures = blank({});
   hand = blank({});
+  birds = { flock: { update: () => [] }, draw() {} };
+  rain = blank({});
   effects = true;
   stats = { chunks: 0, quads: 0 };
   gl = { info: { render: { calls: 0 } } };

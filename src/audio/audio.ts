@@ -11,8 +11,8 @@ export function materialOf(id: number): Material {
   if (n === 'grass' || n === 'forest_floor' || n === 'moss' || n === 'tall_grass' || n === 'fern') return 'grass';
   if (n === 'dirt' || n === 'clay' || n === 'mud') return 'soil';
   if (n === 'sand' || n === 'gravel') return 'sand';
-  if (n === 'log' || n === 'planks' || n === 'tree_fern_trunk' || n === 'bamboo') return 'wood';
-  if (n === 'leaves' || n === 'fern_fronds' || n === 'bromeliad' || n === 'orchid') return 'leaves';
+  if (n === 'log' || n === 'planks' || n === 'tree_fern_trunk' || n === 'bamboo' || n === 'banana_trunk') return 'wood';
+  if (n === 'leaves' || n === 'fern_fronds' || n === 'bromeliad' || n === 'orchid' || n === 'leaves_pale' || n === 'banana_leaves' || n.startsWith('vine')) return 'leaves';
   if (n === 'glass' || n === 'lantern') return 'glass';
   return 'stone';
 }
@@ -505,6 +505,38 @@ export class Sound {
     const p = this.at(x, y, z), t = this.ctx.currentTime;
     this.chirp(p, t, 1500, 1700, 0.18, 0.14);
     this.chirp(p, t + 0.24, 1900, 1250, 0.3, 0.14);
+  }
+
+  /**
+   * Rain (docs/PHASE9A.md, 7): a steady hiss, by how hard it falls (0–1) and how open the place is (in the cave it is
+   * a murmur from the mouth). Made the first time it rains; silent between showers.
+   */
+  rain(level: number, open: number): void {
+    const ctx = this.ctx;
+    if (!ctx || (!this.rainGain && level <= 0)) return;
+    if (!this.rainGain) {
+      const src = this.loop(this.noise);
+      const band = ctx.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = 2600; band.Q.value = 0.45;
+      this.rainGain = ctx.createGain(); this.rainGain.gain.value = 0;
+      src.connect(band).connect(this.rainGain).connect(this.ambience);
+    }
+    this.rainGain.gain.setTargetAtTime(level * (0.05 + 0.2 * open), ctx.currentTime, 0.4);
+  }
+  private rainGain: GainNode | null = null;
+
+  /** The quetzal's call from its tree (docs/PHASE9A.md, 6): two soft whistles, each falling. */
+  quetzal(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.chirp(p, t, 1180, 840, 0.3, 0.16);
+    this.chirp(p, t + 0.46, 1120, 790, 0.34, 0.14);
+  }
+
+  /** Doves bursting up off the ground: a clatter of wings. */
+  flutter(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    for (let k = 0; k < 6; k++) this.noiseAt(p, t + k * 0.07, 0.05, 'bandpass', 1300 + k * 90, 1.2, 0.1 - k * 0.012);
   }
 
   /** A blow landing on the player. */

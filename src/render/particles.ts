@@ -240,6 +240,12 @@ export class Particles {
     }
   }
 
+  /** The sump's vapour (docs/PHASE9A.md, 8): a sick yellow-green breath off the sludge, slow to rise, slow to go. */
+  fume(x: number, y: number, z: number): void {
+    const g = 0.55 + Math.random() * 0.2;
+    this.normal.spawn(KIND.mist, x, y, z, (Math.random() - 0.5) * 0.3, 0.25 + Math.random() * 0.45, (Math.random() - 0.5) * 0.3, g * 0.85, g, g * 0.32, 0.4, 2 + Math.random() * 1.8, 5 + Math.random() * 4);
+  }
+
   firefly(x: number, y: number, z: number): void {
     this.glow.spawn(KIND.firefly, x, y, z, 0, 0, 0, 0.75, 1, 0.35, 0.9, 0.22, 12 + Math.random() * 14);
   }

@@ -3,7 +3,7 @@
 // and smooth light, which is why faces are not merged (merging would flatten both).
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
-import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, B_BOX_TEX, B_BOX_GLOW, BOX_FLAME, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
+import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, B_BOX_TEX, B_BOX_GLOW, BOX_FLAME, RENDER, LAYER, FALLING_WATER, BLOCK_DEFS } from '../world/blocks.ts';
 import { GLOW_OF } from '../world/glow.ts';
 
 export interface MeshPart {
@@ -42,6 +42,10 @@ const FLAG_WAVE = 1 << 5;
 const FLAG_LIQUID = 1 << 6;
 const FLAG_FLOW = 1 << 7; // falling water: its texture scrolls downward
 const FLAG_GLOW = 7; // in the face bits: lit from within (a lamp's shade, coals, a flame)
+
+/** Thin things that are let go far off (a vine on a cliff): the shader reads the mark from the shading byte's third bit. */
+const THIN = new Uint8Array(B_OPAQUE.length);
+BLOCK_DEFS.forEach((d, id) => { if ((d.base ?? d.name) === 'vine') THIN[id] = 4; });
 
 /** Blocks that darken the corners next to them. */
 const AO_OCCLUDER = new Uint8Array(B_OPAQUE.length);
@@ -308,7 +312,7 @@ function meshModel(part: PartBuilder, blocks: Uint16Array, light: Uint8Array, id
         const [px, py, pz] = p;
         const [uu, vv] = f === 0 ? [1 - pz, py] : f === 1 ? [pz, py] : f === 2 ? [px, 1 - pz] : f === 3 ? [1 - px, 1 - pz] : f === 4 ? [px, py] : [1 - px, py];
         const u = Math.round(uu * 16), v = Math.round(vv * 16);
-        part.vertex(q, k, x + p[0], y + p[1], z + p[2], flags | (k << 3), 3, sky, blk, layer, u, v);
+        part.vertex(q, k, x + p[0], y + p[1], z + p[2], flags | (k << 3), 3 | THIN[id], sky, blk, layer, u, v);
       }
     }
   }
