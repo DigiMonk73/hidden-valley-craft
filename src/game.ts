@@ -68,7 +68,7 @@ import { ZONE1FAR, ZONES } from './gen/layout.ts';
 import { OUTPOST_AT, CAMP_MARKER, DECK_END, RUSTED_TRAP } from './gen/zone1far.ts';
 import { trackM2 } from './sim/milestones.ts';
 import { smokeMeat, cureJerky, newWatch, learnLeghold, LEGHOLD_LESSON, LEGHOLD } from './sim/preserve.ts';
-import { pickApple, isFarmland, sows, NEW_CROPS } from './sim/farming.ts';
+import { pickApple, isFarmland, sows, cropOf, NEW_CROPS } from './sim/farming.ts';
 import { itemName } from './world/items.ts';
 import { blockId } from './world/blocks.ts';
 import { ZONE2 } from './gen/layout.ts';
@@ -1339,6 +1339,7 @@ export class Game {
     const lv = this.world.lightAt(x, y + 1, z);
     const r = breakBlock(this.world, this.hotbar, x, y, z);
     if (r.changed && id === LEGHOLD && learnLeghold(this.flags)) this.hud.toast(LEGHOLD_LESSON, 10000);
+    if (r.changed && cropOf(id)?.kind === 'coffee') this.hud.toast('You dug up the coffee bush. To pick coffee, right-click a ripe bush (red cherries): it stays and fruits again.', 8000);
     if (r.changed) {
       // The right tool wears with each block it mines.
       const held = this.hotbar.current;
@@ -1429,6 +1430,18 @@ export class Game {
       return;
     }
     if (this.useHeldItem()) return;
+    // The garden's two silent failures, said in words (the owner, 2026-11-20).
+    if (sowing) {
+      const soil = isFarmland(t.id);
+      this.hud.toast(cropOf(t.id) || (soil && t.ny === 1) ? 'Something already grows there. Plant on open tilled soil.'
+        : soil ? 'Aim at the top of the tilled soil.'
+        : 'Seeds and beans go in tilled soil. Right-click grass or dirt with the hoe first, then plant.', 6000);
+      return;
+    }
+    if (held && held.id === itemId('steel_hoe') && !isFarmland(t.id)) {
+      this.hud.toast('The hoe tills grass, dirt or forest floor with nothing built on it.', 5000);
+      return;
+    }
     const [x, y, z] = placeTarget(this.target);
     // Traps are for outside (ADR-020): nothing in the valley needs trapping.
     const placing = this.hotbar.current ? itemName(this.hotbar.current.id) : '';

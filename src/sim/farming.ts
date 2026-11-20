@@ -53,9 +53,20 @@ export function sows(item: number): string | undefined {
   return undefined;
 }
 
-/** A hoe turns grass or soil into farmland, if nothing stands on it. */
+/** Wild plants the hoe clears as it tills the ground they grow on (most of the valley's grass has one). */
+const WEEDS = new Set(['tall_grass', 'fern', 'bromeliad', 'orchid'].map((n) => blockId(n)));
+
+/**
+ * A hoe turns grass or soil into farmland, if nothing built stands on it. Aimed at a wild plant, or at ground
+ * with one on it, it clears the plant and tills the ground under it (the owner, 2026-11-20: the hoe hit the
+ * tall grass and nothing happened).
+ */
 export function till(world: World, x: number, y: number, z: number): boolean {
-  if (!TILLABLE.has(world.blockAt(x, y, z)) || world.blockAt(x, y + 1, z) !== AIR) return false;
+  if (WEEDS.has(world.blockAt(x, y, z))) y--;
+  if (!TILLABLE.has(world.blockAt(x, y, z))) return false;
+  const above = world.blockAt(x, y + 1, z);
+  if (above !== AIR && !WEEDS.has(above)) return false;
+  if (above !== AIR && !world.setBlock(x, y + 1, z, AIR)) return false;
   return world.setBlock(x, y, z, FARMLAND);
 }
 
