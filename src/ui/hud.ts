@@ -69,6 +69,12 @@ const CSS = `
 .hv-keys b { font-weight: 600; color: #ffe2a8; }
 .hv-set { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; font-size: 13px; }
 .hv-set select, .hv-set input { pointer-events: auto; }
+.hv-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 2px; }
+.hv-mode-btn { pointer-events: auto; cursor: pointer; text-align: left; font: inherit; color: #eaf3e6; padding: 9px 11px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); }
+.hv-mode-btn b { display: block; font-size: 14px; color: #ffe2a8; margin-bottom: 3px; }
+.hv-mode-btn span { font-size: 12px; opacity: .85; }
+.hv-mode-btn.on { background: rgba(201,143,62,.22); border-color: #c98f3e; }
 .hv-status { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.05); margin-top: 6px; }
 .hv-status.warn { background: rgba(201, 143, 62, .18); }
 .hv-code[hidden], .hv-btn[hidden] { display: none; }
@@ -89,6 +95,8 @@ export interface MenuActions {
   newGame(): void;
   /** Opens the backup in the valley's place (the valley left becomes the backup). */
   openBackup(): void;
+  /** Picks how a valley not yet begun will be played. */
+  pickMode(mode: 'survival' | 'builder'): void;
   setRenderDistance(chunks: number): void;
   setSensitivity(v: number): void;
   setInvertY(v: boolean): void;
@@ -206,7 +214,7 @@ export class Hud {
   private buildMenu(a: MenuActions): void {
     const p = el('div', 'hv-panel', this.menu);
     el('h1', '', p).textContent = 'Hidden Valley';
-    el('p', 'hv-sub', p).textContent = 'Block edition — Phase 0: the valley takes shape. A safe home in a karst sinkhole; the builder’s cave on the east cliff.';
+    el('p', 'hv-sub', p).textContent = 'Block edition. A hidden valley that is safe for good, a dead man’s home in its cliff, and a world outside that is not.';
 
     this.loadBox = el('div', 'hv-load', p);
     this.loadText = el('div', '', this.loadBox);
@@ -217,6 +225,19 @@ export class Hud {
     // Why play is held back (another tab has the valley open), when it is.
     this.blockedEl = el('div', 'hv-status warn', p);
     this.blockedEl.style.display = 'none';
+    // How to play, chosen once for a valley, before play first begins in it.
+    this.modeBox = el('div', 'hv-modes', p);
+    this.modeBox.style.display = 'none';
+    for (const [mode, name, what] of [
+      ['survival', 'Survival', 'The game as it is meant: you walk, what you carry is all you have, and the day runs at its own pace.'],
+      ['builder', 'Builder’s mode', 'For building and looking round: fly, blocks never run out, and you can turn the sky’s clock. Nothing can hurt you while you fly.'],
+    ] as const) {
+      const b = el('button', 'hv-mode-btn', this.modeBox);
+      el('b', '', b).textContent = name;
+      el('span', '', b).textContent = what;
+      b.onclick = () => a.pickMode(mode);
+      this.modeBtns[mode] = b;
+    }
     const row = el('div', 'hv-row', p);
     this.playBtn = el('button', 'hv-btn primary', row);
     this.playBtn.textContent = 'Play';
@@ -224,15 +245,8 @@ export class Hud {
     this.playBtn.onclick = () => a.play();
 
     el('h2', '', p).textContent = 'Controls';
-    const keys = el('div', 'hv-keys', p);
-    const k = [
-      ['Mouse', 'look'], ['W A S D', 'walk'], ['Space', 'jump · swim up'], ['Shift', 'sprint (flying: down)'],
-      ['Left click (hold)', 'mine the block you look at'], ['Right click', 'place the selected block'],
-      ['1–9 · wheel', 'choose what is in hand'], ['E', 'inventory (right-click a chest to open it)'], ['Q', 'focus: slow the world for a careful shot (gun or bow in hand)'], ['H (hold)', 'lost? head home'],
-      ['F', 'fly on / off (for exploring)'], ['G', 'builder’s mode: blocks never run out'],
-      ['[ and ]', 'time of day back / forward an hour'], ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
-    ];
-    for (const [key, what] of k) { el('b', '', keys).textContent = key; el('span', '', keys).textContent = what; }
+    this.keysEl = el('div', 'hv-keys', p);
+    this.showKeys('survival');
 
     el('h2', '', p).textContent = 'Your save';
     this.status = el('div', 'hv-status', p);
@@ -284,6 +298,8 @@ export class Hud {
 
     el('h2', '', p).textContent = 'Settings';
     const set = el('div', 'hv-set', p);
+    el('label', '', set).textContent = 'Game mode';
+    this.modeText = el('span', '', set);
     el('label', '', set).textContent = 'View distance';
     const rd = el('select', '', set);
     // 224 m is the least: it keeps the whole valley at full detail from anywhere inside it.
@@ -307,6 +323,37 @@ export class Hud {
 
   private downloadBtn!: HTMLButtonElement;
   showDownload(show: boolean): void { this.downloadBtn.hidden = !show; }
+
+  private keysEl!: HTMLDivElement;
+  private modeBox!: HTMLDivElement;
+  private modeBtns: Partial<Record<'survival' | 'builder', HTMLButtonElement>> = {};
+  private modeText!: HTMLSpanElement;
+
+  /** The list of controls: the keys for flying, endless blocks and the sky's clock are Builder's mode's only. */
+  private showKeys(mode: 'survival' | 'builder'): void {
+    const k = [
+      ['Mouse', 'look'], ['W A S D', 'walk'], ['Space', 'jump · swim up'], ['Shift', mode === 'builder' ? 'sprint (flying: down)' : 'sprint'],
+      ['Left click (hold)', 'mine the block you look at · strike'],
+      ['Right click', 'use what you look at (chest, bed, bench, a person) · eat or drink what is in hand · place a block · aim'],
+      ['1–9 · wheel', 'choose what is in hand'], ['E', 'your pack, and making things by hand'], ['Q', 'focus: slow the world for a careful shot (gun or bow in hand)'], ['H (hold)', 'lost? head home'],
+      ...(mode === 'builder' ? [['F', 'fly on / off'], ['G', 'endless blocks on / off'], ['[ and ]', 'turn the sky’s clock back / forward an hour']] : []),
+      ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
+    ];
+    this.keysEl.innerHTML = '';
+    for (const [key, what] of k) { el('b', '', this.keysEl).textContent = key; el('span', '', this.keysEl).textContent = what; }
+  }
+
+  /**
+   * The valley's mode: in Settings, in the list of controls, and, while the valley has not been begun (`canChoose`),
+   * as a choice of two above Play.
+   */
+  showMode(mode: 'survival' | 'builder', canChoose: boolean): void {
+    this.modeBox.style.display = canChoose ? '' : 'none';
+    for (const m of ['survival', 'builder'] as const) this.modeBtns[m]?.classList.toggle('on', m === mode);
+    this.modeText.textContent = (mode === 'builder' ? 'Builder’s mode' : 'Survival') + (canChoose ? '' : ' · chosen when this valley was begun');
+    this.showKeys(mode);
+    this.setMode(mode === 'builder' ? 'Builder’s mode' : '');
+  }
 
   private backupBtn!: HTMLButtonElement;
   /** Shows "Open the backup (from …)" when there is one; null hides it. */

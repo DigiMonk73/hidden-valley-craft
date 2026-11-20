@@ -60,6 +60,15 @@ function start(data: unknown): void {
       idle: () => game.isIdle(),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
+      /**
+       * The test path (docs/FIXES.md, N2). The play-through and the screenshot tool fly, hold endless blocks and set
+       * the hour through here or straight on `game`, in any mode; the player's keys for these exist only in Builder's mode.
+       */
+      test: {
+        fly: (on: boolean) => { game.player.flying = on; },
+        endless: (on: boolean) => { game.hotbar.creative = on; },
+        hour: (h: number) => { game.hour = h; },
+      },
       spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),
       /** Zone-1's places (docs/PHASE4.md, docs/PHASE5.md), for setting scenes. */
       places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE,

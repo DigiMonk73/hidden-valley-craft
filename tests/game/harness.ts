@@ -32,6 +32,9 @@ export function fakeBrowser(): void {
   };
   (g.window as Record<string, unknown>).self = (g.window as Record<string, unknown>).top = g.window;
   g.document = doc;
+  // The key handler asks whether a key was typed into a text box.
+  g.HTMLTextAreaElement = class {};
+  g.HTMLInputElement = class {};
   g.requestAnimationFrame = () => 0;
 }
 

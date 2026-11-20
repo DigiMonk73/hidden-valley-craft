@@ -115,3 +115,52 @@ graphics context away) and a type error in the build were each either silent or 
 **Tests.** `tests/failures.test.ts` (26): a stand-in `Worker` that dies mid-job, fails twice, sends rubbish or never
 starts; a failing column not asked for every frame; a mesh retried and drawn; healthy walks over real and flat
 land that still draw every chunk and remove meshes on unload; three.js's own geometry bookkeeping; context loss.
+
+---
+
+## 5. Survival and Builder's mode (N2)
+
+**What was wrong.** Flying (`F`), endless blocks (`G`) and the time of day (`[` and `]`) were ordinary keys, listed
+in the menu, so any fight could be skipped. One press of `[` paid a rig nearly a full day's Bitcoin, and before
+six in the morning each press was a new dawn: eggs, rabbits and Zone-2's dead men came round again. With
+endless blocks on, mining the raiders' one forge gave nothing and M2's forge could never be made. The menu still
+said "Phase 0".
+
+**What was done.**
+
+- **One choice, made before play first begins in a valley:** Survival or Builder's mode. It is shown as two
+  buttons above Play on a new valley (the first one, and after New game), saved with the valley, and shown in
+  Settings afterwards as "chosen when this valley was begun". It cannot be changed later.
+- **Survival:** `F`, `G`, `[` and `]` do nothing, and are not in the list of controls. Nobody flies or has
+  endless blocks in Survival, whatever a save says.
+- **Builder's mode:** the keys work and are listed. The clock keys turn the sky and the hour only: no power is
+  made or used, the rig is paid nothing, and no new day begins. A small "Builder's mode" label shows in the
+  corner while playing.
+- **Quest blocks:** with endless blocks on, a block still gives whatever is not the block itself (the forge's
+  parts, a lathe's, the crucible, ore, a caught rabbit). If the pack is full, the block stays where it is.
+- **The menu:** the subtitle no longer says "Phase 0"; the list of controls is by mode, and right-click now says
+  what it does (use, eat and drink, place, aim).
+- **The test path:** the play-through and the screenshot tool never used the player's keys for these. They set
+  flying, the hour and the pack through `window.__hv` (`__hv.test.fly/endless/hour`, `setCamera`, `setHour`, or
+  straight on `__hv.game`), which works in any mode and is said so in `src/main.ts`.
+
+**Calls made.**
+
+- *Survival keeps none of the four keys.* The review left this to the owner. The script's whole idea is that the
+  valley is safe and outside is not; a key that lifts you over a fight or skips the night undoes it. Hold H to go
+  home, which the owner asked for, stays in both modes.
+- *The mode cannot be changed after play begins.* Otherwise Survival is one menu click from Builder's mode and
+  nothing is at stake. New game offers the choice again, and the valley left behind is kept as the backup.
+- *The first game starts in Survival unless Builder's mode is picked.* Survival is the game; Builder's mode is for
+  building and looking round.
+- *In Builder's mode the hour really moves* (night creatures, Marco's hours and sleep follow the sky you turned
+  to). Only pay, power and the new day are held back. A sky that said night while the rules said day would be
+  more confusing than useful.
+- *Milestones still count in Builder's mode.* It is a sandbox on the same world; nothing is gained by switching
+  them off, and quest blocks giving their parts keeps every milestone possible there.
+- *Valleys made before the choice existed are Survival*, and count as already begun.
+
+**Tests.** `tests/modes.test.ts` (10), on the real `Game` in Node: the choice and its fixing, saving and reload,
+New game, an older save; the four keys in each mode; a rig paid nothing over 100 presses of `[` (and the old
+behaviour shown paying, for contrast); no new day from `[` before six; the forge's parts with endless blocks on,
+and with a full pack.

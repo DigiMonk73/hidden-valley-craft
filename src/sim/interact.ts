@@ -22,9 +22,11 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   const plantAbove = B_RENDER[above] === RENDER.cross;
   const drops: [number, number][] = [...(cropDrops(id) ?? [[dropOf(id), 1]]), ...(plantAbove ? cropDrops(above) ?? [[dropOf(above), 1]] : [])];
   // Nothing is ever lost: if the pack can't take everything, the block stays where it is.
-  if (!hotbar.creative) {
+  // (With endless blocks on, only what is not the block itself is given: see below.)
+  const given = drops.filter(([item, n]) => item && n > 0 && (!hotbar.creative || item !== id));
+  {
     const trial = hotbar.clone();
-    if (drops.some(([item, n]) => item && n > 0 && trial.add(item, n) > 0)) return { changed: false, full: true };
+    if (given.some(([item, n]) => trial.add(item, n) > 0)) return { changed: false, full: true };
   }
   // A broken block next to water lets the water in (still water, for now).
   const besideWater = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a, b, c]) => isWaterId(world.blockAt(x + a, y + b, z + c)));
@@ -32,7 +34,10 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   // An emptied chest's record stays (empty), so a chest put back here never refills with the builder's things.
   if (held) world.containers.set(packPos(x, y, z), held.map(() => null));
   if (plantAbove) world.setBlock(x, y + 1, z, AIR);
-  if (!hotbar.creative) for (const [item, n] of drops) if (item && n > 0) hotbar.add(item, n);
+  // With endless blocks on, a block gives nothing back, except what is not the block itself: the parts of a forge,
+  // a lathe or a crucible, ore, a caught rabbit. (Mining the raiders' one forge in Builder's mode used to give
+  // nothing, and M2's forge could then never be made.)
+  for (const [item, n] of given) hotbar.add(item, n);
   return { changed: true, full: false };
 }
 

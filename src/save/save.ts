@@ -12,8 +12,12 @@ export const SAVE_FORMAT = 'hidden-valley-blocks-save';
  * The save's own version. A build opens its own version and every earlier one (`migrate` in src/save/state.ts
  * brings an older save up, one step at a time); a save from a later build is refused, and kept untouched.
  * 2: each valley has an id and each write a counter (docs/FIXES.md, N1).
+ * 3: each valley has a mode, Survival or Builder's, chosen when it is begun (docs/FIXES.md, N2).
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
+
+/** How a valley is played: Survival is the game; Builder's mode adds flying, endless blocks and the sky's clock. */
+export type Mode = 'survival' | 'builder';
 
 /** Blocks and items renamed since a save was made: old name → new name. Empty until a build renames one. */
 export const BLOCK_ALIASES: Record<string, string> = {};
@@ -28,6 +32,9 @@ export interface SaveData {
   id?: string;
   seq?: number;
   savedAt: string;
+  /** Survival or Builder's mode (absent before version 3: Survival), and, in Builder's mode, whether blocks are endless now. */
+  mode?: Mode;
+  endless?: boolean;
   hour: number;
   player: { x: number; y: number; z: number; yaw: number; pitch: number; flying: boolean };
   hotbar: (Slot | null)[];

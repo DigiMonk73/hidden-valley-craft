@@ -51,6 +51,11 @@ export class FakeHud {
   setBackup(when: string | null) { this.backup = when; }
   showMenu(show: boolean) { this.menuShown = show; }
   setLoadingText(t: string) { this.loadingText = t; }
+  mode = '';
+  canChooseMode = false;
+  showMode(mode: string, canChoose: boolean) { this.mode = mode; this.canChooseMode = canChoose; }
+  notices: string[] = [];
+  notice(text: string | null) { if (text) this.notices.push(text); }
 }
 export const hudModule = { Hud: FakeHud, VIEW_CHUNKS: [7, 8, 10, 12], nearestViewChunks: (n: number) => n };
 

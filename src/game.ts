@@ -30,8 +30,8 @@ import { openStore, pendingFor, type Store, type PendingIo } from './platform/st
 import { tabLock } from './platform/tablock.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, SAVE_FORMAT, SAVE_VERSION, type SaveData, type Slot } from './save/save.ts';
-import { newSave, normaliseSave, START } from './save/state.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, SAVE_FORMAT, SAVE_VERSION, type SaveData, type Slot, type Mode } from './save/save.ts';
+import { newSave, normaliseSave, START, BEGUN } from './save/state.ts';
 import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS, WORLD_Y } from './world/constants.ts';
@@ -219,6 +219,11 @@ export class Game {
   private spill: Stack[] = [];
   keeper!: Keeper;
   private landFailSaid = false;
+  /**
+   * How this valley is played (docs/FIXES.md, N2): chosen before play first begins in it, saved, and fixed after.
+   * In Survival the keys for flying, endless blocks and the clock do nothing.
+   */
+  mode: Mode = 'survival';
   /** Has the game been played since the last save? Position, health and the hour are saved even with no edit. */
   private playedSince = false;
   private accumulator = 0;
@@ -275,6 +280,7 @@ export class Game {
       loadCode: (c) => void this.loadFromCode(c),
       newGame: () => void this.newGame(),
       openBackup: () => void this.openBackup(),
+      pickMode: (m) => this.pickMode(m),
       setRenderDistance: (c) => this.setRenderDistance(c, true),
       setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
       setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
@@ -1489,10 +1495,12 @@ export class Game {
         if (r === 'go') this.goHome();
         else if (r === 'danger') this.hud.toast('Not with danger this close');
       }
+      // Builder's mode only (docs/FIXES.md, N2): in Survival these keys do nothing at all.
+      if (this.mode !== 'builder') return;
       if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
-      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.hud.toast(this.hotbar.creative ? 'Builder’s mode: blocks never run out' : 'Builder’s mode off'); }
-      if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
-      if (e.code === 'BracketLeft') this.hour = (this.hour + 23) % 24;
+      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.edited(); this.hud.toast(this.hotbar.creative ? 'Blocks never run out' : 'Blocks are counted again'); }
+      if (e.code === 'BracketRight') this.turnSky(1);
+      if (e.code === 'BracketLeft') this.turnSky(-1);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; });
@@ -1522,8 +1530,32 @@ export class Game {
     window.addEventListener('pagehide', () => this.saveNow());
   }
 
+  /** Before play first begins in a valley: Survival or Builder's mode. After that it is fixed. */
+  private pickMode(mode: Mode): void {
+    if (this.flags.has(BEGUN) || this.mode === mode) return;
+    this.mode = mode;
+    this.hotbar.creative = mode === 'builder';
+    this.player.flying = false;
+    this.edited();
+    this.hud.showMode(this.mode, true);
+    void this.refreshCode();
+  }
+
+  /**
+   * Builder's mode: turns the sky's clock by whole hours. Only the sky and the hour move: no power is made or
+   * used, the rig is paid nothing, and no new day begins (no eggs, no rabbits, no men back at their posts).
+   * (The key used to pay a rig nearly a day's sats a press, and to start a new dawn each time before six.)
+   */
+  private turnSky(hours: number): void {
+    this.hour = (((this.hour + hours) % 24) + 24) % 24;
+    this.dayClock = this.hour;
+    if (this.powerHour !== null) this.powerHour = this.hour;
+    this.edited();
+  }
+
   private resume(): void {
     if (!this.ready || this.secondTab || this.keeper.stopped === 'other-tab') return;
+    if (!this.flags.has(BEGUN)) { this.flags.add(BEGUN); this.edited(); this.hud.showMode(this.mode, false); }
     if (this.notice && !this.noticeSaid) { this.noticeSaid = true; this.hud.toast(this.notice, 12000); }
     this.sound.start(); // browsers only allow sound to begin from a click
     this.playing = true;
@@ -1583,7 +1615,8 @@ export class Game {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
-      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, savedAt: new Date().toISOString(), hour: this.hour,
+      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, savedAt: new Date().toISOString(),
+      mode: this.mode, endless: this.hotbar.creative, hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.hotbar.toSave(), spill: this.spilled(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
@@ -1635,12 +1668,15 @@ export class Game {
     this.player.setPosition(at[0], at[1], at[2]);
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
-    this.player.flying = d.player.flying;
+    this.mode = d.mode === 'builder' ? 'builder' : 'survival';
+    // Nobody flies in Survival, whatever a save says.
+    this.player.flying = d.player.flying && this.mode === 'builder';
     this.player.breath = BREATH_MAX;
     this.checkBuried = !fresh;
     this.hour = d.hour;
     this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
+    this.hotbar.creative = this.mode === 'builder' && d.endless !== false;
     this.spill = [];
     for (const s of d.spill ?? []) {
       const left = this.hotbar.stow({ id: itemId(s.name), count: s.count, ...(s.wear ? { wear: s.wear } : {}) });
@@ -1664,6 +1700,7 @@ export class Game {
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    this.hud.showMode(this.mode, !this.flags.has(BEGUN));
     this.keeper?.adopt(d);
   }
 

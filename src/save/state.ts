@@ -5,7 +5,7 @@
 // A save that reaches the game is whole: every number finite, the player inside the world, every list a list.
 // One that cannot be made whole is refused (null) and the caller says so; it never throws.
 
-import { SAVE_FORMAT, SAVE_VERSION, ITEM_ALIASES, type SaveData, type Slot } from './save.ts';
+import { SAVE_FORMAT, SAVE_VERSION, ITEM_ALIASES, type SaveData, type Slot, type Mode } from './save.ts';
 import { Inventory, BASE_SLOTS, BACKPACK_SLOTS } from '../sim/inventory.ts';
 import { hasItem } from '../world/items.ts';
 import { HOME } from '../gen/layout.ts';
@@ -25,10 +25,13 @@ export function newValleyId(): string {
   return `v-${Date.now().toString(36)}-${r()}${r()}`;
 }
 
+/** The flag a valley gets when play first begins in it: until then its mode can still be chosen. */
+export const BEGUN = 'begun';
+
 /** A new game, as a save. */
-export function newSave(): SaveData {
+export function newSave(mode: Mode = 'survival'): SaveData {
   return {
-    format: SAVE_FORMAT, version: SAVE_VERSION, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), hour: START_HOUR,
+    format: SAVE_FORMAT, version: SAVE_VERSION, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), mode, endless: mode === 'builder', hour: START_HOUR,
     player: { x: START.x, y: START.y, z: START.z, yaw: START.yaw, pitch: START.pitch, flying: false },
     hotbar: Inventory.starter().toSave(), spill: [], selected: 0, palette: [], edits: [], containers: [],
     vitals: { hp: 100, hunger: 100, thirst: 100 }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
@@ -43,6 +46,8 @@ export function newSave(): SaveData {
 const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   // 1 → 2: every valley gets an id, and its writes a counter.
   1: (d) => { d.id = newValleyId(); d.seq = 0; },
+  // 2 → 3: a valley has a mode. One made before the choice existed is Survival, and already begun.
+  2: (d) => { d.mode = 'survival'; d.flags = [...(Array.isArray(d.flags) ? d.flags : []), BEGUN]; },
 };
 
 /** Brings an older save up to this build's version, in place. False if a step is missing (a version never made). */
@@ -132,6 +137,7 @@ export function normaliseSave(raw: unknown): SaveData | null {
     id: typeof d.id === 'string' && d.id ? d.id.slice(0, 64) : fresh.id,
     seq: int(d.seq, 0, Number.MAX_SAFE_INTEGER, 0),
     savedAt: typeof d.savedAt === 'string' ? d.savedAt : fresh.savedAt,
+    mode: d.mode === 'builder' ? 'builder' : 'survival', endless: d.mode === 'builder' && d.endless !== false,
     hour: ((num(d.hour, START_HOUR) % 24) + 24) % 24,
     player: {
       x: clamp(p.x, 0.5, WORLD_X - 0.5), y: clamp(p.y, 1, WORLD_Y + 16), z: clamp(p.z, 0.5, WORLD_Z - 0.5),
