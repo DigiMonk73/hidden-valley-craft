@@ -14,11 +14,15 @@ _The page to resume from. Keep it short; history lives in git._
 
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).
-  2. The home makeover (running in parallel, branch `home`): merge after Phase 7 and publish.
+  2. The home makeover: merged into `main` and **published as version 11** (2026-11-20). What was built, what changed from the plan and what was left undone: docs/HOME.md.
   3. The review's fixes, on `main` after Phase 7, one session after another because they share `src/game.ts`: saves (N1), stakes (N2, N4), traps and the world-walk test (N3), creatures (N5), the first ten minutes (N6), failures (N8), splitting `src/game.ts` (N10).
   4. Phase 8 (Zone-4, the tower, M5): the lead's brief is docs/PHASE8.md; its session is running on branch `phase8` (plan, map and land first; it stays out of `src/game.ts` until the home makeover and the fixes are merged, and the lead tells it when).
   5. Phase 9 (finish), with the review's "worth doing at the end" list.
 
+- **Version 11's checks** (2026-11-20, `main`): 427 unit tests; all 161 play-through checks (valley 41, near 23, mid 20, Zone-2 34, Zone-3 43).
+  - **Old saves:** a valley saved before the home was rebuilt is not opened; a fresh one starts and says so (`WORLD_LAYOUT` in `src/save/save.ts`). The owner has been told.
+  - **For Phase 9, from the home session:** sitting in chairs; a gun rack in the vault; about 30 lanterns in the home sell for 1 each (the money pass); stray texels on the jerky rack; nothing was judged on a real graphics card (motion, flicker, sound).
+  - The way out's breath check is "more than 6 of 20" (it reads 8.0–8.3 on every run; the bar stood on the measured value).
 - **Version 10's checks** (2026-11-20, `main`): 396 unit tests; all 157 checks of the five play-through parts (valley 37, near 23, mid 20, Zone-2 34, Zone-3 43), about 27 minutes here.
   - Publishing it found two faults in how the game is tested and one in the game, all fixed (docs/PHASE7.md, "After the merge"): item icons and the map are drawn on CPU canvases (`src/platform/canvas.ts`); the play-through no longer captures the mouse; and it waits on the game's clock, not the wall's (`gameWait`), because a busy machine draws 2–4 frames a second.
   - **For Phase 9:** the play-through now never plays with the mouse captured, so losing capture (pause), re-capture on closing a screen and captured sensitivity are covered only by `tests/look.test.ts`. Check them by hand in a real browser window, or with a headed browser, before version 1.
