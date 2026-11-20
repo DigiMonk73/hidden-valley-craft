@@ -4,7 +4,7 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 ## Resume here (second session, on Opus 5.5, begun 2026-11-20)
 
-**Where it stands.** Steps 1 to 7 are built and pushed (the first session's checkpoint, `c2f3c1f`). Since then: saves record the world generator's version (`8823ca3`, step 3, "Generator version"), and the lead's two calls on the rim are written in step 3. The fresh review is done: findings 1, 2, 4, 5 fixed with tests, 3 and 6 answered ("The fresh review", at the end).
+**Where it stands.** Everything in the brief is built, committed and pushed: steps 1–8, the generator version, Track A merged in, the headlamp's light, the banana bunch, and two fresh reviews' findings (each fixed with a test that fails on the old code, or answered with evidence). The final tree is `c072d92`: 1,046 unit tests pass, none skipped; `npx tsc --noEmit` is clean. Browser checks on it: the play-through's six parts are running (the valley part had passed on `bbfbac7` before the second review's three small fixes); then `saves.mjs`, `engine.mjs` (and `MINUTES=5 PARTS=sandbox`), `capture.mjs`; then the report to the lead.
 
 **Agents:** the owner's instruction, passed on by the lead (2026-11-20, 16:53): every agent this track opens runs on Opus 5.5 at extra effort (Agent tool: `model: "opus"`, `effort: "xhigh"`), a fresh reviewer included. (The review below was opened before this word, at the default.)
 
