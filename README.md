@@ -105,6 +105,16 @@ wall). `tests/walk.test.ts` lists the 117 columns that differ and checks that th
 walks every named route on the generated land with the real `Player`'s step rules (about 50 s). The 42 of those
 columns east of the gorge have their new hashes in `east-of-ravine.json`.
 
+### When the play-through's browser tab dies, or memory is in question
+
+`MEM=1 PARTS=mid node tests/e2e/play.mjs` prints a `MEM` line every ten seconds: the browser processes' sizes, the
+main thread's heap and buffers, each worker's heap and buffers, and the counts of everything that could pile up
+(creatures, arrows, loaded columns, the streamer's queues, meshes, page elements). Every thirty seconds it names the
+functions that allocated most since, on the main thread and in the workers. Build with `npx vite build --minify false`
+first so the names can be read, and rebuild normally afterwards. A tab that crashes is reported as a failed check.
+`HC=8` makes the page believe the machine has eight cores (the game starts up to six workers by it), and `DSF=0.2`
+draws a twenty-fifth of the pixels, to try what happens on a different machine.
+
 ## How it is built
 
 The stack is TypeScript, Vite and Three.js (WebGL 2), with Web Workers.
