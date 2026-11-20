@@ -33,7 +33,7 @@ import { openStore, pendingFor, type Store, type PendingIo } from './platform/st
 import { tabLock } from './platform/tablock.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData, type Slot, type Mode } from './save/save.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, WORLD_GEN, type SaveData, type Slot, type Mode } from './save/save.ts';
 import { newSave, normaliseSave, START, BEGUN, BOOKS_READ } from './save/state.ts';
 import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
 import { OPENING, HINTS, nextGoal } from './sim/guide.ts';
@@ -296,6 +296,8 @@ export class Game {
    * In Survival the keys for flying, endless blocks and the clock do nothing.
    */
   mode: Mode = 'survival';
+  /** The world generator's version this valley was begun in, kept as it was loaded and written back unchanged. */
+  gen = WORLD_GEN;
   /** Has the game been played since the last save? Position, health and the hour are saved even with no edit. */
   private playedSince = false;
   private accumulator = 0;
@@ -2013,7 +2015,7 @@ export class Game {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
-      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, savedAt: new Date().toISOString(),
+      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, gen: this.gen, savedAt: new Date().toISOString(),
       mode: this.mode, endless: this.hotbar.creative, hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.hotbar.toSave(), spill: this.spilled(), selected: this.hotbar.selected, palette, edits,
@@ -2078,6 +2080,7 @@ export class Game {
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
     this.mode = d.mode === 'builder' ? 'builder' : 'survival';
+    this.gen = d.gen ?? WORLD_GEN;
     // Nobody flies in Survival, whatever a save says.
     this.player.flying = d.player.flying && this.mode === 'builder';
     this.player.breath = BREATH_MAX;

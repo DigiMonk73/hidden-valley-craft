@@ -16,7 +16,7 @@ vi.mock('../src/platform/tablock.ts', async () => (await import('./game/stubs.ts
 import { openPage, memoryPending, loadLand, play, fire, settle, browserStore, type Page } from './game/harness.ts';
 import { tab } from './game/stubs.ts';
 import { newSave, normaliseSave, BEGUN } from '../src/save/state.ts';
-import { encodeSave, parseSave, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData } from '../src/save/save.ts';
+import { encodeSave, parseSave, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, WORLD_GEN, type SaveData } from '../src/save/save.ts';
 import { SAVE_KEY, NOTES } from '../src/save/keeper.ts';
 import { MemoryStore } from '../src/platform/storage.ts';
 import { blockId, B_SOLID, AIR } from '../src/world/blocks.ts';
@@ -330,11 +330,35 @@ describe('a valley saved by version 13 opens in this build and keeps everything'
     const now = await parseSave(await store.get(SAVE_KEY), normaliseSave);
     if (!now.ok) throw new Error('this build’s save did not parse');
     expect([now.data.version, now.data.layout, now.data.id]).toEqual([5, 2, was.data.id]);
+    // Version 13 did not record the generator's version: the valley counts as today's land, and says so from now on.
+    expect(was.data.gen).toBe(WORLD_GEN);
+    expect(now.data.gen).toBe(WORLD_GEN);
     expect(now.data.seq).toBeGreaterThan(was.data.seq!);
     expect(now.data.edits.length).toBe(was.data.edits.length);
     expect(now.data.containers).toEqual(was.data.containers);
     expect(now.data.hotbar).toEqual(was.data.hotbar);
     expect([...now.data.flags!].sort()).toEqual([...was.data.flags!].sort());
+  });
+
+  it('the world generator’s version is recorded, and a valley keeps the one it was begun in across a load and a save', async () => {
+    // Raw version 13 bytes have no mark; read through the upgrade they count as today's.
+    const raw = await parseSave(bytesOf(saves.home), (r) => r as SaveData);
+    if (!raw.ok) throw new Error('the fixture did not parse');
+    expect(raw.data.gen).toBeUndefined();
+    expect(newSave().gen).toBe(WORLD_GEN);
+    // A valley begun under another generator (as a later build will see this one) keeps its number when written again.
+    const store = browserStore();
+    await store.set(SAVE_KEY, await encodeSave({ ...newSave(), flags: [BEGUN], wallet: 77, gen: WORLD_GEN + 6 }));
+    const p = await openPage(store, memoryPending());
+    expect(p.game.wallet).toBe(77);
+    p.in.edited();
+    await p.in.save(false);
+    await settle(p);
+    const now = await parseSave(await store.get(SAVE_KEY), normaliseSave);
+    if (!now.ok) throw new Error('the save did not parse');
+    expect(now.data.gen).toBe(WORLD_GEN + 6);
+    // A mark that is not a number counts as today's.
+    expect(normaliseSave({ ...newSave(), gen: 'x' } as unknown)!.gen).toBe(WORLD_GEN);
   });
 
   it('settings saved by version 13 are kept (docs/PHASE9B.md, 2)', async () => {

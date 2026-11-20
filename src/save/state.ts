@@ -5,7 +5,7 @@
 // A save that reaches the game is whole: every number finite, the player inside the world, every list a list.
 // One that cannot be made whole is refused (null) and the caller says so; it never throws.
 
-import { SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, ITEM_ALIASES, type SaveData, type Slot, type Mode } from './save.ts';
+import { SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, WORLD_GEN, ITEM_ALIASES, type SaveData, type Slot, type Mode } from './save.ts';
 import { Inventory, BASE_SLOTS, BACKPACK_SLOTS } from '../sim/inventory.ts';
 import { hasItem } from '../world/items.ts';
 import { HOME } from '../gen/layout.ts';
@@ -45,7 +45,7 @@ function oldValleyId(d: Record<string, unknown>): string {
 /** A new game, as a save. */
 export function newSave(mode: Mode = 'survival'): SaveData {
   return {
-    format: SAVE_FORMAT, version: SAVE_VERSION, layout: WORLD_LAYOUT, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), mode, endless: mode === 'builder', hour: START_HOUR,
+    format: SAVE_FORMAT, version: SAVE_VERSION, layout: WORLD_LAYOUT, gen: WORLD_GEN, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), mode, endless: mode === 'builder', hour: START_HOUR,
     player: { x: START.x, y: START.y, z: START.z, yaw: START.yaw, pitch: START.pitch, flying: false },
     hotbar: Inventory.starter().toSave(), spill: [], selected: 0, palette: [], edits: [], containers: [],
     vitals: { ...ARRIVAL }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
@@ -68,7 +68,12 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   3: (d) => { d.day = 0; d.lastPull = null; d.running = []; },
   // 4 → 5 (docs/PHASE9B.md, 6): the workshop's recipes are learned from the builder's handbooks now. A valley begun
   // before that has been making them all along: it has read the handbooks.
-  4: (d) => { const f = Array.isArray(d.flags) ? d.flags : []; if (f.includes(BEGUN) && !f.includes(BOOKS_READ)) d.flags = [...f, BOOKS_READ]; },
+  // The save records the generator's version from here on; one made before counts as today's land (the lead's call).
+  4: (d) => {
+    const f = Array.isArray(d.flags) ? d.flags : [];
+    if (f.includes(BEGUN) && !f.includes(BOOKS_READ)) d.flags = [...f, BOOKS_READ];
+    if (!fin(d.gen)) d.gen = WORLD_GEN;
+  },
 };
 
 /** Brings an older save up to this build's version, in place. False if a step is missing (a version never made). */
@@ -159,6 +164,8 @@ export function normaliseSave(raw: unknown): SaveData | null {
     format: SAVE_FORMAT, version: SAVE_VERSION,
     // The layout of the world the save was made in. One without the mark is from the first layout (src/save/save.ts).
     layout: int(d.layout, 1, Number.MAX_SAFE_INTEGER, 1),
+    // The generator's version the valley was begun in; a save without one counts as today's (src/save/save.ts).
+    gen: int(d.gen, 1, Number.MAX_SAFE_INTEGER, WORLD_GEN),
     id: typeof d.id === 'string' && d.id ? d.id.slice(0, 64) : fresh.id,
     seq: int(d.seq, 0, Number.MAX_SAFE_INTEGER, 0),
     savedAt: typeof d.savedAt === 'string' ? d.savedAt : fresh.savedAt,
