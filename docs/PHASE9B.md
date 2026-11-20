@@ -2,27 +2,16 @@
 
 _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief is [PHASE9.md](PHASE9.md), Track B. Each step is marked DONE here when it is committed with its tests._
 
-## Resume here (checkpoint, 2026-11-20, at the lead's word: the session that built steps 1–7 stopped here)
+## Resume here (second session, on Opus 5.5, begun 2026-11-20)
 
-**Where it stands.** Steps 1 to 7 are built, tested, committed and pushed on `phase9b`. Nothing is half-done in the working tree. 959 unit tests pass, none skipped (`npx vitest run`, about 3 minutes); `npx tsc --noEmit` is clean.
+**Where it stands.** Steps 1 to 7 are built and pushed (the first session's checkpoint, `c2f3c1f`). Since then: saves record the world generator's version (`8823ca3`, step 3, "Generator version"), and the lead's two calls on the rim are written in step 3. A fresh reviewer is going through `git diff origin/main...phase9b` (saves, settings, the rim and brush, the weaker-computer path).
 
-**What has NOT been run on this branch's last commit, and must be before the report to the lead:**
+**The order of what is left** (the lead's brief to this session):
 
-- **The play-through's other five parts** (near, mid, Zone-2, Zone-3, Zone-4) have not been run on this branch at all. The valley part passed 45 of 45 on the build before the last two small changes (the third goal's wording; settings keeping unknown keys). Run `npm run build`, serve it, then `node tests/e2e/play.mjs` (all six; allow two hours).
-  - Likely to need a look: the parts set their scenes by hand and none reads the bookshelf, and the workshop's recipes now wait for the handbooks (step 6). No part uses the kiln, smelter, anvil or tannery today (checked by reading them), so none should fail; if one does, add `books_read` to the flags its scene sets.
-  - The water filter (step 6): a part that drinks from water outside the valley with an empty hand would now lose 6 health a drink. None was found doing so.
-- `node tests/e2e/saves.mjs` (16 of 16 on the step 3 build; not run since save version 5).
-- `node tests/e2e/engine.mjs`: parts `picture`, `lost`, `settings`, `fallback` passed 25 of 25 on the step 6 build; part `sandbox` passed 8 of 9, and the ninth was the check's own selector, fixed since and not run again. Run it whole, and once with `MINUTES=5 PARTS=sandbox`.
-- `node tests/e2e/capture.mjs`: 15 of 15, three runs.
-
-**What is left, in order**
-
-1. The runs above; fix what they find, with tests.
-2. **The ending the brief asks for:** a fresh reviewer (an agent that wrote none of this, read-only, told to attack saves, settings and the mended land with its own probes); fix every finding with a test or answer it here with evidence; merge `origin/main` once more; all unit tests, all six play-through parts, the save checks; update this page and `docs/STATUS.md`; push; message the lead with what was built, the test counts, the measured numbers (step 1's table), the before-and-after camera lines (step 3's table), what only the owner can check (steps 4 and 5 have the lists), and the weak spots (below).
-3. **Waits for the lead's word that Track A is merged:**
-   - **Step 8, the rest of the `src/game.ts` split** (`tickZone4`, `usePhase8`, `useHoist`, the telescope; docs/FIXES.md, 8). Not started.
-   - **The headlamp's light.** One uniform and two lines in the block shader (`src/render/renderer.ts`, `BLOCK_FRAG`: raise the floor of `light` within a few metres of the camera while a headlamp is carried and the sky light there is low). A right-click with it in hand already says what it will do (`KIT_HINT` in `src/game.ts`).
-   - **The banana bunch.** Track A adds banana plants and a `banana_bunch` block (the lead's message, 13:28). Make the bunch pickable and regrow, as the apple is (`pickApple`, `src/sim/farming.ts`). Do not add a second banana plant. Marco already sells bananas (step 6): keep that.
+1. **Now:** the fresh review's findings, each fixed with a test that fails on the old code or answered here with evidence. Push after each.
+2. **When the lead says Track A is merged:** merge `origin/main` (what to expect is below); re-take the land fixtures from the merged generator and confirm only intended columns differ; then step 8 (the split), the headlamp's light, the `banana_bunch` pickable and regrowing on Track A's plant. Commit and push each.
+3. **Then the checks, once, on the final tree:** `npx tsc --noEmit`, `npm test`, all six play-through parts (`npx vite preview --port 4173 --strictPort`, then `node tests/e2e/play.mjs`), `node tests/e2e/saves.mjs`, `node tests/e2e/engine.mjs` (and once `MINUTES=5 PARTS=sandbox`), `node tests/e2e/capture.mjs`. Never vitest and the browser together. None of the browser checks has been run on this branch since save version 5; notes on what may need a look: the parts set scenes by hand and none reads the bookshelf (add `books_read` to a scene's flags if a part needs the workshop's recipes); the water filter costs 6 health a drink outside with an empty hand.
+4. **Report:** this page and docs/STATUS.md, push, message the lead (under 40 lines).
 
 **At the merge with Track A, expect and keep** (the lead's message, 13:28):
 
@@ -40,7 +29,7 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 **Weak spots known**
 
-- **The valley's rim is closed to a free walk only.** With falls that hurt, it is still come down (35 health at the cheapest place found), and a dive from the ridge over the falls into the pool costs nothing. Both are for the lead to decide (step 3).
+- **The valley's rim is closed to a free walk only.** With falls that hurt, it is still come down (35 health at the cheapest place found), and a dive from the ridge over the falls into the pool costs nothing. **The lead decided (2026-11-20): both stay** (step 3, "The lead's calls").
 - **Nothing here was judged on a real graphics card:** frame rate, the automatic drop happening by itself, smooth edges off, the look of Picture: Soft. The numbers that are fair on this machine are in step 1's table.
 - **Safari and Firefox were not run** (not installed here). One fault was found by reading and fixed; step 5 has the owner's list.
 - **The handbooks gate is new play.** It is one right-click on a bookshelf the goals already point at, but the owner has not seen it.
@@ -182,6 +171,11 @@ What the numbers mean on this machine: draw calls, triangles, bytes and the main
 
 What I saw in them: from the floor each mend is a patch of slightly smoother, shadowed rock about a sixth of the picture wide, with the cliff's ledges and moss unchanged round it; from the balcony the south-east one is lost in the middle distance and the north-east one is the cliff face a few metres past the balcony's north end, a little plainer than before. Neither reads as built.
 
+**The lead's calls (2026-11-20), on the two questions above:**
+
+- **The rim stays as mended:** closed to a free walk. Coming down it with falls that hurt (about 35 health at the cheapest place) is allowed: M1's "come home" already needs the swim, and no hostile can use the cliff (the sanctuary rule is in code).
+- **The dive from the ridge over the valley's falls into the pool stays free:** it is the script's own entrance.
+
 ### The outpost's stealth route
 
 - **What it was.** The lookout on his roof saw a walker on two stretches of the game trail. Not because the bushes stood on lower ground than the trail beside them (the first guess, tried: it changed nothing) but because the trail climbs as it leaves the outpost: a walker further up stood head and shoulders above the bushes lower down, and he looked along the slope.
@@ -195,6 +189,10 @@ What I saw in them: from the floor each mend is a patch of slightly smoother, sh
 | `save:earlier` overwritten by a second old save, its write not checked | The first one kept is never written over: a second goes under `save:earlier:2`. The same bytes found again are not kept twice. If the write fails the player is told in plain words (`NOTES.earlierLost`) and play goes on. | 4 keeper tests, one with a store that takes no new keys and one that throws |
 | A hand-over from a page from before valleys had names dropped when the store holds that valley | Two unnamed copies (names made from their own contents, `v-old-…`) are taken for the same valley and the later-saved one is used. A named valley is never replaced this way, and a stale hand-over still loses. | 3 game tests |
 | "Made by an earlier build" hiding "can't keep saves" and "the last save failed" | The line about how the valley was opened and the warning the player can act on are both shown. The storage-did-not-open line stands alone, as it says the same itself. | 3 game tests |
+
+### Generator version
+
+The lead asked (2026-11-20, docs/STATUS.md) that before version 1 saves record the world generator's version, so that later land changes can keep old valleys whole. Built with the 4→5 upgrade: `WORLD_GEN` (src/save/save.ts, now 1: the land of Phase 9, rim mends and Track A's plants together), written into every save as `gen`. A save without it, which is every save from version 13, counts as today's (the lead's call: old valleys grow the new plants). The game keeps the number it loaded and writes it back unchanged; nothing reads it yet. A later build that changes land a valley has walked raises `WORLD_GEN`. Tests: `tests/faults9b.game.test.ts` ("the world generator's version…", and the version 13 round trip).
 
 **Call:** when the old valley cannot be kept aside, the game says so and still saves the new one over it. Stopping all saving to protect a valley that this build cannot open anyway would cost the player the valley they are in. (The owner's rule: saves before version 1 need not be carried, only never crash or strand.)
 
