@@ -4,6 +4,8 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-20)
 
+- **The lead handed over** (2026-11-20, on the owner's word) to a new lead session, `session_01EXF2m7f6xMYiFcWXyCnS3G`, for tweaks from the owner's play, one at a time, each published. Version 14 is live. Track B (`phase9b`, session `session_01EXF2m8fnv5dF2jPzNy23cX`) reports to the new lead, who merges and publishes it.
+
 - **Phase 9A ("the finish: feel and look", Track A of [PHASE9.md](PHASE9.md)) is built on branch `phase9a`**, waiting for the lead's review, merge and publish. Every call and its reason, the hooks in `src/game.ts`, and how it merges with Track B: [PHASE9A.md](PHASE9A.md).
   - **In hand:** an arm and what it holds, drawn over the world. Models for the tools and weapons, the block itself for a block. It chops while mining, kicks on a shot, comes up to the eye in focus, bends with the bow.
   - **Under water:** the water's colour, a fog a few metres deep, light without its red, bubbles. The tunnel reads as water and its lamps still lead.
