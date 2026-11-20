@@ -23,7 +23,7 @@ _The page to resume from. Keep it short; history lives in git._
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).
   2. The home makeover: merged into `main` and **published as version 11** (2026-11-20). What was built, what changed from the plan and what was left undone: docs/HOME.md.
-  3. The review's fixes, on `main` after Phase 7, one session after another because they share `src/game.ts`: saves (N1), stakes (N2, N4), traps and the world-walk test (N3), creatures (N5), the first ten minutes (N6), failures (N8), splitting `src/game.ts` (N10).
+  3. The review's fixes: merged into `main` and **published as version 12** (2026-11-20; docs/FIXES.md). 700 unit tests; all 167 play-through checks (valley 42, near 25, mid 21, Zone-2 35, Zone-3 44); saves in a real browser 16 of 16.
   4. Phase 8 (Zone-4, the tower, M5): the lead's brief is docs/PHASE8.md; its session is running on branch `phase8` (plan, map and land first; it stays out of `src/game.ts` until the home makeover and the fixes are merged, and the lead tells it when).
   5. Phase 9 (finish), with the review's "worth doing at the end" list.
 
