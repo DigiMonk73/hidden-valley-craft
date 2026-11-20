@@ -45,6 +45,12 @@ export async function start(query = 'rd=4&hour=12') {
     page.on('close', () => clearInterval(timer));
     page.on('crash', () => clearInterval(timer));
   }
+  // The play-through does not capture the mouse (LOCK=1 does, to see it). Headless Chromium answers a pointer
+  // lock with an endless stream of mouse moves that move nothing: 60,000 to 85,000 of them folded into every
+  // frame's event, about 30 MB a second of the browser's own memory, and when a frame stalls, millions in one
+  // event and a dead tab (the mid part's crash, docs/PHASE7.md). So the game is told capture is not allowed
+  // and uses its free-look fallback, as it does in a sandboxed frame.
+  if (!process.env.LOCK) await page.addInitScript(() => { Element.prototype.requestPointerLock = function () { return Promise.reject(new Error('no mouse capture in the play-through')); }; });
   const errors = [];
   page.on('crash', () => { errors.push('the page crashed'); console.log('FAIL the page crashed (the renderer died: memory?)'); });
   page.on('pageerror', (e) => errors.push(e.message));
@@ -146,6 +152,15 @@ export async function start(query = 'rd=4&hour=12') {
   await page.evaluate(() => { const v = window.__hv.game.vitals; v.hunger = 100; v.thirst = 100; });
   const mode = await g(() => window.__hv.game.look.mode);
   check('play starts (mouse captured or free-look fallback)', mode === 'captured' || mode === 'free', `look mode: ${mode}`);
+  // With nobody touching the mouse the page must hear nothing from it, and the view must not turn.
+  const quiet = await g(() => new Promise((res) => {
+    const gm = window.__hv.game, yaw = gm.player.yaw;
+    let moves = 0, folded = 0;
+    const h = (e) => { moves++; folded = Math.max(folded, e.getCoalescedEvents?.().length ?? 0); };
+    window.addEventListener('pointermove', h, true);
+    setTimeout(() => { window.removeEventListener('pointermove', h, true); res({ moves, mostFoldedIntoOne: folded, turned: Math.abs(gm.player.yaw - yaw) > 1e-6 }); }, 3000);
+  }));
+  check('the mouse left alone, the page hears nothing from it and the view does not turn (a captured mouse floods a headless page with moves)', quiet.moves === 0 && !quiet.turned, JSON.stringify(quiet));
 
   // Keeps the mouse captured: a click that only re-captures it is not a click on anything.
   const ensureLook = async () => {
