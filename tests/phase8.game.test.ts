@@ -50,7 +50,17 @@ interface In8 {
   scoping: unknown; scopeOk: boolean; doseLine: { text: string; alarm: boolean }; target: unknown; keys: Set<string>; playing: boolean;
   screen: { opened: unknown[]; onMake(r: unknown): void };
 }
-const inside = (p: Page) => p.game as unknown as In8;
+/** (Phase 8's play moved to `Game.ridge`, src/game/ridge.ts, in Phase 9B's split: its methods are reached there.) */
+const RIDGE: Record<string, string> = { tickZone4: 'tick', tickDevices: 'tickDevices', usePhase8: 'use', useHoist: 'useHoist', startScope: 'startScope' };
+const inside = (p: Page) => new Proxy(p.game as object, {
+  get(g, k) {
+    const ridge = (g as { ridge: Record<string, (...a: unknown[]) => unknown> }).ridge;
+    if (typeof k === 'string' && RIDGE[k]) return (...a: unknown[]) => ridge[RIDGE[k]](...a);
+    const v = Reflect.get(g, k, g);
+    return typeof v === 'function' ? v.bind(g) : v;
+  },
+  set(g, k, v) { return Reflect.set(g, k, v, g); },
+}) as unknown as In8;
 const paper = (p: Page) => p.in.paper as unknown as FakePaper;
 
 /** A page with play begun in Survival. No land is loaded unless a test brings some in. */

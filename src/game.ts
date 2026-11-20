@@ -85,18 +85,15 @@ import { rainAt } from './render/rain.ts';
 // Zone-4 and the uplink (docs/PHASE8.md).
 import { absorb, doseRate, meterLine, roadDose } from './sim/radiation.ts';
 import { isMedicine, useMedicine, medicineIdle, blowFelt, stepAdrenaline } from './sim/medicine.ts';
-import { ridgePlaceAt, ridgeToast, rayWaiting, canAskMeeting, gateRefuge, RAY_SPOT, RAY_FROM, RAY_UNTIL } from './sim/ridge.ts';
-import { trackM5, craftedFlag, diedOutsideM5 } from './sim/m5.ts';
-import { startDevice, stepDevices, smokeOf, devicesFromSave, LURE_HEARD, type Device } from './sim/countermeasures.ts';
-import { scopeTargets, aimedAt, scopeLabel, satTrain, SCOPE_ZOOM, SCOPE_NEAR } from './sim/telescope.ts';
-import { hoursToDusk, MIRA, type LinkNeeds } from './sim/uplink.ts';
-import { uplinkView, findPlaced } from './game/uplink.ts';
+import { canAskMeeting, gateRefuge } from './sim/ridge.ts';
+import { diedOutsideM5 } from './sim/m5.ts';
+import { smokeOf, devicesFromSave, type Device } from './sim/countermeasures.ts';
+import { SCOPE_ZOOM } from './sim/telescope.ts';
+import { MIRA, type LinkNeeds } from './sim/uplink.ts';
+import { uplinkView } from './game/uplink.ts';
+import { Ridge } from './game/ridge.ts';
 import { askRayToMeet, meetRay } from './game/people.ts';
-import { ScopeView } from './ui/scopeView.ts';
-import { antennaBlocks, antennaSpot } from './gen/antenna.ts';
-import { HUT_LOG, DOME_PAGE, RELAY_PAGE } from './gen/zone4.ts';
 import { ZONE4, ridgeRoadAt, ridgeRoadLength, ridgeRoadMark, inFallout, inRimMend } from './gen/layout.ts';
-import { NESTS } from './entity/ashen.ts';
 import { isPerson } from './entity/creatures.ts';
 
 const KILL_LINE: Record<Creature['kind'], string> = {
@@ -133,22 +130,6 @@ export const BINOCULAR_ZOOM = 4;
 /** Unfiltered water outside the valley: what a drink of it costs in health. */
 export const BAD_WATER_HP = 6;
 
-/** Said the first time each of M5's things is made. */
-const MADE_LINE: Record<string, string> = {
-  hazard_suit: 'A hazard suit. It works from your pack. Call Ray: he will meet someone who carries one.',
-  sat_antenna: 'The satellite antenna, assembled. Take it to the builder’s hoist in the balcony’s north corner.',
-  telescope: 'A telescope. Set it down under open sky at home: the balcony will do. The uplink needs it to find the satellites.',
-  uplink_terminal: 'The uplink terminal. Right-click the builder’s computer with it in your hand.',
-  med_bench: 'A medical bench. It works while a hydro generator turns: blue tablets, antibiotics, adrenaline. It needs spirit from a distiller.',
-  distiller: 'A distiller. It works while a hydro generator turns: corn or potatoes, water and charcoal make spirit.',
-  rad_tablets: 'Blue tablets of your own. Each binds thirty of your dose.',
-  antibiotics: 'Antibiotics. One brings your health back to the most your dose allows, at once.',
-  adrenaline: 'Adrenaline. For a minute blows hurt half as much and your focus is full. None of these cures what the Ashen have.',
-  thermal_optic: 'The thermal optic. Carry it, and hold focus (Q) with a weapon in hand: they glow.',
-  sonic_lure: 'Sonic lures. Set one down, right-click it, and walk the other way.',
-  smoke_pot: 'Smoke pots. Set one down and right-click it: they will not come into its smoke.',
-  engineer_armor: 'Engineer’s armour: about a third of a blow gets through. Carry it in your pack.',
-};
 /** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
 const ASHEN_HOLDS_H = 30;
 /** What a running Ashen kicks up. */
@@ -263,13 +244,13 @@ export class Game {
    * there). While seated the body does not move; a step, a jump or a blow stands it up.
    */
   private seat: { x: number; y: number; z: number; from: [number, number, number] } | null = null;
-  /** Looking through a telescope: where it stands (docs/PHASE8.md, 5). */
-  private scoping: { x: number; y: number; z: number } | null = null;
-  private scope: ScopeView | null = null;
-  /** A telescope stands under the sky at home (as last seen: the home's land may not be loaded). */
-  private scopeOk = false;
-  private rayGreeted = false;
-  private ui: HTMLElement;
+  /** Zone-4 and the uplink in play: the ridge, the lures and pots, the hoist, the telescope (src/game/ridge.ts). */
+  readonly ridge: Ridge;
+  /** Looking through a telescope, and a telescope standing under the sky at home: the ridge's (kept here for the checks). */
+  private get scoping(): { x: number; y: number; z: number } | null { return this.ridge.scoping; }
+  private get scopeOk(): boolean { return this.ridge.scopeOk; }
+  private set scopeOk(v: boolean) { this.ridge.scopeOk = v; }
+  readonly ui: HTMLElement;
   private doseToasted = false;
   private wallToast = -Infinity;
   /** Where the player wakes after a death or a night's sleep. */
@@ -349,6 +330,18 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
     this.ui = ui;
+    // (The game is the ridge's host: what it reads is the game's own, and the few things only the game may do are
+    // passed as calls.)
+    const game = this;
+    this.ridge = new Ridge({
+      get player() { return game.player; }, get flags() { return game.flags; }, get world() { return game.world; }, get wild() { return game.wild; },
+      get sound() { return game.sound; }, get hud() { return game.hud; }, get paper() { return game.paper; }, get streamer() { return game.streamer; },
+      get renderer() { return game.renderer; }, get hotbar() { return game.hotbar; }, get ui() { return game.ui; },
+      get hour() { return game.hour; }, get time() { return game.time; }, get running() { return game.running; },
+      edited: () => this.edited(), once: (f, l, ms) => this.once(f, l, ms), suited: () => this.suited(), openPaper: (show) => this.openPaper(show),
+      stopActions: () => { this.endFocus(); this.home.cancel(); this.mining.active = false; this.drawing = null; },
+      shakeBy: (a) => { this.shake = a; },
+    });
     this.player.flow = riverCurrent;
     this.wild.spawning = !opts.test;
     // Smoothed edges are fixed when the picture is made, before the saved settings can be read: a hint says which.
@@ -374,7 +367,7 @@ export class Game {
       }
       if (r.out[0] === itemId('plate_armor')) { this.flags.add('armor2_made'); this.hud.toast('Plate armour: it stops half of every blow. Carry it in your pack.', 7000); }
       if (r.out[0] === blockId('hydro_generator')) this.once('hydro_toast', 'The hydro generator. Set it in the valley’s creek, at the water: it makes power day and night.', 9000);
-      this.madePhase8(itemName(r.out[0]));
+      this.ridge.made(itemName(r.out[0]));
       if (r.out[0] === blockId('powder_mill')) this.once('mill_toast', 'A powder mill. Set it down and right-click it: saltpeter, charcoal and sulfur make gunpowder.', 7000);
     };
     this.screen.known = this.flags;
@@ -673,7 +666,7 @@ export class Game {
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
     // The thermal optic (docs/PHASE8.md, 4): carried, it shows warm bodies while focus runs.
     this.renderer.creatures.thermal = this.focus.active && this.hotbar.count(itemId('thermal_optic')) > 0;
-    this.tickScope();
+    this.ridge.tickScope();
     this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
     this.updateSound();
@@ -771,7 +764,7 @@ export class Game {
     }
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
-    this.tickDevices(world);
+    this.ridge.tickDevices(world);
     this.tickWild(world);
     this.tickSurvival(dt, input);
     this.tickRadiation(world);
@@ -863,9 +856,9 @@ export class Game {
       lightAt: (x, y, z) => { const l = this.world.lightAt(x, y, z); return Math.max((l >> 4) * this.sky.daylight, l & 15); },
       mining: this.mining.active && this.mining.progress > 0,
       smoke: smokeOf(this.running),
-      calls: this.lureCalls,
+      calls: this.ridge.lureCalls,
     });
-    this.lureCalls = [];
+    this.ridge.lureCalls = [];
     this.shotFired = false;
     this.quietShot = false;
     this.wildEvents(ev);
@@ -1557,7 +1550,7 @@ export class Game {
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
     if (this.usePhase6(name, x, y, z)) return true;
     if (this.usePhase7(name)) return true;
-    if (this.usePhase8(name, x, y, z)) return true;
+    if (this.ridge.use(name, x, y, z)) return true;
     if (name === 'computer') { this.useComputer(); return true; }
     if (name === 'phone') {
       // The builder's phone works from the cave: carried off and set down elsewhere it finds no signal (Doc is not a field medic).
@@ -1699,7 +1692,7 @@ export class Game {
     this.tickFarPlaces();
     this.tickZone2();
     this.tickZone3();
-    this.tickZone4();
+    this.ridge.tick();
     // The first ten minutes (docs/FIXES.md, 7): the goal on screen, and how to eat and drink the first time it is needed.
     if (!inSanctuary(p.x, p.z) && p.x < GATE.x0) this.learned('left_valley');
     if (!this.hotbar.creative && f.has('ate') && this.vitals.hunger < 35) this.once('hint_hungry', HINTS.hungry, 9000);
@@ -2221,10 +2214,8 @@ export class Game {
     this.introShown = false;
     this.wakeHold = null;
     this.doseToasted = false;
-    this.endScope();
+    this.ridge.reset();
     this.adrenaline = 0;
-    this.rayGreeted = false;
-    this.lureCalls = [];
     this.doseLine = { text: '', alarm: false };
     this.shotFired = false;
     this.quietShot = false;
@@ -2270,8 +2261,7 @@ export class Game {
     this.lastPull = Number.isFinite(d.lastPull) ? d.lastPull! : null;
     this.running = devicesFromSave(d.running);
     // A telescope counted when saved counts until the home's land is looked at again.
-    this.scopeOk = this.flags.has('telescope_set');
-    this.scopesAt = null;
+    this.ridge.loaded();
     // A save made unsuited on the ridge's poisoned ground (any save from before the fallout was there) would load
     // into certain death, the pack left where no one can fetch it: such a player wakes outside the gate instead.
     if (!fresh && this.mode === 'survival' && !this.suited() && doseRate(this.player.x, this.player.z, false) > 0 && inFallout(this.player.x, this.player.z)) {
@@ -2727,160 +2717,12 @@ export class Game {
 
   // ---- Zone-4 and the uplink (docs/PHASE8.md) ------------------------------------------------------
 
-  /** The telescopes set down at home, as last looked for (null: not yet since the valley was opened). */
-  private scopesAt: [number, number, number][] | null = null;
-
-  /** Lures that called this tick, for the Ashen to hear. */
-  private lureCalls: { x: number; z: number; r: number }[] = [];
-
-  /** Each tick: the lures wail and the pots burn their time; a spent one is gone. */
-  private tickDevices(dt: number): void {
-    if (!this.running.length) return;
-    const { calls, spent } = stepDevices(this.running, dt);
-    for (const d of calls) {
-      this.lureCalls.push({ x: d.x + 0.5, z: d.z + 0.5, r: LURE_HEARD });
-      this.sound.lure(d.x + 0.5, d.y + 0.5, d.z + 0.5);
-    }
-    for (const d of this.running) if (d.kind === 'pot' && Math.random() < dt * 16) this.renderer.particles.smoke(d.x + 0.5, d.y + 0.8, d.z + 0.5, 2);
-    for (const d of spent) {
-      // Only its own block goes: something built there since stays.
-      const name = blockName(this.world.blockAt(d.x, d.y, d.z));
-      if (name === 'sonic_lure_on' || name === 'smoke_pot_lit') { this.world.setBlock(d.x, d.y, d.z, 0); this.streamer.markUrgentAround(d.x, d.y, d.z); }
-      this.edited();
-    }
-  }
-
-  /** Once a second: the ridge's places, Ray at the refuge, the telescope at home, the uplink's chips, M5. */
-  private tickZone4(): void {
-    const p = this.player, f = this.flags;
-    const suited = this.suited();
-    const place = ridgePlaceAt(p.x, p.z);
-    if (place) this.once(`ridge_${place}`, ridgeToast(place, suited), place === 'gate' ? 13000 : 10000);
-    // Ray keeps the meeting by day, at the refuge's door, until he has been met (as Marco at his shelter).
-    const ray = this.wild.creatures.find((c) => c.kind === 'ray');
-    const dist = Math.hypot(p.x - RAY_SPOT.x, p.z - RAY_SPOT.z);
-    // (After the hand-over he stays while you are by him: he used to vanish under his own words.)
-    const here = rayWaiting(f, this.hour) || (!!ray && f.has('ray_met') && dist < 40 && this.hour >= RAY_FROM && this.hour < RAY_UNTIL);
-    if (here && !ray && dist < 120 && this.world.column(Math.floor(RAY_SPOT.x / CS), Math.floor(RAY_SPOT.z / CS))) {
-      const y = groundAt(RAY_SPOT.x, RAY_SPOT.z, (bx, by, bz) => this.world.blockAt(bx, by, bz));
-      if (y !== null) { const r = makeCreature('ray', RAY_SPOT.x, y, RAY_SPOT.z); r.yaw = RAY_SPOT.yaw; this.wild.add(r); }
-    } else if (!here && ray) this.wild.remove(ray);
-    if (here && ray && dist < 12 && !this.rayGreeted) {
-      this.rayGreeted = true;
-      this.sound.whistle(ray.x, ray.y + 1.6, ray.z);
-      this.hud.toast('Ray is here, by the refuge’s door: the man in the orange suit. Right-click him.', 7000);
-    }
-    if (dist > 30) this.rayGreeted = false;
-    // The tower's beacon ticks, near it.
-    const T = PLACES.ridgeTower;
-    if (Math.hypot(p.x - T.x, p.z - T.z) < 90) this.sound.beacon(T.x, p.y + 30, T.z);
-    // A telescope under open sky at home (the valley, or the home's grounds); away from home, as last seen.
-    // (Looked for only while you are at home, or after a load: away from home nothing there changes, and the
-    // search reads every edit. Keyed on where you are, not on a count of edits that some path might forget to move.)
-    if (this.scopesAt === null || inSanctuary(p.x, p.z)) this.scopesAt = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5));
-    const scopes = this.scopesAt;
-    if (!scopes.length) this.scopeOk = false;
-    else if (scopes.some(([x, , z]) => this.world.isLoaded(x, z))) this.scopeOk = scopes.some(([x, y, z]) => this.world.isLoaded(x, z) && skyOf(this.world.lightAt(x, y + 1, z)) >= 13);
-    // What the uplink's answers add to the screen: the time left to dusk outside (EPH), a nest close by (BIO).
-    const chips: string[] = [];
-    if (!this.hotbar.creative && !inSanctuary(p.x, p.z)) {
-      if (f.has('agi_eph')) { const h = hoursToDusk(this.hour); chips.push(h > 0 ? `dusk in ${Math.floor(h)}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}` : 'dark: they are out'); }
-      if (f.has('agi_bio')) {
-        const near = Math.min(...NESTS.map((n) => Math.hypot(p.x - n.x, p.z - n.z)));
-        if (near < 40) chips.push(`nest ${Math.round(near)} m`);
-      }
-    }
-    this.hud.setChip(chips.join(' · '));
-    // M5.
-    const m5 = trackM5(f, p.x, p.z, { telescope: this.scopeOk });
-    if (m5.length) this.edited();
-    if (m5.includes('yard_reached')) this.hud.setGoal(nextGoal(f));
-    if (m5.includes('ridge_home')) this.hud.toast('Home from the ridge, alive.', 6000);
-    if (m5.includes('telescope_set')) this.hud.toast('The telescope stands under the sky. Right-click it to look: the falls, the moon, and at night the satellites, still crossing.', 9000);
-    if (m5.includes('m5_done')) this.hud.toast('M5 · the uplink. Everything the builder began is running. What comes next is not in his drawings. (In your notes.)', 12000);
-  }
-
   /** Meeting Ray at the refuge (src/game/people.ts): the modem, once. */
   private meetRay(): void {
     const first = !this.flags.has('ray_met');
     const say = meetRay(this);
     this.hud.toast(say, first && this.flags.has('ray_met') ? 22000 : 6000);
     if (first && this.flags.has('ray_met')) this.hud.setGoal(nextGoal(this.flags));
-  }
-
-  /** Something made that M5 counts, or that needs a word the first time. */
-  private madePhase8(name: string): void {
-    const flag = craftedFlag(name);
-    if (flag && !this.flags.has(flag)) { this.flags.add(flag); this.edited(); }
-    const line = MADE_LINE[name];
-    if (line) this.once(`made_${name}`, line, 9000);
-  }
-
-  /** A page left on a desk, or the manual on its shelf: it is read, and kept in the notes. */
-  private readNote(flag: string, by: string): void {
-    const n = journalData.notes.find((q) => q.flag === flag);
-    if (!n) return;
-    if (!this.flags.has(flag)) { this.flags.add(flag); this.edited(); }
-    this.openPaper(() => this.paper.journal([{ title: n.title, text: n.text, by }]));
-  }
-
-  /** Right-click on Phase 8's things. True if handled. */
-  private usePhase8(name: string, x: number, y: number, z: number): boolean {
-    const at = (q: readonly number[]) => q[0] === x && q[1] === y && q[2] === z;
-    if (name === 'note_desk') {
-      this.readNote(at(HUT_LOG) ? 'hut_log' : at(DOME_PAGE) ? 'dome_page' : at(RELAY_PAGE) ? 'relay_page' : Math.hypot(x - ZONE4.observatory.x, z - ZONE4.observatory.z) < 12 ? 'dome_page' : x < ZONE4.yard.x1 ? 'relay_page' : 'hut_log', 'A page left here');
-      return true;
-    }
-    if (name === 'manual_shelf') {
-      const first = !this.flags.has('pharma_learned');
-      this.readNote('pharma_learned', 'The field pharmacy manual');
-      if (first) this.hud.toast('The manual is in your notes. A medical bench and a distiller can be made at the workbench now.', 8000);
-      return true;
-    }
-    if (name === 'antenna_hoist') { this.useHoist(); return true; }
-    if (name === 'telescope') { this.startScope(x, y, z); return true; }
-    if (name === 'sonic_lure' || name === 'smoke_pot') {
-      const lure = name === 'sonic_lure';
-      this.world.setBlock(x, y, z, blockId(lure ? 'sonic_lure_on' : 'smoke_pot_lit'));
-      this.streamer.markUrgentAround(x, y, z);
-      this.running.push(startDevice(lure ? 'lure' : 'pot', x, y, z));
-      if (lure) this.hud.toast('The lure wails. For forty seconds every one of them in earshot comes to it, not to you. Then it is spent.', 6000);
-      else { this.sound.hiss(x + 0.5, y + 0.5, z + 0.5); this.hud.toast('The pot catches. For a minute none of them will step within eight paces of it. Then it is spent.', 6000); }
-      this.edited();
-      return true;
-    }
-    if (name === 'sonic_lure_on' || name === 'smoke_pot_lit') {
-      // One left running by a save that lost its clock is simply spent.
-      if (!this.running.some((d) => d.x === x && d.y === y && d.z === z)) { this.world.setBlock(x, y, z, 0); this.streamer.markUrgentAround(x, y, z); this.edited(); this.hud.toast('Spent.'); }
-      else this.hud.toast(name === 'sonic_lure_on' ? 'It is wailing. Get clear of it.' : 'It is burning. Stay inside its smoke.');
-      return true;
-    }
-    return false;
-  }
-
-  /** The builder's hoist on the balcony: with the assembled antenna in hand, the mast and dish go up on the cliff. */
-  private useHoist(): void {
-    const f = this.flags;
-    if (f.has('antenna_up')) { this.hud.toast('The hoist. The antenna is up on the cliff above the cave’s mouth: look from the garden.', 6000); return; }
-    const held = this.hotbar.current;
-    if (!held || held.id !== itemId('sat_antenna')) {
-      this.hud.toast(f.has('uplink_plans')
-        ? 'The builder’s hoist: a winch, and a cable up the cliff. With the satellite antenna assembled (Ray’s plans, at the workbench) and in your hand, right-click it.'
-        : 'The builder’s hoist: a winch, and a cable up the cliff to a bracket with nothing on it. He meant to lift something heavy up there.', 8000);
-      return;
-    }
-    const spot = antennaSpot(HOME_FIT.mast, (bx, by, bz) => (this.world.isLoaded(bx, bz) ? (BLOCK_DEFS[this.world.blockAt(bx, by, bz)]?.solid ?? false) : null));
-    if (!spot) { this.hud.toast('The cable won’t run: the cliff above the cave’s mouth is not as he left it.', 6000); return; }
-    for (const [bx, by, bz, block] of antennaBlocks(...spot)) this.world.setBlock(bx, by, bz, blockId(block));
-    this.streamer.markUrgentAround(...spot);
-    this.streamer.markUrgentAround(spot[0], spot[1] + 6, spot[2]);
-    this.hotbar.take();
-    f.add('antenna_up');
-    this.sound.gate();
-    this.shake = 0.6;
-    this.hud.setGoal(nextGoal(f));
-    this.hud.toast('The winch takes it up. The dish stands on the cliff above the cave’s mouth, turned to the western sky: you can see it from the garden.', 10000);
-    this.edited();
   }
 
   /** The builder's computer: fitting the terminal to it; its pages. */
@@ -2921,21 +2763,6 @@ export class Game {
     void this.save(false);
   }
 
-  /** Right-click a telescope: the view narrows twelve times; the mouse aims; E, Esc or a step puts it down. */
-  private startScope(x: number, y: number, z: number): void {
-    if (this.scoping) { this.endScope(); return; }
-    this.endFocus();
-    this.home.cancel();
-    this.mining.active = false;
-    this.drawing = null;
-    this.scope ??= new ScopeView(this.ui);
-    this.scoping = { x, y, z };
-    this.scope.show();
-    this.hud.showWorldHud(false);
-    this.renderer.setZoom(SCOPE_ZOOM, SCOPE_NEAR);
-    this.once('scope_used', 'Through the telescope: move the mouse to aim. E or Esc to step back.', 5000);
-  }
-
   /** The binoculars are lowered. */
   private endGlass(): void {
     if (!this.glassing) return;
@@ -2943,30 +2770,7 @@ export class Game {
     if (!this.scoping) this.renderer.setZoom(1);
   }
 
-  private endScope(): void {
-    if (!this.scoping) return;
-    this.scoping = null;
-    this.scope?.hide();
-    this.hud.showWorldHud(true);
-    this.renderer.setZoom(1);
-  }
-
-  /** Each frame: the satellites' train in the night sky, and what the telescope is aimed at. */
-  private tickScope(): void {
-    const p = this.player;
-    this.renderer.setSats(satTrain(this.time, this.hour));
-    if (!this.scoping) return;
-    // Walked off, or the telescope mined: it is put down. (Being hurt puts it down too: `tick`.)
-    const s = this.scoping;
-    if (Math.hypot(p.x - s.x - 0.5, p.z - s.z - 0.5) > 4 || blockName(this.world.blockAt(s.x, s.y, s.z)).split('@')[0] !== 'telescope') { this.endScope(); return; }
-    // Nothing is named through a roof or a wall: the first 120 m of the line must be clear of blocks
-    // (the far land beyond that is the telescope's own reckoning: "behind the land from here").
-    const [dx, dy, dz] = p.lookDir();
-    // (From where the glass begins to draw: the telescope's own block, beside the eye, is not in the way.)
-    const open = clearShot((bx, by, bz) => this.world.blockAt(bx, by, bz), p.x + dx * SCOPE_NEAR, p.eyeY + dy * SCOPE_NEAR, p.z + dz * SCOPE_NEAR, dx, dy, dz, 120);
-    const aimed = open ? aimedAt(p.yaw, p.pitch, scopeTargets([p.x, p.eyeY, p.z], this.hour, this.time)) : null;
-    this.scope?.setLabel(scopeLabel(aimed));
-  }
+  private endScope(): void { this.ridge.endScope(); }
 
   // ---- Debug and test hooks --------------------------------------------------------------------
 
