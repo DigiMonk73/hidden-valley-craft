@@ -389,6 +389,9 @@ describe('the land outside what N3 mended', () => {
     // The valley's ring: no cave up to the cliff's foot, pits there filled, hanging rocks gone (all of it); the
     // pool's east bank (50:31-32); the creek's banks (52:32-33, 53:33, 54:33); the slot by the path's top (56:31).
     valley: '49:31 50:29-34 51:28-29,34-35 52:28-29,32-35 53:28-29,33-35 54:28-29,33-35 55:28-30,33-34 56:29-34',
+    // The home's rock east of the bowl (N4, docs/FIXES.md 6): coal and copper ore out of it, as in the bowl. (It
+    // changes 56:31-32 again as well, which are listed above.)
+    home: '57:31-32',
   };
   const mended = new Set<string>();
   for (const list of Object.values(MENDED))
@@ -414,7 +417,7 @@ describe('the land outside what N3 mended', () => {
   });
 
   it('lists no column that did not change: 75 of the gorge’s, 4 of the brush’s, 38 of the valley’s', () => {
-    expect(mended.size).toBe(75 + 4 + 38);
+    expect(mended.size).toBe(75 + 4 + 38 + 2);
     const same = [...mended].filter((k) => hashOf(k) === was[k]);
     expect(same, `listed as mended, yet as they were: ${same.join(' ')}`).toEqual([]);
   });

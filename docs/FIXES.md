@@ -211,6 +211,9 @@ undone. Dying at home filled your stomach. A jug of cold water took its jug with
   | Primers | 40 ever | Marco sells 10 for 3 units at trust 2 | The review's number: rounds of your own no longer run out for good. |
   | Pantry | 32 tins, 16 rice, 16 beans | 8, 6, 6 | About ten days of food, as `docs/PLAN.md` always said; it was forty. |
 
+- **Coal and better ores are outside.** The ore rule now covers the whole sanctuary, the home's rock as well as
+  the bowl: it held 1,309 coal ore and 396 copper ore, and now holds none (the valley's own iron, flint and clay
+  stay). Four columns of land changed for it (56:31–32, 57:31–32), listed in the fixtures.
 - **Waking after a death at home** keeps the hunger and thirst you had, never below 15. (Outside, where you lose
   your pack, you still wake at 50.)
 - **The jug comes back** from cold water as from a jug of water; with no room for the empty jug the drink waits
@@ -345,3 +348,58 @@ second near any obstacle; at dawn the night's hunters were deleted in plain view
 - N5j (a slab or stair across a chunk border darkening its neighbour) was not touched.
 
 **Tests.** `tests/creatures_real.test.ts` (32, one skipped): 22 fail on the code before this, 10 passed there.
+
+---
+
+## 3. Places to get stuck, and a test that walks every route (N3)
+
+**What was wrong.** One step east of the top of the home path was a slot seven blocks deep with no way out. A
+cave shaft opened in the valley floor at the cliff's foot, and ran past the sanctuary's line. The "impassable"
+ravine could be walked round. Nothing in the repo walked the generated world.
+
+**The test** (`tests/walk.test.ts`, helpers in `tests/walk.ts`; 59 tests, about a minute):
+
+- **The step rules are measured** on the real `Player` in small made worlds: what it steps up, jumps, leaps,
+  swims up, and what fall is safe or deadly.
+- **The valley:** every floor column is reached; the garden, the creek's end, the pool, the tunnel mouth and the
+  balcony are reached; the flood never leaves the sanctuary; no place can be entered alive and not left; no
+  still water stands beside open air; no single rock hangs off the cliffs.
+- **Fourteen routes,** each walked on its own cells with no jump, then by the real `Player` out and back, then
+  searched for pits within 16 blocks: the home path, the canyon ramp, the old road to the broken bridge, the
+  bridge deck, the farm track, the brush trail, the camp trail, the highway to Las Cruces' gate, the hot-spring
+  cave trail, the dam road, the dam's crest, the avenue, the mine trail, the far road. One more test checks
+  that they join up.
+- **The tunnel:** shut to a walker while the gate is shut; swum both ways by the real `Player` on one breath.
+- **The gorge:** flooded from every place that can be stood on along its east edge, the whole length of the
+  world, with leaps and swimming and the dam's deck barred: the far bank is not reached. With the deck, it is.
+- **On the land as it was, 12 of these fail,** covering every case the review named.
+
+**The land, before and after** (117 columns of 32 × 32 changed, and no others: `tests/fixtures/before-n3.json`
+holds a hash of every column as it was, and two tests check that only the listed ones differ):
+
+| | Before | After |
+|---|---|---|
+| The slot by the home path | 3 places to be stuck at (1798, 75, 1010–1012) | filled level with the paving (3 cells) |
+| The cave shaft and pits at the cliff's foot | 47 stuck places at (1634, 64, 1103); 22 places outside the sanctuary | none (the valley's ring, 38 columns) |
+| Pits in the brush by the outpost | 13 | none: bushes raised, not cleared (4 columns) |
+| The gorge | the far bank reached from 28,926 places | none (75 columns) |
+| The pool and the creek | 21 water cells standing proud of the bank | none |
+| Hanging rocks; the bridge deck | 24 rocks; holes in the deck at (649, 1022–1023) | none; the deck is whole to its broken end |
+| Found by the walk itself | a dead end between the dam's penstocks | a block to step out on |
+
+**Calls made.**
+
+- *Only the gorge's west wall is made sheer:* a step of six blocks under the west rim for the whole length of
+  the world. The east wall stays as it was, so the land east of the gorge stays pinned. You can climb down the
+  east side in places and back up, but never up the west: the far bank is reached by the dam, or by building.
+- *No trees stand within 20 blocks of the west wall near the world's ends, and no cave is cut within four blocks
+  of the rim line.* Without these the wall was crossed over the treetops and under the rock.
+- *The reservoir's west shore stands two above the water, and the dam's downstream face is a full wall with the
+  tailrace in a culvert.* Each was a ladder to the far bank.
+- *Cave mouths in the valley's cliff are sealed about two blocks deep,* because cave roofs are now kept under
+  the lowest open ground near them.
+
+**The wake point** (N3e) is in item 8's commit: see below.
+
+**Not done.** The review's one pit far off the road in the buffer's hills, at (1261, 130, 1153), is outside the
+16-block search and was left. Columns in the valley's ring take about 6 ms longer to generate.

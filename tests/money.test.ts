@@ -25,7 +25,9 @@ import { Inventory } from '../src/sim/inventory.ts';
 import { itemId, itemLabel } from '../src/world/items.ts';
 import { blockId } from '../src/world/blocks.ts';
 import { packPos } from '../src/world/light.ts';
-import { GATE, VALLEY, inSanctuary } from '../src/gen/layout.ts';
+import { GATE, VALLEY, HOME_GROUNDS, inSanctuary } from '../src/gen/layout.ts';
+import { load } from './load.ts';
+import { WORLD_Y } from '../src/world/constants.ts';
 import { SCOUT_AT } from '../src/gen/zone1.ts';
 import { HOME_CHESTS } from '../src/gen/inheritance.ts';
 
@@ -301,5 +303,25 @@ describe('the jug comes back', () => {
     g.hotbar.slots[0] = { id: itemId('water_jug'), count: 1 };
     hands(p).useHeldItem();
     expect([count(p, 'water_jug'), count(p, 'empty_jug')]).toEqual([0, 1]);
+  });
+});
+
+describe('coal and better ores are outside', () => {
+  it('the home’s rock holds none (it held 1,309 coal and 396 copper ore); the rock just past its line still does', () => {
+    const H = HOME_GROUNDS, pad = 40;
+    const w = load(H.x0 - pad, H.z0 - pad, H.x1 + pad, H.z1 + pad);
+    const coal = blockId('coal_ore'), copper = blockId('copper_ore'), iron = blockId('iron_ore');
+    let inside = 0, outside = 0, ironInside = 0;
+    for (let z = H.z0 - pad; z < H.z1 + pad; z++) for (let x = H.x0 - pad; x < H.x1 + pad; x++) {
+      const home = inSanctuary(x, z);
+      for (let y = 3; y < WORLD_Y; y++) {
+        const b = w.blockAt(x, y, z);
+        if (b === coal || b === copper) { if (home) inside++; else outside++; }
+        if (b === iron && home) ironInside++;
+      }
+    }
+    expect(inside).toBe(0);
+    expect(outside).toBeGreaterThan(100);
+    expect(ironInside).toBeGreaterThan(50); // the valley's own iron is still there to be mined
   });
 });

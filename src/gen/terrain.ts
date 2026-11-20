@@ -17,7 +17,7 @@ import { buildZone1 } from './zone1.ts';
 import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
 import { buildZone3, zone3Place } from './zone3.ts';
-import { PATH } from './layout.ts';
+import { PATH, inSanctuary } from './layout.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -315,7 +315,9 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
         const h = hash3(gx, gy, gz, SEED + 5);
         const roll = (h & 1023) / 1024;
         let ore = 0;
-        if (valley) {
+        // The whole sanctuary, the home's rock as well as the bowl, holds the valley's ores only: "coal and better
+        // ores are outside" (it was the bowl alone, and the home's own rock held 1,309 coal and 396 copper ore).
+        if (valley || inSanctuary(x, z)) {
           if (roll < 0.035) ore = IRON;
           else if (roll < 0.06) ore = FLINT;
           else if (roll < 0.075 && y < 66) ore = CLAY;
