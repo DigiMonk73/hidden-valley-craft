@@ -1,6 +1,6 @@
 # Phase 9 — the finish
 
-_The lead's brief (2026-11-20). Not started: it waits for the owner's word on the weekly allowance, and is better begun after the owner has played version 13, so their critique goes into the same pass._
+_The lead's brief (2026-11-20). Started the same day on the owner's word, while they test version 13: Track A on branch `phase9a`, Track B on `phase9b`. Their critiques are forwarded to both sessions and outrank these lists. A valley saved in version 13 must open in every later build._
 
 The game can be played from the first card to the ending. Phase 9 makes it feel finished and makes it sound: what the hand holds, what water and lamps look like, how it runs on a weaker computer, and the faults earlier phases found and left. Nothing here adds a place, an enemy or a milestone.
 
