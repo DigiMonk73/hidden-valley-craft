@@ -5,10 +5,11 @@ import data from '../../data/ending.json' with { type: 'json' };
 
 export const ENDING_CSS = `
 .pp-wrap.pp-dark { background: #000; animation: end-in 1.6s ease both; }
-.pp-panel.end-card { width: min(620px, 88vw); text-align: center; background: transparent; box-shadow: none; color: #ece8df; font-family: Georgia, 'Iowan Old Style', serif; }
-.end-card p { margin: 0 0 26px; font-size: 19px; line-height: 1.7; opacity: 0; animation: end-in 1.8s ease forwards; }
-.end-card p:first-child { font-size: 26px; letter-spacing: .5px; }
-.end-btn { cursor: pointer; margin-top: 10px; border: 1px solid rgba(236,232,223,.5); border-radius: 6px; padding: 10px 22px; background: transparent; color: inherit; font: inherit; font-size: 16px; opacity: 0; animation: end-in 1.6s ease forwards; }
+/* Sized by the window's height, so the whole card and its button fit a small frame without scrolling. */
+.pp-panel.end-card { width: min(640px, 92vw); max-height: 98vh; padding: 1vh 12px; text-align: center; background: transparent; box-shadow: none; color: #ece8df; font-family: Georgia, 'Iowan Old Style', serif; }
+.end-card p { margin: 0 0 clamp(10px, 3.2vh, 26px); font-size: clamp(12px, 2.75vh, 19px); line-height: 1.6; opacity: 0; animation: end-in 1.8s ease forwards; }
+.end-card p:first-child { font-size: clamp(17px, 3.9vh, 26px); letter-spacing: .5px; }
+.end-btn { cursor: pointer; margin-top: 0; font-size: clamp(12px, 2.6vh, 16px) !important; border: 1px solid rgba(236,232,223,.5); border-radius: 6px; padding: 10px 22px; background: transparent; color: inherit; font: inherit; font-size: 16px; opacity: 0; animation: end-in 1.6s ease forwards; }
 .end-btn:hover { background: rgba(236,232,223,.1); }
 @keyframes end-in { from { opacity: 0; } to { opacity: 1; } }
 `;

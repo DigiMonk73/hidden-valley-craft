@@ -40,10 +40,11 @@ const CSS = `
 @keyframes hv-pulse { 50% { opacity: .45; } }
 .hv-vital u { position: relative; }
 .hv-vital u i { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(135deg, rgba(240,200,40,.75) 0 3px, rgba(20,20,20,.75) 3px 6px); }
-.hv-dose span { color: #f2c81c; }
-.hv-doseline { font-size: 12px; color: #f2c81c; text-shadow: 0 1px 2px #000; margin: 1px 0 3px; white-space: nowrap; }
-.hv-doseline.alarm { color: #ff5a3c; font-weight: 700; }
-.hv-chip { font-size: 12px; color: #d8e6dc; text-shadow: 0 1px 2px #000; margin-top: 2px; white-space: nowrap; }
+.hv-dose span { color: #f2c81c; white-space: nowrap; }
+.hv-notes { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); text-align: center; pointer-events: none; }
+.hv-doseline { display: inline-block; font-size: 13px; color: #f2c81c; background: rgba(0,0,0,.45); border-radius: 6px; padding: 2px 10px; white-space: nowrap; }
+.hv-doseline.alarm { color: #ff6a4c; font-weight: 700; background: rgba(60,0,0,.6); }
+.hv-chip { font-size: 12px; color: #d8e6dc; text-shadow: 0 1px 2px #000; margin-bottom: 3px; white-space: nowrap; }
 .hv-hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(160, 20, 10, .55)); }
 .hv-toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
@@ -210,9 +211,11 @@ export class Hud {
     this.doseBar = el('b', '', el('u', '', this.doseWrap));
     this.doseBar.style.background = '#f2a81c';
     this.doseWrap.style.display = 'none';
-    this.doseLine = el('div', 'hv-doseline', vit);
+    // Over the bars, centred: the uplink's chips, and the meter's line (docs/PHASE8.md, 2 and 6).
+    const notes = el('div', 'hv-notes', root);
+    this.chip = el('div', 'hv-chip', notes);
+    this.doseLine = el('div', 'hv-doseline', notes);
     this.doseLine.style.display = 'none';
-    this.chip = el('div', 'hv-chip', vit);
     this.chip.style.display = 'none';
     this.hurt = el('div', 'hv-hurt', root);
     this.label = el('div', 'hv-label', root);

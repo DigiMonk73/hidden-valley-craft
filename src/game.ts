@@ -2593,7 +2593,13 @@ export class Game {
     // Walked off, the telescope mined, or hurt: it is put down.
     const s = this.scoping;
     if (Math.hypot(p.x - s.x - 0.5, p.z - s.z - 0.5) > 4 || blockName(this.world.blockAt(s.x, s.y, s.z)).split('@')[0] !== 'telescope') { this.endScope(); return; }
-    this.scope?.setLabel(scopeLabel(aimedAt(p.yaw, p.pitch, scopeTargets([p.x, p.eyeY, p.z], this.hour, this.time))));
+    // Nothing is named through a roof or a wall: the first 120 m of the line must be clear of blocks
+    // (the far land beyond that is the telescope's own reckoning: "behind the land from here").
+    const [dx, dy, dz] = p.lookDir();
+    // (From where the glass begins to draw: the telescope's own block, beside the eye, is not in the way.)
+    const open = clearShot((bx, by, bz) => this.world.blockAt(bx, by, bz), p.x + dx * SCOPE_NEAR, p.eyeY + dy * SCOPE_NEAR, p.z + dz * SCOPE_NEAR, dx, dy, dz, 120);
+    const aimed = open ? aimedAt(p.yaw, p.pitch, scopeTargets([p.x, p.eyeY, p.z], this.hour, this.time)) : null;
+    this.scope?.setLabel(scopeLabel(aimed));
   }
 
   // ---- Debug and test hooks --------------------------------------------------------------------

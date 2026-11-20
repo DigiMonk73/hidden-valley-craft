@@ -356,7 +356,7 @@ describe('M5 at home', () => {
     const q = await begun();
     q.game.applySave(d);
     expect(q.game.flags.has('antenna_up')).toBe(true);
-    expect(findPlaced(q.game.world.edits, 'sat_dish').length).toBe(21);
+    expect(findPlaced(q.game.world.edits, 'sat_dish').length).toBe(37);
     expect(findPlaced(q.game.world.edits, 'tower_steel')).toContainEqual(spot);
   });
 

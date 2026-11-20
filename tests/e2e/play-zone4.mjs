@@ -161,10 +161,10 @@ await use(P.HOIST, [P.HOIST[0] - 1.6, P.HOIST[1], P.HOIST[2] + 1.6], 0.4);
 const up = await g((m) => {
   const gm = window.__hv.game, w = gm.world;
   let dish = 0, mast = 0, top = 0;
-  for (let x = m.x0 - 4; x <= m.x1; x++) for (let z = m.z - 3; z <= m.z + 3; z++) for (let y = m.above; y < m.above + 40; y++) { const b = window.__hv.blockName(w.blockAt(x, y, z)); if (b === 'sat_dish') { dish++; top = Math.max(top, y); } if (b === 'tower_steel') mast++; }
+  for (let x = m.x0 - 5; x <= m.x1; x++) for (let z = m.z - 4; z <= m.z + 4; z++) for (let y = m.above; y < m.above + 40; y++) { const b = window.__hv.blockName(w.blockAt(x, y, z)); if (b === 'sat_dish') { dish++; top = Math.max(top, y); } if (b === 'tower_steel') mast++; }
   return { flag: gm.flags.has('antenna_up'), dish, mast, top, held: gm.hotbar.count(window.__hv.itemId('sat_antenna')) };
 }, P.MAST);
-check('with the antenna in hand the hoist sets the mast and the dish on the cliff above the cave’s mouth', up.flag && up.dish === 21 && up.mast >= 6 && up.held === 0 && up.top > P.MAST.above, JSON.stringify(up));
+check('with the antenna in hand the hoist sets the mast and the dish on the cliff above the cave’s mouth', up.flag && up.dish === 37 && up.mast >= 7 && up.held === 0 && up.top > P.MAST.above, JSON.stringify(up));
 
 // The telescope: made at a lathe, set under the sky on the balcony, looked through.
 await g(() => { const h = window.__hv.game.hotbar; h.add(window.__hv.itemId('lathe'), 1); });

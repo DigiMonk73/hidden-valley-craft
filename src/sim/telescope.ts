@@ -55,6 +55,9 @@ export function satTrain(seconds: number, hour: number): V3[] {
   return out;
 }
 
+/** How far along a line to the sky the land is looked at for something in the way (m). */
+const SKY_REACH = 700;
+
 /** Everything the telescope knows by name, as seen from `eye` at `hour` (and `seconds` on the clock, for the satellites). */
 export function scopeTargets(eye: V3, hour: number, seconds: number): ScopeTarget[] {
   const out: ScopeTarget[] = [];
@@ -67,10 +70,13 @@ export function scopeTargets(eye: V3, hour: number, seconds: number): ScopeTarge
   land('falls', 'The falls', [WATERFALL.x + 1, (WATERFALL.top + VALLEY.water) / 2 + 6, (WATERFALL.z0 + WATERFALL.z1) / 2]);
   land('tower', 'The relay tower', [t.x + 0.5, zone4Floor.tower + t.height * 0.8, t.z + 0.5]);
   land('dam', 'Presa Río Seco', [(d.x0 + d.x1) / 2, d.crest + 2, d.z]);
+  // The sky's things are hidden when the land stands in their line (the valley's rim, the cliff over the home).
+  const sky = (d: V3) => !sightClear(eye, [eye[0] + d[0] * SKY_REACH, eye[1] + d[1] * SKY_REACH, eye[2] + d[2] * SKY_REACH]);
   const m = moonDir(hour);
-  if (m && (hour >= 18.5 || hour <= 5.5)) out.push({ id: 'moon', label: 'The moon', ...aimOf(...m), dist: Infinity, hidden: false });
+  if (m && (hour >= 18.5 || hour <= 5.5)) out.push({ id: 'moon', label: 'The moon', ...aimOf(...m), dist: Infinity, hidden: sky(m) });
   const train = satTrain(seconds, hour);
-  if (train.length) out.push({ id: 'sats', label: 'Satellites, in a train · still kept', ...aimOf(...train[0]), dist: Infinity, hidden: false });
+  // Each of the train is a mark: they cross the narrow field in seconds, and any of them in the cross-hairs names them.
+  for (const d of train) out.push({ id: 'sats', label: 'Satellites, in a train · still kept', ...aimOf(...d), dist: Infinity, hidden: sky(d) });
   return out;
 }
 

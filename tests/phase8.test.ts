@@ -1142,7 +1142,19 @@ describe('the telescope', () => {
     expect(m[1]).toBeGreaterThan(0.9); // overhead at midnight
     expect(moonDir(20)![0]).toBeGreaterThan(0); // rising in the east after dusk
     expect(by(scopeTargets(BALCONY, 23, 0), 'moon')).toBeDefined();
-    expect(by(scopeTargets(BALCONY, 23, 0), 'moon')!.hidden).toBe(false);
+    // From the balcony the cliff over the home stands east: the moon clears it after midnight, and is in the open
+    // toward morning. (The telescope named it through the cave's roof before the land was asked.)
+    expect(by(scopeTargets(BALCONY, 20, 0), 'moon')!.hidden).toBe(true);
+    expect(by(scopeTargets(BALCONY, 3.5, 0), 'moon')!.hidden).toBe(false);
+    // From the valley's floor it is in the open at midnight.
+    expect(by(scopeTargets([1690, 74, 1040], 0, 0), 'moon')!.hidden).toBe(false);
+  });
+
+  it('names the satellites only while the land leaves them in the open: from the balcony, the first part of each pass', () => {
+    const open = (sec: number) => scopeTargets(BALCONY, 4, sec).filter((t) => t.id === 'sats').some((t) => !t.hidden);
+    expect(open(26)).toBe(true);
+    expect(open(70)).toBe(false); // gone behind the cliff over the home
+    expect(scopeTargets(BALCONY, 4, 26).filter((t) => t.id === 'sats').length).toBe(4); // any of the four names the train
   });
 
   it('brings a train of four satellites over every four minutes at night, low to high to low, and none by day', () => {
@@ -1362,13 +1374,14 @@ describe('the medicines', () => {
 });
 
 describe('the antenna, hoisted', () => {
-  it('is a mast and a dish five across turned west, every block a real one, none of them minable', () => {
+  it('is a mast and a white dish seven across turned west, every block a real one, none of them minable', () => {
     const blocks = antennaBlocks(1801, 120, 1024);
     expect(blocks.length).toBeGreaterThan(24);
     for (const [, , , n] of blocks) { expect(() => blockId(n)).not.toThrow(); if (n !== 'red_beacon') expect(BLOCK_DEFS[blockId(n)].hardness).toBeLessThan(0); }
     const dish = blocks.filter((b) => b[3] === 'sat_dish');
-    expect(dish.length).toBe(21);
-    expect(Math.max(...dish.map((b) => b[2])) - Math.min(...dish.map((b) => b[2]))).toBe(4);
+    expect(dish.length).toBe(37);
+    expect(Math.max(...dish.map((b) => b[2])) - Math.min(...dish.map((b) => b[2]))).toBe(6);
+    expect(BLOCK_DEFS[blockId('sat_dish')].tex).toBe('sat_dish'); // its own white face, not the fallen dish's grey
     expect(Math.max(...blocks.map((b) => b[1]))).toBe(120 + ANTENNA_HEIGHT - 1);
     expect(Math.min(...blocks.map((b) => b[1]))).toBe(120);
     expect(Math.max(...blocks.map((b) => b[0]))).toBe(1801); // nothing behind the mast: it all leans to the valley

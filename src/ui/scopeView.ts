@@ -29,7 +29,8 @@ export class ScopeView {
     this.label = document.createElement('div'); this.label.className = 'sc-label';
     const help = document.createElement('div'); help.className = 'sc-help'; help.textContent = 'Look round to aim · E or Esc to step back';
     this.wrap.append(mask, hair, this.label, help);
-    root.appendChild(this.wrap);
+    // Under the rest of the HUD, so a toast is read over the black, not cut by it.
+    root.prepend(this.wrap);
   }
 
   get isOpen(): boolean { return !this.wrap.hidden; }

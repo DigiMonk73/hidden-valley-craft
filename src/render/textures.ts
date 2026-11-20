@@ -1591,6 +1591,8 @@ DRAW.tower_steel = (c) => {
 };
 /** A dish panel: white-painted mesh, ribbed. */
 DRAW.dish_panel = (c) => { c.noise(hex('#e4e6e2'), 5, [hex('#c9ccc8'), hex('#f4f5f2')], 0.2); for (let k = 0; k < TEX; k += 4) for (let j = 0; j < TEX; j++) { c.shade(k, j, 0.82); c.shade(j, k, 0.88); } for (let k = 0; k < 5; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#a35a30')); };
+// The home's own dish: clean white panels, so it reads against the limestone from the garden (the fallen one is weathered).
+DRAW.sat_dish = (c) => { c.noise(hex('#fbfbf7'), 2, [hex('#f1f2ee'), hex('#ffffff')], 0.15); for (let k = 0; k < TEX; k += 8) for (let j = 0; j < TEX; j++) { c.shade(k, j, 0.9); c.shade(j, k, 0.93); } };
 DRAW.dish_edge = (c) => { c.noise(hex('#b9bcb8'), 5, RUST, 0.1); for (let x = 0; x < TEX; x++) { c.shade(x, 0, 1.15); c.shade(x, 15, 0.7); } };
 /** The station's racks: grey steel, rows of small lights still green and amber. */
 DRAW.relay_rack = (c) => {

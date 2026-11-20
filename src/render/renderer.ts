@@ -321,6 +321,9 @@ export class Renderer {
     if (Math.abs(this.camera.fov - fov) < 1e-6 && this.camera.near === near) return;
     this.camera.fov = fov;
     this.camera.near = near;
+    // Through the glass the satellites are discs, not specks.
+    if (this.sats) (this.sats.material as THREE.PointsMaterial).size = zoom > 1 ? 7 : 2.5;
+    this.zoomed = zoom > 1;
     this.camera.updateProjectionMatrix();
   }
 
@@ -329,8 +332,10 @@ export class Renderer {
     if (!this.sats) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SAT_COUNT * 3), 3));
-      this.sats = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xfff6dc, size: 2.5, sizeAttenuation: false, fog: false }));
+      this.sats = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xfff6dc, size: this.zoomed ? 7 : 2.5, sizeAttenuation: false, fog: false, transparent: true, depthWrite: false }));
       this.sats.frustumCulled = false;
+      // After the clouds (drawn at 5), or the night's cloud would paint them out; the land still hides them.
+      this.sats.renderOrder = 6;
       this.scene.add(this.sats);
     }
     this.sats.visible = dirs.length > 0;
@@ -340,6 +345,7 @@ export class Renderer {
     a.needsUpdate = true;
   }
   private sats: THREE.Points | null = null;
+  private zoomed = false;
 
   resize(w: number, h: number): void {
     this.gl.setSize(w, h, false);
