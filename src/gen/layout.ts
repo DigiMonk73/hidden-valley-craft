@@ -186,8 +186,8 @@ export const PLACES = {
   rangerSign: { x: 1497, z: 0 }, // z beside the road, filled in below
   morphoTree: { x: 1322, z: 0, clearing: 9 },
   warren: { x: 1418, z: 0, radius: 7 },
-  /** The ruined radio tower on Zone-4's ridge: seen from afar, not reachable yet. */
-  ridgeTower: { x: 360, z: 380, height: 64 },
+  /** The relay tower on Zone-4's ridge: seen from afar since the buffer, reached in Phase 8 (docs/PHASE8.md). */
+  ridgeTower: { x: 360, z: 380, height: 60 },
 };
 
 /** The garden ground at the foot of the path, kept clear of trees for Phase 2's planting. */
@@ -237,6 +237,55 @@ export function ravineX(z: number): number {
 }
 /** Half the ravine's width where it is sheer, round the road: 42 m from rim to rim. */
 export const RAVINE_HALF = 20.5;
+
+/**
+ * Zone-4, the radiation edge (docs/PHASE8.md): the mountains of the north-west corner, dead under the fallout
+ * of the exchange. One road, the ridge road, leaves the avenue's bend by the dam, runs north along the
+ * reservoir's west shore, climbs past the warning gate to the pass, and follows the ridge round the sump to
+ * the relay tower. Its lamps are the dam's own line to the tower. Boxes are [x0, x1) × [z0, z1).
+ */
+export const ZONE4 = {
+  /** The massif is measured from this point: `reach` from it, the fallout ends (the line of warning signs). */
+  centre: { x: 200, z: 200 },
+  reach: 484,
+  /** The fallout comes no nearer the gorge's centre line than this: the reservoir's west shore is clean. */
+  shoreKeep: 60,
+  /** The ridge road's centre line, point to point, four wide. */
+  road: {
+    halfWidth: 2,
+    pts: [[580, 750], [584, 730], [612, 704], [618, 655], [531, 562], [462, 490], [456, 440], [430, 397], [396, 378], [385, 386]] as [number, number][],
+    /** Which of its points is which place; `shore`: the two between which it runs along the water's edge. */
+    shore: [2, 3], gate: 4, pass: 5, dome: 7,
+  },
+  /** The sign at the bend, facing those who come off the dam. */
+  sign: { x: 576, z: 750 },
+  /** The pass: the road tops out between two knolls (+knoll m). The hut's yard here is clean ground. */
+  pass: { knolls: [[436, 484], [492, 470]] as [number, number][], knoll: 14, knollRadius: 22 },
+  clean: { x: 464, z: 480, r: 13 },
+  /** The refuge hut on the pass, its door (west wall) on the road: the stove, and where Ray is met. */
+  hut: { x0: 466, x1: 473, z0: 474, z1: 481, door: 477 },
+  /** Where Ray stands, by the hut's door, the once he comes. */
+  ray: { x: 464.5, z: 479.5 },
+  /** The sump: the hollow the wash water was dumped in, the hottest ground on the ridge. The straight line from the pass to the tower crosses it; the road goes round. */
+  sump: { x: 411, z: 435, r: 30, pond: 7, depth: 7, rate: 60 },
+  /** The observatory: a small dome on a knoll beside the road, its door (west) toward it. */
+  observatory: { x: 440, z: 388, r: 5, knoll: 5 },
+  /** The tower's yard: level ground round the tower's feet and the relay station. */
+  yard: { x0: 348, x1: 386, z0: 368, z1: 404 },
+  /**
+   * The relay station on the yard's south side. East of `split` it is lit, its door (two columns from `door`)
+   * on the yard; west of it, walled off and dark, with its own open bay (rows from `bay`) in the west wall.
+   */
+  relay: { x0: 352, x1: 374, z0: 392, z1: 402, split: 362, door: 367, bay: 395 },
+  /** The one dark place: two Ashen in the station's battery hall, by Zone-3's rules (ZONE3.nests). */
+  nest: { name: 'relay', x: 356.5, z: 397, n: 2, under: false, path: [[348.5, 397], [348.5, 389.5]] as [number, number][] },
+  /**
+   * The dose a second without a suit: off the road, on it (asphalt sheds what soil and dead wood hold),
+   * and indoors. The suit lets `suit` of it through.
+   */
+  rates: { off: 20, road: 6, indoors: 2 },
+  suit: 0.05,
+};
 
 /**
  * Zone-1's mid and deep bands (docs/PHASE5.md). Boxes are [x0, x1) × [z0, z1); z values and floors are
@@ -340,7 +389,7 @@ export function landZoneAt(x: number, z: number): ZoneId {
 
 /** `play`: the game's zones, with faction ground starting at z 760 west of the saddle; else the land's (z 650), so no terrain changes. */
 function zoneOutside(x: number, z: number, play = true): ZoneId {
-  if (x < 450 && z < 450) return 'zone4';
+  if (inFallout(x, z)) return 'zone4';
   if (x < ZONES.ravineX) return 'zone3';
   if (z < ZONES.zone2Z || (play && z < ZONES.zone2Play && x < ZONES.saddleX)) return 'zone2';
   if (x >= ZONES.saddleX) {
@@ -471,6 +520,11 @@ export function outsideHeight(x: number, z: number): number {
     const flat = zone2Pad(x, z, natural);
     if (flat !== null) return flat;
   }
+  // Zone-4's ridge road and its places (docs/PHASE8.md). Before Zone-3's: the road leaves the avenue's bend.
+  if (x > 330 && x < 632 && z > 350 && z < 750) {
+    const flat = zone4Pad(x, z, natural);
+    if (flat !== null) return flat;
+  }
   // Zone-3's places (docs/PHASE7.md): the dam road's shoulders, the avenue, the far road and the pads.
   if (x > 480 && x < 815 && z > 150 && z < 1045) {
     const flat = zone3Pad(x, z, natural);
@@ -551,9 +605,14 @@ function naturalHeight(x: number, z: number, fine: boolean): number {
   }
   // North: Zone-2's rolling ground.
   base = mix(base, 92, smoothstep(ZONES.zone2Z + 120, ZONES.zone2Z - 60, z) * smoothstep(ZONES.ravineX, ZONES.ravineX + 60, x));
-  // North-west corner: Zone-4's mountains.
-  const nw = Math.hypot(x - 200, z - 200);
-  base = mix(base, 172, smoothstep(520, 180, nw));
+  // North-west corner: Zone-4's mountains. East of the gorge, and on the reservoir's shores, the old dome
+  // stands as earlier phases made it. West of them it is a ridge the tower stands on (docs/PHASE8.md).
+  const nw = Math.hypot(x - ZONE4.centre.x, z - ZONE4.centre.z);
+  if (nw < 520) {
+    const dome = mix(base, 172, smoothstep(520, 180, nw));
+    const w4 = smoothstep(ravineX(z) - 50, ravineX(z) - 110, x);
+    base = w4 > 0 ? mix(dome, base + ridgeLift(x, z, nw), w4) : dome;
+  }
 
   // The plateau the valley is sunk into.
   const d = distToValley(x, z);
@@ -777,9 +836,9 @@ export function onCaveTrail(x: number, z: number): boolean {
   return Math.abs(z - t.z) <= 1 && x >= highwayX(t.z) && x <= ZONE2.cave.mouthX;
 }
 
-/** How hard a hotspot bites at (x, z): 0 outside every ring, up to the hotspot's rate at its heart (dose per second). */
+/** How hard the ground bites at (x, z), in dose a second without a suit: Zone-2's hotspots (0 outside every ring, up to the hotspot's rate at its heart) and Zone-4's fallout. */
 export function radiationAt(x: number, z: number): number {
-  let best = 0;
+  let best = falloutAt(x, z);
   for (const h of ZONE2.hotspots) {
     const d = Math.hypot(x - h.x, z - h.z);
     if (d < h.r) best = Math.max(best, h.rate * (1 - d / h.r) ** 1.5 + 0.15);
@@ -1029,6 +1088,155 @@ function zone3Pad(x: number, z: number, natural: number): number | null {
     ?? (z >= d.z - a.halfWidth && z < a.z1 && Math.abs(x + 0.5 - a.x) < a.halfWidth + 3.5 ? Math.round(mix(avenueHeight(z), natural, smoothstep(a.halfWidth, a.halfWidth + 3.5, Math.abs(x + 0.5 - a.x)))) : null)
     ?? (x >= Z.farRoad.west && x < ZONE1FAR.bridge.far - 3 && Math.abs(z + 0.5 - farRoadZ(x)) < ROAD.halfWidth + 3.5
       ? Math.round(mix(farRoadHeight(x), natural, smoothstep(ROAD.halfWidth, ROAD.halfWidth + 3.5, Math.abs(z + 0.5 - farRoadZ(x))))) : null);
+}
+
+// ---------------------------------------------------------------------------------------
+// Zone-4, the radiation edge (docs/PHASE8.md): the ridge road, its places, and the fallout.
+// ---------------------------------------------------------------------------------------
+
+/** Is (x, z) under the fallout: on the massif, west of the reservoir's shore? This is Zone-4. */
+export function inFallout(x: number, z: number): boolean {
+  return falloutDepth(x, z) > 0;
+}
+
+/** How far inside the fallout's edge (x, z) lies, in metres; 0 or less outside it. */
+export function falloutDepth(x: number, z: number): number {
+  const c = ZONE4.centre;
+  return Math.min(ZONE4.reach - Math.hypot(x - c.x, z - c.z), ravineX(z) - ZONE4.shoreKeep - x);
+}
+
+/** What the massif adds to the land west of the gorge: a slope up to the ridge's crest, a high dead valley behind it, the far peaks. */
+function ridgeLift(x: number, z: number, nw: number): number {
+  const Z = ZONE4;
+  let h = 30 * smoothstep(500, 330, nw) - 10 * smoothstep(235, 180, nw) + 44 * smoothstep(170, 60, nw) + 12 * Math.exp(-(((nw - 242) / 45) ** 2));
+  for (const [kx, kz] of Z.pass.knolls) h += Z.pass.knoll * (1 - smoothstep(6, Z.pass.knollRadius, Math.hypot(x - kx, z - kz)));
+  h -= Z.sump.depth * (1 - smoothstep(8, Z.sump.r + 4, Math.hypot(x - Z.sump.x, z - Z.sump.z)));
+  h += Z.observatory.knoll * (1 - smoothstep(6, 24, Math.hypot(x - Z.observatory.x, z - Z.observatory.z)));
+  return h;
+}
+
+interface RoadSeg { ax: number; az: number; bx: number; bz: number; len: number; s0: number }
+let ridgeSegs: RoadSeg[] | null = null;
+function ridgeRoadSegs(): RoadSeg[] {
+  if (!ridgeSegs) {
+    const p = ZONE4.road.pts;
+    let s0 = 0;
+    ridgeSegs = p.slice(0, -1).map(([ax, az], i) => { const [bx, bz] = p[i + 1], len = Math.hypot(bx - ax, bz - az), seg = { ax, az, bx, bz, len, s0 }; s0 += len; return seg; });
+  }
+  return ridgeSegs;
+}
+
+/** The ridge road's length, from the avenue's bend to the tower's yard (m). */
+export function ridgeRoadLength(): number {
+  const g = ridgeRoadSegs(), last = g[g.length - 1];
+  return last.s0 + last.len;
+}
+
+/** How far along the ridge road its k-th point lies (m from the bend). */
+export function ridgeRoadMark(k: number): number {
+  const g = ridgeRoadSegs();
+  return k >= g.length ? ridgeRoadLength() : g[k].s0;
+}
+
+/** The point on the ridge road's centre line s metres from the bend. */
+export function ridgeRoadPoint(s: number): [number, number] {
+  const g = ridgeRoadSegs();
+  for (const q of g) if (s <= q.s0 + q.len || q === g[g.length - 1]) {
+    const t = Math.max(0, Math.min(1, (s - q.s0) / q.len));
+    return [q.ax + (q.bx - q.ax) * t, q.az + (q.bz - q.az) * t];
+  }
+  return [g[0].ax, g[0].az];
+}
+
+/** Distance from the point (px, pz) to the ridge road's centre line, and how far along it the nearest point lies. */
+export function ridgeRoadAt(px: number, pz: number): { dist: number; s: number } {
+  let dist = Infinity, s = 0;
+  if (px < 340 || px > 632 || pz < 360 || pz > 756) return { dist, s };
+  for (const q of ridgeRoadSegs()) {
+    const [d, t] = distToSegment(px, pz, q.ax, q.az, q.bx, q.bz);
+    if (d < dist) { dist = d; s = q.s0 + t * q.len; }
+  }
+  return { dist, s };
+}
+
+/** Is the cell (x, z) on the ridge road (plus a margin)? It begins at the bend's north edge. */
+export function onRidgeRoad(x: number, z: number, margin = 0): boolean {
+  return z < DAM_Z - 2 && ridgeRoadAt(x + 0.5, z + 0.5).dist < ZONE4.road.halfWidth + margin;
+}
+
+let ridgeHeights: number[] | null = null;
+/**
+ * The ridge road's walking height s metres along: level with the dam's crest at the bend, then the lie of
+ * the land smoothed, with a level landing at every bend, the gate, the pass and the yard, and never more
+ * than one block up or down in two metres.
+ */
+export function ridgeRoadHeight(s: number): number {
+  if (!ridgeHeights) {
+    const L = Math.ceil(ridgeRoadLength()), raw: number[] = [];
+    for (let i = 0; i <= L; i++) { const [px, pz] = ridgeRoadPoint(i); raw.push(naturalHeight(Math.floor(px), Math.floor(pz), false)); }
+    const sm = smoothed(raw, 8).map((v, i) => mix(ZONE3.dam.crest, v, smoothstep(2, 22, i)));
+    const R = ZONE4.road, n = R.pts.length;
+    for (let k = 1; k < n; k++) {
+      const at = Math.round(ridgeRoadMark(k)), half = k === R.pass ? 13 : k === n - 1 ? 10 : 5, v = sm[Math.min(L, at)];
+      for (let i = Math.max(0, at - half); i <= Math.min(L, at + half); i++) sm[i] = v;
+    }
+    const out = sm.map((v) => Math.round(v));
+    for (let i = 1; i < out.length; i++) {
+      out[i] = Math.max(out[i - 1] - 1, Math.min(out[i - 1] + 1, out[i]));
+      if (i >= 2 && out[i - 1] !== out[i - 2]) out[i] = out[i - 1];
+    }
+    ridgeHeights = out;
+  }
+  return ridgeHeights[Math.max(0, Math.min(ridgeHeights.length - 1, Math.round(s)))];
+}
+
+/** The floor of each Zone-4 place: the ridge road's height beside it. */
+export const zone4Floor = {
+  get gate() { return ridgeRoadHeight(ridgeRoadMark(ZONE4.road.gate)); },
+  get pass() { return ridgeRoadHeight(ridgeRoadMark(ZONE4.road.pass)); },
+  get observatory() { return ridgeRoadHeight(ridgeRoadMark(ZONE4.road.dome)); },
+  get tower() { return ridgeRoadHeight(ridgeRoadLength()); },
+};
+
+/** The level ground of Zone-4's road and places, blended into the land; null elsewhere. */
+function zone4Pad(x: number, z: number, natural: number): number | null {
+  const Z = ZONE4, y = Z.yard, hw = Z.road.halfWidth;
+  if (x >= y.x0 && x < y.x1 && z >= y.z0 && z < y.z1) return zone4Floor.tower;
+  const r = z < DAM_Z - 2 ? ridgeRoadAt(x + 0.5, z + 0.5) : { dist: Infinity, s: 0 };
+  if (r.dist < hw) return ridgeRoadHeight(r.s);
+  const pad = (cx: number, cz: number, rad: number, floor: number, blend: number) => {
+    const d = Math.hypot(x + 0.5 - cx, z + 0.5 - cz) - rad;
+    return d < blend ? Math.round(mix(floor, natural, smoothstep(0, blend, d))) : null;
+  };
+  const dx = Math.max(y.x0 - x, x - (y.x1 - 1), 0), dz = Math.max(y.z0 - z, z - (y.z1 - 1), 0), dy = Math.hypot(dx, dz);
+  const [gx, gz] = Z.road.pts[Z.road.gate];
+  return (dy < 7 ? Math.round(mix(zone4Floor.tower, natural, smoothstep(0, 7, dy))) : null)
+    ?? pad(Z.observatory.x, Z.observatory.z, 9, zone4Floor.observatory, 6)
+    ?? pad(Z.clean.x, Z.clean.z, Z.clean.r, zone4Floor.pass, 6)
+    ?? pad(gx, gz, 7, zone4Floor.gate, 5)
+    // The road's shoulders ease into the land, as the old road's do (but the reservoir's bank is left as it is).
+    ?? (r.dist < hw + 3.5 && natural > ZONE3.dam.water + 2 ? Math.round(mix(ridgeRoadHeight(r.s), natural, smoothstep(hw, hw + 3.5, r.dist))) : null);
+}
+
+/**
+ * The fallout's bite at (x, z), in dose a second without a suit: nothing outside Zone-4 or on the pass's
+ * clean ground; least indoors and on the road; most off it, and worst of all in the sump. Just inside the
+ * line of signs it is weaker, and climbs over the first twenty metres.
+ */
+export function falloutAt(x: number, z: number): number {
+  const depth = falloutDepth(x, z);
+  if (depth <= 0) return 0;
+  const Z = ZONE4, R = Z.rates;
+  if (Math.hypot(x - Z.clean.x, z - Z.clean.z) < Z.clean.r) return 0;
+  const inBox = (b: { x0: number; x1: number; z0: number; z1: number }) => x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1;
+  const od = Math.hypot(x - Z.observatory.x, z - Z.observatory.z);
+  if (inBox(Z.relay) || od < Z.observatory.r) return R.indoors;
+  const rd = ridgeRoadAt(x, z).dist, hw = Z.road.halfWidth;
+  let rate = mix(R.road, R.off, smoothstep(hw + 1, hw + 9, rd)) * (0.3 + 0.7 * smoothstep(0, 20, depth));
+  if (inBox(Z.yard) || od < 9) rate = Math.min(rate, R.road);
+  const sd = Math.hypot(x - Z.sump.x, z - Z.sump.z);
+  if (sd < Z.sump.r) rate = Math.max(rate, R.off + (Z.sump.rate - R.off) * (1 - sd / Z.sump.r) ** 1.5);
+  return rate;
 }
 
 {
