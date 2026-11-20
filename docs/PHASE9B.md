@@ -12,7 +12,7 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 1. DONE: the fresh review's findings.
 2. DONE: Track A merged in (`origin/main` at 05f4160); the land east of the gorge differs from version 13's in the seven mended columns only (all 2,752 hashed); step 8; the headlamp's light; the banana bunch.
-3. **Then the checks, once, on the final tree:** `npx tsc --noEmit`, `npm test`, all six play-through parts (`npx vite preview --port 4173 --strictPort`, then `node tests/e2e/play.mjs`), `node tests/e2e/saves.mjs`, `node tests/e2e/engine.mjs` (and once `MINUTES=5 PARTS=sandbox`), `node tests/e2e/capture.mjs`. Never vitest and the browser together. None of the browser checks has been run on this branch since save version 5; notes on what may need a look: the parts set scenes by hand and none reads the bookshelf (add `books_read` to a scene's flags if a part needs the workshop's recipes); the water filter costs 6 health a drink outside with an empty hand.
+3. **Now: the checks, once, on the final tree:** `npx tsc --noEmit`, `npm test`, all six play-through parts (`npx vite preview --port 4173 --strictPort`, then `node tests/e2e/play.mjs`), `node tests/e2e/saves.mjs`, `node tests/e2e/engine.mjs` (and once `MINUTES=5 PARTS=sandbox`), `node tests/e2e/capture.mjs`. Never vitest and the browser together. None of the browser checks has been run on this branch since save version 5; notes on what may need a look: the parts set scenes by hand and none reads the bookshelf (add `books_read` to a scene's flags if a part needs the workshop's recipes); the water filter costs 6 health a drink outside with an empty hand.
 4. **Report:** this page and docs/STATUS.md, push, message the lead (under 40 lines).
 
 **At the merge with Track A, expect and keep** (the lead's message, 13:28):
@@ -49,7 +49,7 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 | 5 | Other browsers | DONE: none can be run here; what was read, one fault fixed, and a list for the owner |
 | 6 | What the script promises and is not there | DONE (the headlamp's light after Track A's merge); spoilage left (not simple) |
 | 7 | Tests (streamer walk, random light edits, sandboxed frame, mesh budget) | DONE |
-| 8 | The rest of the `src/game.ts` split (last, once Track A is merged) | |
+| 8 | The rest of the `src/game.ts` split (last, once Track A is merged) | DONE in part: Zone-4 and the uplink's play, and the page's input; the rest left, with reasons |
 
 ## Rules this track keeps
 
@@ -300,6 +300,24 @@ A right-click with the hammer, the saw, the filter or the headlamp in hand says 
 **Found by them:** nothing in the engine. (Chromium will not let a page from another address hold a frame of this machine's page, so the sandbox test's holding page is served from the same address; the frame is sandboxed all the same and its origin is opaque.)
 
 **What they showed about the sandboxed frame:** workers do start there (`workers ×3`), so the main-thread fallback is for pages that block workers outright, which `tests/e2e/engine.mjs` (part `fallback`) checks by taking `Worker` away.
+
+## 8. The rest of the `src/game.ts` split (DONE in part)
+
+_After Track A's merge. Behaviour unchanged throughout; the Node harness (`tests/game/harness.ts`) plays the real `Game` and every unit test passed after each move._
+
+| Moved | Where | How it is proved unchanged |
+|---|---|---|
+| **Zone-4 and the uplink's play** (the lead's list): `tickZone4`, the lures and smoke pots (`tickDevices`), `usePhase8` and the pages on the desks, `useHoist`, the telescope (`startScope`, `endScope`, `tickScope`), what M5's made things say (`MADE_LINE`), and Phase 8's own state (`scopesAt`, `scopeOk`, `scoping`, `rayGreeted`, `lureCalls`) | `src/game/ridge.ts`, class `Ridge`, handed a narrow view of the game (`RidgeHost`: what it reads, and the four things only the game may do, as calls) | `tests/phase8.game.test.ts`'s 33 tests, unchanged but for one helper that reaches the moved methods on `game.ridge`; the screenshot tool `tools/shots-phase8.mjs` likewise |
+| **The page's input** (FIXES.md 8, item 4): the keys, buttons, wheel, the page hidden or left | `src/platform/input.ts` (`listenInput`): the browser's events become plain calls; what each one does stays in the game (`keyDown`, `mouseDown`) | every harness test that presses keys or hides and leaves the page; `tests/input.test.ts` for the module itself (which keys the page keeps, the wheel, text fields) |
+
+`src/game.ts` is 2,830 lines (3,008 after Track A's merge). It no longer touches `window` or `document` for its input; three browser touches are left (the window's resize, one timer, `document.hidden` in the frame watch).
+
+**Left, each with its reason** (docs/FIXES.md, 8; each can be done alone later):
+
+1. *The right-click chain as a table* (`placeBlock`, `useFurniture`, `usePhase6`, `usePhase7`). The largest and the riskiest: every right-click in the game goes through it, and the home makeover, Track A's sitting and this branch's sack, books and bananas all edit it. Not worth that risk in the last step of the finish, for no change the owner can see.
+2. *The places' toasts as data*, 3. *combat* (`strike`, `aim`, `loose`), 5. *the save methods*, 6. *flags as a typed union.* The same weighing: behaviour-neutral rewrites of code the play-through exercises end to end, at the end of the finish. The save methods above all: this branch's rule is that a version-13 valley must open, and they are where it is kept.
+
+The Phase 8 move was the lead's list and the input move is the one that serves a rule of AGENTS.md (browser-only code in `src/platform/`).
 
 ## The fresh review (2026-11-20, second session)
 
