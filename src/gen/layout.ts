@@ -21,7 +21,8 @@ export const VALLEY = {
 export const HOME = {
   floor: 82, // walking height in the cave and on the balcony
   wallX: 1800, // the cliff face at the cave
-  // Rooms are boxes of air [x0, x1) × [y0, y1) × [z0, z1).
+  // Rooms are boxes of air [x0, x1) × [y0, y1) × [z0, z1). A `built` room has a flat ceiling and square corners
+  // (the others are cave rooms: their ceilings rise and dip a little).
   rooms: [
     { name: 'mouth', x0: 1798, x1: 1802, y0: 82, y1: 89, z0: 1017, z1: 1031 },
     { name: 'living', x0: 1801, x1: 1815, y0: 82, y1: 88, z0: 1015, z1: 1033 },
@@ -32,15 +33,16 @@ export const HOME = {
     { name: 'pantry', x0: 1817, x1: 1830, y0: 82, y1: 87, z0: 1028, z1: 1040 },
     { name: 'vaultDoor', x0: 1825, x1: 1827, y0: 82, y1: 85, z0: 1023, z1: 1025 },
     { name: 'vault', x0: 1827, x1: 1833, y0: 82, y1: 86, z0: 1021, z1: 1027 },
-  ],
+    // The bedroom, south of the living room, and the doorway between them (docs/HOME.md).
+    { name: 'bedroomDoor', x0: 1806, x1: 1808, y0: 82, y1: 84, z0: 1033, z1: 1034, built: true },
+    { name: 'bedroom', x0: 1803, x1: 1812, y0: 82, y1: 86, z0: 1034, z1: 1042, built: true },
+  ] as { name: string; x0: number; x1: number; y0: number; y1: number; z0: number; z1: number; built?: boolean }[],
   /** The pantry's back wall is the builder's rich iron vein. */
   ironVein: { x0: 1830, x1: 1834, y0: 81, y1: 88, z0: 1027, z1: 1041 },
   /** The balcony: a natural ledge in front of the mouth, paved by the builder. */
   balcony: { x0: 1792, x1: 1801, z0: 1013, z1: 1035 },
-  lanterns: [
-    [1801, 87, 1016], [1801, 87, 1031], [1808, 87, 1024], [1813, 87, 1016], [1813, 87, 1032],
-    [1820, 85, 1024], [1824, 87, 1013], [1824, 86, 1034], [1830, 85, 1024],
-  ] as [number, number, number][],
+  /** Where you wake after sleeping in the bed: at its foot, facing the window and the valley. */
+  wake: { x: 1809.3, y: 82, z: 1038, yaw: Math.PI / 2 },
 };
 
 /** The path from the balcony's north end down to the valley floor: one gentle S-curve. */

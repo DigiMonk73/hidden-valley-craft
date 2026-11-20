@@ -222,7 +222,7 @@ The computer lists M4's steps with ticks under M3:
 - Power: hydro by night; only in the creek; one rig without hydro however many arrays; as many rigs as power allows.
 - Each M4 recipe resolves and gates; each M4 step ticks; Ray's plans arrive only after hydro.
 - Hutches and coops breed and lay while unloaded, capped.
-- Old saves load: Ashen, hydro and new flags default.
+- Old saves load: Ashen, hydro and new flags default. (Since the home was rebuilt, a save from before it starts a fresh valley instead: docs/HOME.md. The defaults still hold for saves made since.)
 - The review's walk, in the real land: every lane of the avenue by day with all nine in their nests; every open floor of the three lit halves, walking and with a pick at work. None notices.
 
 **Screenshots** from a first-time player's eye: the sign at the highway; the dam from the barricade; the avenue from the bend with the first Ashen; an Ashen close, rearing; the powerhouse's lit half; the yard and the signal box at night; the level crossing from the broken bridge at night.

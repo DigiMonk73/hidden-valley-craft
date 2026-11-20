@@ -3,7 +3,7 @@
 // and smooth light, which is why faces are not merged (merging would flatten both).
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
-import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
+import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, B_BOX_TEX, B_BOX_GLOW, BOX_FLAME, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
 
 export interface MeshPart {
   quads: number;
@@ -38,6 +38,7 @@ const FLAG_CROSS = 6;
 const FLAG_WAVE = 1 << 5;
 const FLAG_LIQUID = 1 << 6;
 const FLAG_FLOW = 1 << 7; // falling water: its texture scrolls downward
+const FLAG_GLOW = 7; // in the face bits: lit from within (a lamp's shade, coals, a flame)
 
 /** Blocks that darken the corners next to them. */
 const AO_OCCLUDER = new Uint8Array(B_OPAQUE.length);
@@ -246,11 +247,19 @@ export function lightForDrawing(blocks: Uint16Array, light: Uint8Array): Uint8Ar
  */
 function meshModel(part: PartBuilder, blocks: Uint16Array, light: Uint8Array, id: number, x: number, y: number, z: number, pi: number): void {
   const boxes = B_BOXES[id]!;
-  for (const [x0, y0, z0, x1, y1, z1] of boxes) {
+  const boxTex = B_BOX_TEX[id]!, boxGlow = B_BOX_GLOW[id]!;
+  for (let b = 0; b < boxes.length; b++) {
+    const [x0, y0, z0, x1, y1, z1] = boxes[b];
     const lo = [x0 / 16, y0 / 16, z0 / 16], hi = [x1 / 16, y1 / 16, z1 / 16];
+    // A glowing box (a lamp's shade, a flame) is drawn by its own light: the shader reads face 7 as "lit from within",
+    // and a flame wavers.
+    const glow = boxGlow[b];
     for (let f = 0; f < 6; f++) {
       const n = FACE_NORMALS[f];
       const axis = n[0] !== 0 ? 0 : n[1] !== 0 ? 1 : 2;
+      // A box with no thickness one way is a sheet: only its two broad faces are drawn.
+      const a1 = (axis + 1) % 3, a2 = (axis + 2) % 3;
+      if (lo[a1] === hi[a1] || lo[a2] === hi[a2]) continue;
       const onEdge = n[axis] > 0 ? hi[axis] === 1 : lo[axis] === 0;
       const ni = pi + n[0] * AXIS_STRIDE[0] + n[1] * AXIS_STRIDE[1] + n[2] * AXIS_STRIDE[2];
       if (onEdge && B_OPAQUE[blocks[ni]]) continue;
@@ -258,17 +267,18 @@ function meshModel(part: PartBuilder, blocks: Uint16Array, light: Uint8Array, id
       // (a slab or pipe holds sunlight out of its own cell, so its faces take their light from outside).
       const own = light[pi], out = B_OPAQUE[blocks[ni]] ? 0 : light[ni];
       const sky = Math.max(own >> 4, out >> 4) * 16, blk = Math.max(own & 15, out & 15) * 16;
-      const layer = B_FACE_TEX[id * 6 + f];
+      const layer = boxTex[b * 6 + f];
       const cs = FACE_CORNERS[f];
       part.ensure();
       const q = part.quads++;
+      const flags = glow ? FLAG_GLOW | (glow === BOX_FLAME ? FLAG_WAVE : 0) : f;
       for (let k = 0; k < 4; k++) {
         const p = [0, 1, 2].map((ax) => (cs[k * 3 + ax] ? hi[ax] : lo[ax]));
         // Texture coordinates from where the corner sits in the block, matching how whole cubes are textured.
         const [px, py, pz] = p;
         const [uu, vv] = f === 0 ? [1 - pz, py] : f === 1 ? [pz, py] : f === 2 ? [px, 1 - pz] : f === 3 ? [1 - px, 1 - pz] : f === 4 ? [px, py] : [1 - px, py];
         const u = Math.round(uu * 16), v = Math.round(vv * 16);
-        part.vertex(q, k, x + p[0], y + p[1], z + p[2], f | (k << 3), 3, sky, blk, layer, u, v);
+        part.vertex(q, k, x + p[0], y + p[1], z + p[2], flags | (k << 3), 3, sky, blk, layer, u, v);
       }
     }
   }

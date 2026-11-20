@@ -4,6 +4,14 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-20)
 
+- **The home is rebuilt on branch `home`** (with `main` and Phase 7 merged in), waiting for the lead's review. What was built, what differs from the review's plan and why: [HOME.md](HOME.md).
+  - **Built:** the hearth and its chimney; the cast-iron range, hood and flue; the bedroom with its window, double bed and wardrobes; the living room's sofa, armchairs and dining table; a study with a real computer desk against the bookshelves; the patio table, loungers and lanterns; lamps so every room is lit at night; the workshop and pantry dressed; the vault lined.
+  - **The furniture pass** (the owner's later notes): every piece set out and judged by eye, 25 redrawn, pack icons drawn from each piece's boxes.
+  - **Changed from the plan:** stone piers either side of the mouth (it is 14 wide now); the bedroom is 9 by 8 with a window 4 by 2 and plastered walls; the linen is in a wardrobe; the door stands open.
+  - **Saves:** a valley from before starts fresh and says so (`WORLD_LAYOUT` in `src/save/save.ts`).
+  - **Engine changes others will meet:** the ray looks out of the cell the eye is in; a railing's collision is 2.5 blocks; a block flagged `rests` comes up with what it stands on; a pot or kettle is a stove only on a stove (`stationAt`).
+  - **Not built:** sitting in chairs.
+
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).
   2. The home makeover (running in parallel, branch `home`): merge after Phase 7 and publish.

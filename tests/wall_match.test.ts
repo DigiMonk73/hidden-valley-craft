@@ -13,8 +13,8 @@ describe('a mined wall block goes back as it was', () => {
   const living = HOME.rooms.find((r) => r.name === 'living')!;
   const w = new World();
   for (let cz = 31; cz <= 32; cz++) for (let cx = 55; cx <= 57; cx++) w.addColumn(cx, cz, (runJob({ kind: 'gen', cx, cz, edits: [] }).result as GenResult).chunks);
-  // A block of the living room's north wall, at head height.
-  const [x, y, z] = [living.x0 + 4, living.y0 + 2, living.z0 - 1];
+  // A block of the living room's north wall, at head height (west of the hearth).
+  const [x, y, z] = [living.x0 + 1, living.y0 + 2, living.z0 - 1];
 
   it('the cave wall is limestone, and mining it gives limestone', () => {
     const wall = w.blockAt(x, y, z);

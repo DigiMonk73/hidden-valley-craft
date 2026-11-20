@@ -683,6 +683,15 @@ export class Sound {
     this.chirp(this.at(x, y, z), this.ctx.currentTime, freq, freq * 1.02, 1.1, gain, 'sawtooth');
   }
 
+  /** The hearth: a pop or two of burning wood, from where it is. */
+  crackle(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    const pops = Math.random() < 0.3 ? 3 : 1;
+    for (let i = 0; i < pops; i++) this.noiseAt(p, t + i * (0.04 + Math.random() * 0.08), 0.02 + Math.random() * 0.03, 'highpass', 1800 + Math.random() * 2600, 1, 0.1 + Math.random() * 0.16, 0.002);
+    if (Math.random() < 0.15) this.noiseAt(p, t, 0.5, 'lowpass', 500, 0.7, 0.05, 0.15); // a log settling
+  }
+
   /** The hot spring: bubbling under steam, from where it is. */
   bubble(x: number, y: number, z: number): void {
     if (!this.ctx) return;
