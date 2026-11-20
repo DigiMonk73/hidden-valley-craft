@@ -5,6 +5,7 @@ import { B_FACE_TEX, B_RENDER, RENDER, TEXTURE_NAMES } from '../world/blocks.ts'
 import { drawTexture, TEX } from '../render/textures.ts';
 import { drawItemIcon } from '../render/itemIcons.ts';
 import { itemDef } from '../world/items.ts';
+import { modelIconPixels } from './modelIcon.ts';
 
 const cache = new Map<number, string>();
 
@@ -44,6 +45,11 @@ export function iconFor(id: number): string {
     face(left, 20, 10, 0, 22, 4, 14, 0.18);
     face(right, 20, -10, 0, 22, 24, 24, 0.36);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  } else if (B_RENDER[id] === RENDER.model) {
+    // Furniture: a picture of the piece itself, box by box (src/ui/modelIcon.ts).
+    const img = ctx.createImageData(S, S);
+    img.data.set(modelIconPixels(id, S));
+    ctx.putImageData(img, 0, 0);
   } else {
     ctx.drawImage(textureCanvas(B_FACE_TEX[id * 6]), 4, 4, S - 8, S - 8);
   }

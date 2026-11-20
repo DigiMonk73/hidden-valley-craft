@@ -1215,7 +1215,7 @@ function fittedRug(c: Canvas16, sides: string, field: RGB, motif: RGB, band: RGB
 for (const k of ['nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se']) {
   const sides = k === 'c' ? '' : k;
   DRAW[`rug_red_${k}`] = (c) => fittedRug(c, sides, hex('#8e2b25'), hex('#b5452f'), hex('#2f6f6a'), hex('#e8dcbc'), hex('#d39b3a'));
-  DRAW[`rug_blue_${k}`] = (c) => fittedRug(c, sides, hex('#3f6fb0'), hex('#7fa8de'), hex('#9a3a2c'), hex('#e8dcbc'), hex('#c9a55a'));
+  DRAW[`rug_blue_${k}`] = (c) => fittedRug(c, sides, hex('#2f55c0'), hex('#86a4ee'), hex('#9a3a2c'), hex('#e8dcbc'), hex('#c9a55a'));
 }
 
 
@@ -1315,7 +1315,7 @@ DRAW.hutch_side = (c) => {
   // A hutch on legs: a wire-mesh run with straw on its floor, and a boarded sleeping box with a latch.
   wood(c, hex('#a8784a'), hex('#86603a'), hex('#b98d5c'), 5);
   box(c, 0, 3, 15, 11, hex('#5e3c20'));
-  for (let y = 4; y <= 10; y++) for (let x = 1; x <= 9; x++) c.set(x, y, y >= 9 ? hex('#d9c27a') : (x + y) % 3 === 0 ? hex('#727a80') : hex('#241b14'));
+  for (let y = 4; y <= 10; y++) for (let x = 1; x <= 9; x++) c.set(x, y, y >= 9 ? hex('#d9c27a') : x % 3 === 0 || y % 3 === 0 ? hex('#59616a') : hex('#1c1611'));
   for (let y = 3; y <= 11; y++) c.set(10, y, hex('#5e3c20'));
   for (const y of [5, 8]) for (let x = 11; x <= 14; x++) c.shade(x, y, 0.8);
   c.set(11, 7, hex('#3a3a3c')); c.set(12, 7, hex('#8d949a'));
@@ -1324,7 +1324,7 @@ DRAW.coop_side = (c) => {
   // A coop on stilts: upright boards, a mesh window under the eaves, and the hens' door at the foot.
   wood(c, hex('#a8784a'), hex('#86603a'), hex('#b98d5c'), 5);
   for (const x of [0, 4, 8, 12]) for (let y = 4; y <= 12; y++) c.shade(x, y, 0.72);
-  for (let y = 5; y <= 7; y++) for (let x = 3; x <= 12; x++) c.set(x, y, (x + y) % 3 === 0 ? hex('#727a80') : hex('#241b14'));
+  for (let y = 5; y <= 7; y++) for (let x = 3; x <= 12; x++) c.set(x, y, x % 3 === 0 || y % 3 === 0 ? hex('#59616a') : hex('#1c1611'));
   box(c, 2, 4, 13, 8, hex('#5e3c20'));
   rect(c, 6, 10, 9, 12, hex('#1e150e')); c.set(6, 10, hex('#5e3c20')); c.set(9, 10, hex('#5e3c20'));
   for (let x = 5; x <= 10; x++) c.set(x, 9, hex('#5e3c20'));
@@ -1577,7 +1577,7 @@ DRAW.barrel_top = (c) => {
 /** Sacking: a coarse tan weave, a faded stripe. */
 DRAW.burlap = (c) => {
   for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const t = ((x + y) % 2 ? 1 : 0.9) * (0.95 + c.rng() * 0.1); c.set(x, y, [186 * t, 160 * t, 112 * t]); }
-  for (let x = 0; x < TEX; x++) { c.shade(x, 11, 0.8); c.set(x, 6, hex('#8e4a3a')); }
+  for (let x = 0; x < TEX; x++) { c.set(x, 9, hex('#8e4a3a')); c.set(x, 11, hex('#8e4a3a')); c.shade(x, 5, 0.82); }
 };
 /** Pantry shelves: jars with cloth tops, tins with labels, crocks and a sack, on three boards between dark uprights. */
 DRAW.pantry_shelf = (c) => {

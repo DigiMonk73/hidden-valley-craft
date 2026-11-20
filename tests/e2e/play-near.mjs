@@ -21,8 +21,8 @@ await walkWest(P.SADDLE.x - 20, 1027.5, (P.ZONE1.shelter.x0 + P.ZONE1.shelter.x1
 check('reaches the lit bus shelter and finds Marco’s number', (await flags()).includes('shelter_found'));
 
 // 3. Home to the phone in the cave, and call him.
-await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1813.5, 82, 1030.5); gm.player.yaw = Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1811 && t.y === 83 && t.z === 1030; });
+await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1813 && t.y === 83 && t.z === 1029; });
 const phoneText = await page.locator('.pp-panel').textContent().catch(() => '');
 check('the builder’s phone now has Marco', /Marco/.test(phoneText ?? ''), (phoneText ?? '').slice(0, 80));
 await page.locator('.pp-call').first().click().catch(() => {});

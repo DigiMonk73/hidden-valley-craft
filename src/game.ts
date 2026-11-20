@@ -199,6 +199,8 @@ export class Game {
   private playing = false;
   /** The stored valley was from before the home was rebuilt, so a fresh one was started: said in the menu, and again when play begins. */
   private startedFresh = false;
+  /** A line to show when play begins (said before Play, under the menu, it is easily missed). */
+  private sayAtPlay: string | null = null;
   private ready = false;
   /** A save was just loaded: once its land is in, check the player isn't inside rock. */
   private checkBuried = false;
@@ -821,7 +823,8 @@ export class Game {
     p.yaw = this.spawn.yaw; p.pitch = 0; p.flying = flying;
     this.ready = false; // load the world there before play goes on
     this.hud.setLoadingVisible();
-    this.hud.toast('Something stands where you were. You are back at the cave.', 6000);
+    const line = 'Something stands where you were. You are back at the cave.';
+    if (this.playing) this.hud.toast(line, 8000); else this.sayAtPlay = line;
     this.edited();
   }
 
@@ -1491,6 +1494,7 @@ export class Game {
     this.hud.showMenu(false);
     this.look.engage();
     if (this.startedFresh) { this.startedFresh = false; this.hud.toast(EARLIER_BUILD, 10000); this.updateSaveStatus(); }
+    if (this.sayAtPlay) { this.hud.toast(this.sayAtPlay, 8000); this.sayAtPlay = null; }
   }
 
   private pause(): void {

@@ -292,7 +292,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   for (const x of [1821, 1829]) put(x, F + 2, 1006, 'wall_lamp@south');
   put(1824, F + 2, 1019, 'wall_lamp');
   for (const x of [1820, 1826]) for (const z of [1031, 1036]) hang(x, z);
-  for (const [x, z] of [[1823, 1034], [1827, 1028], [1818, 1039], [1828, 1039]]) hang(x, z);
+  for (const [x, z] of [[1823, 1034], [1827, 1030], [1818, 1039], [1828, 1039]]) hang(x, z);
   for (const z of [1030, 1036]) { put(1817, F + 2, z, 'wall_lamp@east'); put(1829, F + 2, z + 1, 'wall_lamp@west'); }
   put(1823, F + 2, 1039, 'wall_lamp');
   const v = HOME.rooms.find((r) => r.name === 'vault')!;

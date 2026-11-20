@@ -8,6 +8,7 @@ import { AIR, B_BOXES, B_BOX_GLOW, B_BOX_TEX, B_EMIT, B_SOLID, BLOCK_DEFS, BOX_F
 import { hasTexture } from '../src/render/textures.ts';
 import { stationOf, stationAt } from '../src/sim/crafting.ts';
 import { raycast } from '../src/sim/raycast.ts';
+import { modelIconPixels } from '../src/ui/modelIcon.ts';
 import { toggleDoor, breakBlock, placeBlock } from '../src/sim/interact.ts';
 import { Inventory } from '../src/sim/inventory.ts';
 import { Player, EYE } from '../src/sim/player.ts';
@@ -379,6 +380,27 @@ describe('furniture made of several boxes', () => {
       if (px >= x && px <= x + 1 && py >= y && py <= y + 1 && pz >= z && pz <= z + 1 && (m.pack[v * 4] & 7) === 7) flameQuads++;
     }
     expect(flameQuads).toBe(6); // three sheets, two faces each
+  });
+
+  it('each piece of furniture has its own picture in the pack, not one shared swatch', () => {
+    // Before, a model block's icon was one face of its first texture: every walnut piece was the same brown square.
+    const pieces = ['low_table', 'dining_table', 'dining_chair', 'nightstand', 'sofa_mid', 'armchair', 'table_lamp', 'desk', 'desk_chair', 'computer', 'chest', 'lantern', 'barrel', 'kettle'];
+    const seen = new Map<string, string>();
+    for (const n of pieces) {
+      const px = modelIconPixels(blockId(n));
+      let filled = 0;
+      for (let i = 3; i < px.length; i += 4) if (px[i]) filled++;
+      expect(filled, `${n} is drawn`).toBeGreaterThan(60);
+      expect(filled, `${n} is a shape, not a filled square`).toBeLessThan(48 * 48 * 0.8);
+      const key = Array.from(px).join(',');
+      expect(seen.get(key), `${n} looks like no other`).toBeUndefined();
+      seen.set(key, n);
+    }
+    // A lamp's shade is in its picture in its own colour (the box's own texture, not the block's brass).
+    const lamp = modelIconPixels(blockId('desk_lamp'));
+    let green = 0;
+    for (let i = 0; i < lamp.length; i += 4) if (lamp[i + 3] && lamp[i + 1] > lamp[i] * 1.3 && lamp[i + 1] > lamp[i + 2]) green++;
+    expect(green).toBeGreaterThan(10);
   });
 
   it('gives off light where it should', () => {
