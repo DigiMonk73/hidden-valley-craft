@@ -1319,3 +1319,56 @@ describe('the ridge’s places and Ray', () => {
     for (const w of ['AGI', 'AI', 'machine said', 'it said', '“']) expect(text.includes(w), w).toBe(false);
   });
 });
+
+// ---- The medicines, and the antenna's blocks (docs/PHASE8.md, 4 and 5) ------------------------------------
+import { useMedicine, isMedicine, blowFelt, stepAdrenaline, medicineIdle, ADRENALINE_SECONDS } from '../src/sim/medicine.ts';
+import { antennaBlocks, ANTENNA_HEIGHT } from '../src/gen/antenna.ts';
+
+describe('the medicines', () => {
+  it('binds thirty of a dose with the blue tablets, and is not used up with no dose to bind', () => {
+    expect(useMedicine('rad_tablets', { hp: 50, dose: 80, adrenaline: 0 })).toMatchObject({ dose: 50, hp: 50 });
+    expect(useMedicine('rad_tablets', { hp: 50, dose: 0.2, adrenaline: 0 })).toBe(null);
+    expect(useMedicine('rad_tablets', { hp: 40, dose: 100, adrenaline: 0 })!.said).toContain('70');
+  });
+
+  it('brings health back with antibiotics to the most the dose allows, at once, and never past it', () => {
+    expect(useMedicine('antibiotics', { hp: 12, dose: 0, adrenaline: 0 })).toMatchObject({ hp: 100 });
+    expect(useMedicine('antibiotics', { hp: 12, dose: 50, adrenaline: 0 })).toMatchObject({ hp: healthCap(50), dose: 50 });
+    expect(useMedicine('antibiotics', { hp: healthCap(50), dose: 50, adrenaline: 0 })).toBe(null);
+    expect(useMedicine('antibiotics', { hp: 100, dose: 0, adrenaline: 0 })).toBe(null);
+  });
+
+  it('halves blows for a minute with adrenaline and gives focus back; a second shot waits for the first', () => {
+    const b = useMedicine('adrenaline', { hp: 60, dose: 10, adrenaline: 0 })!;
+    expect(b.adrenaline).toBe(ADRENALINE_SECONDS);
+    expect(b.focus).toBe(true);
+    expect(blowFelt(b.adrenaline)).toBe(0.5);
+    expect(blowFelt(0)).toBe(1);
+    expect(useMedicine('adrenaline', b)).toBe(null);
+    expect(stepAdrenaline(b.adrenaline, 59)).toBeCloseTo(1);
+    expect(stepAdrenaline(1, 5)).toBe(0);
+  });
+
+  it('knows its three, and says why one would do nothing', () => {
+    for (const n of ['rad_tablets', 'antibiotics', 'adrenaline']) { expect(isMedicine(n)).toBe(true); expect(medicineIdle(n as never).length).toBeGreaterThan(10); }
+    for (const n of ['first_aid_kit', 'bandage', 'spirit']) expect(isMedicine(n)).toBe(false);
+  });
+});
+
+describe('the antenna, hoisted', () => {
+  it('is a mast and a dish five across turned west, every block a real one, none of them minable', () => {
+    const blocks = antennaBlocks(1801, 120, 1024);
+    expect(blocks.length).toBeGreaterThan(24);
+    for (const [, , , n] of blocks) { expect(() => blockId(n)).not.toThrow(); if (n !== 'red_beacon') expect(BLOCK_DEFS[blockId(n)].hardness).toBeLessThan(0); }
+    const dish = blocks.filter((b) => b[3] === 'sat_dish');
+    expect(dish.length).toBe(21);
+    expect(Math.max(...dish.map((b) => b[2])) - Math.min(...dish.map((b) => b[2]))).toBe(4);
+    expect(Math.max(...blocks.map((b) => b[1]))).toBe(120 + ANTENNA_HEIGHT - 1);
+    expect(Math.min(...blocks.map((b) => b[1]))).toBe(120);
+    expect(Math.max(...blocks.map((b) => b[0]))).toBe(1801); // nothing behind the mast: it all leans to the valley
+    expect(new Set(blocks.map((b) => b.slice(0, 3).join())).size).toBe(blocks.length);
+    // One piece: every block touches another.
+    const at = new Set(blocks.map((b) => b.slice(0, 3).join()));
+    for (const [x, y, z] of blocks) { let held = false; for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) if (at.has([x + dx, y + dy, z + dz].join())) held = true; expect(held, `${x},${y},${z}`).toBe(true); }
+  });
+});
