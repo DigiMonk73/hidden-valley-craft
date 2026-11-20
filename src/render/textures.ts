@@ -510,12 +510,6 @@ DRAW.snare_caught = (c) => {
   c.set(5, 11, hex('#1d1d1d'));
   c.set(11, 12, hex('#efe8dc'));
 };
-/** The hutch's front: a plank frame with wire mesh and straw. */
-DRAW.hutch_side = (c) => {
-  c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2);
-  for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) c.set(x, y, y > 10 ? hex('#d9c27a') : hex('#3a2a1c'));
-  for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) if ((x + y) % 3 === 0 || (x - y + 30) % 3 === 0) c.set(x, y, hex('#9aa3a8'));
-};
 /** A canvas pack, dropped: khaki with straps. */
 DRAW.lost_pack = (c) => {
   c.noise(hex('#7d7451'), 7, [hex('#6c6445'), hex('#8c8460')], 0.2);
@@ -627,13 +621,6 @@ DRAW.laundry = (c) => {
   for (let x = 0; x < TEX; x++) c.set(x, 2 + (x > 3 && x < 12 ? 1 : 0), hex('#cfc3a4'));
   for (let y = 4; y < 12; y++) for (let x = 3; x < 8; x++) c.set(x, y, hex('#b9c7d1'));
   for (let y = 4; y < 9; y++) for (let x = 9; x < 14; x++) c.set(x, y, hex('#c98e7a'));
-};
-/** The coop's front: plank frame, wire mesh, straw, and a small hen-door. */
-DRAW.coop_side = (c) => {
-  c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2);
-  for (let y = 2; y < 10; y++) for (let x = 2; x < 14; x++) c.set(x, y, (x + y) % 3 === 0 || (x - y + 30) % 3 === 0 ? hex('#9aa3a8') : hex('#3a2a1c'));
-  for (let y = 10; y < 15; y++) for (let x = 2; x < 14; x++) c.set(x, y, hex('#d9c27a'));
-  for (let y = 11; y < 15; y++) for (let x = 6; x < 10; x++) c.set(x, y, hex('#2a1e14'));
 };
 
 DRAW.farmland = (c) => {
@@ -829,8 +816,17 @@ DRAW.forge_side = (c) => {
 /** A tool rack: pegs on a plank back, the shapes of tools hung on them. */
 DRAW.tool_rack = (c) => {
   c.noise(hex('#9a7048'), 6, [hex('#8a623e')], 0.2);
-  for (const x of [3, 8, 12]) { for (let y = 2; y < 13; y++) c.set(x, y, hex('#5a5a5a')); c.set(x - 1, 2, hex('#7d8790')); c.set(x + 1, 2, hex('#7d8790')); }
-  for (let x = 0; x < TEX; x++) c.set(x, 14, hex('#5e3c20'));
+  for (const y of [5, 10]) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.85);
+  const steel = hex('#aab2b8'), dark = hex('#5d646a'), grip = hex('#5e3c20');
+  // A hammer, a saw and a wrench, each on its peg.
+  for (let y = 4; y <= 12; y++) c.set(3, y, grip);
+  for (let x = 1; x <= 5; x++) { c.set(x, 3, steel); c.set(x, 4, dark); }
+  for (let y = 5; y <= 11; y++) for (let x = 7; x <= 7 + Math.floor((11 - y) / 2) + 1; x++) c.set(x, y, y === 11 ? dark : steel);
+  for (let y = 2; y <= 4; y++) for (let x = 7; x <= 10; x++) c.set(x, y, grip);
+  c.set(8, 3, hex('#9a7048'));
+  for (let y = 4; y <= 12; y++) c.set(13, y, steel);
+  for (const [x, y] of [[12, 2], [14, 2], [12, 3], [14, 3], [12, 12], [14, 12], [13, 13]]) c.set(x, y, dark);
+  for (const x of [3, 8, 13]) c.set(x, 1, hex('#3a2a1c')); // the pegs
 };
 DRAW.raised_bed_side = (c) => { c.noise(hex('#a8784a'), 6, [hex('#946840')], 0.2); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#4a3322')); c.set(x, 8, hex('#7a5232')); } };
 DRAW.apple_trunk = (c) => {
@@ -1064,7 +1060,7 @@ DRAW.copper = (c) => {
   c.noise(hex('#b4683a'), 8, [hex('#c97b48'), hex('#9d5630'), hex('#d68f5c')], 0.3);
   for (let x = 0; x < TEX; x++) { c.set(x, 15, hex('#7d4526')); c.set(x, 14, hex('#955330')); if (x % 4 === 1) c.set(x, 13, hex('#e6a877')); c.set(x, 6, hex('#955330')); }
 };
-DRAW.firebrick = (c) => {
+DRAW.hearth_brick = (c) => {
   c.noise(hex('#7d4631'), 8, [hex('#6a3a28'), hex('#8f5238'), hex('#5a3124')], 0.3);
   for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const off = (y >> 2) % 2 === 0 ? 0 : 4; if (y % 4 === 3 || (x + off) % 8 === 7) c.set(x, y, hex('#3a2620')); }
   for (let k = 0; k < 10; k++) c.shade(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), 0.7); // soot
@@ -1116,7 +1112,7 @@ DRAW.log_pile_side = (c) => {
   for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const r = y % 5; const base = r === 4 ? hex('#2a1c12') : r === 0 ? hex('#6b4a2b') : hex('#5a3d22'); const j = (c.rng() - 0.5) * 14; c.set(x, y, [base[0] + j, base[1] + j, base[2] + j]); }
   for (let k = 0; k < 8; k++) { const x = Math.floor(c.rng() * 14), y = Math.floor(c.rng() * 16); c.shade(x, y, 0.7); c.shade(x + 1, y, 0.7); c.shade(x + 2, y, 0.75); }
 };
-DRAW.counter_top = (c) => { c.noise(hex('#cdc6b2'), 5, [hex('#bfb8a4'), hex('#dad4c2')], 0.15); for (let k = 0; k < TEX; k++) { c.shade(k, 15, 0.82); c.shade(k, 14, 0.92); } for (let k = 0; k < 4; k++) c.shade(3 + k * 3, 5 + k, 0.9); };
+DRAW.stone_counter = (c) => { c.noise(hex('#cdc6b2'), 5, [hex('#bfb8a4'), hex('#dad4c2')], 0.15); for (let k = 0; k < TEX; k++) { c.shade(k, 15, 0.82); c.shade(k, 14, 0.92); } for (let k = 0; k < 4; k++) c.shade(3 + k * 3, 5 + k, 0.9); };
 DRAW.counter_front = (c) => {
   wood(c, hex('#8a5e36'), hex('#6b4627'), hex('#9d7044'));
   for (let y = 2; y < TEX; y++) { c.set(0, y, hex('#4a3220')); c.set(7, y, hex('#4a3220')); c.set(8, y, hex('#4a3220')); c.set(15, y, hex('#4a3220')); }
@@ -1219,7 +1215,7 @@ function fittedRug(c: Canvas16, sides: string, field: RGB, motif: RGB, band: RGB
 for (const k of ['nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se']) {
   const sides = k === 'c' ? '' : k;
   DRAW[`rug_red_${k}`] = (c) => fittedRug(c, sides, hex('#8e2b25'), hex('#b5452f'), hex('#2f6f6a'), hex('#e8dcbc'), hex('#d39b3a'));
-  DRAW[`rug_blue_${k}`] = (c) => fittedRug(c, sides, hex('#2f4a6a'), hex('#45688f'), hex('#9a3a2c'), hex('#e8dcbc'), hex('#c9a55a'));
+  DRAW[`rug_blue_${k}`] = (c) => fittedRug(c, sides, hex('#3f6fb0'), hex('#7fa8de'), hex('#9a3a2c'), hex('#e8dcbc'), hex('#c9a55a'));
 }
 
 
@@ -1319,7 +1315,7 @@ DRAW.hutch_side = (c) => {
   // A hutch on legs: a wire-mesh run with straw on its floor, and a boarded sleeping box with a latch.
   wood(c, hex('#a8784a'), hex('#86603a'), hex('#b98d5c'), 5);
   box(c, 0, 3, 15, 11, hex('#5e3c20'));
-  for (let y = 4; y <= 10; y++) for (let x = 1; x <= 9; x++) c.set(x, y, y >= 9 ? hex('#d9c27a') : (x + y) % 2 === 0 ? hex('#9aa3a8') : hex('#2e2219'));
+  for (let y = 4; y <= 10; y++) for (let x = 1; x <= 9; x++) c.set(x, y, y >= 9 ? hex('#d9c27a') : (x + y) % 3 === 0 ? hex('#727a80') : hex('#241b14'));
   for (let y = 3; y <= 11; y++) c.set(10, y, hex('#5e3c20'));
   for (const y of [5, 8]) for (let x = 11; x <= 14; x++) c.shade(x, y, 0.8);
   c.set(11, 7, hex('#3a3a3c')); c.set(12, 7, hex('#8d949a'));
@@ -1328,7 +1324,7 @@ DRAW.coop_side = (c) => {
   // A coop on stilts: upright boards, a mesh window under the eaves, and the hens' door at the foot.
   wood(c, hex('#a8784a'), hex('#86603a'), hex('#b98d5c'), 5);
   for (const x of [0, 4, 8, 12]) for (let y = 4; y <= 12; y++) c.shade(x, y, 0.72);
-  for (let y = 5; y <= 7; y++) for (let x = 3; x <= 12; x++) c.set(x, y, (x + y) % 2 === 0 ? hex('#9aa3a8') : hex('#2e2219'));
+  for (let y = 5; y <= 7; y++) for (let x = 3; x <= 12; x++) c.set(x, y, (x + y) % 3 === 0 ? hex('#727a80') : hex('#241b14'));
   box(c, 2, 4, 13, 8, hex('#5e3c20'));
   rect(c, 6, 10, 9, 12, hex('#1e150e')); c.set(6, 10, hex('#5e3c20')); c.set(9, 10, hex('#5e3c20'));
   for (let x = 5; x <= 10; x++) c.set(x, 9, hex('#5e3c20'));
@@ -1552,6 +1548,57 @@ DRAW.arc_lamp_hood = (c) => { c.noise(hex('#33383d'), 4, RUST, 0.08); };
 DRAW.arc_lamp_lens = (c) => { c.noise(hex('#3a3f44'), 4); for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) c.set(x, y, hex('#fffdf0')); };
 /** A planter box's side: new planks, two bands. */
 DRAW.planter_side = (c) => { c.noise(hex('#a8804e'), 7, [hex('#96703f'), hex('#b8905e')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#6e4b31')); c.shade(x, 5, 0.75); c.shade(x, 11, 0.75); } };
+
+// ---- The workshop and pantry, dressed (docs/HOME.md) -------------------------------------------------------
+/** A smoker's chamber: upright boards, a door on strap hinges with a latch, a draught slot glowing at its foot. */
+DRAW.smoker_body = (c) => {
+  c.noise(hex('#8a6a46'), 6, [hex('#7a5c3c')], 0.2);
+  for (const x of [0, 5, 10, 15]) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.75);
+  box(c, 3, 4, 12, 11, hex('#4a3a28'));
+  for (const y of [5, 10]) { c.set(3, y, hex('#2c2a27')); c.set(4, y, hex('#3a3834')); c.set(5, y, hex('#3a3834')); }
+  c.set(11, 7, hex('#c8ccd0')); c.set(11, 8, hex('#8d949a'));
+  rect(c, 6, 12, 9, 12, hex('#e8641c')); c.set(7, 12, hex('#ffb030'));
+  for (let x = 4; x <= 11; x++) c.shade(x, 3, 0.7); // smoke stain over the door
+};
+/** A barrel: oak staves, two iron hoops. */
+DRAW.barrel_side = (c) => {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const stave = Math.floor(x / 3), tone = [1, 0.9, 1.06, 0.94, 1.02, 0.88][stave % 6] * (0.96 + c.rng() * 0.08);
+    c.set(x, y, x % 3 === 0 ? hex('#4f3520') : [150 * tone, 104 * tone, 62 * tone]);
+  }
+  for (const y of [3, 12]) for (let x = 0; x < TEX; x++) { c.set(x, y, hex('#4a4c50')); c.set(x, y + 1, hex('#2e3033')); }
+  for (let x = 0; x < TEX; x++) { c.shade(x, 0, 0.8); c.shade(x, 15, 0.75); }
+};
+DRAW.barrel_top = (c) => {
+  wood(c, hex('#96683e'), hex('#74502e'), hex('#a87a4c'), 5);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d > 6.2) c.set(x, y, d > 7.4 ? hex('#3a2a1c') : hex('#4a4c50')); }
+  c.set(7, 4, hex('#2e2219')); c.set(8, 4, hex('#2e2219')); // the bung
+};
+/** Sacking: a coarse tan weave, a faded stripe. */
+DRAW.burlap = (c) => {
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const t = ((x + y) % 2 ? 1 : 0.9) * (0.95 + c.rng() * 0.1); c.set(x, y, [186 * t, 160 * t, 112 * t]); }
+  for (let x = 0; x < TEX; x++) { c.shade(x, 11, 0.8); c.set(x, 6, hex('#8e4a3a')); }
+};
+/** Pantry shelves: jars with cloth tops, tins with labels, crocks and a sack, on three boards between dark uprights. */
+DRAW.pantry_shelf = (c) => {
+  c.noise(hex('#33241a'), 3);
+  const glass = [hex('#b8782a'), hex('#a8342a'), hex('#5f7a2c'), hex('#d8c890'), hex('#7a3a5a'), hex('#c9a13a')];
+  const label = [hex('#c8443a'), hex('#2f6f9a'), hex('#e0c040'), hex('#4f8a4a'), hex('#e8e2d0')];
+  // Top shelf: jars, two wide, a pale lid on each.
+  for (let x = 1; x < 15; x += 3) { const g = glass[Math.floor(c.rng() * glass.length)]; rect(c, x, 2, x + 1, 4, g); c.set(x, 1, hex('#e8dcbc')); c.set(x + 1, 1, hex('#d0c4a4')); c.set(x, 2, [Math.min(255, g[0] + 50), Math.min(255, g[1] + 50), Math.min(255, g[2] + 50)]); }
+  // Middle shelf: tins, a coloured label round each.
+  for (let x = 1; x < 15; x += 2) { if (c.rng() < 0.15) continue; const l = label[Math.floor(c.rng() * label.length)]; c.set(x, 7, hex('#b8bfc6')); c.set(x, 8, l); c.set(x, 9, l); if (c.rng() < 0.5) c.set(x, 6, hex('#9aa2a8')); }
+  // Bottom shelf: two crocks and a sack.
+  rect(c, 1, 12, 4, 14, hex('#b9a88a')); for (let x = 1; x <= 4; x++) c.set(x, 12, hex('#6a5a48'));
+  rect(c, 6, 11, 9, 14, hex('#8a6a4a')); for (let x = 6; x <= 9; x++) c.set(x, 11, hex('#5e4632'));
+  rect(c, 11, 12, 14, 14, hex('#c2a878')); c.set(12, 11, hex('#a89060')); c.set(13, 11, hex('#a89060')); c.set(12, 13, hex('#8e4a3a')); c.set(13, 13, hex('#8e4a3a'));
+  // The boards and uprights.
+  for (const y of [0, 5, 10, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, y === 0 || y === 15 ? hex('#5a3d26') : hex('#7a5536'));
+  for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#5a3d26')); c.set(15, y, hex('#5a3d26')); }
+};
+DRAW.dried_herb = (c) => { c.noise(hex('#6f7f4a'), 10, [hex('#5a6a3a'), hex('#86905a'), hex('#4e5a34')], 0.4); for (let x = 0; x < TEX; x++) for (const y of [2, 3]) c.set(x, y, hex('#c8b98f')); };
+DRAW.dried_chili = (c) => { c.noise(hex('#a8281e'), 8, [hex('#8a1e18'), hex('#c8402a'), hex('#701812')], 0.4); for (let x = 0; x < TEX; x += 3) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.7); };
+DRAW.garlic = (c) => { c.noise(hex('#e6dcc4'), 5, [hex('#d2c6aa'), hex('#f2ead8')], 0.3); for (let y = 0; y < TEX; y += 3) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.8); };
 
 /** Draws one texture by name; unknown names get a loud magenta check so they are noticed. */
 export function drawTexture(name: string): Uint8ClampedArray {

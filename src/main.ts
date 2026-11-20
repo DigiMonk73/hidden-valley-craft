@@ -1,6 +1,7 @@
 // Entry point: reads test options from the address, starts the game, and exposes a small hook
 // for automated checks (window.__hv).
 
+import { blockId } from './world/blocks.ts';
 import { Game, type BootOptions } from './game.ts';
 import { SAVE_FORMAT, type SaveData } from './save/save.ts';
 import { itemId, toolOf, toolFor } from './world/items.ts';
@@ -56,6 +57,8 @@ function start(data: unknown): void {
     (window as unknown as { __hv: unknown }).__hv = {
       game,
       idle: () => game.isIdle(),
+      /** A block's id by name, for setting scenes (tools/showroom.mjs). */
+      blockId: (name: string) => blockId(name),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
       spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),

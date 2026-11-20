@@ -26,6 +26,7 @@ interface BlockSource {
   /** A texture for each box, in the boxes' order, where it differs from the block's own (null: the block's). */
   boxTex?: (Tex | null)[];
   facing?: boolean; // placed facing the player: expands into four blocks (name, name@east, @south, @west)
+  rests?: boolean; // stands on what is under it (a lamp, a pot, a clock): comes up with it when that is mined
   collideTop?: number; // collision height in sixteenths if not the boxes' own (a railing is 40: no jumping or stepping over, even from furniture beside it)
   crop?: { kind: string; stage: number }; // a crop at a growth stage (the last stage is ripe)
   container?: number; // holds things, like a chest: how many slots
@@ -90,6 +91,8 @@ export const BOX_FLAME = 2;
 function glowOf(tex: string): number { return tex.startsWith('flame_') ? BOX_FLAME : tex.startsWith('lit_') ? BOX_LIT : 0; }
 /** Height a solid block stops the player at, in sixteenths (16 = a full block; slabs are 8). */
 export const B_TOP = new Uint8Array(BLOCK_COUNT);
+/** Stands on the block under it, and comes up with it when that block is mined. */
+export const B_RESTS = new Uint8Array(BLOCK_COUNT);
 
 /** Every texture name the blocks use, in a stable order; its index is the texture-array layer. */
 export const TEXTURE_NAMES: string[] = [];
@@ -118,6 +121,7 @@ defs.forEach((d, id) => {
   B_FILTER[id] = d.filter ?? 0;
   B_HARDNESS[id] = d.hardness;
   B_BOXES[id] = d.boxes;
+  B_RESTS[id] = d.rests ? 1 : 0;
   B_TOP[id] = d.collideTop ?? (d.boxes && d.solid ? Math.max(...d.boxes.map((b) => b[4])) : 16);
   const facesOf = (tex: Tex): number[] => {
     const t = typeof tex === 'string' ? { top: tex, side: tex, bottom: tex } : tex;

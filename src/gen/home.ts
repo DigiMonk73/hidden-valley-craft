@@ -26,8 +26,8 @@ export const HOME_FIT = {
   window: { x: 1801, z0: 1036, z1: 1040, y0: F + 1, y1: F + 3 },
   /** The bedroom door's two leaves (each two blocks high). */
   door: [[1806, F, 1033], [1807, F, 1033]] as [number, number, number][],
-  /** The study, in the library corner: the desk faces west across the room, to the mouth and the valley. */
-  desk: { computer: [1811, F + 1, 1029], phone: [1811, F + 1, 1030], chair: [1812, F, 1029] } as Record<string, [number, number, number]>,
+  /** The study, in the library corner: the desk stands against the bookshelves, its screen facing the room. */
+  desk: { computer: [1813, F + 1, 1028], phone: [1813, F + 1, 1029], chair: [1812, F, 1028] } as Record<string, [number, number, number]>,
   /** The journal: any of the bookshelves in the living room's south-east corner. */
   bookshelf: [1814, F + 1, 1031] as [number, number, number],
   mapTable: [1812, F, 1020] as [number, number, number],
@@ -118,6 +118,10 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   // Two deck loungers at the railing, facing the falls, and a small table between them.
   for (const z of [1022, 1026]) { put(1794, F, z, 'lounger_head@west'); put(1793, F, z, 'lounger_foot@west'); }
   put(1794, F, 1024, 'patio_side_table');
+  // Light for the evening: a lantern on the patio table and one on the counter (the posts are at the far end).
+  // (Storm lanterns are not solid: a solid lantern on the counter was a step over the railing.)
+  put(1796, F + 1, 1029, 'storm_lantern');
+  put(1797, F + 1, 1033, 'storm_lantern');
   // The solar panel, on a post in the south-west corner, out of the way.
   // The post is two high: a panel one block up was a step from the firewood onto the railing.
   put(1793, F, 1033, 'fence_post');
@@ -128,7 +132,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   // The hearth, on the north wall: a firebox three wide set back into the rock and lined with firebrick, stone
   // jambs, a timber mantel with its shelf, a stone chimney breast to the ceiling, and a raised hearthstone.
   const H = HOME_FIT.hearth;
-  fill(H.x - 2, H.x + 2, F, F + 2, H.z - 1, H.z, 'firebrick'); // the lining: back, sides and top
+  fill(H.x - 2, H.x + 2, F, F + 2, H.z - 1, H.z, 'hearth_brick'); // the lining: back, sides and top
   fill(H.x - 1, H.x + 1, F, F + 1, H.z, H.z, 'air');
   fill(H.x - 2, H.x + 2, F - 1, F - 1, H.z, H.z + 2, 'stone_bricks'); // the hearthstone, under it all
   put(H.x - 1, F, H.z, 'ember_bed');
@@ -148,7 +152,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(H.x, F + 4, H.z + 2, 'wall_picture@south');
   // The chimney: brick through the rock, dressed stone above the ground, a clay pot on top.
   const C = HOME_FIT.chimney;
-  for (let y = F + 3; y < C.top; y++) put(C.x, y, C.z, isRock(C.x, y, C.z) ? 'firebrick' : 'stone_bricks');
+  for (let y = F + 3; y < C.top; y++) put(C.x, y, C.z, isRock(C.x, y, C.z) ? 'hearth_brick' : 'stone_bricks');
   put(C.x, C.top, C.z, 'chimney_pot');
   // Firewood either side, and a lamp over each stack.
   put(H.x - 3, F, H.z + 1, 'log_pile@south');
@@ -179,19 +183,18 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(1802, F + 1, 1032, 'table_lamp');
   put(1804, F + 1, 1032, 'kettle');
   // The study, in the library corner. Bookshelves from floor to beam along the east and south walls (the journal).
-  // In front of them a desk three wide, facing west across the room to the mouth and the valley, the fire to its
-  // right: a green-shaded lamp, the monitor and keyboard with the tower under them, the satellite phone on its
-  // cradle; and a desk chair behind it, with the books at its back.
+  // Against them a desk three wide: a green-shaded lamp, the monitor and keyboard with the tower under them, the
+  // satellite phone on its cradle, and a desk chair. The screen faces the room, so it is seen, lit, from the mouth.
   fill(1814, 1814, F, F + 3, 1027, 1032, 'bookshelf');
   fill(1809, 1813, F, F + 3, 1032, 1032, 'bookshelf');
   const [cx, cy, cz] = HOME_FIT.desk.computer;
-  put(cx, F, cz - 1, 'desk_drawers@east');
-  put(cx, F, cz, 'desk@east');
-  put(cx, F, cz + 1, 'desk_drawers@east');
-  put(cx, cy, cz - 1, 'desk_lamp@east');
-  put(cx, cy, cz, 'computer@east');
+  put(cx, F, cz - 1, 'desk_drawers@west');
+  put(cx, F, cz, 'desk@west');
+  put(cx, F, cz + 1, 'desk_drawers@west');
+  put(cx, cy, cz - 1, 'desk_lamp@west');
+  put(cx, cy, cz, 'computer@west');
   put(...HOME_FIT.desk.phone, 'phone');
-  put(...HOME_FIT.desk.chair, 'desk_chair@west');
+  put(...HOME_FIT.desk.chair, 'desk_chair@east');
   rug('blue', 1809, 1813, 1027, 1031);
   // A corner to read in, by the fire: an armchair, a small table and its lamp.
   put(1814, F, 1017, 'armchair@west');
@@ -227,7 +230,8 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
     fill(bed.x0, bed.x1 - 1, y, y, bed.z1, bed.z1, lining(0, y, 0), wall);
   }
   fill(bed.x0, bed.x1 - 1, F + 4, F + 4, bed.z0, bed.z1 - 1, 'plaster', wall);
-  for (const z of [bed.z0 + 1, bed.z1 - 2]) { fill(bed.x0, bed.x1 - 1, F + 3, F + 3, z, z, 'beam'); put(1806, F + 2, z, 'lantern'); }
+  for (const z of [bed.z0 + 1, bed.z1 - 2]) fill(bed.x0, bed.x1 - 1, F + 3, F + 3, z, z, 'beam');
+  put(1806, F + 3, 1037, 'lantern'); // one light, up against the ceiling between the beams: nothing hangs at head height
   // The door, standing open, under a timber lintel.
   const [dl, dr] = HOME_FIT.door;
   for (const y of [F, F + 1]) { put(dl[0], y, dl[2], 'door_wood_open'); put(dr[0], y, dr[2], 'door_wood_r_open'); }
@@ -240,6 +244,8 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   fill(W.x + 1, W.x + 1, W.y0, W.y1 - 1, W.z0, W.z1 - 1, 'air');
   fill(W.x + 1, W.x + 1, W.y0 - 1, W.y0 - 1, W.z0, W.z1 - 1, 'window_seat');
   fill(W.x - 4, W.x - 1, W.y0, W.y1 - 1, W.z0, W.z1 - 1, 'air');
+  // The same dressed stone frames the opening on the cliff's face, so from the garden it reads as a window.
+  fill(W.x - 1, W.x - 1, W.y0 - 1, W.y1, W.z0 - 1, W.z1, 'stone_bricks', (x, y, z) => isRock(x, y, z));
   put(W.x + 1, W.y0, W.z0, 'potted_orchid'); // an orchid on the window seat
   // The bed, head to the east wall, a nightstand and lamp either side.
   for (const [x, y, z] of HOME_FIT.bed) put(x, y, z, x === 1811 ? 'bed_head@west' : 'bed_foot@west');
@@ -257,8 +263,28 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(1809, F + 2, 1034, 'wall_lamp@south');
   put(1804, F + 2, 1034, 'wall_lamp@south');
   put(1805, F + 2, 1041, 'wall_lamp');
+  put(1810, F + 2, 1041, 'wall_lamp');
 
-  // ---- Workshop, pantry, vault: lit, and the vault lined with dressed stone ---------------------------------
+  // ---- Workshop, pantry, vault: lit and dressed, and the vault lined with dressed stone ----------------------
+  // The workshop: tools on the wall behind the workbench, firewood between the smelter and the kiln, a quenching
+  // barrel by the anvil, a long bench under more tools on the east wall, crates and barrels in the corners.
+  for (const x of [1819, 1820, 1821]) put(x, F + 1, 1006, 'tool_board@south');
+  for (const x of [1824, 1825]) put(x, F, 1006, 'log_pile@south');
+  put(1821, F, 1012, 'barrel');
+  for (const z of [1012, 1013, 1014]) { put(1831, F, z, 'table'); put(1831, F + 1, z, 'tool_board@west'); }
+  for (const [x, y, z] of [[1831, F, 1018], [1831, F, 1019], [1830, F, 1019], [1831, F + 1, 1019]]) put(x, y, z, 'supply_crate');
+  put(1817, F, 1019, 'barrel');
+  put(1817, F, 1018, 'barrel');
+  // The pantry: shelves of jars and tins along the north and west walls, barrels and sacks in the corners, herbs
+  // drying on the south wall over the chests, a table in the middle. The iron vein in the east wall stays bare.
+  fill(1822, 1828, F, F + 2, 1028, 1028, 'pantry_shelf');
+  fill(1817, 1817, F, F + 2, 1031, 1035, 'pantry_shelf');
+  for (const [x, z] of [[1829, 1028], [1829, 1029], [1829, 1039], [1828, 1039], [1829, 1038]]) put(x, F, z, 'barrel');
+  for (const [x, z] of [[1829, 1030], [1827, 1039], [1826, 1039], [1817, 1036]]) put(x, F, z, 'grain_sack');
+  for (const x of [1819, 1820, 1821, 1825, 1826]) put(x, F + 2, 1039, 'herb_rack');
+  put(1823, F, 1033, 'table');
+  put(1824, F, 1033, 'table');
+  put(1824, F + 1, 1033, 'table_lamp');
   for (const x of [1820, 1828]) for (const z of [1008, 1013, 1018]) hang(x, z);
   for (const z of [1008, 1013, 1018]) hang(1824, z);
   for (const z of [1009, 1015, 1018]) put(1817, F + 2, z, 'wall_lamp@east');
@@ -268,7 +294,6 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   for (const x of [1820, 1826]) for (const z of [1031, 1036]) hang(x, z);
   for (const [x, z] of [[1823, 1034], [1827, 1028], [1818, 1039], [1828, 1039]]) hang(x, z);
   for (const z of [1030, 1036]) { put(1817, F + 2, z, 'wall_lamp@east'); put(1829, F + 2, z + 1, 'wall_lamp@west'); }
-  put(1823, F + 2, 1028, 'wall_lamp@south');
   put(1823, F + 2, 1039, 'wall_lamp');
   const v = HOME.rooms.find((r) => r.name === 'vault')!;
   const lined = (x: number, y: number, z: number) => isRock(x, y, z);

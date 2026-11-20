@@ -1,7 +1,7 @@
 // Mining and placing: what happens to the world and the hotbar when the player breaks or places a
 // block. Kept apart from the game loop so it can be tested on its own.
 
-import { AIR, WATER, B_BOXES, B_RENDER, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
+import { AIR, WATER, B_BOXES, B_RENDER, B_RESTS, B_SOLID, RENDER, isWaterId, facingVariant, blockName, blockId } from '../world/blocks.ts';
 import { dropOf, isBlockItem } from '../world/items.ts';
 import { packPos } from '../world/light.ts';
 import { cropDrops } from './farming.ts';
@@ -21,7 +21,8 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   if (held?.some(Boolean)) return { changed: false, full: false, keepsItems: true };
   // Crops give their harvest; everything else its one drop. A plant on top loses its footing and drops too.
   const above = world.blockAt(x, y + 1, z);
-  const plantAbove = B_RENDER[above] === RENDER.cross;
+  // So does a lamp, a pot or a clock standing on a piece of furniture (unless it is holding something, or is furniture too).
+  const plantAbove = B_RENDER[above] === RENDER.cross || (B_RESTS[above] === 1 && B_RESTS[id] === 0 && !world.containerAt(x, y + 1, z));
   // A hearth fire's flames stand in the block above it, and go out with it.
   const flamesAbove = id === HEARTH_FIRE && above === HEARTH_FLAMES;
   const drops: [number, number][] = [...(cropDrops(id) ?? [[dropOf(id), 1]]), ...(plantAbove ? cropDrops(above) ?? [[dropOf(above), 1]] : [])];

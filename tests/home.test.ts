@@ -254,7 +254,7 @@ describe('the home, rebuilt', () => {
     let stack = 0;
     for (let y = C.top - 1; name(w, C.x, y, C.z) === 'stone_bricks'; y--) stack++;
     expect(stack).toBeGreaterThanOrEqual(2);
-    for (let y = F + 3; y < C.top - stack; y++) expect(name(w, C.x, y, C.z), `flue at ${y}`).toBe('firebrick');
+    for (let y = F + 3; y < C.top - stack; y++) expect(name(w, C.x, y, C.z), `flue at ${y}`).toBe('hearth_brick');
     // Beside the stack is open air: it stands clear of the ground.
     expect(name(w, C.x + 1, C.top - 1, C.z)).toBe('air');
     const cap = HOME_FIT.flueCap;
@@ -334,8 +334,8 @@ describe('the home, rebuilt', () => {
     expect(name(w, 1806, F, 1020)).toBe('sofa_end'); expect(name(w, 1808, F, 1020)).toBe('sofa_end_r');
     expect(name(w, 1794, F, 1022)).toBe('lounger_head@west'); expect(name(w, 1793, F, 1022)).toBe('lounger_foot@west');
     expect(name(w, HOME_FIT.range.x, F, HOME_FIT.range.z)).toBe('range_firebox@west');
-    expect(name(w, ...HOME_FIT.desk.computer)).toBe('computer@east'); // its screen to the chair behind the desk
-    expect(name(w, ...HOME_FIT.desk.chair)).toBe('desk_chair@west');
+    expect(name(w, ...HOME_FIT.desk.computer)).toBe('computer@west'); // its screen to the chair behind the desk
+    expect(name(w, ...HOME_FIT.desk.chair)).toBe('desk_chair@east');
     // A facing block's boxes turn with it: the sofa's back is to the south, the west-facing lounger's head-rest to the east.
     const tall = (n: string) => B_BOXES[blockId(n)]!.filter((b) => b[4] >= 13);
     for (const b of tall('sofa_mid')) expect(b[2]).toBeGreaterThanOrEqual(11);
@@ -344,6 +344,14 @@ describe('the home, rebuilt', () => {
 });
 
 describe('furniture made of several boxes', () => {
+  it('no block name and no texture is defined twice (a second one silently replaces the first)', () => {
+    // The home's counter top once redrew the pharmacy counter's, and two branches each added a "firebrick".
+    const names = (JSON.parse(readFileSync(new URL('../data/blocks.json', import.meta.url), 'utf8')) as { blocks: { name: string }[] }).blocks.map((b) => b.name);
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+    const drawn = [...readFileSync(new URL('../src/render/textures.ts', import.meta.url), 'utf8').matchAll(/^DRAW\.(\w+) = /gm)].map((m) => m[1]);
+    expect(drawn.filter((n, i) => drawn.indexOf(n) !== i)).toEqual([]);
+  });
+
   it('every box of every block names a texture that is drawn', () => {
     for (const d of BLOCK_DEFS) for (const t of d.boxTex ?? []) {
       if (!t) continue;
