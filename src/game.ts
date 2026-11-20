@@ -9,7 +9,7 @@ import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { WATER, FALLING_WATER, BLOCK_DEFS, blockName } from './world/blocks.ts';
-import { Inventory, type Stack } from './sim/inventory.ts';
+import { Inventory, HAND, type Stack } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationAt, type Station } from './sim/crafting.ts';
@@ -1839,6 +1839,8 @@ export class Game {
       if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
       if (!this.playing) return;
       if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
+      // The key left of 1 (` on most keyboards; § on a Mac's international one) is the bare hand.
+      if (e.code === 'Backquote' || e.code === 'IntlBackslash') this.hotbar.select(HAND);
       if (e.code === 'KeyQ') this.toggleFocus();
       if (e.code === 'KeyH' && !e.repeat) {
         // Not an escape from the Ashen: with one hunting you close by, H does nothing (docs/PHASE7.md).

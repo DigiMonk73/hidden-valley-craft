@@ -9,6 +9,11 @@ export interface Stack { id: number; count: number; wear?: number }
 export const HOTBAR = 9;
 export const BASE_SLOTS = 36;
 export const BACKPACK_SLOTS = 45;
+/**
+ * The bare hand: a place on the hotbar left of slot 1 that never holds anything, so an empty hand (to drink,
+ * pick coffee, catch a chicken) is always one key away with a full pack (the owner, 2026-11-20).
+ */
+export const HAND = -1;
 
 export class Inventory {
   slots: (Stack | null)[];
@@ -48,9 +53,10 @@ export class Inventory {
     this.slots[empty] = s;
     return null;
   }
-  get current(): Stack | null { return this.slots[this.selected]; }
+  get current(): Stack | null { return this.selected === HAND ? null : this.slots[this.selected]; }
 
-  select(i: number): void { this.selected = ((i % HOTBAR) + HOTBAR) % HOTBAR; }
+  /** Picks a hotbar place: HAND, or a slot 0–8. Stepping past either end comes round through the hand. */
+  select(i: number): void { const n = HOTBAR + 1; this.selected = ((((i + 1) % n) + n) % n) - 1; }
 
   /** Opens the backpack's extra row. */
   grow(size: number): void { while (this.slots.length < size) this.slots.push(null); }
@@ -132,7 +138,7 @@ export class Inventory {
       const name = ITEM_ALIASES[s.name] ?? s.name;
       try { inv.slots[i] = { id: itemId(name), count: Math.min(maxStack(itemId(name)), s.count), ...(s.wear ? { wear: s.wear } : {}) }; } catch { /* an item that no longer exists */ }
     });
-    inv.selected = ((Math.floor(selected) % HOTBAR) + HOTBAR) % HOTBAR || 0;
+    inv.selected = selected === HAND ? HAND : ((Math.floor(selected) % HOTBAR) + HOTBAR) % HOTBAR || 0;
     return inv;
   }
 }

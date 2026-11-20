@@ -161,7 +161,7 @@ export function normaliseSave(raw: unknown): SaveData | null {
       x: clamp(p.x, 0.5, WORLD_X - 0.5), y: clamp(p.y, 1, WORLD_Y + 16), z: clamp(p.z, 0.5, WORLD_Z - 0.5),
       yaw: num(p.yaw, 0), pitch: clamp(num(p.pitch, 0), -1.55, 1.55), flying: p.flying === true,
     },
-    hotbar, spill, selected: int(d.selected, 0, 8, 0), palette, edits, containers,
+    hotbar, spill, selected: int(d.selected, -1, 8, 0) /* -1: the bare hand */, palette, edits, containers,
     vitals: { hp: clamp(num(v.hp, 100), 0, 100), hunger: clamp(num(v.hunger, 100), 0, 100), thirst: clamp(num(v.thirst, 100), 0, 100) },
     spawn: s
       ? { x: clamp(s.x as number, 0.5, WORLD_X - 0.5), y: clamp(s.y as number, 1, WORLD_Y), z: clamp(s.z as number, 0.5, WORLD_Z - 0.5), yaw: num(s.yaw, 0) }

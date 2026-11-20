@@ -7,7 +7,7 @@
   ],
   "goals": [
     { "flag": "ate", "text": "You are hungry. Choose the tinned food (keys 1–9 or the wheel) and right-click to eat" },
-    { "flag": "drank", "text": "You are thirsty. Choose the water jug and right-click to drink (or right-click any water with an empty hand)" },
+    { "flag": "drank", "text": "You are thirsty. Choose the water jug and right-click to drink (or right-click any water with an empty hand: the key left of 1)" },
     { "flag": "journal_read", "text": "Read the builder’s journal: right-click the bookshelves in the cave behind you" },
     { "flag": "armory_found", "text": "Find the armory: the chest in the vault, through the hall at the back of the cave" },
     { "flag": "slept", "text": "Sleep in the builder’s bed, through the double door on the cave’s south side (from five in the evening): you wake there from then on" },
@@ -15,7 +15,7 @@
   ],
   "hints": {
     "hungry": "Hungry. Put food in your hand (keys 1–9 or the wheel) and right-click to eat. There is more in the pantry, and the garden grows it.",
-    "thirsty": "Thirsty. Right-click any water with an empty hand, or drink from a jug in your hand.",
+    "thirsty": "Thirsty. Right-click any water with an empty hand (the key left of 1), or drink from a jug in your hand.",
     "safeWrong": "Not that. The builder wrote the day down in his journal: four digits, the month first.",
     "noSky": "This array is under rock or a roof: it makes nothing. Set it under open sky, at home.",
     "smoker": "A smoker. Put raw meat in it (right-click): by the next watch of the day it is smoked, and keeps.",
