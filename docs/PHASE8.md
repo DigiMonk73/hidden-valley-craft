@@ -83,7 +83,7 @@ Each step is committed with its tests and marked DONE under "Progress".
 - **The tower is built of blocks, 60 m high** (it was a 64 m drawing in the sky). From far off the same frame is still drawn as a thin shape; within 150 m only the blocks are.
 - **The land east of the gorge, the reservoir and its shores, the dam and everything on the avenue are unchanged.** West of the gorge only the massif and the ridge road's corridor change. Pinned by fixtures (below).
 - **Dose past 100 comes off your health, one for one.** Until now the dose stopped at 100 and never killed. *Why:* the brief's danger 7 "kills a careless player in minutes", and one rule is easier to read than two. It holds in Zone-2's rings too: stand 35 s in the van's heart and it starts to hurt; one step out and it stops. The cap on health (100 − 0.6 × dose, never under 40) stays.
-- **The suit is carried, like armour.** A hazard suit in the pack is worn. It lets a twentieth of the dose through, in Zone-2 as well.
+- **The suit is carried, like armour.** A hazard suit in the pack is worn. It lets a fortieth of the dose through, in Zone-2 as well.
 - **No new enemy; two Ashen.** They keep the relay station's battery hall, walled off from the lit half, by Phase 7's rules. Nothing needed is in there.
 - **Ray's meeting is the suit's reward, not its gate.** Ray tells you how to make the suit by phone. Once you carry one he will meet you at the hut, once, by day. He gives the satellite modem: the dam's old telemetry link and its keys, which no drawing can give.
 - **The telescope is true.** Looking through it is a real 12× look from where it stands, with a label when a known thing is in the cross-hairs. From the balcony the valley's rim hides the tower and the dam (the rim stands 10° up; the tower's top 4°). So from the balcony it shows the falls, the moon and the satellites' train; carried up to the rim it shows the tower and the dam. *Why not a fixed picture of the tower:* a view that could not be true from where you stand is the one thing a block game should not fake.
@@ -103,7 +103,7 @@ Each step is committed with its tests and marked DONE under "Progress".
 | **The edge** | 484 m from (200, 200); x = gorge − 60 on the east | A warning sign every 16 m along the whole line, facing out. Inside it: dead ground, bare trunks, no plants. |
 | **The pass** | (462, 490), height 109 | Two knolls 14 m high either side. Clean ground: a circle of 13 m round (464, 480), marked with green boards, grass, one living tree. |
 | **The refuge hut** | x 466–472, z 474–480 | Stone and timber, one room, a door on the road. A stove (it cooks), a table and bench, a bedroll, a crate (food, water, tablets, bandages), the wardens' log (a note). A lantern inside and out. |
-| **The sump** | (418, 430), ring 22 m | A hollow 9 m deep that falls evenly from the road's edge, so the pond is seen from the road: black sludge 14 m across, yellow waste drums, a ring of signs and tape posts. The hottest ground: 60 a second at its heart without a suit. |
+| **The sump** | (418, 430), ring 22 m | A hollow 9 m deep that falls evenly from the road's edge, so the pond is seen from the road: black sludge 14 m across, yellow waste drums, a ring of signs and tape posts. The hottest ground: 120 a second at its heart without a suit. |
 | **The observatory** | (440, 388), a drum 11 m across | A concrete drum and a white dome with a slit toward the road, the telescope's tube out through it. Inside, lit: the telescope on its pier (mine it for the optics), a desk with the observers' last page (a note), a crate (glass, wiring). The door faces the road. |
 | **The tower's yard** | x 348–385, z 368–403, height 127 | Gravel, lamps. The tower at (360, 380): four legs, braced, 60 m, a red beacon at the top and one halfway. The fallen dish: three panels (mine each for an antenna section). |
 | **The relay station** | x 352–373, z 392–401 | Lit half (east, the door on the yard): six equipment racks (mine each for rare components), the spares crate (wiring, fittings, cells, tablets, one more antenna section), the field pharmacy manual on its shelf (read it: the medical bench and the distiller), solar panels on the roof. Dark half (west, its own open bay in the west wall, a baffle wall inside so no daylight reaches the far end): the battery hall, two Ashen. |
@@ -124,14 +124,14 @@ Each step is committed with its tests and marked DONE under "Progress".
 | Where | Without a suit | In the suit |
 |---|---|---|
 | The pass's clean ground; everywhere outside the line of signs | 0 | 0 |
-| Indoors (the station, the observatory) | 2 | 0.1 |
-| On the road, the yard, the observatory's step | 6 | 0.3 |
-| Off the road (it climbs from the road's edge over 8 m) | 20 | 1 |
-| The sump: its ring to its heart | 20–60 | 1–3 |
+| Indoors (the station, the observatory) | 4 | 0.1 |
+| On the road, the yard, the observatory's step | 12 | 0.3 |
+| Off the road (it climbs from the road's edge over 8 m) | 40 | 1 |
+| The sump: its ring to its heart | 40–120 | 1–3 |
 | The first 20 m inside the line of signs | 30% of the above, climbing | |
 
 - **The limit is 100.** Dose past it comes off health, one for one. Health is capped at 100 − 0.6 × dose (never under 40), as before. The dose fades by 4 a game day, as before.
-- **Without a suit** the road gives 6 a second: the limit 17 s past the gate, death some 7 s after. The hut is 25 s away at a walk. So the gate is a wall, and the meter says so: "No suit · limit in 0:17".
+- **Without a suit** the road gives 12 a second: the limit ten seconds past the signs, death three seconds after. The hut's clean ground is 80 m in: 20 s at a walk, 14 at a run. Nobody reaches it; a unit test walks and runs it. So the gate is a wall, and the meter says so in red ("NO SUIT · limit in 0:08"). The first 20 m inside the signs are weaker, so a few steps in and back out cost a third of the limit, not a life. *Changed from the first draft:* at half this strength (and a suit that let a twentieth through) a runner reached the hut alive with a dose of 100 and 30 health, stranded.
 - **In the suit**, walking the road: gate to hut 8, hut to tower 11. A careful trip there and back with the work indoors: about 45. Crossing the sump instead of going round: about 35 more, to save six seconds.
 - **The meter** shows the whole time you are in Zone-4 or have a dose: the dose, its rate ("+0.3/s"), "suit" or "no suit", and the time to the limit at this rate. The Geiger counter clicks by the rate, as in Zone-2.
 - **The hazard suit** (`hazard_suit`): workbench, canvas 4, scrap lead 4, glass 1, charcoal 2. The recipe shows once Ray has given his word (`suit_word`). Everything in it comes from Zones 1–3 and the kiln.

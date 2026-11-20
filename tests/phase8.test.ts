@@ -502,3 +502,129 @@ describe('Zone-4’s places, built and lit', () => {
     for (let z = O.z - 5; z <= O.z + 5; z += 2) for (let x = O.x - 5; x <= O.x + 5; x += 2) under(x, z, OF);
   });
 });
+
+// ---- Radiation, the suit and the tablets (docs/PHASE8.md, 2) ---------------------------------------------
+import {
+  stepDose, healthCap, clickRate, nearHotspot, doseRate, absorb, takeTablet, secondsToLimit, secondsToLive, meterLine, roadDose,
+  DOSE_MAX, SUIT_LETS, TABLET_DOSE, FADE_PER_DAY, EDGE_HEARD,
+} from '../src/sim/radiation.ts';
+
+describe('the dose, the suit and the tablets', () => {
+  const WALK = 4, SPRINT = 5.6;
+  const gateS = ridgeRoadAt(Z.gate.x, Z.gate.z).s, passS = ridgeRoadMark(Z.road.pass), endS = ridgeRoadLength();
+  /** Walks the road from s0 to s1 at `speed`, a tick at a time, as the game will: the dose and the health left. */
+  const walk = (s0: number, s1: number, speed: number, suited: boolean, dose = 0, hp = 100) => {
+    const dt = 1 / 20, dir = Math.sign(s1 - s0);
+    for (let s = s0; dir * (s1 - s) > 0 && hp > 0; s += dir * speed * dt) {
+      const r = absorb(dose, ...ridgeRoadPoint(s), dt, suited);
+      dose = r.dose; hp = Math.min(hp - r.harm, healthCap(dose));
+    }
+    return { dose, hp };
+  };
+
+  it('lets a fortieth through the suit, everywhere: on the ridge and in Zone-2’s rings', () => {
+    expect(SUIT_LETS).toBe(0.025);
+    const [x, z] = ridgeRoadPoint(passS + 60);
+    expect(doseRate(x, z, false)).toBeCloseTo(Z.rates.road);
+    expect(doseRate(x, z, true)).toBeCloseTo(Z.rates.road / 40);
+    const h = ZONE2.hotspots[0];
+    expect(doseRate(h.x, h.z, true)).toBeCloseTo(doseRate(h.x, h.z, false) / 40);
+    expect(doseRate(Z.clean.x, Z.clean.z, false)).toBe(0);
+  });
+
+  it('stops the dose at 100 and takes the rest from health, one for one', () => {
+    const [x, z] = ridgeRoadPoint(passS + 60);
+    expect(absorb(20, x, z, 5, false)).toEqual({ dose: 80, harm: 0 });
+    const over = absorb(90, x, z, 5, false);
+    expect(over.dose).toBe(DOSE_MAX);
+    expect(over.harm).toBeCloseTo(50);
+    expect(absorb(100, x, z, 2, false).harm).toBeCloseTo(24);
+    // Out of the ground's reach nothing more is taken, at the limit or under it.
+    expect(absorb(100, Z.clean.x, Z.clean.z, 60, false)).toEqual({ dose: 100, harm: 0 });
+    expect(absorb(100, 1700, 1024, 60, false).harm).toBe(0);
+    // It fades on the game's clock as before, and the old step agrees with the new one under the limit.
+    expect(absorb(40, 1700, 1024, 0, false, 24).dose).toBeCloseTo(40 - FADE_PER_DAY);
+    expect(absorb(10, x, z, 3, false).dose).toBeCloseTo(stepDose(10, x, z, 3, 0));
+  });
+
+  it('holds in Zone-2’s rings too: thirty-odd seconds in the van’s heart, then it hurts; one step out and it stops', () => {
+    const h = ZONE2.hotspots[0];
+    let dose = 0, harm = 0, t = 0;
+    while (harm === 0 && t < 120) { const r = absorb(dose, h.x, h.z, 0.5, false); dose = r.dose; harm = r.harm; t += 0.5; }
+    expect(t).toBeGreaterThan(28);
+    expect(t).toBeLessThan(40);
+    expect(absorb(100, h.x + h.r + 1, h.z, 10, false).harm).toBe(0);
+  });
+
+  it('makes the gate a wall without a suit: nobody reaches the hut’s clean ground alive, walking or running, fed and whole', () => {
+    // (At half the strength a runner reached the hut with 30 health and a dose of 100: alive, and stranded.)
+    expect(walk(gateS, passS - Z.clean.r, WALK, false).hp).toBeLessThanOrEqual(0);
+    expect(walk(gateS, passS - Z.clean.r, SPRINT, false).hp).toBeLessThanOrEqual(0);
+    // But the first steps past the signs can be taken back: ten metres in and out again leaves a walker alive.
+    const edge = (() => { for (let s = 0; s < endS; s++) if (inFallout(...ridgeRoadPoint(s))) return s; return 0; })();
+    const inAndOut = walk(edge + 10, edge, WALK, false, walk(edge, edge + 10, WALK, false).dose, 100);
+    expect(inAndOut.hp).toBeGreaterThan(60);
+    expect(inAndOut.dose).toBeLessThan(40);
+  });
+
+  it('lets a suited walker reach the tower and come home with a dose under 45 by the road alone', () => {
+    const up = walk(gateS, endS, WALK, true);
+    expect(up.hp).toBe(healthCap(up.dose));
+    expect(up.dose).toBeGreaterThan(15);
+    expect(up.dose).toBeLessThan(22);
+    const home = walk(endS, gateS, WALK, true, up.dose, up.hp);
+    expect(home.dose).toBeLessThan(45);
+    expect(home.hp).toBeGreaterThan(70);
+    // The plan's numbers: the gate to the hut about 8, the hut to the tower about 11.
+    expect(roadDose(gateS, passS, true)).toBeGreaterThan(6);
+    expect(roadDose(gateS, passS, true)).toBeLessThan(9);
+    expect(roadDose(passS, endS, true)).toBeGreaterThan(9);
+    expect(roadDose(passS, endS, true)).toBeLessThan(13);
+    expect(roadDose(endS, passS, true)).toBeCloseTo(roadDose(passS, endS, true));
+    expect(roadDose(0, gateS, false)).toBe(0);
+  });
+
+  it('binds thirty with a tablet, never under nothing; the cap on health follows the dose', () => {
+    expect(TABLET_DOSE).toBe(30);
+    expect(takeTablet(80)).toBe(50);
+    expect(takeTablet(12)).toBe(0);
+    expect(healthCap(takeTablet(100))).toBeGreaterThan(healthCap(100));
+    expect(healthCap(100)).toBe(40);
+  });
+
+  it('says how long there is: to the limit, and to live', () => {
+    expect(secondsToLimit(0, Z.rates.road)).toBeCloseTo(100 / 12);
+    expect(secondsToLimit(100, 6)).toBe(0);
+    expect(secondsToLimit(50, 0)).toBe(Infinity);
+    // Without a suit on the road: the limit in about 8 s, and the 40 health the limit leaves gone 3 s later.
+    expect(secondsToLive(0, 100, Z.rates.road)).toBeCloseTo(100 / 12 + 40 / 12);
+    expect(secondsToLive(100, 12, 6)).toBeCloseTo(2);
+    expect(secondsToLive(10, 100, 0)).toBe(Infinity);
+  });
+
+  it('writes the meter’s line: the rate, the suit, the time to the limit; an alarm without a suit or under a minute', () => {
+    expect(meterLine(20, 0, true)).toEqual({ text: '', alarm: false });
+    expect(meterLine(0, 6, false)).toEqual({ text: '+6/s · NO SUIT · limit in 0:16', alarm: true });
+    expect(meterLine(10, 0.3, true)).toEqual({ text: '+0.3/s · suit · limit in 5:00', alarm: false });
+    expect(meterLine(90, 0.3, true).alarm).toBe(true);
+    expect(meterLine(100, 3, true).text).toContain('at the limit');
+    expect(meterLine(100, 3, true).alarm).toBe(true);
+  });
+
+  it('ticks the counter by the ground’s rate, from ten metres outside the signs, and leaves Zone-2’s rings as they clicked', () => {
+    const edge = (() => { for (let s = 0; s < endS; s++) if (inFallout(...ridgeRoadPoint(s))) return s; return 0; })();
+    expect(clickRate(...ridgeRoadPoint(edge - EDGE_HEARD - 3))).toBe(0);
+    expect(clickRate(...ridgeRoadPoint(edge - 4))).toBeGreaterThan(0);
+    expect(clickRate(...ridgeRoadPoint(edge - 4))).toBeLessThan(0.2);
+    const road = clickRate(...ridgeRoadPoint(passS + 60));
+    expect(road).toBeGreaterThan(0.3);
+    expect(clickRate(300, 300)).toBeGreaterThan(road);
+    expect(road).toBeLessThan(0.7);
+    expect(clickRate(Z.sump.x, Z.sump.z)).toBe(1);
+    expect(clickRate(Z.clean.x, Z.clean.z)).toBe(0); // the hut is quiet
+    expect(nearHotspot(...ridgeRoadPoint(edge - 4))).toBe(true);
+    const h = ZONE2.hotspots[0];
+    expect(clickRate(h.x, h.z)).toBeCloseTo(0.4 + h.rate / 5 > 1 ? 1 : 0.4 + h.rate / 5);
+    expect(clickRate(1700, 1024)).toBe(0);
+  });
+});

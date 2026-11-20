@@ -275,7 +275,7 @@ export const ZONE4 = {
    * The straight line from the pass to the tower crosses it; the road goes round. The hollow falls evenly from
    * `reach` (the road's edge) to the pond, so the pond is seen from the road.
    */
-  sump: { x: 418, z: 430, r: 22, pond: 7, depth: 9, reach: 27, rate: 60 },
+  sump: { x: 418, z: 430, r: 22, pond: 7, depth: 9, reach: 27, rate: 120 },
   /** The observatory: a small dome on a knoll beside the road, its door (west) toward it. */
   observatory: { x: 440, z: 388, r: 5, knoll: 5 },
   /** The tower's yard: level ground round the tower's feet and the relay station. */
@@ -295,8 +295,8 @@ export const ZONE4 = {
    * The dose a second without a suit: off the road, on it (asphalt sheds what soil and dead wood hold),
    * and indoors. The suit lets `suit` of it through.
    */
-  rates: { off: 20, road: 6, indoors: 2 },
-  suit: 0.05,
+  rates: { off: 40, road: 12, indoors: 4 },
+  suit: 0.025,
 };
 
 /**
