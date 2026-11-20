@@ -4,7 +4,9 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 ## Resume here (second session, on Opus 5.5, begun 2026-11-20)
 
-**Where it stands.** Everything in the brief is built, committed and pushed: steps 1–8, the generator version, Track A merged in, the headlamp's light, the banana bunch, and two fresh reviews' findings (each fixed with a test that fails on the old code, or answered with evidence). The final tree is `c072d92`: 1,046 unit tests pass, none skipped; `npx tsc --noEmit` is clean. Browser checks on it: the play-through's six parts are running (the valley part had passed on `bbfbac7` before the second review's three small fixes); then `saves.mjs`, `engine.mjs` (and `MINUTES=5 PARTS=sandbox`), `capture.mjs`; then the report to the lead.
+**Where it stands: done, reported to the new lead.** Everything in the brief is built, committed and pushed: steps 1–8 (8 in part, with reasons), the generator version, Track A merged in, the headlamp's light, the banana bunch, and two fresh reviews (ten findings: seven fixed with tests that fail on the old code, three answered with evidence).
+
+**Checks.** On `c072d92` (the final code before `main`'s last merge): 1,046 unit tests; the play-through's six parts **223 of 223** (valley 45, near 25, mid 21, Zone-2 35, Zone-3 44, Zone-4 53); `saves.mjs` **16 of 16**; `engine.mjs` **38 of 38** (headlamp: mean brightness at midnight 38.5 without, 87.3 with; noon unchanged) and with `MINUTES=5 PARTS=sandbox` **9 of 9** (five minutes of the game's clock in a sandboxed frame, nothing failed); `capture.mjs` **15 of 15**. Then `origin/main` merged once more (the new lead's garden tweak, `2cc5058`, in `src/game.ts` and `src/sim/farming.ts`: no conflict; picking comes before its new words in the right-click chain): **1,050 unit tests**, `tsc` clean, and the valley part of the play-through again on the merged build (the garden's part): see the report.
 
 **Who gets the report:** a new lead session owns `main` and the published page since 2026-11-20 18:25 (`session_01EXF2m7f6xMYiFcWXyCnS3G`); the final report goes there (send_message). Before it, merge `origin/main` once more: the new lead may tweak `main` from the owner's play.
 
@@ -14,8 +16,8 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 1. DONE: the fresh review's findings.
 2. DONE: Track A merged in (`origin/main` at 05f4160); the land east of the gorge differs from version 13's in the seven mended columns only (all 2,752 hashed); step 8; the headlamp's light; the banana bunch.
-3. **Now: the checks, once, on the final tree:** `npx tsc --noEmit`, `npm test`, all six play-through parts (`npx vite preview --port 4173 --strictPort`, then `node tests/e2e/play.mjs`), `node tests/e2e/saves.mjs`, `node tests/e2e/engine.mjs` (and once `MINUTES=5 PARTS=sandbox`), `node tests/e2e/capture.mjs`. Never vitest and the browser together. None of the browser checks has been run on this branch since save version 5; notes on what may need a look: the parts set scenes by hand and none reads the bookshelf (add `books_read` to a scene's flags if a part needs the workshop's recipes); the water filter costs 6 health a drink outside with an empty hand.
-4. **Report:** this page and docs/STATUS.md, push, message the lead (under 40 lines).
+3. DONE: **the checks, once, on the final tree:** `npx tsc --noEmit`, `npm test`, all six play-through parts (`npx vite preview --port 4173 --strictPort`, then `node tests/e2e/play.mjs`), `node tests/e2e/saves.mjs`, `node tests/e2e/engine.mjs` (and once `MINUTES=5 PARTS=sandbox`), `node tests/e2e/capture.mjs`. Never vitest and the browser together. None of the browser checks has been run on this branch since save version 5; notes on what may need a look: the parts set scenes by hand and none reads the bookshelf (add `books_read` to a scene's flags if a part needs the workshop's recipes); the water filter costs 6 health a drink outside with an empty hand.
+4. **Report:** this page and docs/STATUS.md, push, message the new lead (under 40 lines).
 
 **At the merge with Track A, expect and keep** (the lead's message, 13:28):
 
