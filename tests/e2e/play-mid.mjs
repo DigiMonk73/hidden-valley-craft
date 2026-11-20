@@ -6,8 +6,8 @@ import { start } from './lib.mjs';
 
 const { page, g, check, idle, ensureLook, keepAlive, useAt, closeScreens, P, flags, LONG, standAt, walkTo, waitFlag, aimAt, hold, raiders, finish } = await start();
 
-// The rifle from the armory and its rounds (part 1 takes them).
-await g(() => { const h = window.__hv.game.hotbar, id = window.__hv.itemId; h.add(id('hunting_rifle'), 1); h.add(id('rifle_rounds'), 20); });
+// The rifle from the armory and its rounds (part 1 takes them). M1 is done (part 2 checks it): M2's recipes, the forge among them, need it.
+await g(() => { const gm = window.__hv.game, h = gm.hotbar, id = window.__hv.itemId; h.add(id('hunting_rifle'), 1); h.add(id('rifle_rounds'), 20); gm.flags.add('m1_done'); });
 
 const O = P.ZONE1FAR.outpost;
 

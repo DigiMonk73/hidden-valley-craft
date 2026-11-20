@@ -35,12 +35,15 @@ if (q.has('cam')) {
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ui = document.getElementById('ui') as HTMLElement;
 
-function fail(err: unknown): void {
+function fail(err: unknown, started = false): void {
   console.error(err);
   ui.innerHTML = '';
   const box = document.createElement('div');
   box.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;pointer-events:auto';
-  box.textContent = `Hidden Valley couldn't start here: ${err instanceof Error ? err.message : String(err)}. It needs a browser with WebGL 2 (current Chrome, Safari, Firefox or Edge).`;
+  const why = err instanceof Error ? err.message : String(err);
+  box.textContent = started
+    ? `Hidden Valley couldn't finish starting: ${why}. Reload the page to try again. Your saved valley has not been touched.`
+    : `Hidden Valley couldn't start here: ${why}. It needs a browser with WebGL 2 (current Chrome, Safari, Firefox or Edge).`;
   ui.appendChild(box);
 }
 
@@ -52,7 +55,7 @@ const hot = (window as unknown as { claude?: { hot?: Hot } }).claude?.hot;
 function start(data: unknown): void {
   try {
     const d = data as SaveData | undefined;
-    if (d && d.format === SAVE_FORMAT) opts.handover = d;
+    if (d && d.format === SAVE_FORMAT) opts.handover = d; // checked and made whole in boot, like any save
     const game = new Game(canvas, ui, opts);
     (window as unknown as { __hv: unknown }).__hv = {
       game,
@@ -61,6 +64,15 @@ function start(data: unknown): void {
       blockId: (name: string) => blockId(name),
       setCamera: (x: number, y: number, z: number, yaw: number, pitch: number) => game.setCamera(x, y, z, yaw, pitch),
       setHour: (h: number) => { game.hour = h; },
+      /**
+       * The test path (docs/FIXES.md, N2). The play-through and the screenshot tool fly, hold endless blocks and set
+       * the hour through here or straight on `game`, in any mode; the player's keys for these exist only in Builder's mode.
+       */
+      test: {
+        fly: (on: boolean) => { game.player.flying = on; },
+        endless: (on: boolean) => { game.hotbar.creative = on; },
+        hour: (h: number) => { game.hour = h; },
+      },
       spawn: (kind: Kind, x: number, z: number) => game.spawnCreature(kind, x, z),
       /** Zone-1's places (docs/PHASE4.md, docs/PHASE5.md), for setting scenes. */
       places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE,
@@ -70,21 +82,22 @@ function start(data: unknown): void {
       /** Puts the outpost's living raiders at their posts now (screenshots and checks run with spawning off). */
       manOutpost: () => {
         const w = game.wild, p = game.player;
-        const made = manOutpost(w.creatures, w.outpost, p.x, p.z, () => true);
+        const made = manOutpost(w.creatures, w.outpost, p.x, p.z, () => true, (bx, by, bz) => game.world.blockAt(bx, by, bz));
         w.creatures.push(...made);
         return made.length;
       },
       /** Puts Zone-3's Ashen in their nests now (and, by day the first time, one out in the road): for screenshots and checks with spawning off. */
       manAshen: (night = false) => {
         const w = game.wild, p = game.player;
-        const made = manAshen(w.creatures, w.ashen, p.x, p.z, night, () => true, (x, y, z) => floorNear(x, y, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)));
+        const made = manAshen(w.creatures, w.ashen, p.x, p.z, night, () => true, (x, y, z) => floorNear(x, y, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)), (bx, by, bz) => game.world.blockAt(bx, by, bz));
         w.creatures.push(...made);
         return made.length;
       },
       /** Starts the jaguar's crossing of the camp's clearing. */
       jaguar: () => {
-        const j = makeJaguar((x, z) => groundAt(x, z, (bx, by, bz) => game.world.blockAt(bx, by, bz)));
-        return j && game.wild.add(j) ? j : null;
+        const blockAt = (bx: number, by: number, bz: number) => game.world.blockAt(bx, by, bz);
+        const j = makeJaguar((x, z) => groundAt(x, z, blockAt), blockAt);
+        return j && game.wild.add(j, blockAt) ? j : null;
       },
       /** The home's layout (docs/HOME.md), for the play-through. */
       HOME, HOME_FIT,
@@ -102,8 +115,9 @@ function start(data: unknown): void {
         return n;
       },
     };
-    try { hot?.snapshot?.(() => game.snapshot()); } catch { /* an older viewer without hand-over */ }
-    game.boot().catch(fail);
+    // Nothing is handed on until a valley has been opened: a blank game must never replace a real one.
+    try { hot?.snapshot?.(() => game.handover()); } catch { /* an older viewer without hand-over */ }
+    game.boot().catch((e) => fail(e, true));
   } catch (e) {
     fail(e);
   }

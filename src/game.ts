@@ -9,7 +9,7 @@ import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { WATER, FALLING_WATER, BLOCK_DEFS, blockName } from './world/blocks.ts';
-import { Inventory } from './sim/inventory.ts';
+import { Inventory, type Stack } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationAt, type Station } from './sim/crafting.ts';
@@ -26,10 +26,17 @@ import { itemId, foodOf } from './world/items.ts';
 import { BACKPACK_SLOTS } from './sim/inventory.ts';
 import { Sound, materialOf } from './audio/audio.ts';
 import { Look } from './platform/look.ts';
-import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
+import { openStore, pendingFor, type Store, type PendingIo } from './platform/storage.ts';
+import { tabLock } from './platform/tablock.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData } from './save/save.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData, type Slot, type Mode } from './save/save.ts';
+import { newSave, normaliseSave, START, BEGUN } from './save/state.ts';
+import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
+import { OPENING, HINTS, nextGoal } from './sim/guide.ts';
+import { isBow, isBlade, isWeapon, gunOf } from './sim/weapons.ts';
+import { MARCO, DOC, RAY, MARCO_HOURS, greetMarco, marcoTrade, greetDoc, docServices, greetRay, rayCatalog } from './game/people.ts';
+import { computerRows } from './game/computer.ts';
 import { HOME_FIT } from './gen/home.ts';
 import { HOME, HOME_GROUNDS, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS, WORLD_Y } from './world/constants.ts';
@@ -42,13 +49,10 @@ import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH,
 import { groundAt, FLOCK_SIZE } from './entity/spawner.ts';
 import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
-import { CATALOG, START_WALLET, buy, sell, sellPrice, sellable, btc } from './sim/trade.ts';
-import { M1_STEPS, trackM1, diedOutside } from './sim/milestones.ts';
+import { START_WALLET, btc } from './sim/trade.ts';
+import { trackM1, diedOutside, notWalkedHome } from './sim/milestones.ts';
 import { catchChicken, layEggs, hatchEggs, syncTameHens, takeHen, COOP, CATCH_REACH } from './sim/livestock.ts';
-import { itemLabel } from './world/items.ts';
-import { iconFor } from './ui/icons.ts';
 import { drawMapScrap } from './ui/mapView.ts';
-import people from '../data/people.json' with { type: 'json' };
 import { RAIDER_KINDS, FACTION_KINDS, isMan } from './entity/creatures.ts';
 import { factionDawn } from './entity/faction.ts';
 import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS, outpostFromSave } from './entity/outpost.ts';
@@ -57,24 +61,22 @@ import { Focus } from './sim/focus.ts';
 import { HomeKey } from './sim/home.ts';
 import { ZONE1FAR, ZONES } from './gen/layout.ts';
 import { OUTPOST_AT, CAMP_MARKER, DECK_END, RUSTED_TRAP } from './gen/zone1far.ts';
-import { M2_STEPS, trackM2 } from './sim/milestones.ts';
+import { trackM2 } from './sim/milestones.ts';
 import { smokeMeat, cureJerky, newWatch, learnLeghold, LEGHOLD_LESSON, LEGHOLD } from './sim/preserve.ts';
 import { pickApple, isFarmland, sows, NEW_CROPS } from './sim/farming.ts';
 import { itemName } from './world/items.ts';
 import { blockId } from './world/blocks.ts';
 import { ZONE2 } from './gen/layout.ts';
-import { M3_STEPS, trackM3, diedOutsideM3 } from './sim/milestones.ts';
-import { CATALOG_M3, DOC_PRICE } from './sim/trade.ts';
-import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
+import { trackM3, diedOutsideM3 } from './sim/milestones.ts';
+import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
 import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts';
 import { ZONE3, onDamCrest, onDamRoad, ravineX, highwayX } from './gen/layout.ts';
-import { M4_STEPS, trackM4, diedOutsideM4 } from './sim/milestones.ts';
-import { CATALOG_RAY, RAY_PLANS_PRICE } from './sim/trade.ts';
-import { turning, liveFromSave, HYDRO_KW } from './sim/power.ts';
+import { trackM4, diedOutsideM4 } from './sim/milestones.ts';
+import { turning, liveFromSave, HYDRO_KW, chillJugs } from './sim/power.ts';
+import { wakeFrom, settleWake } from './sim/wake.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
 
-const SAVE_KEY = 'save:1';
 const KILL_LINE: Record<Creature['kind'], string> = {
   rabbit: 'A rabbit: meat and a small hide', deer: 'A deer: venison, a hide and bone', boar: 'A wild boar: pork, a hide and bone', puma: 'The puma is dead. Its pelt is yours',
   dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '',
@@ -84,41 +86,33 @@ const KILL_LINE: Record<Creature['kind'], string> = {
   guard: 'The guard is down: his rounds are yours. The tower will be manned again at dawn.',
   ashen: 'It is down. It carries nothing, and you don’t touch it. Others drift in by dawn.',
 };
-/** Firearms: found, never crafted (ADR-019). Damage, seconds between shots, range, and what each fires. */
-const GUNS: Record<string, { damage: number; cooldown: number; range: number; ammo: string; sound: 'rifle' | 'pistol'; quiet?: boolean }> = {
-  hunting_rifle: { damage: 45, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
-  raider_rifle: { damage: 40, cooldown: 1.6, range: 120, ammo: 'rifle_rounds', sound: 'rifle' },
-  pistol: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol' },
-  // M4's mods, made at the lathe from found guns (docs/PHASE7.md): the suppressed pistol is heard only close by.
-  pistol_suppressed: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol', quiet: true },
-  rifle_rebuilt: { damage: 48, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
-};
 /** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
 const ASHEN_HOLDS_H = 30;
 /** What a running Ashen kicks up. */
 const ASH_DUST = blockId('pale_stain');
-const BOWS = new Set(['compound_bow', 'hunting_bow']);
-const BLADES = new Set(['hunting_knife', 'machete', 'spear']);
-const isBow = (id: number | undefined) => id !== undefined && BOWS.has(itemName(id));
-const isWeapon = (id: number | undefined) => id !== undefined && (BOWS.has(itemName(id)) || itemName(id) in GUNS);
-const MARCO = people.marco;
-const DOC = people.doc;
-const RAY = people.ray;
-/** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
-const MARCO_HOURS: [number, number] = [7, 18];
+/** The least hunger and thirst you wake with after a death in the valley. */
+export const WAKE_FLOOR = 15;
 const SETTINGS_KEY = 'settings';
 const REACH = 5;
 const STEP = 1 / 60;
 /** Said when the stored valley is from before the home was rebuilt (docs/HOME.md). */
-export const EARLIER_BUILD = 'This valley was made by an earlier build. A fresh one has been started.';
-const SPAWN = { x: HOME.wallX - 3.5, y: HOME.floor, z: 1024.5, yaw: Math.PI / 2, pitch: -0.06 };
+export const EARLIER_BUILD = NOTES.earlier;
+const SPAWN = START;
+/** Said when the browser's main storage held the valley last time and could not be opened now. */
+export const DEGRADED = 'This browser’s storage did not open just now, so your saved valley can’t be reached. Nothing has been lost: reload the page to try again. What you do meanwhile is kept apart and will not replace it.';
+/** Said in a second tab while a first one has the valley open. */
+export const SECOND_TAB = 'Hidden Valley is already open in another tab or window. Play there, or close it: this one will then open your valley.';
+const stackSlot = (s: Stack): Slot => ({ name: itemName(s.id), count: s.count, ...(s.wear ? { wear: s.wear } : {}) });
 
 export interface BootOptions {
   hour?: number;
   cam?: [number, number, number, number, number];
   renderChunks?: number;
   test?: boolean; // deterministic: frozen time, no saving, no waving
-  handover?: SaveData; // state passed from the previous version of an open page
+  handover?: unknown; // state passed from the previous version of an open page (checked before use)
+  /** For tests: the storage to use, and where the close-time copy goes, instead of the browser's. */
+  store?: Store;
+  pending?: PendingIo;
   effects?: boolean; // particles in test mode
 }
 
@@ -138,6 +132,8 @@ export class Game {
   flags = new Set<string>();
   /** The hot wallet, in satoshis: what Marco is paid from and pays into (docs/PHASE4.md). */
   wallet = START_WALLET;
+  /** What Marco has paid out since dawn: he carries only so much (docs/FIXES.md, 6). */
+  marcoPaid = 0;
   /** Once a second: the places' toasts, M1, Marco's comings and goings. */
   private lastPlaces = -1;
   private lastExplore = -1;
@@ -163,7 +159,8 @@ export class Game {
   /** Holding H to head home (the lead, 2026-11-18), and when the player was last hurt (play time). */
   home = new HomeKey();
   private lastHurt = -Infinity;
-  private hpBefore = 100;
+  /** (Read and set by Doc's cure, in src/game/people.ts.) */
+  hpBefore = 100;
   /** Is the player sprinting this tick (a hen runs only from that)? */
   private sprinting = false;
   /** The deep band's stinger plays once a visit, when the body across the ravine comes into view. */
@@ -177,7 +174,7 @@ export class Game {
   private drawing: number | null = null;
   /** Power at home (docs/PHASE6.md): the banks' charge and the rig's earnings, and the devices found placed. */
   power: PowerState = newPower();
-  private devices: Devices = findDevices(new Map());
+  devices: Devices = findDevices(new Map());
   /** The game hour power was last run to (null: not yet, so nothing is back-dated). */
   private powerHour: number | null = null;
   /** The radiation dose, 0–100 (docs/PHASE6.md, 3). */
@@ -197,13 +194,32 @@ export class Game {
   private mining = { active: false, x: 0, y: 0, z: 0, progress: 0 };
   private target: RayHit | null = null;
   private playing = false;
-  /** The stored valley was from before the home was rebuilt, so a fresh one was started: said in the menu, and again when play begins. */
-  private startedFresh = false;
   /** A line to show when play begins (said before Play, under the menu, it is easily missed). */
   private sayAtPlay: string | null = null;
   private ready = false;
   /** A save was just loaded: once its land is in, check the player isn't inside rock. */
   private checkBuried = false;
+  /** A save has been applied (or a new valley begun): until then there is nothing to save or hand over. */
+  private booted = false;
+  /** Another tab has the valley open: this one neither plays nor saves until that one is gone. */
+  private secondTab = false;
+  private fromHandover = false;
+  /** A line about the save the player must see (it could not be read, the storage did not open): in the menu, and said once when play begins. */
+  private notice: string | null = null;
+  private noticeSaid = false;
+  /** What the pack could not hold when a save was made: put down in a sack once the land is in. */
+  private spill: Stack[] = [];
+  keeper!: Keeper;
+  private landFailSaid = false;
+  /** The opening has been shown for this valley (it is shown once, when play first begins in it). */
+  private introShown = false;
+  /**
+   * How this valley is played (docs/FIXES.md, N2): chosen before play first begins in it, saved, and fixed after.
+   * In Survival the keys for flying, endless blocks and the clock do nothing.
+   */
+  mode: Mode = 'survival';
+  /** Has the game been played since the last save? Position, health and the hour are saved even with no edit. */
+  private playedSince = false;
   private accumulator = 0;
   private last = 0;
   private time = 0;
@@ -215,8 +231,6 @@ export class Game {
   private lastEdit = 0;
   private saving = false;
   private lastFailure = -Infinity;
-  /** Bumped by every write; a slower save that finds it changed was overtaken and is dropped. */
-  private writeSeq = 0;
   private cachedCode: string | null = null;
   private sky: SkyState = skyAt(16.5);
   private downloads: Downloads | null = null;
@@ -259,6 +273,8 @@ export class Game {
       loadFile: () => void this.loadFromFile(),
       loadCode: (c) => void this.loadFromCode(c),
       newGame: () => void this.newGame(),
+      openBackup: () => void this.openBackup(),
+      pickMode: (m) => this.pickMode(m),
       setRenderDistance: (c) => this.setRenderDistance(c, true),
       setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
       setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
@@ -273,6 +289,13 @@ export class Game {
       if (m === 'off' && this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
       if (m === 'free') this.hud.toast('This page can’t capture the mouse here: move the mouse to look, or use the arrow keys.', 6000);
     };
+    // The browser can take the picture away and give it back (docs/REVIEW.md, N8): wait on the menu meanwhile.
+    this.renderer.onContextLost = () => {
+      if (this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
+      this.hud.notice('The picture was lost. It will come back in a moment…');
+    };
+    this.renderer.onContextRestored = () => this.hud.notice('The picture is back.', 4000);
+    this.renderer.onContextStuck = () => this.hud.notice('The picture has not come back. Save from the menu, then reload the page.');
     const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
     window.addEventListener('resize', resize);
     resize();
@@ -280,7 +303,9 @@ export class Game {
   }
 
   async boot(): Promise<void> {
-    this.store = await openStore();
+    this.store = this.opts.store ?? await openStore(() => this.hud.setLoadingText('Opening your save…'));
+    this.hud.setLoadingText('Building the valley…');
+    this.keeper = new Keeper(this.store, this.opts.pending ?? pendingFor(this.store.kind));
     await this.loadSettings();
     const workers = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
     this.exec = await createExecutor((j) => this.streamer.priority(j), workers);
@@ -289,34 +314,18 @@ export class Game {
     void this.exec.submit({ kind: 'far' }).then((r) => { if (r.kind === 'far') this.renderer.setFarLand(r.mesh); }, (e) => console.error('distant land failed', e));
     this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
 
-    let resumed = false;
-    const handed = this.opts.handover;
-    if (handed && !fromEarlierLayout(handed)) { this.applySave(handed); resumed = true; this.editCount++; }
-    else if (handed) this.startedFresh = true; // handed on by a page from before the home was rebuilt: a fresh valley
-    else if (!this.opts.test) {
-      // The stored save, or the copy written as the page last closed, whichever is newer.
-      const bytes = await this.store.get(SAVE_KEY);
-      const stored = bytes ? await decodeSave(bytes) : null;
-      const pendingBytes = readPending();
-      const pending = pendingBytes ? await decodeSave(pendingBytes) : null;
-      const newest = pending && (!stored || pending.savedAt > stored.savedAt) ? pending : stored;
-      // A valley from before the home was rebuilt is not opened: its chests, bed and rooms are elsewhere now.
-      const earlier = !!newest && fromEarlierLayout(newest);
-      const data = earlier ? null : newest;
-      if (earlier) this.startedFresh = true;
-      if (data) { this.applySave(data); resumed = true; }
-      if (data === pending && pending) this.editCount++; // still to be written to the main store
-      else clearPending();
+    // One tab plays a valley at a time.
+    if (!this.opts.test && (await tabLock('hidden-valley-blocks:play', () => void this.otherTabClosed())) === 'taken') {
+      this.secondTab = true;
+      this.hud.setBlocked(SECOND_TAB);
     }
-    if (!resumed) this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
-    if (!resumed) {
-      this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
-      this.player.yaw = SPAWN.yaw;
-      this.player.pitch = SPAWN.pitch;
-    }
-    if (this.opts.hour !== undefined) this.hour = this.opts.hour;
+    await this.openValley();
+    this.booted = true;
+    // The address's hour and camera are for checks and pictures: the hour only for tests or a valley not yet begun
+    // (on a begun one, "?hour=5.99" made every reload a new dawn), the camera only for tests (it flies).
+    if (this.opts.hour !== undefined && (this.opts.test || !this.flags.has(BEGUN))) this.hour = this.opts.hour;
     this.dayClock = this.hour;
-    if (this.opts.cam) {
+    if (this.opts.cam && this.opts.test) {
       const [x, y, z, yaw, pitch] = this.opts.cam;
       this.player.setPosition(x, y - EYE, z);
       this.player.yaw = yaw; this.player.pitch = pitch;
@@ -328,6 +337,70 @@ export class Game {
     else void claudeDownloads().then((d) => { this.downloads = d; this.hud.showDownload(!!d); });
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
+  }
+
+  /**
+   * Opens what the browser holds: the stored save, the copy made as the page last closed, or the backup; else a new
+   * valley. A hand-over from the page's previous version takes their place. Whatever is found, this ends with a
+   * valley applied and a working menu: a save that cannot be used is kept aside and said, never thrown.
+   */
+  private async openValley(): Promise<void> {
+    let opened: SaveData | null = null, unsaved = false;
+    const stored: { id: string | null; seq: number } = { id: null, seq: 0 };
+    this.notice = null;
+    if (!this.opts.test) {
+      try {
+        const r = await this.keeper.load();
+        opened = r.data; unsaved = r.unsaved; this.notice = r.note;
+        stored.id = r.storedId; stored.seq = r.storedSeq;
+      } catch (e) {
+        console.error('the stored save could not be opened', e);
+        this.notice = NOTES.fresh;
+      }
+    }
+    let handed = this.opts.handover ? normaliseSave(this.opts.handover) : null;
+    this.opts.handover = undefined;
+    // Handed on by a page from before the home was rebuilt: not opened, like any save from that layout.
+    if (handed && fromEarlierLayout(handed)) { handed = null; if (!opened && !this.notice) this.notice = EARLIER_BUILD; }
+    // A hand-over takes the stored save's place only as the same valley, written no earlier than the store's copy
+    // (or when the store holds nothing that can be read). Anything else is some other page's valley, or a stale one.
+    const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq));
+    if (handed && theirs && !this.keeper.stopped && !this.store.degraded) { opened = handed; unsaved = true; this.fromHandover = true; }
+    try {
+      this.applySave(opened ?? newSave(), !opened);
+    } catch (e) {
+      // The check in normaliseSave should make this impossible; if a save still cannot be applied, it must not stop the game.
+      console.error('the save could not be applied', e);
+      if (!this.opts.test) await this.keeper.setAside(await this.store.get(SAVE_KEY));
+      this.world.edits.clear();
+      this.world.containers.clear();
+      this.applySave(newSave(), true);
+      this.notice = NOTES.fresh;
+      unsaved = true;
+    }
+    if (this.store.degraded) this.notice = DEGRADED;
+    if (unsaved) this.editCount++;
+    this.savedCount = unsaved ? this.editCount - 1 : this.editCount;
+    this.noticeSaid = false;
+  }
+
+  /** The tab that had the valley open has gone: this one opens it as that one left it. */
+  private async otherTabClosed(): Promise<void> {
+    if (!this.secondTab) return;
+    while (!this.booted) await new Promise((r) => setTimeout(r, 50));
+    this.secondTab = false;
+    if (!this.fromHandover) {
+      this.streamer.reset();
+      this.world.edits.clear();
+      this.world.containers.clear();
+      await this.openValley();
+      this.ready = false;
+      this.hud.setLoading(0, 1);
+      this.hud.setLoadingVisible();
+    }
+    this.hud.setBlocked(null);
+    this.updateSaveStatus();
+    void this.refreshCode();
   }
 
   // ---- The loop ---------------------------------------------------------------------------
@@ -358,6 +431,7 @@ export class Game {
         // overhead, so the cave is the safe place, and it is the fallback anywhere the lift finds no room.
         if (this.checkBuried && !p.flying && !inHome && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
         this.checkBuried = false;
+        this.dropSpill();
         if (!this.opts.cam) this.settleIn();
         this.hud.setReady(false);
         if (this.opts.test) this.hud.showMenu(false);
@@ -376,7 +450,9 @@ export class Game {
         this.tick(STEP);
         this.accumulator -= STEP;
       }
-      if (!this.opts.test) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
+      // The day stands still while a screen is open, as the body does: a day spent in the pack used to cost no
+      // food, pay the rig in full and bring Marco a new purse while his trade stayed open.
+      if (!this.opts.test && !this.screen.isOpen && !this.paper.isOpen) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
     }
     // Each morning (or on waking), the hutches breed.
     if (newWatch(this.dayClock, this.hour) && smokeMeat(this.world)) this.edited();
@@ -386,6 +462,8 @@ export class Game {
       if (hatchEggs(this.world)) { this.hud.toast('A chick has hatched in the coop: one more hen.', 5000); this.edited(); }
       if (layEggs(this.world)) { this.flags.add('coop_laid'); this.edited(); }
       if (cureJerky(this.world)) this.edited();
+      // Marco's purse is whole again.
+      this.marcoPaid = 0;
       // Las Cruces sends out new men for any killed.
       factionDawn(this.wild.faction);
       // And others of the Ashen drift in for those put down.
@@ -426,8 +504,13 @@ export class Game {
     // Every frame, so turning F3 off hides the panel too (it used to stay up with its last text).
     this.hud.setDebug(this.hud.debugVisible ? this.debugText() : '');
 
+    // Land that could not be built after every retry: say so once, rather than leave a silent hole.
+    if (this.streamer.stats.failed && !this.landFailSaid) {
+      this.landFailSaid = true;
+      this.hud.notice('Part of the land could not be built here. Pause, use “Save now”, then reload the page.', 20000);
+    }
     // Save a couple of seconds after the player stops changing things, and at least once a minute.
-    if (this.playing && shouldAutosave({ unsaved: this.unsaved, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
+    if (this.playing && shouldAutosave({ unsaved: this.unsaved, played: this.playedSince, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
   }
 
   private tick(dt: number): void {
@@ -437,6 +520,8 @@ export class Game {
       return;
     }
     this.playTime += dt;
+    this.playedSince = true;
+    if (this.wakeHold) this.settleAtWake();
     const input = this.readInput();
     this.sprinting = input.sprint && (input.forward !== 0 || input.strafe !== 0);
     const p = this.player;
@@ -677,7 +762,7 @@ export class Game {
     this.lastBlow = this.playTime;
     // A blade on a raider who hasn't seen you: a silent takedown (docs/PHASE5.md).
     const held = this.hotbar.current?.id;
-    if (silentTakedown(hit.c, FACTION_KINDS.has(hit.c.kind) ? this.wild.faction : this.wild.outpost, held !== undefined && BLADES.has(itemName(held)))) {
+    if (silentTakedown(hit.c, FACTION_KINDS.has(hit.c.kind) ? this.wild.faction : this.wild.outpost, isBlade(held))) {
       this.sound.hit(hit.c.x, hit.c.y + 1, hit.c.z);
       hit.c.hp = 0;
       this.wild.remove(hit.c);
@@ -715,7 +800,7 @@ export class Game {
       this.sound.bowDraw();
       return true;
     }
-    const gun = GUNS[itemName(held)];
+    const gun = gunOf(held);
     if (gun) {
       if (this.playTime - this.lastShot < gun.cooldown) return true;
       if (!this.hotbar.remove(itemId(gun.ammo), 1)) { this.hud.toast(gun.ammo === 'pistol_rounds' ? 'No pistol rounds' : 'No rifle rounds'); return true; }
@@ -801,7 +886,7 @@ export class Game {
     this.drawing = null;
     this.fishing = null;
     this.mining.active = false;
-    if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you.'); return; }
+    if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you, but it does not feed you: eat and drink.', true); return; }
     diedOutside(this.flags);
     diedOutsideM3(this.flags);
     diedOutsideM4(this.flags);
@@ -831,15 +916,55 @@ export class Game {
     this.edited();
   }
 
-  /** You wake where you last slept (or on the balcony). */
-  private wakeAgain(line: string): void {
-    const s = this.spawn;
+  /**
+   * You wake where you last slept (or on the balcony). After a death in the valley (`asYouWere`) you wake as hungry
+   * and thirsty as you were, never below 15: dying at home used to be a free meal.
+   */
+  private wakeAgain(line: string, asYouWere = false): void {
+    const s = this.toWake();
     this.player.setPosition(s.x, s.y, s.z);
     this.player.yaw = s.yaw;
     this.player.pitch = 0;
     this.player.breath = 20;
-    this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, 50), thirst: Math.max(this.vitals.thirst, 50) };
+    const least = asYouWere ? WAKE_FLOOR : 50;
+    this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, least), thirst: Math.max(this.vitals.thirst, least) };
     this.hud.toast(line, 6000);
+    this.edited();
+  }
+
+  /**
+   * The place to wake or come home to (docs/FIXES.md, 3): where you last slept if that is still in the valley (a
+   * bed carried outside and slept in used to move it there), else the balcony. Once the land there is in,
+   * `settleAtWake` makes sure it can be stood on.
+   */
+  private toWake(): { x: number; y: number; z: number; yaw: number } {
+    const balcony = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    const s = wakeFrom(this.spawn, balcony);
+    if (s !== this.spawn) this.spawn = balcony;
+    this.wakeHold = { x: s.x, y: s.y, z: s.z, yaw: s.yaw };
+    return s;
+  }
+  /** Just woken or come home: held here until the land is in and the spot is checked. */
+  private wakeHold: { x: number; y: number; z: number; yaw: number } | null = null;
+
+  /**
+   * Blocks stacked on the wake point used to leave you inside them, and a shaft dug under it killed you over and
+   * over. Now you stand at the nearest place that will do, or on the balcony if nowhere near will.
+   */
+  private settleAtWake(): void {
+    const h = this.wakeHold, p = this.player;
+    if (!h) return;
+    if (!this.world.isLoaded(Math.floor(h.x), Math.floor(h.z))) { p.setPosition(h.x, h.y, h.z); p.vy = 0; return; } // wait for the land
+    this.wakeHold = null;
+    const balcony = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    const at = settleWake((x, y, z) => this.world.blockAt(x, y, z), h, balcony);
+    if (!at.moved) return;
+    p.setPosition(at.x, at.y, at.z);
+    p.vy = 0;
+    if (at.moved === 'balcony') {
+      this.spawn = balcony;
+      this.hud.toast('The place you woke is gone or built over. You wake on the balcony from now on, until you sleep again.', 8000);
+    } else this.hud.toast('Something stands where you wake: you are set down beside it.', 6000);
     this.edited();
   }
 
@@ -976,7 +1101,7 @@ export class Game {
     const chest = this.world.containerAt(t.x, t.y, t.z);
     if (chest && blockName(t.id).startsWith('wall_safe') && !this.flags.has('safe_open')) {
       this.openPaper(() => this.paper.keypad('Wall safe', (code) => {
-        if (code !== '0618') return false;
+        if (code !== '0618') { this.hud.toast(HINTS.safeWrong, 6000); return false; }
         this.flags.add('safe_open');
         this.edited();
         this.closePaper();
@@ -990,7 +1115,12 @@ export class Game {
       this.hud.toast('Shot from the front, a day or two ago. A raider scout, walking out toward the saddle. Someone out here shoots back. (In your notes: the journal.)', 9000);
       this.edited();
     }
-    if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest }); return; }
+    if (chest) {
+      const title = homeChestAt(t.x, t.y, t.z)?.title;
+      if (title === 'Armory' && !this.flags.has('armory_found')) { this.flags.add('armory_found'); this.edited(); }
+      this.openScreen({ title: title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest });
+      return;
+    }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
     const snare = emptySnare(this.world, this.hotbar, t.x, t.y, t.z);
     if (snare === 'full') { this.hud.toast('No room in your pack for the rabbit'); return; }
@@ -1039,6 +1169,8 @@ export class Game {
     if (placeBlock(this.world, this.hotbar, this.player, this.target)) {
       this.edited();
       this.sound.place(materialOf(id));
+      const placed = itemName(id);
+      if (placed === 'smoker' || placed === 'jerky_rack' || placed === 'hutch') this.once(`hint_${placed}`, HINTS[placed], 8000);
       if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning. Leave an egg in and it may hatch.', 7000);
     }
   }
@@ -1065,6 +1197,7 @@ export class Game {
       this.vitals.hunger = Math.max(0, this.vitals.hunger - 10);
       this.vitals.thirst = Math.max(0, this.vitals.thirst - 10);
       this.edited();
+      this.flags.add('slept');
       this.hud.toast('You sleep, and wake to mist on the valley. You will wake here from now on.', 4500);
       void this.save(false);
       return true;
@@ -1088,29 +1221,18 @@ export class Game {
     }
     if (name === 'pale_body' || name === 'pale_legs') { this.hud.toast('You don’t touch it.', 4000); return true; }
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
-    if (this.usePhase6(name)) return true;
+    if (this.usePhase6(name, x, y, z)) return true;
     if (this.usePhase7(name)) return true;
     if (name === 'computer') {
-      const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
-      const m1 = this.flags.has('m1_done');
-      this.openPaper(() => this.paper.computer([
-        ['Hot wallet (phone)', btc(this.wallet), 'btc'],
-        ['Cold wallet', cold ? '2.50000000 BTC (connected, kept cold)' : 'not connected', cold ? 'btc' : 'dim'],
-        ...this.powerRows(),
-        ['Satellite uplink', this.flags.has('uplink_plans') ? 'Ray’s plans in hand · no antenna' : 'no antenna', 'dim'],
-        ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
-        ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}`, this.flags.has('m2_done') ? 'btc' : ''],
-        ...M2_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M3 · power up', this.flags.has('m3_done') ? 'done ✓' : `${M3_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M3_STEPS.length}`, this.flags.has('m3_done') ? 'btc' : ''],
-        ...M3_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M4 · hydro', this.flags.has('m4_done') ? 'done ✓' : `${M4_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M4_STEPS.length}`, this.flags.has('m4_done') ? 'btc' : ''],
-        ...M4_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['Last note', '“Back before the rains.”'],
-      ], 'R.’s terminal'));
+      this.openPaper(() => this.paper.computer(computerRows(this), 'R.’s terminal'));
       return true;
     }
-    if (name === 'phone') { this.openPhone(); return true; }
+    if (name === 'phone') {
+      // The builder's phone works from the cave: carried off and set down elsewhere it finds no signal (Doc is not a field medic).
+      if (!inSanctuary(x + 0.5, z + 0.5)) { this.hud.toast('No signal out here. The phone works from the cave.', 5000); return true; }
+      this.openPhone();
+      return true;
+    }
     if (name === 'map_table') {
       const f = this.flags;
       const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
@@ -1125,6 +1247,7 @@ export class Game {
 
   /** The builder's journal, and after it the player's own notes as they are earned. */
   private openJournal(): void {
+    if (!this.flags.has('journal_read')) { this.flags.add('journal_read'); this.edited(); }
     const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
     const all = [...journalData.entries, ...notes];
     this.openPaper(() => this.paper.journal(all, notes.length ? all.length - 1 : 0)); // at your newest note
@@ -1157,43 +1280,10 @@ export class Game {
     this.openPaper(() => this.paper.phone('Satellite phone · the builder’s contacts', rows));
   }
 
-  /** Talking to Marco: a line, then his trade. The first deal earns trust 1 (DESIGN.md M1). */
+  /** Talking to Marco: a line, then his trade (src/game/people.ts). */
   private talkToMarco(): void {
-    const first = !this.flags.has('marco_met');
-    this.flags.add('marco_met');
-    const say = first ? MARCO.first : MARCO.again[Math.floor(Math.random() * MARCO.again.length)];
-    const dealt = () => {
-      this.edited();
-      if (!this.flags.has('marco_trust1')) { this.flags.add('marco_trust1'); return MARCO.trust; }
-      return '';
-    };
-    const why = { funds: 'Not enough in your wallet.', room: 'No room in your pack.', none: 'You have none of that.' };
-    this.openPaper(() => this.paper.trade(() => ({
-      title: `${MARCO.name} · ${this.flags.has('marco_trust2') ? 'trust 2' : this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
-      say,
-      wallet: btc(this.wallet),
-      buy: [...CATALOG, ...(this.flags.has('marco_trust2') ? CATALOG_M3 : [])].map((lot) => ({
-        icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy',
-        can: this.wallet >= lot.sats,
-        act: () => {
-          const r = buy(this.hotbar, this.wallet, lot);
-          if (!r.ok) return why[r.why];
-          this.wallet = r.wallet;
-          if (CATALOG_M3.includes(lot)) this.flags.add('marco_guns');
-          return dealt() || `Bought ${itemLabel(lot.id)} ×${lot.lot}.`;
-        },
-      })),
-      sell: sellable(this.hotbar).map((id) => ({
-        icon: iconFor(id), label: `${itemLabel(id)} (you have ${this.hotbar.count(id)})`, price: btc(sellPrice(id)), button: 'Sell 1',
-        can: true,
-        act: () => {
-          const r = sell(this.hotbar, this.wallet, id);
-          if (!r.ok) return why[r.why];
-          this.wallet = r.wallet;
-          return dealt() || `Sold one ${itemLabel(id)}.`;
-        },
-      })),
-    })));
+    const say = greetMarco(this);
+    this.openPaper(() => this.paper.trade(marcoTrade(this, say)));
   }
 
   /** Focus ends (run out, put away, a screen opened, a death). */
@@ -1214,7 +1304,7 @@ export class Game {
 
   /** Home: back where you wake (the bed if you slept, else the balcony), with nothing lost and the hour unchanged. */
   private goHome(): void {
-    const s = this.spawn;
+    const s = this.toWake();
     this.endFocus();
     this.drawing = null;
     this.mining.active = false;
@@ -1222,7 +1312,18 @@ export class Game {
     this.player.yaw = s.yaw;
     this.player.pitch = 0;
     this.player.breath = 20;
-    this.hud.toast('Home.', 2500);
+    // The first run's way home has to be swum and walked: H brings you home, but M1's steps wait for the real thing.
+    const f = this.flags, waiting = (f.has('been_out') && !f.has('gate_both')) || (f.has('reached_near') && !f.has('extracted'));
+    notWalkedHome(f);
+    this.hud.toast(waiting ? 'Home. (M1 counts the way home when you swim and walk it yourself.)' : 'Home.', waiting ? 6000 : 2500);
+    this.edited();
+  }
+
+  /** Notes, once, that the player has done one of the first things (eaten, drunk): the goal on screen moves on. */
+  private learned(flag: string): void {
+    if (this.flags.has(flag)) return;
+    this.flags.add(flag);
+    this.hud.setGoal(nextGoal(this.flags));
     this.edited();
   }
 
@@ -1254,12 +1355,17 @@ export class Game {
     this.tickFarPlaces();
     this.tickZone2();
     this.tickZone3();
+    // The first ten minutes (docs/FIXES.md, 7): the goal on screen, and how to eat and drink the first time it is needed.
+    if (!inSanctuary(p.x, p.z) && p.x < GATE.x0) this.learned('left_valley');
+    if (!this.hotbar.creative && f.has('ate') && this.vitals.hunger < 35) this.once('hint_hungry', HINTS.hungry, 9000);
+    if (!this.hotbar.creative && f.has('drank') && this.vitals.thirst < 35) this.once('hint_thirsty', HINTS.thirsty, 9000);
+    this.hud.setGoal(nextGoal(f));
     // The coops' hens walk round them, as many as each holds.
     this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
-    const gained = trackM1(f, p.x, p.z, this.hotbar.count(itemId('pistol')) > 0);
+    const gained = trackM1(f, p.x, p.z, this.scoutPistolTaken(), p.y);
     if (gained.length) this.edited();
-    if (gained.includes('m1_done')) this.hud.toast('M1 · the first outside run. You went out, and came home. (The road home is on the map table now.)', 9000);
+    if (gained.includes('m1_done')) this.hud.toast('M1 · the first outside run. You went out, and came home. New things can be made at the workbench now: a coop, a bow, a smoker, the forge.', 10000);
     else if (gained.includes('extracted')) this.hud.toast('Home, from Zone 1, alive. The way back is on the builder’s map now.', 6000);
     // Marco: at the shelter by day once a meeting is arranged; gone again once you have dealt and left.
     const marco = this.wild.creatures.find((c) => c.kind === 'marco');
@@ -1267,7 +1373,8 @@ export class Game {
     const dist = Math.hypot(p.x - MARCO_SPOT[0], p.z - MARCO_SPOT[2]);
     // The meeting is over once you have been to him and walked away (60 m), dealt or not.
     if (f.has('marco_meeting') && f.has('marco_seen') && dist > 60) { f.delete('marco_meeting'); f.delete('marco_seen'); this.edited(); }
-    const here = f.has('marco_meeting') && day;
+    // Once he trusts you he keeps the shelter every day: the call is for the first meeting only (docs/FIXES.md, 7).
+    const here = (f.has('marco_meeting') || f.has('marco_trust1')) && day;
     if (here && !marco && dist < 120 && this.world.column(Math.floor(MARCO_SPOT[0] / CS), Math.floor(MARCO_SPOT[2] / CS))) {
       const m = makeCreature('marco', MARCO_SPOT[0], MARCO_SPOT[1], MARCO_SPOT[2]);
       m.yaw = Math.PI; // facing the road
@@ -1283,6 +1390,13 @@ export class Game {
     if (dist > 30) this.marcoGreeted = false;
   }
   private marcoGreeted = false;
+
+  /** Has the dead scout's pistol been taken from his pockets? (Any other pistol does not tick M1's step.) */
+  private scoutPistolTaken(): boolean {
+    if (!this.flags.has('scout_searched')) return false;
+    const pockets = this.world.containers.get(packPos(SCOUT_AT[0], SCOUT_AT[1], SCOUT_AT[2]));
+    return !!pockets && !pockets.some((s) => s && s.id === itemId('pistol'));
+  }
 
   /** Once a second: Zone-1's mid and deep places (docs/PHASE5.md): their toasts, the jaguar's crossing, the stinger, M2. */
   private tickFarPlaces(): void {
@@ -1324,7 +1438,7 @@ export class Game {
     // M2.
     const m2 = trackM2(f, (name) => this.hotbar.count(itemId(name)));
     if (m2.length) this.edited();
-    if (m2.includes('m2_done')) this.hud.toast('M2 · the homestead expansion. The valley is bigger for what you brought home.', 9000);
+    if (m2.includes('m2_done')) this.hud.toast('M2 · the homestead expansion. The valley is bigger for what you brought home. Power is next: solar arrays can be made at the workbench now.', 10000);
   }
 
   private openPaper(show: () => void): void {
@@ -1353,7 +1467,7 @@ export class Game {
     const wet = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, REACH, true);
     const water = wet && (wet.id === WATER || wet.id === FALLING_WATER) && (!this.target || wet.dist <= this.target.dist);
     if (water && !held) {
-      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); }
+      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); this.learned('drank'); }
       else this.hud.toast('You are not thirsty');
       return true;
     }
@@ -1394,9 +1508,17 @@ export class Game {
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
     if (food || heal) {
+      // A jug of water, cold or not, leaves its jug: it must have somewhere to go, or the drink waits.
+      const jug = held.id === itemId('water_jug') || held.id === itemId('cold_water');
+      if (jug && !this.hotbar.creative && held.count > 1 && this.hotbar.room(itemId('empty_jug')) < 1 && (this.vitals.thirst < 99 || this.vitals.hp < 99)) {
+        this.hud.toast('No room in your pack for the empty jug: make space first');
+        return true;
+      }
       if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
       this.hotbar.take();
-      if (held.id === itemId('water_jug')) this.hotbar.add(itemId('empty_jug'));
+      if ((food?.hunger ?? 0) > 0) this.learned('ate');
+      if ((food?.thirst ?? 0) > (food?.hunger ?? 0)) this.learned('drank'); // a drink, not the little water in a tin
+      if (jug && !this.hotbar.creative) this.hotbar.add(itemId('empty_jug'));
       if (held.id === itemId('coffee')) { this.coffeeUntil = this.playTime + 90; this.hud.toast('Coffee on the balcony: a spring in your step'); }
       this.edited();
       return true;
@@ -1443,6 +1565,7 @@ export class Game {
       }
       if (this.paper.isOpen) {
         if (e.code === 'Escape' || e.code === 'KeyE') this.closePaper();
+        else this.paper.key(e.code);
         return;
       }
       if (e.code === 'Escape' && this.playing) this.pause();
@@ -1459,10 +1582,12 @@ export class Game {
         if (r === 'go') this.goHome();
         else if (r === 'danger') this.hud.toast('Not with danger this close');
       }
+      // Builder's mode only (docs/FIXES.md, N2): in Survival these keys do nothing at all.
+      if (this.mode !== 'builder') return;
       if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
-      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.hud.toast(this.hotbar.creative ? 'Builder’s mode: blocks never run out' : 'Builder’s mode off'); }
-      if (e.code === 'BracketRight') this.hour = (this.hour + 1) % 24;
-      if (e.code === 'BracketLeft') this.hour = (this.hour + 23) % 24;
+      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.edited(); this.hud.toast(this.hotbar.creative ? 'Blocks never run out' : 'Blocks are counted again'); }
+      if (e.code === 'BracketRight') this.turnSky(1);
+      if (e.code === 'BracketLeft') this.turnSky(-1);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; });
@@ -1484,19 +1609,57 @@ export class Game {
     }, { passive: false });
     // Leaving: the write has to start before this event returns, so it skips compression.
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { this.saveNow(); this.sound.suspend(); }
-      else if (this.playing) this.sound.resume();
+      if (document.hidden) { this.saveNow(); this.sound.suspend(); return; }
+      if (this.playing) this.sound.resume();
+      // Back in front: has another tab saved this valley meanwhile?
+      if (this.booted && !this.opts.test) void this.keeper.check().then((stopped) => { if (stopped) this.stoppedSaving(); });
     });
     window.addEventListener('pagehide', () => this.saveNow());
   }
 
+  /** Before play first begins in a valley: Survival or Builder's mode. After that it is fixed. */
+  private pickMode(mode: Mode): void {
+    if (this.flags.has(BEGUN) || this.mode === mode) return;
+    this.mode = mode;
+    this.hotbar.creative = mode === 'builder';
+    this.player.flying = false;
+    this.edited();
+    this.hud.showMode(this.mode, true);
+    void this.refreshCode();
+  }
+
+  /**
+   * Builder's mode: turns the sky's clock by whole hours. Only the sky and the hour move: no power is made or
+   * used, the rig is paid nothing, and no new day begins (no eggs, no rabbits, no men back at their posts).
+   * (The key used to pay a rig nearly a day's sats a press, and to start a new dawn each time before six.)
+   */
+  private turnSky(hours: number): void {
+    this.hour = (((this.hour + hours) % 24) + 24) % 24;
+    this.dayClock = this.hour;
+    if (this.powerHour !== null) this.powerHour = this.hour;
+    this.edited();
+  }
+
   private resume(): void {
-    if (!this.ready) return;
+    if (!this.ready || this.secondTab || this.keeper.stopped === 'other-tab') return;
+    if (!this.flags.has(BEGUN)) {
+      // The first time in a valley: a few short cards saying who you are and where (docs/FIXES.md, 7), then play.
+      if (!this.introShown && !this.opts.test) {
+        this.introShown = true;
+        this.hud.showMenu(false);
+        this.hud.showIntro(OPENING, () => this.resume());
+        return;
+      }
+      this.flags.add(BEGUN);
+      this.edited();
+      this.hud.showMode(this.mode, false);
+    }
+    this.hud.setGoal(nextGoal(this.flags));
+    if (this.notice && !this.noticeSaid) { this.noticeSaid = true; this.hud.toast(this.notice, 12000); }
     this.sound.start(); // browsers only allow sound to begin from a click
     this.playing = true;
     this.hud.showMenu(false);
     this.look.engage();
-    if (this.startedFresh) { this.startedFresh = false; this.hud.toast(EARLIER_BUILD, 10000); this.updateSaveStatus(); }
     if (this.sayAtPlay) { this.hud.toast(this.sayAtPlay, 8000); this.sayAtPlay = null; }
   }
 
@@ -1511,6 +1674,8 @@ export class Game {
     this.look.release();
     this.hud.setReady(true);
     this.hud.showMenu(true);
+    // Pausing saves: where you stand, your health and the hour, whether or not a block changed.
+    if (this.unsaved || this.playedSince) void this.save(false);
     this.updateSaveStatus();
     void this.refreshCode();
   }
@@ -1526,34 +1691,81 @@ export class Game {
 
   // ---- Saving ------------------------------------------------------------------------------
 
-  /** The pack as it should be saved: with anything held on a screen's cursor put back in it. */
-  private carried(): Inventory {
+  /** What the pack cannot hold: an item on a screen's cursor, and anything a loaded save had too much of. */
+  private spilled(): Slot[] {
     const held = this.screen.held;
-    if (!held) return this.hotbar;
-    const inv = this.hotbar.clone();
-    const left = inv.stow({ ...held });
-    if (left) { inv.grow(inv.size + 1); inv.stow(left); } // no room: one extra slot rather than lose it
-    return inv;
+    return [...(held ? [stackSlot(held)] : []), ...this.spill.map(stackSlot)];
+  }
+
+  /** Once the land is in: what a loaded save's pack could not hold is put down in a sack at the player's feet. */
+  private dropSpill(): void {
+    if (!this.spill.length) return;
+    const sack = new Inventory(this.spill.length);
+    this.spill.forEach((s, i) => (sack.slots[i] = s));
+    const p = this.player;
+    const at = leaveLostPack(this.world, sack, p.x, p.y + 0.2, p.z);
+    if (!at) return; // nowhere to put it here: it stays with the save
+    this.spill = [];
+    this.streamer.markUrgentAround(at[0], at[1], at[2]);
+    this.hud.toast('Your pack was over-full: what did not fit is in a sack at your feet.', 7000);
+    this.edited();
   }
 
   snapshot(): SaveData {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
-      format: SAVE_FORMAT, version: SAVE_VERSION, layout: WORLD_LAYOUT, savedAt: new Date().toISOString(), hour: this.hour,
+      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, savedAt: new Date().toISOString(),
+      mode: this.mode, endless: this.hotbar.creative, hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
-      hotbar: this.carried().toSave(), selected: this.hotbar.selected, palette, edits,
+      hotbar: this.hotbar.toSave(), spill: this.spilled(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
-      wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
+      wallet: this.wallet, marcoPaid: this.marcoPaid, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
       power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
       factionDown: this.wild.faction.down, ashenDown: this.wild.ashen.down,
       live: { solar: this.devices.solar_array, hydro: this.devices.hydro_generator },
     };
   }
 
-  applySave(d: SaveData): void {
+  /** The state to hand to the page's next version: nothing until a valley has been opened (a blank game must never be handed on). */
+  handover(): SaveData | undefined {
+    // Nor from a page that has stopped saving (another tab holds the newer valley) or whose valley is a stand-in
+    // begun while the storage would not open: neither may take the real one's place.
+    if (!this.booted || this.secondTab || this.keeper.stopped || this.store.degraded) return undefined;
+    return this.snapshot();
+  }
+
+  /**
+   * Makes the game what a save says, and nothing else: everything a session gathers along the way (creatures,
+   * the gate, a drawn bow, timers) is put back to its start. A new game is a fresh save applied (`fresh`),
+   * so loading, New game and the hand-over cannot drift apart. The save has been through `normaliseSave`.
+   */
+  applySave(d: SaveData, fresh = false): void {
+    // What a session gathers.
+    this.gate = new Gate();
+    this.wild.clear();
+    this.mining.active = false;
+    this.fishing = null;
+    this.drawing = null;
+    this.endFocus();
+    this.focus = new Focus();
+    this.home.cancel();
+    this.lastHurt = -Infinity;
+    this.lastBlow = -Infinity;
+    this.lastShot = -Infinity;
+    this.coffeeUntil = 0;
+    this.stingerVisit = false;
+    this.marcoGreeted = false;
+    this.introShown = false;
+    this.wakeHold = null;
+    this.doseToasted = false;
+    this.shotFired = false;
+    this.quietShot = false;
+    this.shake = 0;
+    this.keys.clear();
+    // What the save holds.
     restoreEdits(this.world, d);
     restoreContainers(this.world, d);
     // A save made in the old tunnel or air pocket (now rock) wakes afloat by the valley mouth instead.
@@ -1561,22 +1773,32 @@ export class Game {
     this.player.setPosition(at[0], at[1], at[2]);
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
-    this.player.flying = d.player.flying;
-    this.checkBuried = true;
+    this.mode = d.mode === 'builder' ? 'builder' : 'survival';
+    // Nobody flies in Survival, whatever a save says.
+    this.player.flying = d.player.flying && this.mode === 'builder';
+    this.player.breath = BREATH_MAX;
+    this.checkBuried = !fresh;
     this.hour = d.hour;
     this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
+    this.hotbar.creative = this.mode === 'builder' && d.endless !== false;
+    this.spill = [];
+    for (const s of d.spill ?? []) {
+      const left = this.hotbar.stow({ id: itemId(s.name), count: s.count, ...(s.wear ? { wear: s.wear } : {}) });
+      if (left) this.spill.push(left);
+    }
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
     this.hpBefore = this.vitals.hp; // loading a hurt player is not being hurt now
     this.flags = new Set(d.flags ?? []);
+    this.screen.known = this.flags;
     this.wallet = d.wallet ?? START_WALLET;
+    this.marcoPaid = d.marcoPaid ?? 0;
     this.wild.denLeft = d.den ?? 3;
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
     this.wild.outpost = outpostFromSave(d.outpost);
     this.power = powerFromSave(d.power);
     this.wild.faction.down = Number.isFinite(d.factionDown) ? d.factionDown! & 31 : 0; // the men killed stay down until dawn, reload or not
-    this.wild.ashen.down = Number.isFinite(d.ashenDown) ? d.ashenDown! & ALL_ASHEN : 0;
-    this.wild.ashen.firstOut = !this.flags.has('ashen_seen');
+    this.wild.ashen = { down: Number.isFinite(d.ashenDown) ? d.ashenDown! & ALL_ASHEN : 0, firstOut: !this.flags.has('ashen_seen') };
     this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
     this.powerHour = null;
     // Arrays and generators count as they did when saved (in the sun, at the water) until their land is seen again.
@@ -1584,53 +1806,86 @@ export class Game {
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    this.hud.showMode(this.mode, !this.flags.has(BEGUN));
+    this.keeper?.adopt(d);
   }
 
   private get unsaved(): boolean { return this.editCount !== this.savedCount; }
 
-  private edited(): void { this.editCount++; this.lastEdit = this.time; }
+  /** Something changed that a save should hold. (Also called by the modules split out of this file.) */
+  edited(): void { this.editCount++; this.lastEdit = this.time; }
+
+  private lastWriteFailed = false;
 
   private async save(announce: boolean): Promise<void> {
-    if (this.opts.test) return;
+    if (this.opts.test || !this.booted || this.secondTab) return;
     const holds = this.editCount;
-    const seq = ++this.writeSeq;
     this.saving = true;
-    const bytes = await encodeSave(this.snapshot());
-    if (seq !== this.writeSeq) { this.saving = false; return; } // a close-time save wrote newer state meanwhile
-    const ok = await this.store.set(SAVE_KEY, bytes);
-    this.saving = false;
+    let r: 'ok' | 'failed' | 'stopped' | 'overtaken' = 'failed';
+    try {
+      r = await this.keeper.save(() => { this.playedSince = false; return this.snapshot(); });
+    } catch (e) {
+      console.error('saving failed', e);
+    } finally {
+      this.saving = false; // whatever happened, autosave goes on
+    }
     this.lastSave = this.time;
-    if (ok) {
+    if (r === 'overtaken') return;
+    if (r === 'stopped') { this.stoppedSaving(); return; }
+    this.lastWriteFailed = r === 'failed';
+    if (r === 'ok') {
       this.savedCount = Math.max(this.savedCount, holds);
-      if (!this.unsaved && seq === this.writeSeq) clearPending();
     } else {
       this.lastFailure = this.time;
+      this.playedSince = true;
+      // Said every time (a failed write is retried a minute later, not every frame).
+      if (!announce) this.hud.toast('Saving did not work just now: this browser’s storage may be full or blocked. Pause and use “Copy save code” to keep your valley.', 9000);
     }
-    if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
+    if (announce) this.hud.toast(r === 'ok' && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
     if (!this.playing) void this.refreshCode();
     this.updateSaveStatus();
   }
 
   /** Saves at once, uncompressed, without waiting: used when the page is being hidden or closed. */
   private saveNow(): void {
-    if (this.opts.test || !this.unsaved || !this.store) return;
+    if (this.opts.test || !this.booted || this.secondTab || !this.keeper) return;
+    if (!this.unsaved && !this.playedSince) return;
     const holds = this.editCount;
-    this.writeSeq++;
-    const bytes = encodeSaveNow(this.snapshot());
-    writePending(bytes); // finishes before this returns, whatever happens to the page next
-    void this.store.set(SAVE_KEY, bytes).then((ok) => {
-      if (ok) this.savedCount = Math.max(this.savedCount, holds);
-    });
+    try {
+      // The copy beside the store is written before this returns, whatever happens to the page next.
+      const r = this.keeper.saveNow(() => this.snapshot());
+      if (!r) return;
+      void r.stored.then((ok) => {
+        if (!ok) return;
+        this.savedCount = Math.max(this.savedCount, holds);
+        this.playedSince = this.playing;
+      });
+    } catch (e) {
+      console.error('saving as the page closed failed', e);
+    }
+  }
+
+  /** Another tab has saved this valley since: this page stops, and says why. */
+  private stoppedSaving(): void {
+    if (this.playing) this.pause();
+    const line = this.keeper.stopped === 'newer-build' ? NOTES.newer : this.keeper.stopped === 'store-error' ? NOTES.storeError : NOTES.otherTab;
+    if (this.keeper.stopped === 'other-tab') this.hud.setBlocked(line);
+    this.hud.toast(line, 12000);
+    this.updateSaveStatus();
   }
 
   private updateSaveStatus(): void {
-    const n = [...this.world.edits.values()].reduce((s, m) => s + m.size, 0);
-    if (this.startedFresh) { this.hud.setSaveStatus(EARLIER_BUILD, true); return; }
-    if (this.store.kind === 'memory') {
-      this.hud.setSaveStatus(`This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe. (${n} blocks changed)`, true);
-    } else {
-      this.hud.setSaveStatus(`Saves automatically in this browser every minute and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer. (${n} blocks changed)`, false);
-    }
+    const k = this.keeper;
+    this.hud.setBackup(k.stopped || this.secondTab ? null : k.backupWhen);
+    const say = (text: string, warn = true) => this.hud.setSaveStatus(text, warn);
+    if (k.stopped === 'newer-build') say(NOTES.newer);
+    else if (k.stopped === 'store-error') say(NOTES.storeError);
+    else if (k.stopped === 'other-tab') say(NOTES.otherTab);
+    else if (this.secondTab) say(SECOND_TAB);
+    else if (this.notice) say(this.notice);
+    else if (this.store.kind === 'memory') say('This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe.');
+    else if (this.lastWriteFailed) say('The last save did not go through: this browser’s storage may be full or blocked. Use “Copy save code” and keep the code somewhere safe.');
+    else say('Saves in this browser every minute while you play, when you pause and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer.', false);
   }
 
   private async downloadSave(): Promise<void> {
@@ -1653,18 +1908,19 @@ export class Game {
   /** Makes the save code ahead of time, so "Copy save code" can write it straight from the click. */
   private async refreshCode(): Promise<void> {
     this.cachedCode = null;
-    this.cachedCode = saveToCode(await encodeSave(this.snapshot()));
+    if (!this.booted) return;
+    try { this.cachedCode = saveToCode(await encodeSave(this.snapshot())); } catch (e) { console.error('the save code could not be made', e); }
   }
 
   private async loadBytes(bytes: Uint8Array | null): Promise<void> {
-    const d = bytes ? await decodeSave(bytes) : null;
-    if (!d) { this.hud.toast('That isn’t a Hidden Valley save'); return; }
-    if (fromEarlierLayout(d)) { this.hud.toast('That save was made by an earlier build, before the home was rebuilt. It can’t be opened in this one; your valley here is untouched.', 9000); return; }
-    // Stamp it with this computer's clock, so it compares fairly with saves made here afterwards.
-    d.savedAt = new Date().toISOString();
-    await this.store.set(SAVE_KEY, await encodeSave(d));
-    this.restart(d);
-    this.hud.toast('Save loaded');
+    const r = await parseSave(bytes, normaliseSave);
+    if (!r.ok) {
+      this.hud.toast(r.why === 'newer' ? 'That save was made by a newer build of the game. Reload this page to get the new build, then load it again.'
+        : r.why === 'damaged' ? 'That save is damaged and can’t be opened. Your valley is untouched.' : 'That isn’t a Hidden Valley save', 7000);
+      return;
+    }
+    if (fromEarlierLayout(r.data)) { this.hud.toast('That save was made by an earlier build, before the home was rebuilt. It can’t be opened in this one; your valley here is untouched.', 9000); return; }
+    await this.swapValley(r.data, false, 'Save loaded');
   }
 
   private async loadFromFile(): Promise<void> {
@@ -1673,51 +1929,80 @@ export class Game {
   }
   private async loadFromCode(code: string): Promise<void> { await this.loadBytes(codeToSave(code)); }
 
-  private async newGame(): Promise<void> {
-    await this.store.set(SAVE_KEY, new Uint8Array(0));
-    this.restart(null);
-    this.hud.toast('A fresh valley');
+  private async newGame(): Promise<void> { await this.swapValley(newSave(), true, 'A fresh valley. (The one you left is kept as the backup.)'); }
+
+  /** The backup takes the valley's place, and the valley just left becomes the backup: so this can be undone. */
+  private async openBackup(): Promise<void> {
+    const b = this.booted && !this.opts.test ? await this.keeper.backup() : null;
+    if (!b) { this.hud.toast('There is no backup to open'); return; }
+    await this.swapValley(b, false, 'The backup is open. The valley you just left is the backup now.');
   }
 
-  /** Rebuilds the world from a save (or from nothing) in place: no page reload, so it works without storage. */
-  private restart(d: SaveData | null): void {
-    clearPending(); // a close-time copy of the old valley must not come back at the next start
-    this.startedFresh = false;
+  /**
+   * Puts another valley in this one's place (New game, a loaded save, the backup). It is applied first and stored
+   * second, so a save that cannot be applied never reaches the store; the valley being left becomes the backup.
+   */
+  private async swapValley(next: SaveData, fresh: boolean, done: string): Promise<void> {
+    if (!this.booted || this.secondTab) return;
+    // One swap at a time: a second click while the first is still being stored used to put the wrong valley in the backup.
+    if (this.swapping) return;
+    if (this.keeper.stopped === 'newer-build' || this.keeper.stopped === 'store-error') { this.hud.toast(NOTES[this.keeper.stopped === 'newer-build' ? 'newer' : 'storeError'], 9000); return; }
+    // Anything held on a screen's cursor goes back into the pack of the valley being left, not on into the next.
+    if (this.screen.isOpen) this.closeScreen();
+    if (this.paper.isOpen) this.closePaper();
+    if (this.screen.isOpen) return;
+    this.swapping = true;
+    try {
+      const current = this.snapshot();
+      try {
+        this.restart(next, fresh);
+      } catch (e) {
+        console.error('that save could not be applied', e);
+        this.restart(current, false);
+        this.hud.toast('That save could not be opened. Your valley is untouched.', 7000);
+        return;
+      }
+      const noticeWas = this.notice, handedWas = this.fromHandover;
+      this.notice = null;
+      this.fromHandover = false;
+      if (!this.opts.test) {
+        // The valley being left is kept as the backup first (if it was ever begun); only then is the new one stored.
+        let r: 'ok' | 'not-kept' | 'failed' | 'stopped' = 'failed';
+        try { r = await this.keeper.replace(next, current, (current.flags ?? []).includes(BEGUN)); } catch (e) { console.error('storing the new valley failed', e); }
+        if (r === 'not-kept' || r === 'stopped') {
+          // It could not be kept: put it back, and change nothing.
+          this.restart(current, false);
+          this.notice = noticeWas; this.fromHandover = handedWas;
+          this.editCount++; // as it was: still to be written
+          this.hud.toast(r === 'not-kept' ? NOTES.notKept : NOTES.newer, 9000);
+          this.updateSaveStatus();
+          void this.refreshCode();
+          return;
+        }
+        this.lastWriteFailed = r !== 'ok';
+        if (r !== 'ok') this.editCount++; // still to be written
+      }
+      this.hud.setBlocked(null);
+      this.hud.toast(done, 5000);
+      this.updateSaveStatus();
+      void this.refreshCode();
+    } finally {
+      this.swapping = false;
+    }
+  }
+  private swapping = false;
+
+  /** Rebuilds the world from a save in place: no page reload, so it works without storage. */
+  private restart(d: SaveData, fresh: boolean): void {
     this.streamer.reset();
     this.world.edits.clear();
     this.world.containers.clear();
-    this.mining.active = false;
-    this.gate = new Gate();
-    this.wild.clear();
-    if (d) this.applySave(d);
-    else {
-      this.hotbar = Inventory.starter();
-      this.vitals = freshVitals();
-      this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
-      this.flags = new Set();
-      this.wallet = START_WALLET;
-      this.wild.denLeft = 3;
-      this.wild.flockLeft = FLOCK_SIZE;
-      this.wild.outpost = { left: ALL_RAIDERS, alert: false };
-      this.wild.faction.down = 0;
-      this.wild.ashen = { down: 0, firstOut: true };
-      this.power = newPower();
-      this.dose = 0;
-      this.powerHour = null;
-      this.devices = findDevices(new Map());
-      this.explored = new Uint8Array(64 * 64);
-      this.hour = 16.5;
-      this.dayClock = 16.5;
-      this.player.flying = false;
-      this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
-      this.player.yaw = SPAWN.yaw;
-      this.player.pitch = SPAWN.pitch;
-    }
+    this.applySave(d, fresh);
     this.savedCount = this.editCount;
+    this.playedSince = false;
     this.ready = false;
     this.hud.setLoading(0, 1);
     this.hud.setLoadingVisible();
-    this.updateSaveStatus();
   }
 
   private async saveSettings(): Promise<void> {
@@ -1775,18 +2060,7 @@ export class Game {
       if (hours > 0 && this.power.on.fridge) {
         for (const [x, y, z] of this.devices.fridge) {
           const slots = this.world.containers.get(packPos(x, y, z));
-          if (!slots) continue;
-          for (let h = 0; h < hours; h++) {
-            const k = slots.findIndex((st) => st && st.id === itemId('water_jug'));
-            if (k < 0) break;
-            const st = slots[k]!;
-            st.count--;
-            if (st.count <= 0) slots[k] = null;
-            const cold = slots.findIndex((o) => o && o.id === itemId('cold_water') && o.count < 8);
-            if (cold >= 0) slots[cold]!.count++;
-            else { const free = slots.findIndex((o) => !o); if (free >= 0) slots[free] = { id: itemId('cold_water'), count: 1 }; else { st.count++; break; } }
-            this.edited();
-          }
+          if (slots && chillJugs(slots, hours, itemId('water_jug'), itemId('cold_water'))) this.edited();
         }
       }
       this.powerHour = (from + minutes / 60) % 24;
@@ -1816,11 +2090,11 @@ export class Game {
     if (m3.includes('bank_built')) this.hud.toast('A battery bank: power day and night. The rig, the fridge and the pump can be made now.', 8000);
     if (m3.includes('rig_earned')) this.hud.toast('The rig has mined its first sats. The computer shows what it earns.', 7000);
     if (m3.includes('zone2_home')) this.hud.toast('Home from Las Cruces, alive. Marco may have heard: call him.', 7000);
-    if (m3.includes('m3_done')) this.hud.toast('M3 · power up. The valley hums now, day and night.', 9000);
+    if (m3.includes('m3_done')) this.hud.toast('M3 · power up. The valley hums now, day and night. Steel is next: a crucible furnace and a lathe can be made now.', 10000);
   }
 
   /** Right-click on Phase 6's things. True if handled. */
-  private usePhase6(name: string): boolean {
+  private usePhase6(name: string, x: number, y: number, z: number): boolean {
     const P = this.power, d = this.devices;
     if (name === 'water_pump') {
       if (!P.on.water_pump) { this.hud.toast('The pump is dead: no power. It needs the sun, or a charged battery bank.'); return true; }
@@ -1832,7 +2106,7 @@ export class Game {
         this.sound.splash();
         this.hud.toast(`The pump runs: ${empties - left} jug${empties - left === 1 ? '' : 's'} filled.`);
         this.edited();
-      } else if (this.vitals.thirst < 99) { this.vitals.thirst = 100; this.sound.splash(); this.hud.toast('You drink your fill from the pump.'); }
+      } else if (this.vitals.thirst < 99) { this.vitals.thirst = 100; this.sound.splash(); this.hud.toast('You drink your fill from the pump.'); this.learned('drank'); }
       else this.hud.toast('The pump: right-click with empty jugs to fill them, or to drink.');
       return true;
     }
@@ -1841,6 +2115,8 @@ export class Game {
       return true;
     }
     if (name === 'battery_bank') { this.hud.toast(`Battery bank: ${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh.`); return true; }
+    // An array under rock or a roof says so (it used to report the others' power and leave you guessing).
+    if (name === 'solar_array' && this.world.isLoaded(x, z) && !d.solar_array.some((a) => a[0] === x && a[1] === y && a[2] === z)) { this.hud.toast(HINTS.noSky, 6000); return true; }
     if (name === 'solar_array') { this.hud.toast(`Solar: ${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} making ${P.solar.toFixed(1)} kW now.`); return true; }
     if (name === 'pharmacy_counter') {
       if (!this.flags.has('doc_known')) { this.flags.add('doc_known'); this.edited(); this.hud.toast(DOC.card, 10000); }
@@ -1851,51 +2127,10 @@ export class Game {
     return false;
   }
 
-  /** The computer's power lines (docs/PHASE6.md, 6). */
-  private powerRows(): [string, string, string][] {
-    const P = this.power, d = this.devices, n = d.mining_rig.length;
-    if (!d.solar_array.length && !n && !d.hydro_generator.length) return [['Mining', 'no rig: needs a solar array and a battery bank', 'dim']];
-    const hydro = d.hydro_generator.length;
-    return [
-      ...(hydro ? [['Hydro', `${hydro} generator${hydro === 1 ? '' : 's'} in the creek · ${(hydro * HYDRO_KW).toFixed(2)} kW, day and night`, 'btc'] as [string, string, string]] : []),
-      ['Solar', `${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} · ${P.solar.toFixed(2)} kW now`, d.solar_array.length ? '' : 'dim'],
-      ['Battery bank', d.battery_bank.length ? `${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh` : 'none', d.battery_bank.length ? '' : 'dim'],
-      n > 1
-        ? ['Mining farm', P.rigs ? `${P.rigs} of ${n} rigs running · ${(RIG_THS * P.rigs).toFixed(2)} TH/s${P.rigs < n ? (hydro ? ' · short of power' : ' · more than one rig needs hydro') : ''}` : 'stopped: no power', P.rigs ? 'btc' : 'dim']
-        : ['Mining rig', n ? (P.on.mining_rig ? `${(RIG_THS * n).toFixed(2)} TH/s · running` : 'stopped: no power') : 'none', n && P.on.mining_rig ? 'btc' : 'dim'],
-      ['Mined today', btc(P.satsToday), 'btc'],
-      ['Mined in all', `${btc(P.satsTotal)} (about ${btc(RIG_SATS_PER_DAY * Math.max(1, hydro ? n : Math.min(n, 1)))} a day, powered)`, 'btc'],
-      ['Fridge', d.fridge.length ? (P.on.fridge ? 'cold' : 'off: no power') : 'none', d.fridge.length ? '' : 'dim'],
-      ['Water pump', d.water_pump.length ? (P.on.water_pump ? 'ready' : 'off: no power') : 'none', d.water_pump.length ? '' : 'dim'],
-    ];
-  }
-
-  /** Calling Doc: a line, then his services, priced flat per kind (DESIGN.md A3). */
+  /** Calling Doc: a line, then his services (src/game/people.ts). */
   private callDoc(): string {
-    const first = !this.flags.has('doc_called');
-    this.flags.add('doc_called');
-    this.edited();
-    const say = first ? DOC.first : DOC.again[Math.floor(Math.random() * DOC.again.length)];
-    const svc = (label: string, price: number, act: () => string) => ({
-      icon: iconFor(itemId('first_aid_kit')), label, price: btc(price), button: 'Ask', can: this.wallet >= price,
-      act: () => { if (this.wallet < price) return DOC.funds; const r = act(); this.edited(); return r; },
-    });
-    this.openPaper(() => this.paper.trade(() => ({
-      title: `${DOC.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can talk you through', sellHead: null, sell: [],
-      buy: [
-        svc(`Wound care (health back to ${healthCap(this.dose)})`, DOC_PRICE.wound, () => {
-          const cap = healthCap(this.dose);
-          if (this.vitals.hp >= cap - 0.5) return DOC.notHurt;
-          this.wallet -= DOC_PRICE.wound; this.vitals.hp = cap; this.hpBefore = cap;
-          return DOC.wound;
-        }),
-        svc(`Rad treatment (your dose: ${Math.round(this.dose)})`, DOC_PRICE.rad, () => {
-          if (this.dose < 0.5) return DOC.noDose;
-          this.wallet -= DOC_PRICE.rad; this.dose = 0;
-          return DOC.rad;
-        }),
-      ],
-    })));
+    const say = greetDoc(this);
+    this.openPaper(() => this.paper.trade(docServices(this, say)));
     return say;
   }
 
@@ -1982,40 +2217,10 @@ export class Game {
     return false;
   }
 
-  /** Calling Ray: a line, the uplink plans once the generator turns, then what he sells (DESIGN.md A3: premium, buy-only). */
+  /** Calling Ray: a line (and the uplink plans once the generator turns), then what he sells (src/game/people.ts). */
   private callRay(): string {
-    const first = !this.flags.has('ray_called');
-    this.flags.add('ray_called');
-    let say = first ? RAY.first : RAY.again[Math.floor(Math.random() * RAY.again.length)];
-    // The contact-taught schematic: the uplink plans, the first call after the generator turns.
-    if (!first && this.flags.has('hydro_built') && !this.flags.has('uplink_plans')) {
-      if (this.hotbar.add(itemId('uplink_plans'), 1) > 0) say = RAY.uplinkFull;
-      else { this.flags.add('uplink_plans'); say = RAY.uplink; }
-    } else if (!first && this.flags.has('hydro_plans') && !this.flags.has('hydro_built')) say = RAY.notYet;
-    this.edited();
-    const why = { funds: RAY.funds, room: 'No room in your pack.', none: '' };
-    this.openPaper(() => this.paper.trade(() => ({
-      title: `${RAY.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can send', sellHead: null, sell: [],
-      buy: [
-        ...(this.flags.has('hydro_plans') ? [] : [{
-          icon: iconFor(itemId('uplink_plans')), label: 'Micro-hydro plans (teaches the hydro generator)', price: btc(RAY_PLANS_PRICE), button: 'Buy', can: this.wallet >= RAY_PLANS_PRICE,
-          act: () => {
-            if (this.wallet < RAY_PLANS_PRICE) return RAY.funds;
-            this.wallet -= RAY_PLANS_PRICE; this.flags.add('hydro_plans'); this.edited();
-            return RAY.plansBought;
-          },
-        }]),
-        ...CATALOG_RAY.map((lot) => ({
-          icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy', can: this.wallet >= lot.sats,
-          act: () => {
-            const r = buy(this.hotbar, this.wallet, lot);
-            if (!r.ok) return why[r.why];
-            this.wallet = r.wallet; this.edited();
-            return `Ray sends ${itemLabel(lot.id)} ×${lot.lot}.`;
-          },
-        })),
-      ],
-    })));
+    const say = greetRay(this);
+    this.openPaper(() => this.paper.trade(rayCatalog(this, say)));
     return say;
   }
 

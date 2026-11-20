@@ -8,7 +8,7 @@ const hasBlock = (n: string) => BLOCK_DEFS.some((d) => d.name === n);
 
 /** Tree crowns and trunks: a creature never stands on these; the search goes on down to the ground. */
 const TREE = new Set(['log', 'leaves', 'tree_fern_trunk', 'fern_fronds'].map(blockId));
-import { makeCreature, KINDS, PACK_KINDS, type Creature, type Kind, FACTION_KINDS } from './creatures.ts';
+import { makeCreature, settle, KINDS, PACK_KINDS, type Creature, type Kind, FACTION_KINDS } from './creatures.ts';
 import { DEN, YARD } from '../gen/zone1.ts';
 
 interface SpawnRule {
@@ -36,14 +36,19 @@ export const DEN_SIZE = 3;
 const DEN_NEAR = 100;
 
 const RING_NEAR = 24, RING_FAR = 80, DESPAWN = 128, WARREN_NEAR = 16;
-/** A night creature still about by day slips away once it is this far from the player. */
-const DAWN_LEAVE = 24;
+/** A night creature still about by day makes off once it is this far from the player. */
+export const DAWN_LEAVE = 24;
+/** And is gone once the player cannot see it, or it is this far off (the far edge of the ring creatures appear in). */
+export const DAWN_GONE = RING_FAR;
 
 /** Built things a creature is never put on top of: roofs, coops and hutches, crates, fences, wrecks, sandbags. */
 const BUILT = new Set([
   'tin_roof', 'slab_planks', 'slab_stone_bricks', 'coop', 'hutch', 'chest', 'fence_post', 'fence_wire', 'truck_body', 'truck_cab',
   'truck_wheel', 'scrap_heap', 'bench', 'table', 'stone_railing', 'sandbags', 'supply_crate', 'oil_drum', 'concrete_slab',
 ].flatMap((n) => (hasBlock(n) ? [n, `${n}@east`, `${n}@south`, `${n}@west`].filter(hasBlock) : [])).map(blockId));
+
+/** The land itself: what a newborn on a slope may stand on, a block up from where its middle is (never a fence, a roof or a tree). */
+const isLand = (id: number): boolean => !BUILT.has(id) && !TREE.has(id);
 
 /**
  * A spot a creature could stand: solid ground, room above (plants are fine), no water, outside the
@@ -113,6 +118,8 @@ export function trySpawn(
       const y = groundAt(gx, gz, blockAt);
       if (y === null || inSanctuary(gx, gz) || !rule.zones.includes(zoneAt(gx, gz))) continue;
       const c = makeCreature(rule.kind, gx, y, gz);
+      // Its whole body, not only its middle: clear of the sanctuary's line, of trunks and of banks.
+      if (!settle(c, blockAt, isLand)) continue;
       // Each takes the first place in the pack not already taken by one of its kind about.
       if (PACK_KINDS.has(rule.kind)) {
         const taken = new Set([...creatures, ...made].filter((o) => o.kind === rule.kind).map((o) => o.pack));
@@ -144,6 +151,7 @@ export function denPack(
     const y = groundAt(x, z, blockAt, DEN[1] + 3);
     if (y === null || inSanctuary(x, z)) continue;
     const c = makeCreature('dog', x, y, z);
+    if (!settle(c, blockAt, isLand)) continue; // with a flank in one of the ruin's walls: not there, another try next second
     c.pack = k;
     c.home = [DEN[0], DEN[2]];
     made.push(c);
@@ -151,14 +159,22 @@ export function denPack(
   return made;
 }
 
+/** The kinds that are about only by night: the puma, the coyotes. */
+const NIGHT_KINDS: ReadonlySet<Kind> = new Set(SPAWNS.filter((r) => r.night === 'night').map((r) => r.kind));
+
 /**
  * Creatures too far from the player are let go (they are not saved; new ones come). By day, night
- * creatures (the puma) slip away once they are out of the player's way.
+ * creatures (the puma, the coyotes) out of the player's way make off: they turn and run from the player,
+ * and are gone only once the player cannot see them (`seen`), or they are far off. They used to be
+ * deleted where they stood, in plain view (the review, N5g).
  */
-export function despawnFar(creatures: Creature[], px: number, pz: number, night = true): Creature[] {
+export function despawnFar(creatures: Creature[], px: number, pz: number, night = true, seen: (c: Creature) => boolean = () => false): Creature[] {
   return creatures.filter((c) => {
     const d = Math.hypot(c.x - px, c.z - pz);
-    if (!night && SPAWNS.some((r) => r.kind === c.kind && r.night === 'night') && d > DAWN_LEAVE) return false;
+    if (!night && NIGHT_KINDS.has(c.kind) && d > DAWN_LEAVE) {
+      if (d > DAWN_GONE || !seen(c)) return false;
+      c.mind = 'flee'; c.timer = 3; // until the next look, a second on
+    }
     if (c.tame) return true; // the coop's own hens: the game keeps them in step with it
     if (FACTION_KINDS.has(c.kind)) return !inSanctuary(c.x, c.z); // Zone-2's men go in by their own rule (faction.ts: standDown)
     if (c.kind === 'ashen') return !inSanctuary(c.x, c.z); // and Zone-3's Ashen by theirs (ashen.ts: standDownAshen)

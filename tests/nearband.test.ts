@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { trySpawn, denPack, despawnFar, DEN_SIZE } from '../src/entity/spawner.ts';
 import { makeCreature, think, hurt, KINDS, FLANK_RADIUS, type Creature } from '../src/entity/creatures.ts';
-import { inSanctuary, zoneAt, VALLEY } from '../src/gen/layout.ts';
+import { inSanctuary, zoneAt, VALLEY, GATE } from '../src/gen/layout.ts';
 import { DEN, YARD, MARCO_SPOT } from '../src/gen/zone1.ts';
 import { makeRng } from '../src/core/noise.ts';
 import { AIR, blockId } from '../src/world/blocks.ts';
@@ -203,7 +203,7 @@ describe('trading with Marco', () => {
   });
 
   it('shows the wallet in BTC', () => {
-    expect(btc(START_WALLET)).toBe('0.05000000 BTC');
+    expect(btc(START_WALLET)).toBe('0.01000000 BTC'); // 40 units: a small starter balance (docs/FIXES.md, 6)
   });
 });
 
@@ -254,9 +254,12 @@ describe('M1: the first outside run', () => {
     expect(trackM1(f, ...home, false)).toEqual([]);
     trackM1(f, 1400, 1024, false); // out through the gate, into the buffer
     expect(f.has('gate_both')).toBe(false);
-    trackM1(f, ...home, false); // and back
+    trackM1(f, ...home, false); // home, but not through the gate (over the rim, say)
+    expect(f.has('gate_both')).toBe(false);
+    trackM1(f, GATE.x0 + 4, 1024.5, false, 67); // swum back through the tunnel…
+    trackM1(f, ...home, false); // …and home
     expect(f.has('gate_both')).toBe(true);
-    trackM1(f, 1100, 1028, true); // Zone-1, with the pistol
+    trackM1(f, 1100, 1028, true); // Zone-1, the scout's pistol taken from his pockets
     expect(f.has('pistol_taken')).toBe(true);
     expect(f.has('extracted')).toBe(false);
     f.add('marco_trust1');
@@ -344,7 +347,7 @@ describe('review fixes', () => {
   });
 
   it('M1’s gate step needs a swim out through the gate and back: not a death outside, not turning back in the tunnel', async () => {
-    const { GATE } = await import('../src/gen/layout.ts');
+
     const f = new Set<string>();
     trackM1(f, GATE.x0 + 0.4, 1024.5, false); // into the gate's doorway, valley side of its middle… then back
     trackM1(f, VALLEY.cx, VALLEY.cz, false);

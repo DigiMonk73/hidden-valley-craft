@@ -1,7 +1,7 @@
 {
-  "_comment": "Marco's trade (docs/PHASE4.md, step 4). Prices are in units of one bandage's worth (DESIGN.md anchors every price to wound care, and a bandage is this game's wound care before Doc); `unit` is that in satoshis. catalog: what he sells, a lot at a time, before M3 (no guns or ammunition). value: what he pays for one of an item is half its value (DESIGN.md A3: sell = 0.5x). Every catalogue item has its own (low) resale value, so nothing he sells can be made cheaply and sold back at a profit. Live animals are not bought: the farm flock is finite but regrows. Saves store item names. Phase 6 (docs/PHASE6.md): catalogM3 is what Marco adds once he trusts you (trust 2): guns and rounds, priced as multiples of P_wc (4 units). doc: Doc's flat fees per service, in units. rigSatsPerDay: what a powered mining rig earns in a game day. Rounds have their own low resale value (Marco sells them dear, buys them cheap), so Zone-2's men, who come back each dawn, are no fortune to farm.",
+  "_comment": "Marco's trade (docs/PHASE4.md, step 4). Prices are in units of one bandage's worth (DESIGN.md anchors every price to wound care, and a bandage is this game's wound care before Doc); `unit` is that in satoshis. catalog: what he sells, a lot at a time, before M3 (no guns or ammunition). value: what he pays for one of an item is half its value (DESIGN.md A3: sell = 0.5x). Every catalogue item has its own (low) resale value, so nothing he sells can be made cheaply and sold back at a profit. Live animals are not bought: the farm flock is finite but regrows. Saves store item names. Phase 6 (docs/PHASE6.md): catalogM3 is what Marco adds once he trusts you (trust 2): guns and rounds, priced as multiples of P_wc (4 units). doc: Doc's flat fees per service, in units. rigSatsPerDay: what a powered mining rig earns in a game day. Rounds have their own low resale value (Marco sells them dear, buys them cheap), so Zone-2's men, who come back each dawn, are no fortune to farm. Fixes (docs/FIXES.md, 6): purse is the most Marco can pay in a day, in units (he is one man with a mule, not a bank), so a hill of iron is many days' selling and a rig's steady pay matters; keep lists the parts a milestone step needs, each with that step's flag: Marco will not take one until its step is done, so no sale can lock a milestone. Guns have their own modest resale value (he sells them dear, buys them cheap). Ray's prices are the premium the script gives him.",
   "unit": 25000,
-  "startWallet": 5000000,
+  "startWallet": 1000000,
   "sellRatio": 0.5,
   "catalog": [
     {
@@ -127,7 +127,9 @@
     "pistol_rounds": 0.1,
     "rifle_rounds": 0.15,
     "steel_stock": 0.8,
-    "steel_ingot": 1.0
+    "steel_ingot": 1.0,
+    "pistol": 8,
+    "raider_rifle": 12
   },
   "catalogM3": [
     {
@@ -149,41 +151,63 @@
       "item": "rifle_rounds",
       "lot": 10,
       "price": 8
+    },
+    {
+      "item": "primer",
+      "lot": 10,
+      "price": 3
     }
   ],
   "doc": {
     "wound": 4,
     "rad": 12
   },
-  "rigSatsPerDay": 50000,
+  "rigSatsPerDay": 100000,
   "catalogRay": [
     {
       "item": "steel_ingot",
       "lot": 4,
-      "price": 6
+      "price": 10
     },
     {
       "item": "gpu",
       "lot": 1,
-      "price": 10
+      "price": 16
     },
     {
       "item": "psu",
       "lot": 1,
-      "price": 4
+      "price": 8
     },
     {
       "item": "mining_board",
       "lot": 1,
-      "price": 7
+      "price": 14
     },
     {
       "item": "wiring",
       "lot": 8,
-      "price": 8
+      "price": 12
     }
   ],
   "ray": {
-    "plans": 12
+    "plans": 24
+  },
+  "purse": 10,
+  "keep": {
+    "bowstring": "bow_made",
+    "pv_panel": "array_built",
+    "battery_cell": "bank_built",
+    "mining_board": "farm_running",
+    "gpu": "farm_running",
+    "psu": "farm_running",
+    "fridge_unit": "fridge_pump",
+    "pump_unit": "fridge_pump",
+    "pipe_fittings": "fridge_pump",
+    "primer": "ammo_made",
+    "brass_casing": "ammo_made",
+    "saltpeter": "ammo_made",
+    "sulfur": "ammo_made",
+    "gunpowder": "ammo_made"
   }
 }

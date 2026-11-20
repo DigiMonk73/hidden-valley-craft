@@ -176,6 +176,9 @@ export function joinSeams(host: LightHost, seeds: number[]): void {
   }
 }
 
+/** Cells put out while light was being taken away that glow by themselves: lit again afterwards. */
+const glowing: number[] = [];
+
 /** Re-lights around a block that changed from oldId to newId at (x, y, z). */
 export function relightBlock(host: LightHost, x: number, y: number, z: number, newId: number): void {
   for (const c of [SKY, BLOCK]) {
@@ -201,11 +204,20 @@ export function relightBlock(host: LightHost, x: number, y: number, z: number, n
           host.setLightAt(nx, ny, nz, withChan(nv, c, 0));
           remQ.push(packPos(nx, ny, nz));
           remLevel.push(nl);
+          // A dimmer lamp of its own (a smelter beside the lantern being taken away) looks as if it were fed
+          // from here. It is put out with the rest, and lit again from its own glow below: it used to stay dark.
+          if (c === BLOCK && B_EMIT[host.blockAt(nx, ny, nz)] > 0) glowing.push(packPos(nx, ny, nz));
         } else {
           addQ.push(packPos(nx, ny, nz));
         }
       }
     }
+    for (const p of glowing) {
+      const gx = PX(p), gy = PY(p), gz = PZ(p);
+      host.setLightAt(gx, gy, gz, withChan(host.lightAt(gx, gy, gz), c, B_EMIT[host.blockAt(gx, gy, gz)]));
+      addQ.push(p);
+    }
+    glowing.length = 0;
     // 2. Light the cell itself from its own glow and its neighbours.
     if (!B_OPAQUE[newId]) {
       const f = B_FILTER[newId];

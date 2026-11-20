@@ -9,7 +9,7 @@ import { CS, WORLD_Y } from '../world/constants.ts';
 import { blockId, AIR, WATER, FALLING_WATER } from '../world/blocks.ts';
 import { rand3 } from '../core/noise.ts';
 import {
-  SEED, ZONE3, ZONE2, ZONE1FAR, ROLLING, ROAD, highwayX, outsideHeight, ravineX, onDamRoad, damRoadHeight, onAvenue, onFarRoad, farRoadZ, onMineTrail,
+  SEED, ZONE3, ZONE2, ZONE1FAR, ROLLING, ROAD, highwayX, outsideHeight, ravineX, westRimX, onDamRoad, damRoadHeight, onAvenue, onFarRoad, farRoadZ, onMineTrail,
   inReservoir, riverBelowDam, zone3Floor,
 } from './layout.ts';
 
@@ -129,7 +129,9 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
         // The body under the deck, then the downstream face stepping out as it goes down (not in the spillway's chute).
         const step = z - PAR_S;
         if (step > 0 && chute) continue;
-        const cap = step <= 0 ? top : top - STEP_RISE * step;
+        // West of the gorge's rim line the face does not step: it stands to the crest's height, a wing wall,
+        // so the steps end against it and are no ledge to walk across to the far bank on (docs/REVIEW.md, N3b).
+        const cap = step <= 0 || x <= westRimX(z) ? top : top - STEP_RISE * step;
         const g = outsideHeight(x, z);
         for (let y = g - 1; y <= cap; y++) put(x, y, z, 'concrete');
         if (step > 0) continue;
@@ -244,13 +246,24 @@ export function buildZone3(col: Uint16Array, x0: number, z0: number): void {
     for (const [dx, dz] of [[0, 0], [1, -1], [0, 1], [-1, 0]]) put(Math.floor(Z.nests[0].x) + dx, PF, Math.floor(Z.nests[0].z) + dz, 'pale_stain');
     // The penstocks: two great pipes down the bank from the dam into the hall's north wall.
     for (const px of [P.x1 - 6, P.x1 - 3]) for (let z = PAR_S + 1; z < P.z0; z++) { const g = outsideHeight(px, z); put(px, g, z, 'penstock'); put(px, g + 1, z, 'penstock'); clear(px, g + 2, g + 5, z); }
+    // A thrust block between the pipes where they enter the hall. The strip between them was a dead end: the
+    // pipes either side, the hall's wall ahead, the bank's last steps behind (found by the walk test, N3).
+    for (let z = P.z0 - 3; z < P.z0; z++) for (let x = P.x1 - 5; x < P.x1 - 3; x++) put(x, outsideHeight(x, z), z, 'concrete');
     // The tailrace: out of the hall's gorge side and down the bank to the river.
     {
       // Water never runs uphill: where the bank stands above the channel, the channel is cut through it.
-      const tz = LIVE_TURBINE[2] + 1, level = PF - 1;
+      const tz = LIVE_TURBINE[2] + 1, level = PF - 1, rim = westRimX(tz);
       let prev = PF;
       for (let x = P.x1; x < Math.round(ravineX(tz)) - 2; x++) {
         const g = outsideHeight(x, tz);
+        if (x <= rim && (g - 1 < level || x >= rim - 1)) {
+          // From where the bank falls below the channel out to the gorge's rim, the water runs in a concrete
+          // culvert and pours from its mouth in the cliff. Open water down the bank was a ladder: whoever got
+          // to the gorge's floor could swim up the fall onto the far bank (docs/REVIEW.md, N3b).
+          for (const z of [tz - 1, tz, tz + 1]) for (let y = Math.min(outsideHeight(x, z), level) - 1; y <= level + 2; y++) put(x, y, z, z === tz && y === level ? WATER : 'concrete');
+          prev = level + 1;
+          continue;
+        }
         if (g - 1 >= level) { put(x, level, tz, WATER); put(x, level - 1, tz, 'concrete'); clear(x, level + 1, g + 3, tz); }
         else if (g > 42) for (let y = g; y <= Math.min(prev - 1, level); y++) put(x, y, tz, FALLING_WATER);
         else put(x, g - 1, tz, WATER);

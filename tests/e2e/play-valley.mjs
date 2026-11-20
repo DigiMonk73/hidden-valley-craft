@@ -329,7 +329,7 @@ check('leaving the page keeps the last edit', before3 !== 0 && after3 !== before
 // A save whose player is now shut in rock (behind the hearth): they are put back at the cave, never stranded.
 await g(async () => {
   const gm = window.__hv.game, d = gm.snapshot();
-  d.savedAt = new Date(Date.now() + 60_000).toISOString(); // newer than the copy the page writes as it closes
+  d.seq = (d.seq ?? 0) + 1000; // a later write than the copy the page makes as it closes (the keeper goes by this number)
   d.player = { ...d.player, x: 1807.5, y: 85, z: 1011.5, flying: false };
   await gm.store.set('save:1', new TextEncoder().encode(JSON.stringify(d)));
 });
@@ -344,7 +344,9 @@ check('a player saved inside what is now rock is put back at the cave, free', !f
 await g(async () => {
   const gm = window.__hv.game, d = gm.snapshot();
   delete d.layout;
-  d.savedAt = new Date(Date.now() + 120_000).toISOString();
+  // The page must not write this session's valley as it closes: that copy, being of this layout, would rightly open.
+  gm.saveNow = () => {};
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith('hvb:pending-save')) localStorage.removeItem(k); } catch { /* storage blocked: nothing kept there */ }
   d.player = { ...d.player, x: 1813.5, y: 82, z: 1019.5 };
   d.spawn = { x: 1811.5, y: 82, z: 1019.5, yaw: 0 };
   d.containers = [...(d.containers ?? []), [1813, 82, 1016, [{ name: 'bandage', count: 3 }]]];
@@ -353,7 +355,7 @@ await g(async () => {
 });
 await page.reload();
 await idle();
-const fresh = await g(() => { const gm = window.__hv.game, p = gm.player; return { old: gm.flags.has('old_valley'), x: p.x, z: p.z, said: document.querySelector('.hv-status')?.textContent ?? '', edits: gm.world.edits.size, hour: gm.hour }; });
+const fresh = await g(() => { const gm = window.__hv.game, p = gm.player; return { old: gm.flags.has('old_valley'), x: p.x, z: p.z, said: [...document.querySelectorAll('.hv-status')].map((e) => e.textContent).join(' ').trim(), edits: gm.world.edits.size, hour: gm.hour }; });
 check('a valley from before the home was rebuilt starts fresh, and says so', !fresh.old && Math.abs(fresh.x - 1796.5) < 0.5 && Math.abs(fresh.z - 1024.5) < 0.5 && /earlier build/.test(fresh.said) && fresh.edits === 0,
   `at ${fresh.x.toFixed(1)}, ${fresh.z.toFixed(1)}; menu: “${fresh.said.slice(0, 60)}”`);
 

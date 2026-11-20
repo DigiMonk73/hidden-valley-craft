@@ -61,7 +61,8 @@ export function pickFile(): Promise<Uint8Array | null> {
       input.accept = '.txt,.hvbsave,text/plain,application/octet-stream';
       input.onchange = async () => {
         const f = input.files?.[0];
-        resolve(f ? new Uint8Array(await f.arrayBuffer()) : null);
+        // A file that can't be read is "no file": the caller says so, where it used to wait for ever.
+        try { resolve(f ? new Uint8Array(await f.arrayBuffer()) : null); } catch { resolve(null); }
       };
       input.click();
     } catch {

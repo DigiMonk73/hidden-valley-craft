@@ -11,7 +11,8 @@ const hx = (z) => 797 + 7 * Math.sin((Z.highway.z0 - z) / 95); // the highway's 
 // The scene parts 1 and 2 leave behind: Marco met and trusted, home from Zone-1, the scout's armband kept.
 await g(() => {
   const gm = window.__hv.game, h = gm.hotbar, id = window.__hv.itemId;
-  for (const f of ['shelter_found', 'marco_met', 'marco_trust1', 'home_hint']) gm.flags.add(f);
+  // M1 and M2 are done (the parts before check them): M3's recipes need M2, and each milestone the one before.
+  for (const f of ['shelter_found', 'marco_met', 'marco_trust1', 'home_hint', 'm1_done', 'm2_done']) gm.flags.add(f);
   h.slots.fill(null);
   for (const [n, k] of [['steel_pickaxe', 1], ['armband', 1], ['empty_jug', 2]]) h.add(id(n), k);
 });

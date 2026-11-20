@@ -25,7 +25,8 @@ The page that is played is one self-contained file. Build it with:
 npm run build
 ```
 
-The result is `dist/index.html`, under 14 MB; the build fails above that.
+The build checks the types first (`tsc --noEmit`) and stops on a type error. The result is
+`dist/index.html`, under 14 MB; the build fails above that.
 
 ## Check it
 
@@ -37,8 +38,11 @@ npm test
 npm run typecheck
 ```
 
-The end-to-end play-through and the screenshot tool both use headless Chromium. Serve the build
-first, because workers can't start from a `file://` page:
+Both run on GitHub for every push and pull request, with the build (`.github/workflows/checks.yml`).
+
+The end-to-end play-through and the screenshot tool both use headless Chromium, through `playwright`
+(a dev dependency; `npm install` does not download a browser: run `npx playwright install chromium` once
+if the machine has none). Serve the build first, because workers can't start from a `file://` page:
 
 ```bash
 npx vite preview --port 4173
@@ -54,6 +58,13 @@ The play-through is in parts, each a standalone script that sets its own scene a
 minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `play-mid.mjs` (Zone-1), `play-zone2.mjs`
 (Zone-2 and power) and `play-zone3.mjs` (Zone-3, the Ashen and hydro). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
 tests/e2e/play.mjs` runs only some, and `node tests/e2e/play-zone2.mjs` runs one directly.
+
+The saves have their own short browser check (about two minutes): a walk with no edit surviving a reload, a second
+tab, a slow storage open, a broken save (docs/FIXES.md, 1).
+
+```bash
+node tests/e2e/saves.mjs
+```
 
 ```bash
 RD=8 node tools/shot.mjs
@@ -91,6 +102,12 @@ those that differ from the land as it was before Phase 7. Run it after any chang
 dam road's five columns may differ. The gorge's east rim west of those columns is hashed row by row
 (`tools/worldhash.ts --rim out/rim.json`, baseline `tests/fixtures/east-rim.json`): a unit test checks that only
 the reservoir's shore and the dam's east end differ.
+
+`tests/fixtures/before-n3.json` is the whole world (`… tools/worldhash.ts out/now.json 0 63 0 63`) as it was before
+the fixes to the review's finding N3 (the pit by the home path, the cave under the valley's cliff, the gorge's west
+wall). `tests/walk.test.ts` lists the 117 columns that differ and checks that their neighbours do not; it also
+walks every named route on the generated land with the real `Player`'s step rules (about 50 s). The 42 of those
+columns east of the gorge have their new hashes in `east-of-ravine.json`.
 
 ### When the play-through's browser tab dies, or memory is in question
 

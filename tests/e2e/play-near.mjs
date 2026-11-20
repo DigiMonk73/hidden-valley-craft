@@ -90,6 +90,10 @@ await g(() => {
   const h = window.__hv.game.hotbar, id = window.__hv.itemId;
   h.add(id('planks'), 6); h.add(id('wire_mesh'), 2); h.add(id('nails'), 8);
 });
+// Home alive from Zone-1, with Marco's trust and the scout's pistol: M1 is done, and only then can M2's things (the coop) be made.
+await g(() => { const gm = window.__hv.game; gm.player.flying = false; gm.player.setPosition(1820.5, 82, 1009.3); });
+const m1Home = await page.waitForFunction(() => window.__hv.game.flags.has('m1_done'), null, { timeout: 120_000, polling: 300 }).then(() => true, () => false);
+check('home from Zone-1, M1 is done: the coop can be made now', m1Home, (await flags()).filter((f) => /gate_both|trust1|extracted|pistol_taken|m1_done/.test(f)).join(' '));
 await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1820.5, 82, 1009.3); gm.player.yaw = 0; gm.player.pitch = -0.55; },
   (gm) => { gm.player.yaw = 0; gm.player.pitch = -0.55; const t = gm.target; return t && t.x === 1820 && t.z === 1007; });
 await page.locator('.iv-recipe', { hasText: 'Chicken coop' }).locator('.iv-make').click().catch(() => {});

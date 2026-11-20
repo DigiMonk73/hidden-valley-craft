@@ -482,11 +482,14 @@ describe('M2: the forge, the bow, preserving, the garden, traps', () => {
   it('every new recipe resolves; the leghold shows only once learned; the forge is a station', () => {
     expect(RECIPES.length).toBeGreaterThan(50);
     expect(tradeNamesValid()).toBe(true);
-    const bow = recipesAt('workbench').find((r) => r.out[0] === itemId('hunting_bow'))!;
+    // M2's recipes need M1 done (docs/FIXES.md, 6).
+    const m1 = new Set(['m1_done']);
+    expect(recipesAt('workbench').some((r) => r.out[0] === itemId('hunting_bow'))).toBe(false);
+    const bow = recipesAt('workbench', m1).find((r) => r.out[0] === itemId('hunting_bow'))!;
     expect(bow.in.some(([id]) => id === itemId('bowstring'))).toBe(true);
-    expect(recipesAt('workbench').some((r) => r.out[0] === blockId('leghold_trap'))).toBe(false);
-    expect(recipesAt('workbench', new Set(['leghold_learned'])).some((r) => r.out[0] === blockId('leghold_trap'))).toBe(true);
-    const forge = recipesAt('workbench').find((r) => r.out[0] === blockId('forge'))!;
+    expect(recipesAt('workbench', m1).some((r) => r.out[0] === blockId('leghold_trap'))).toBe(false);
+    expect(recipesAt('workbench', new Set(['leghold_learned', 'm1_done'])).some((r) => r.out[0] === blockId('leghold_trap'))).toBe(true);
+    const forge = recipesAt('workbench', m1).find((r) => r.out[0] === blockId('forge'))!;
     expect(forge.in.some(([id]) => id === itemId('forge_parts'))).toBe(true);
     expect(forge.in.length).toBeLessThanOrEqual(4);
     expect(stationOf(blockId('forge'))).toBe('forge');
@@ -558,6 +561,8 @@ describe('M2: the forge, the bow, preserving, the garden, traps', () => {
     have.set('hunting_bow', 1); have.set('jerky', 2);
     expect(trackM2(f, count)).toEqual(['bow_made', 'preserved']);
     for (const s of M2_STEPS) f.add(s.flag);
+    expect(trackM2(f, count)).toEqual([]); // not before M1 is done
+    f.add('m1_done');
     expect(trackM2(f, count)).toEqual(['m2_done']);
   });
 });

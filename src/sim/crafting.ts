@@ -9,10 +9,20 @@ import type { Inventory, Stack } from './inventory.ts';
 
 export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge' | 'powder_mill' | 'crucible_furnace' | 'lathe';
 
-/** `learn`: a flag that must be earned before the recipe shows (the leghold, learned at the camp). */
-export interface Recipe { station: Station; out: [number, number]; in: [number, number][]; returns: [number, number][]; learn?: string }
+/**
+ * `learn`: a flag that must be earned before the recipe shows (the leghold, learned at the camp).
+ * `after`: the milestone that must be done before it can be made (each milestone's recipes need the one before).
+ */
+export interface Recipe { station: Station; out: [number, number]; in: [number, number][]; returns: [number, number][]; learn?: string; after?: string }
 
-interface RecipeSource { station: Station; out: [string, number]; in: [string, number][]; returns?: [string, number][]; learn?: string }
+interface RecipeSource { station: Station; out: [string, number]; in: [string, number][]; returns?: [string, number][]; learn?: string; after?: string }
+
+/** What a recipe waits for, in the player's words. */
+export const AFTER_LABEL: Record<string, string> = {
+  m1_done: 'after M1 · the first outside run',
+  m2_done: 'after M2 · the homestead expansion',
+  m3_done: 'after M3 · power up',
+};
 
 export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
   station: r.station,
@@ -20,6 +30,7 @@ export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
   in: r.in.map(([n, c]) => [itemId(n), c] as [number, number]),
   returns: (r.returns ?? []).map(([n, c]) => [itemId(n), c] as [number, number]),
   learn: r.learn,
+  after: r.after,
 }));
 
 export const STATION_LABEL: Record<Station, string> = {
@@ -57,9 +68,22 @@ export function stationAt(blockAt: (x: number, y: number, z: number) => number, 
   return stationOf(id);
 }
 
-/** The recipes made at a station; those still to be learned are left out unless `known` has their flag. */
+/**
+ * The recipes that can be made at a station now: those still to be learned are left out unless `known` has their
+ * flag, and so are those whose milestone has not come (`waitingAt` lists them).
+ */
 export function recipesAt(station: Station, known: ReadonlySet<string> = new Set()): Recipe[] {
-  return RECIPES.filter((r) => r.station === station && (!r.learn || known.has(r.learn)));
+  return RECIPES.filter((r) => r.station === station && (!r.learn || known.has(r.learn)) && (!r.after || known.has(r.after)));
+}
+
+/** The recipes at a station that wait for an earlier milestone: shown greyed, with what they wait for. */
+export function waitingAt(station: Station, known: ReadonlySet<string> = new Set()): Recipe[] {
+  return RECIPES.filter((r) => r.station === station && !!r.after && !known.has(r.after));
+}
+
+/** May this recipe be made yet (learned, and its milestone come)? */
+export function unlocked(r: Recipe, known: ReadonlySet<string>): boolean {
+  return (!r.learn || known.has(r.learn)) && (!r.after || known.has(r.after));
 }
 
 export function canMake(inv: Inventory, r: Recipe): boolean {

@@ -261,9 +261,11 @@ export const ZONE1FAR = {
   shed: { x0: 803, x1: 811, z0: 963, z1: 968 },
   /**
    * Where the jaguar crosses: in from the clearing's west edge in front of the lodge, a stop to look at you
-   * well west of the trail (so walking to the lodge or the shed doesn't brush it), then out past the shed.
+   * well west of the trail (so walking to the lodge or the shed doesn't brush it), then out past the shed
+   * (south of it, over the mud its tracks are in), up the bank east of the clearing and down behind it,
+   * where the rise hides it from anyone in the clearing. The last point is where its call comes from.
    */
-  jaguarPath: [[778, 973], [786, 973], [818, 971]] as [number, number][],
+  jaguarPath: [[778, 973], [786, 973], [818, 971], [826, 970], [836, 969]] as [number, number][],
   /** The broken bridge: the road's end (near abutment) and the far abutment across the ravine. */
   bridge: { near: 0, deckEnd: 0, far: 0, farDeck: 0, z: 0, y: 0 },
   /** The body on the far bank, in the line of sight from the deck's end. */
@@ -437,11 +439,52 @@ export function valleyFloorHeight(x: number, z: number): number {
   const inGarden = x >= GARDEN.x0 && x < GARDEN.x1 && z >= GARDEN.z0 && z < GARDEN.z1;
   if (inGarden) return VALLEY.floor;
   const n = noise.fbm2(x / 38, z / 38, 3);
-  return VALLEY.floor + Math.round(Math.max(-1, Math.min(1, n * 1.6)));
+  const h = VALLEY.floor + Math.round(Math.max(-1, Math.min(1, n * 1.6)));
+  // Round the pool and along the creek the ground never lies below the water's top: the pool stood a block
+  // proud of its east bank, a wall of water with air beside it, and so did one bend of the creek (docs/REVIEW.md, N3f).
+  if (h >= VALLEY.floor) return h;
+  if (Math.hypot(x - POOL.cx, z - POOL.cz) < POOL.radius + 3.5) return VALLEY.floor;
+  const inCreekBox = x > CREEK[0][0] - 6 && x < CREEK[CREEK.length - 1][0] + 6 && z > CREEK[0][1] - 6 && z < CREEK[CREEK.length - 1][1] + 6;
+  return inCreekBox && creekDistance(x, z) < 4 ? VALLEY.floor : h;
+}
+
+/**
+ * The gorge's west wall is sheer along its whole length (docs/REVIEW.md, N3b). Both walls were slopes too
+ * steep to climb straight up, but a slope can be walked along: the far bank was reached on foot in a dozen
+ * places, and round both ends, where the gorge fades into the mountains. So just inside the west rim the
+ * ground now stands `drop` blocks below the rim for `bench` blocks, a step nobody climbs or jumps; from there
+ * it may rise a block a block toward the gorge's middle (in the gorge itself the land falls away far faster;
+ * in the mountains this cuts a notch with a way back out to the east). The east wall is as it was.
+ */
+export const GORGE_WALL = { drop: 6, bench: 6 };
+
+/** The first column west of the gorge's west rim line at row z. */
+export function westRimX(z: number): number {
+  return Math.floor(ravineX(z) - RAVINE_HALF);
+}
+
+const westRims = new Int16Array(WORLD_Z).fill(-1);
+/** The lowest ground on the gorge's west rim within two rows of z: what the wall below it is measured from. */
+function westRim(z: number): number {
+  const zi = Math.max(0, Math.min(WORLD_Z - 1, z));
+  if (westRims[zi] < 0) {
+    let low = Infinity;
+    for (let zz = zi - 2; zz <= zi + 2; zz++) low = Math.min(low, landHeight(westRimX(zz), zz));
+    westRims[zi] = low;
+  }
+  return westRims[zi];
 }
 
 /** Walking height of the land outside the valley's cliff: the land itself, with the ramp and the road cut into it. */
 export function outsideHeight(x: number, z: number): number {
+  const h = landHeight(x, z);
+  const west = ravineX(z) - x; // how far west of the gorge's centre line
+  if (west < 0 || x <= westRimX(z)) return h;
+  return Math.min(h, westRim(z) - GORGE_WALL.drop + Math.max(0, Math.ceil(RAVINE_HALF - GORGE_WALL.bench - west)));
+}
+
+/** The land before the gorge's west wall is cut sheer. */
+function landHeight(x: number, z: number): number {
   const onRoadX = x <= ROAD.east + 1 && x >= ROAD.west - 6;
   const roadD = onRoadX ? Math.abs(z + 0.5 - roadZ(x)) : Infinity;
   if (roadD < ROAD.halfWidth) return roadHeight(x);
@@ -1003,7 +1046,8 @@ function zone3Pad(x: number, z: number, natural: number): number | null {
   // The reservoir's shores never dip under its surface.
   if (z < d.z - 3 && z > 150) {
     const rd = Math.abs(x - ravineX(z));
-    if (rd >= 22 && rd < 44 && natural < d.water + 2) return d.water + 2;
+    // (On the west side from the rim's own line: a swimmer finds no shore there to climb out on.)
+    if ((rd >= 22 || x <= westRimX(z)) && rd < 44 && natural < d.water + 2) return d.water + 2;
   }
   if (z > 1045 || z < 730 || x < 480) return null;
   if (x >= d.x1) {

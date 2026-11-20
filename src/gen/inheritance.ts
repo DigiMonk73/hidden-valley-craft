@@ -28,7 +28,8 @@ export const HOME_CHESTS: HomeChest[] = [
     ['lantern', 16], ['log', 32], ['chest', 6],
   ] },
   { x: 1818, y: 82, z: 1038, title: 'Pantry: tins and dry goods', items: [
-    ['canned_food', 16], ['canned_food', 16], ['rice', 16], ['beans_cooked', 16], ['honey', 8], ['salt', 16],
+    // About ten days' food, as docs/PLAN.md has it (it was forty: nothing grown or hunted was ever needed).
+    ['canned_food', 8], ['rice', 6], ['beans_cooked', 6], ['honey', 8], ['salt', 16],
   ] },
   { x: 1820, y: 82, z: 1038, title: 'Pantry: water and coffee', items: [
     ['water_jug', 8], ['water_jug', 8], ['empty_jug', 4], ['coffee', 16], ['coffee_beans', 32],
