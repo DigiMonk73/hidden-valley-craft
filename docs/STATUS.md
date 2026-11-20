@@ -16,9 +16,9 @@ _The page to resume from. Keep it short; history lives in git._
   (N1), creatures on the real land (N5), traps and a test that walks every route (N3), failures (N8), Survival
   and Builder's mode (N2), money and milestones (N4), the first ten minutes (N6) and a first part of the split of
   `src/game.ts` (N10). What was done, each call made and why, the tests, and what was left are in
-  [FIXES.md](FIXES.md). It was built beside the home makeover (branch `home`), which had not landed: both change
-  `src/game.ts`, `src/save/save.ts`, the land near the home and its fixtures, so whichever merges second needs
-  those reconciled (FIXES.md, 8, lists the functions kept in place for that).
+  [FIXES.md](FIXES.md). The home makeover (`main` at 71d9e3d) is merged into it: the home's rule that a valley
+  from before the rebuild is not opened is kept, and is now held by the save keeper for every copy of a save
+  (FIXES.md, 10). The land outside the home is the same, column for column, before and after that merge.
 
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).

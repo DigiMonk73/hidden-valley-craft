@@ -17,6 +17,13 @@ const open = async (query = 'rd=2&hour=12') => {
   await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 240_000, polling: 300 });
   return page;
 };
+// Waits are on the game's own state or clock, never the wall's: a slow machine runs the game at a fraction of real time.
+const playing = (page) => page.waitForFunction(() => window.__hv.game.playing, null, { timeout: 60_000, polling: 100 });
+const saved = (page) => page.waitForFunction(() => { const g = window.__hv.game; return !g.saving && g.editCount === g.savedCount; }, null, { timeout: 60_000, polling: 100 });
+const gameWait = async (page, seconds) => {
+  const t0 = await page.evaluate(() => window.__hv.game.time);
+  await page.waitForFunction(([t0, s]) => window.__hv.game.time - t0 >= s, [t0, seconds], { timeout: 120_000, polling: 100 });
+};
 const ready = (page) => page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 240_000, polling: 300 });
 
 // 1. Play without changing a block; pause; reload: position, health and the hour are there.
@@ -24,13 +31,18 @@ const a = await open();
 check('the store is the browser’s own', (await a.evaluate(() => window.__hv.game.store.kind)) === 'indexeddb');
 await a.getByRole('button', { name: 'Play' }).click();
 await a.locator('.hv-intro .skip').click().catch(() => {}); // the opening, on a new valley
-await a.waitForTimeout(500);
-await a.evaluate(() => { const g = window.__hv.game; g.player.setPosition(g.player.x - 4, g.player.y, g.player.z + 2); g.vitals.hp = 37; g.wallet = 424242; });
+await playing(a);
+// (A step to a spot that is free: the balcony has furniture on it, and a player saved inside some is put back at the cave.)
+await a.evaluate(() => {
+  const g = window.__hv.game, p = g.player, at = (x, y, z) => g.world.blockAt(x, y, z);
+  const to = [[-1, 0], [-1, 1], [-1, -1], [0, 1], [0, -1], [-2, 0], [1, 0]].find(([dx, dz]) => p.fitsAt(p.x + dx, p.y, p.z + dz, at) && at(Math.floor(p.x + dx), Math.floor(p.y) - 1, Math.floor(p.z + dz)) !== 0);
+  p.setPosition(p.x + to[0], p.y, p.z + to[1]); g.vitals.hp = 37; g.wallet = 424242;
+});
 const at = await a.evaluate(() => window.__hv.game.player.x);
-await a.waitForTimeout(1500);
+await gameWait(a, 1);
 await a.keyboard.press('Escape');
 await a.waitForFunction(() => !window.__hv.game.playing, null, { timeout: 20_000 });
-await a.waitForTimeout(1500);
+await saved(a);
 await a.reload();
 await ready(a);
 const back = await a.evaluate(() => { const g = window.__hv.game; return { x: g.player.x, hp: g.vitals.hp, wallet: g.wallet, toasts: g.hud.blocked }; });
@@ -39,9 +51,9 @@ check('no backup is offered until a valley has been left (a page load makes none
 
 // 2. Leaving with no pause and no edit: the close-time copy.
 await a.getByRole('button', { name: 'Play' }).click();
-await a.waitForTimeout(800);
+await playing(a);
 await a.evaluate(() => { window.__hv.game.wallet = 31337; });
-await a.waitForTimeout(600);
+await gameWait(a, 0.3);
 await a.reload();
 await ready(a);
 check('closing the page mid-play keeps what was not yet saved', (await a.evaluate(() => window.__hv.game.wallet)) === 31337);
@@ -98,7 +110,7 @@ const d = await open();
 await d.getByRole('button', { name: 'Paste save code' }).click();
 await d.locator('textarea.hv-code').last().fill('HVB1:' + Buffer.from(JSON.stringify({ format: 'hidden-valley-blocks-save', version: 1 })).toString('base64'));
 await d.getByRole('button', { name: 'Load pasted code' }).click();
-await d.waitForTimeout(800);
+await d.waitForFunction(() => /damaged/.test(document.querySelector('.hv-toast')?.textContent ?? ''), null, { timeout: 60_000, polling: 100 });
 check('a damaged save code is refused and the valley is untouched', (await d.evaluate(() => window.__hv.game.wallet)) === 31337);
 await d.reload();
 await ready(d);
@@ -118,7 +130,7 @@ await e.getByRole('button', { name: 'New game' }).click();
 await e.getByRole('button', { name: 'Click again to erase this save' }).click();
 await e.waitForFunction((w) => window.__hv.game.wallet !== w, mine, { timeout: 60_000 }).catch(() => {});
 await ready(e);
-await e.waitForTimeout(1500);
+await saved(e);
 await e.reload();
 await ready(e);
 check('after New game and a reload, the valley left is still offered as the backup', await e.getByRole('button', { name: /Open the backup/ }).isVisible());

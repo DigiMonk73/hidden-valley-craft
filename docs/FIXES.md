@@ -526,6 +526,47 @@ dawn and saves whole.
 
 ---
 
+## 10. Merged with the home rebuilt (2026-11-20)
+
+The home makeover landed on `main` (71d9e3d) while this branch was being checked, and was merged in here. It and
+the save work touch the same thing from two sides, so this is how they were made one.
+
+**The home's rule, kept.** The home's rooms, bed and chests moved, so the home's work decided that a valley saved
+before it is **not opened**: a fresh valley starts, and says so. That decision is the lead's and stands. What
+changed is where it lives. On `main` it sat in the old load code, which this branch had replaced with the save
+keeper (item 1). It is now the keeper's rule, so every way a valley can arrive obeys it:
+
+- **The stored save** from the earlier layout: not opened. Before the fresh valley's first write it is copied under
+  its own key (`save:earlier`), so nothing is destroyed. It is not filed with damaged saves, because it is not one.
+- **Its close-time copy** (and a close-time copy on its own, from a page that never reached its storage): not opened,
+  and kept the same way.
+- **The backup:** one from the earlier layout is not offered in the menu and cannot be opened.
+- **A hand-over** from the page's previous version, and **a pasted save code**: refused. The pasted one says "That
+  save was made by an earlier build, before the home was rebuilt"; the valley you are in is untouched.
+- The line "This valley was made by an earlier build. A fresh one has been started." shows in the menu and again at
+  the first Play, through the same notice the keeper uses for every other thing it has to say.
+
+**The fault this would have had.** A save carries a number for the layout it was made in. The check every save goes
+through (item 1) builds a clean copy field by field, and did not know that number, so it would have dropped it: every
+valley, however new, would have looked old at the next start and been thrown away. The check now keeps the number
+and a new valley is given it. `tests/layout_rule.test.ts` (10 tests) holds all of the above; six of them fail with
+the number dropped, and six fail with the keeper's rule taken out.
+
+**The land.** The home's test compares the 64 columns round the home against a list made before its work. 27 of
+those were changed since by item 3's land fixes (the valley's ring, the creek's banks), so the list now holds them
+as mended. To be sure the merge itself changed no land: all 4,096 columns outside the home's box were hashed
+(`tools/landhash.ts`) on this branch before the merge and after it, and every one matched.
+
+**Smaller things.**
+- Waking: both pieces are kept. The home's check on load (a player saved where a wall now stands goes back to the
+  cave) and this branch's check on waking (blocks stacked on the wake point, a shaft under it) do different jobs.
+- The sixth goal of the first ten minutes now says where the bed is: "through the double door on the cave's south
+  side".
+- The browser scripts wait on the game's own state or clock, never on a fixed time (`tests/e2e/saves.mjs` had seven
+  fixed waits). The save script's walk now steps to a free spot: its old step landed inside the new patio furniture.
+- The valley play-through plants two saves and reloads. They are ordered by write number now, as the keeper orders
+  them, not by a date set in the future.
+
 ## Left undone, in one place
 
 - **The valley can be walked into over its rim** (the fresh review's finding 6; it is so on `main` too). From
