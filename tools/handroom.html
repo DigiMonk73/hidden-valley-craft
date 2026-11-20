@@ -29,7 +29,7 @@ function draw() {
     gl.setViewport(x, y, CW, CH); gl.setScissor(x, y, CW, CH);
     gl.autoClear = true; gl.render(bg, bgCam);
     const held = name === 'none' ? 0 : itemId(name);
-    const f = { held, show: true, mining: false, aiming: Number(aim || 0) > 0, draw: Number(drawn || 0), walked: 0, turnX: 0, turnY: 0, light, tint: null, tintAmount: 0 };
+    const f = { held, show: true, mining: false, aiming: Number(aim || 0) > 0, draw: Number(drawn || 0), walked: 0, turnX: 0, turnY: 0, light };
     for (let k = 0; k < 60; k++) v.update(0.05, f); // settle: raised, aimed
     v.state.swing = Number(swing || 0); v.state.recoil = Number(recoil || 0); v.state.aim = Number(aim || 0);
     v.update(0, f);

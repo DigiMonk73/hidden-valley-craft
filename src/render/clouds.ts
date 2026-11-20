@@ -23,6 +23,7 @@ uniform sampler2D uClouds;
 uniform vec2 uOffset;
 uniform float uDaylight;
 uniform vec3 uSkyLight;
+uniform float uRain; // 0–1: rain clouds are grey, and nearly close the sky's gaps to the eye
 out vec4 outColor;
 ${SKY_COLOR_GLSL}
 void main() {
@@ -32,7 +33,7 @@ void main() {
   float dist = length(vWorld.xz - cameraPosition.xz);
   // Bright by day, barely there at night (daylight bottoms out at 0.3 under the moon).
   float day = clamp((uDaylight - 0.3) / 0.7, 0.0, 1.0);
-  vec3 lit = mix(vec3(1.0), uSkyLight, 0.5) * (0.1 + 0.9 * day);
+  vec3 lit = mix(vec3(1.0), uSkyLight, 0.5) * (0.1 + 0.9 * day) * (1.0 - 0.42 * uRain);
   vec3 col = mix(lit, skyColor(normalize(vWorld - cameraPosition)), smoothstep(500.0, 1900.0, dist));
   outColor = vec4(col, (0.45 + 0.29 * day) * (1.0 - smoothstep(1500.0, 2000.0, dist)));
 }`;
@@ -60,7 +61,7 @@ export class Clouds {
     const mat = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       uniforms: {
-        uClouds: { value: tex }, uOffset: { value: new THREE.Vector2() }, uDaylight: { value: 1 }, uSkyLight: { value: new THREE.Color(1, 1, 1) },
+        uClouds: { value: tex }, uOffset: { value: new THREE.Vector2() }, uDaylight: { value: 1 }, uSkyLight: { value: new THREE.Color(1, 1, 1) }, uRain: { value: 0 },
         uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
         uSunGlow: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       },
@@ -71,10 +72,11 @@ export class Clouds {
   }
 
   /** Follows the camera across the sky; the texture drifts with time. */
-  sync(s: SkyState, camX: number, camZ: number, time: number): void {
+  sync(s: SkyState, camX: number, camZ: number, time: number, rain = 0): void {
     this.mesh.position.set(camX, HEIGHT, camZ);
     const u = this.mesh.material.uniforms;
     u.uOffset.value.set(time * 1.6, time * 0.3);
+    u.uRain.value = rain;
     u.uDaylight.value = s.daylight; u.uSkyLight.value.copy(s.skyLight);
     u.uZenith.value.copy(s.zenith); u.uHorizon.value.copy(s.horizon); u.uSunGlow.value.copy(s.sunGlow); u.uSunDir.value.copy(s.sunDir);
   }

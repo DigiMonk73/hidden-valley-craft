@@ -54,7 +54,7 @@ uniform vec3 uColor;
 out vec4 outColor;
 void main() { outColor = vec4(uColor, vAlpha); }`;
 
-const GREY = new THREE.Color('#8a949c');
+const GREY = new THREE.Color('#7f888e');
 
 export class Rain {
   readonly mesh: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
@@ -118,9 +118,9 @@ export class Rain {
     const grey = GREY.clone().multiplyScalar(0.35 + 0.65 * s.daylight);
     // New colours, not the given ones changed: at midday the sky's colours are the palette's own (src/render/sky.ts
     // hands them out by reference), and changing those would leave every later day grey.
-    s.zenith = s.zenith.clone().lerp(grey, 0.75 * k);
-    s.horizon = s.horizon.clone().lerp(grey, 0.6 * k);
-    s.fog = s.fog.clone().lerp(grey, 0.65 * k);
+    s.zenith = s.zenith.clone().lerp(grey, 0.9 * k);
+    s.horizon = s.horizon.clone().lerp(grey, 0.8 * k);
+    s.fog = s.fog.clone().lerp(grey, 0.8 * k);
     s.sunGlow = s.sunGlow.clone().multiplyScalar(1 - 0.85 * k);
     s.skyLight = s.skyLight.clone().multiplyScalar(1 - 0.28 * k);
     (this.mesh.material.uniforms.uColor.value as THREE.Color).setRGB(0.78, 0.83, 0.9).multiplyScalar(0.45 + 0.55 * s.daylight);

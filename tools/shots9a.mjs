@@ -3,7 +3,7 @@
 // set and moves the camera, so a set of ten costs little more than one.
 // Needs the build served: npx vite preview --port 4173.
 // Usage: node tools/shots9a.mjs <tag> [set ...] [name=x,y,z,yawDeg,pitchDeg,hour ...]
-//   writes out/9a/<tag>-<name>.png. Sets: valley, water, road, far, life, hand (see below).
+//   writes out/9a/<tag>-<name>.png. Sets: valley, water, road, far, life, rain, sump, sit, hand (see below).
 // A shot may carry a script to run in the page once the land is in ({ run }), and `play: true` to set the game
 // playing (the hand and what it holds are drawn only in play).
 // For checking the look by eye; not a pass/fail test.
@@ -58,8 +58,26 @@ const SETS = {
   life: { rd: 4, shots: {
     hummingbirds: { cam: '1746.5,71.9,1031.5,60,-8,9', wait: 45000, run: closeTo('hummingbird', 2.4, 0.3, 3) },
     doves: { cam: '1722,72.2,1062,40,-6,9', wait: 30000, run: closeTo('dove', 8, 1.2, 4) },
-    quetzal: { cam: '1742,72.6,1054,56,14,7', pre: `window.__hv.game.day = 1`, wait: 20000, run: closeTo('quetzal', 17, -5, 5) },
+    quetzal: { cam: '1742,72.6,1054,56,14,7', pre: `window.__hv.game.day = 1`, wait: 20000, run: closeTo('quetzal', 17, 2.5, 5) },
     quetzal_from_path: { cam: '1752,73,1052,72,8,7', pre: `window.__hv.game.day = 1`, wait: 12000 },
+  } },
+  // Afternoon rain (day 2 is a rainy one: from half past two), from the open and from under the cave's roof.
+  rain: { rd: 6, shots: {
+    rain_balcony: { cam: '1796.5,83.62,1024.5,90,-6,15', pre: `window.__hv.game.day = 2`, wait: 8000 },
+    rain_from_cave: { cam: '1806,83.62,1024.5,90,2,15', pre: `window.__hv.game.day = 2`, wait: 8000 },
+    rain_garden: { cam: '1745,73,1030,100,6,15', pre: `window.__hv.game.day = 2`, wait: 8000 },
+    dry_balcony: { cam: '1796.5,83.62,1024.5,90,-6,15', pre: `window.__hv.game.day = 1`, wait: 3000 },
+  } },
+  // Zone-4's sump, by day and at dusk.
+  sump: { rd: 4, shots: {
+    sump_day: { cam: '446,120.5,438,74,-18,13', wait: 25000 },
+    sump_dusk: { cam: '446,120.5,438,74,-18,18.6', wait: 8000 },
+  } },
+  // Sitting on the balcony's lounger at sunset, in play (the hand is drawn).
+  sit: { rd: 8, shots: {
+    sitting_sunset: { cam: '1796.5,83.62,1024.5,90,-6,17.6', play: true, wait: 4000, run: `(() => { const g = window.__hv.game, w = g.world, p = g.player;
+      for (let x = 1788; x < 1800; x++) for (let z = 1012; z < 1037; z++) { const id = w.blockAt(x, 82, z); if (window.__hv.blockName(id).startsWith('lounger_head')) {
+        p.flying = false; p.setPosition(x + 1.5, 82, z + 0.5); g.target = { x, y: 82, z, id, nx: 0, ny: 1, nz: 0, dist: 1.5 }; g.placeBlock(); p.yaw = Math.PI / 2; p.pitch = -0.08; console.log('BIRDS sat ' + !!g.seat + ' at ' + x + ',' + z); return; } } console.log('BIRDS no lounger'); })()` },
   } },
   // In hand (drawn only in play).
   hand: { rd: 4, shots: {
@@ -131,7 +149,7 @@ for (const job of jobs) {
     }), [x, y, z, rad(yaw), rad(pitch)]);
     if (shot.pre) await page.evaluate(shot.pre);
     if (shot.wait) await page.waitForTimeout(shot.wait);
-    if (shot.run) await page.evaluate(shot.run);
+    if (shot.run) { await page.evaluate(shot.run); await page.waitForTimeout(1500); }
     if (process.env.EVAL) await page.evaluate(process.env.EVAL);
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     await page.screenshot({ path: `out/9a/${tag}-${name}.png`, timeout: 180_000 });

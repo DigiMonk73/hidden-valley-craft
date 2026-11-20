@@ -83,7 +83,7 @@ describe('the hand\'s poses', () => {
 });
 
 describe('the hand in play', () => {
-  const frame = (over: Partial<HandFrame> = {}): HandFrame => ({ held: itemId('steel_pickaxe'), show: true, mining: false, aiming: false, draw: 0, walked: 0, turnX: 0, turnY: 0, light: new THREE.Color(1, 1, 1), tint: null, tintAmount: 0, ...over });
+  const frame = (over: Partial<HandFrame> = {}): HandFrame => ({ held: itemId('steel_pickaxe'), show: true, mining: false, aiming: false, draw: 0, walked: 0, turnX: 0, turnY: 0, light: new THREE.Color(1, 1, 1), ...over });
   const run = (v: HandView, f: HandFrame, seconds: number) => { for (let t = 0; t < seconds; t += 1 / 60) v.update(1 / 60, f); };
 
   it('changing what is held lowers the hand, changes it, and raises it again', () => {

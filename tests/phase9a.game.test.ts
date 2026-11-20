@@ -103,6 +103,21 @@ describe('sitting (docs/PHASE9A.md, 8)', () => {
     expect([p.game.player.x, p.game.player.y, p.game.player.z]).toEqual(from);
   });
 
+  it('a save made while sitting records where you stood, not the seated body under the chair', async () => {
+    const p = await begun();
+    land(p, 1788, 1004, 1832, 1042);
+    const s = seatsAtHome(p).find((q) => q.name === 'armchair')!;
+    const from: [number, number, number] = [1806.5, HOME.floor, 1024.5];
+    useSeat(p, s, from);
+    expect(p.game.player.y).toBeLessThan(HOME.floor); // the seated body's feet are under the seat…
+    const saved = p.game.snapshot().player;
+    expect([saved.x, saved.y, saved.z]).toEqual(from); // …and the save does not say so
+    fire('window', 'keydown', { code: 'Space' });
+    fire('window', 'keyup', { code: 'Space' });
+    const after = p.game.snapshot().player;
+    expect([after.x, after.y, after.z]).toEqual(from);
+  });
+
   it('a blow stands you up; so does the seat being mined from under you; and being moved (the way home) just leaves it', async () => {
     const p = await begun();
     land(p, 1788, 1004, 1832, 1042);

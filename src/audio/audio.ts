@@ -520,9 +520,14 @@ export class Sound {
       this.rainGain = ctx.createGain(); this.rainGain.gain.value = 0;
       src.connect(band).connect(this.rainGain).connect(this.ambience);
     }
-    this.rainGain.gain.setTargetAtTime(level * (0.05 + 0.2 * open), ctx.currentTime, 0.4);
+    // Only when it changes: a new target every frame would pile up on the gain's timeline for the whole session.
+    const want = Math.round(level * (0.05 + 0.2 * open) * 200) / 200;
+    if (want === this.rainWant) return;
+    this.rainWant = want;
+    this.rainGain.gain.setTargetAtTime(want, ctx.currentTime, 0.4);
   }
   private rainGain: GainNode | null = null;
+  private rainWant = 0;
 
   /** The quetzal's call from its tree (docs/PHASE9A.md, 6): two soft whistles, each falling. */
   quetzal(x: number, y: number, z: number): void {

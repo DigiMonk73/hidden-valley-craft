@@ -27,7 +27,8 @@ const KINDS: Record<string, [string, number, boolean?]> = {
   raider_forge: [EMBER, 0.9, true], crucible_furnace: [EMBER, 0.9, true],
   // Zone-4's sump (docs/PHASE9A.md, 8): the black sludge gives off a sick green light of its own, dim by day and
   // plain at dusk. It lights nothing (the block emits no light): it is a warning, like the signs round it.
-  sludge: ['#3f6a14', 1.7],
+  // (Dim on purpose: a pond is some 150 blocks and nine glows overlap at any point of it; the first picture was neon.)
+  sludge: ['#111e06', 1.5],
 };
 
 /** The glow of each block, by id; undefined for a block with none. */

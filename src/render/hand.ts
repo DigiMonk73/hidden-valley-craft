@@ -457,10 +457,8 @@ const FRAG = /* glsl */ `
 precision highp float;
 in vec3 vColor;
 uniform vec3 uLight;
-uniform vec3 uTint;
-uniform float uTintAmount;
 out vec4 outColor;
-void main() { outColor = vec4(mix(vColor * uLight, uTint, uTintAmount), 1.0); }`;
+void main() { outColor = vec4(vColor * uLight, 1.0); }`;
 
 function geometryOf(shape: Shape, scale: number): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
@@ -498,11 +496,8 @@ export interface HandFrame {
   /** The view's turn this frame (radians): yaw, pitch. */
   turnX: number;
   turnY: number;
-  /** The light on the hand (the sky's and the lamps', as the blocks are lit). */
+  /** The light on the hand (the sky's and the lamps', as the blocks are lit; under water it is the water's). */
   light: THREE.Color;
-  /** Under water: the hand is tinted like everything else. */
-  tint: THREE.Color | null;
-  tintAmount: number;
 }
 
 export class HandView {
@@ -511,7 +506,7 @@ export class HandView {
   private root = new THREE.Group();
   private mat = new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG,
-    uniforms: { uLight: { value: new THREE.Color(1, 1, 1) }, uTint: { value: new THREE.Color(0, 0, 0) }, uTintAmount: { value: 0 } },
+    uniforms: { uLight: { value: new THREE.Color(1, 1, 1) } },
   });
   private arm: THREE.Mesh;
   private armOpen: THREE.Mesh;
@@ -622,8 +617,6 @@ export class HandView {
       place(this.string, pose.item);
     }
     this.mat.uniforms.uLight.value.copy(f.light);
-    this.mat.uniforms.uTintAmount.value = f.tint ? f.tintAmount : 0;
-    if (f.tint) this.mat.uniforms.uTint.value.copy(f.tint);
   }
 
   /** Draws the hand over the picture already drawn (only the depth is cleared: the hand never pokes into a wall). */

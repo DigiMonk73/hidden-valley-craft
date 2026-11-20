@@ -503,7 +503,7 @@ export class Renderer {
     this.steam.sync(s, fogNear, fogFar, time);
     this.chimney.sync(s, fogNear, fogFar, time);
     this.flue.sync(s, fogNear, fogFar, time);
-    this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
+    this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time, this.rain.level);
     this.glows.sync(s, fogNear, fogFar, time);
     this.birds.sync(s, fogNear, fogFar);
   }

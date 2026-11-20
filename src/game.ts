@@ -641,7 +641,6 @@ export class Game {
       draw: this.drawing !== null ? drawOf(this.playTime - this.drawing) : 0,
       walked, turnX: p.yaw - was.yaw, turnY: p.pitch - was.pitch,
       light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z))),
-      tint: null, tintAmount: 0,
     });
     was.x = p.x; was.z = p.z; was.yaw = p.yaw; was.pitch = p.pitch;
   }
@@ -1963,7 +1962,9 @@ export class Game {
     return {
       format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, savedAt: new Date().toISOString(),
       mode: this.mode, endless: this.hotbar.creative, hour: this.hour,
-      player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
+      // Saved while sitting, the player is where they stood before sitting down (the seated body's feet are put
+      // under the seat: a save would open with them inside the floor).
+      player: { x: this.seat?.from[0] ?? p.x, y: this.seat?.from[1] ?? p.y, z: this.seat?.from[2] ?? p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.hotbar.toSave(), spill: this.spilled(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
