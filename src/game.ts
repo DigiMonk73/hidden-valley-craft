@@ -896,19 +896,20 @@ export class Game {
   }
 
   /**
-   * Once the world has loaded round the player: if a wall or a piece of furniture now stands where they (or the place
-   * they wake) were saved, move to a safe spot. A save must never strand its player in rock.
+   * Once the world has loaded round the player: if a wall or a piece of furniture now stands where they were
+   * saved, they go to where they wake. A save must never strand its player in rock.
    */
   private settleIn(): void {
     const p = this.player, at = (x: number, y: number, z: number) => this.world.blockAt(x, y, z);
-    const s = this.spawn;
-    // The balcony's own spot is never checked here: it is in a part of the world that may not have loaded yet.
-    const balcony = s.x === SPAWN.x && s.y === SPAWN.y && s.z === SPAWN.z;
-    if (!balcony && this.world.isLoaded(Math.floor(s.x), Math.floor(s.z)) && !p.fitsAt(s.x, s.y, s.z, at)) this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
-    if (!p.shutIn(at)) return;
+    // Already on the way to where they wake: `settleAtWake` stands them somewhere that will do, once play goes on.
+    // (Without this, a wake point that is built over as well sent them round again, and the loading never ended.)
+    if (this.wakeHold || !p.shutIn(at)) return;
     const flying = p.flying;
-    p.setPosition(this.spawn.x, this.spawn.y, this.spawn.z);
-    p.yaw = this.spawn.yaw; p.pitch = 0; p.flying = flying;
+    // Where they wake, checked by the same rule as waking after a death: beside it if something stands there,
+    // the balcony if nowhere near will do (so loading and waking never disagree about the wake point).
+    const s = this.toWake();
+    p.setPosition(s.x, s.y, s.z);
+    p.yaw = s.yaw; p.pitch = 0; p.flying = flying;
     this.ready = false; // load the world there before play goes on
     this.hud.setLoadingVisible();
     const line = 'Something stands where you were. You are back at the cave.';
