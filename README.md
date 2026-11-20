@@ -91,6 +91,7 @@ node --experimental-strip-types tools/texsheet.ts
 `node --experimental-strip-types --no-warnings tools/homeslice.ts y=82` prints a level of the home as letters, and
 `tools/landhash.ts` hashes the land outside the home, to show a change to the home changed nothing else (docs/HOME.md).
 `node tools/showroom.mjs table chair@south` photographs pieces of furniture from where a player would stand.
+`node tools/shots-phase8.mjs` photographs Phase 8's screens as they are played: the dose meter, the telescope, the uplink's answers, the closing card, the map table (`out/p8h_*.png`).
 
 `npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
 tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, `tools/zone3map.ts` Zone-3's into
