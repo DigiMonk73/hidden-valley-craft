@@ -45,6 +45,8 @@ const CSS = `
   background: radial-gradient(ellipse at center, transparent 45%, rgba(160, 20, 10, .55)); }
 .hv-toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
   background: rgba(14, 20, 16, .75); font-size: 15px; transition: opacity .5s; text-align: center; max-width: 80vw; }
+.hv-notice { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 20; display: none; padding: 8px 14px; border-radius: 8px;
+  background: rgba(201, 143, 62, .95); color: #17110a; font-size: 15px; text-align: center; max-width: 90vw; pointer-events: none; }
 .hv-debug { position: absolute; left: 8px; top: 8px; font: 12px/1.35 ui-monospace, Menlo, monospace; background: rgba(0,0,0,.5);
   padding: 6px 8px; border-radius: 6px; white-space: pre; }
 .hv-mode { position: absolute; right: 10px; top: 8px; font-size: 12px; opacity: .8; text-shadow: 0 1px 2px #000; }
@@ -134,6 +136,8 @@ export class Hud {
   private loadBox!: HTMLElement;
   private labelTimer = 0;
   private toastTimer = 0;
+  private noticeEl: HTMLDivElement;
+  private noticeTimer = 0;
   private hotbarSig = '';
   debugVisible = false;
 
@@ -196,6 +200,7 @@ export class Hud {
 
     this.menu = el('div', 'hv-menu', root);
     this.buildMenu(actions);
+    this.noticeEl = el('div', 'hv-notice', root);
   }
 
   private buildMenu(a: MenuActions): void {
@@ -384,6 +389,17 @@ export class Hud {
     this.toastEl.style.opacity = '1';
     clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => (this.toastEl.style.opacity = '0'), ms);
+  }
+
+  /**
+   * A plain line above everything, the menu too, for trouble the player has to know of (a toast is
+   * hidden behind the menu). It stays until notice(null), or for `ms` if that is given.
+   */
+  notice(text: string | null, ms = 0): void {
+    clearTimeout(this.noticeTimer);
+    this.noticeEl.textContent = text ?? '';
+    this.noticeEl.style.display = text ? 'block' : 'none';
+    if (text && ms > 0) this.noticeTimer = window.setTimeout(() => (this.noticeEl.style.display = 'none'), ms);
   }
 
   setMode(text: string): void { this.modeEl.textContent = text; }

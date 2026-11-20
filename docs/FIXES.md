@@ -73,3 +73,45 @@ Node (`tests/game/harness.ts`, with the picture, screens, sound and mouse stubbe
 no edit saved on a timer, on pause and at close, malformed saves at boot and at import, a hand-over before
 boot, New game, two tabs with and without locks. `tests/e2e/saves.mjs` runs the same cases in a real browser
 (14 checks), with a real IndexedDB made slow and made to never answer.
+
+---
+
+## 4. Failures that are not handled (N8)
+
+_Built before items 2 and 3 landed (they were being worked on in parallel), so its commit comes first._
+
+**What was wrong.** A crashed worker, a failed generation or mesh job, a lost picture (the browser taking the
+graphics context away) and a type error in the build were each either silent or for ever.
+
+**What was done.**
+
+- **Workers** (`src/jobs/pool.ts`): a worker that errors, sends an unreadable answer or never says it is ready is
+  replaced, and its job goes once more to another; a job lost twice is refused, so the streamer can back off. With
+  no worker left, the work moves to the main thread, as in a sandboxed frame that never had workers.
+- **The streamer** (`src/world/streamer.ts`): a column that fails is asked for again after 0.5 s, 2 s and 8 s, then
+  left out until the player comes back to it (it was asked for every frame, for ever). A mesh that fails is built
+  once more. The loading screen no longer waits for ever on a column that was given up, and the game now says so
+  on screen once ("Part of the land could not be built here…") rather than leave a silent hole.
+- **The picture** (`src/platform/context.ts`, `src/render/renderer.ts`): when the browser takes the picture away
+  the game pauses and says "The picture was lost. It will come back in a moment…"; when it returns, it says so.
+  If it has not returned in 15 s, it says to save and reload. three.js rebuilds its own buffers and textures; the
+  renderer puts back the two things it does not (the sky colour behind everything and the picture's size).
+- **The shared index buffer** (`src/render/chunkGeometry.ts`): every chunk shares one 3.1 MB list of corners, and
+  three.js deleted and re-sent it each time any chunk was rebuilt or unloaded. It is now taken off a chunk before
+  the chunk is thrown away. (Read in three.js r187's source and shown in a test with its own bookkeeping.)
+- **The file picker:** a file that cannot be read answers "no file" where it used to wait for ever.
+- **Checks on push:** `npm run build` type-checks first and stops on a type error; a GitHub Action
+  (`.github/workflows/checks.yml`) runs the type check, the unit tests and the build on every push and pull
+  request; `playwright` is declared in `package.json` (installing it downloads no browser).
+
+**Not done, on purpose.**
+
+- No watchdog for a worker that hangs without an error: a timeout would kill healthy workers after the computer
+  sleeps.
+- A lost and restored picture has been tested with a stand-in, not in a real browser on a real graphics card.
+  To try it: in the browser's console, `__hv.game.renderer.gl.forceContextLoss()`, then `forceContextRestore()`.
+- `AGENTS.md`'s publishing steps are unchanged: `npm run build` is already step 1 there, and it now type-checks.
+
+**Tests.** `tests/failures.test.ts` (26): a stand-in `Worker` that dies mid-job, fails twice, sends rubbish or never
+starts; a failing column not asked for every frame; a mesh retried and drawn; healthy walks over real and flat
+land that still draw every chunk and remove meshes on unload; three.js's own geometry bookkeeping; context loss.

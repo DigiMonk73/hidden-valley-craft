@@ -1,0 +1,32 @@
+# The checks every push and pull request must pass: types, unit tests and the build.
+# The browser play-through (tests/e2e) is not run here: it takes over an hour and needs a served build.
+name: checks
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # playwright is a dev dependency for the play-through only; no browser is needed for these checks.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npx vitest run
+      - name: Build
+        run: npx vite build

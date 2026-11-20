@@ -25,7 +25,8 @@ The page that is played is one self-contained file. Build it with:
 npm run build
 ```
 
-The result is `dist/index.html`, under 14 MB; the build fails above that.
+The build checks the types first (`tsc --noEmit`) and stops on a type error. The result is
+`dist/index.html`, under 14 MB; the build fails above that.
 
 ## Check it
 
@@ -37,8 +38,11 @@ npm test
 npm run typecheck
 ```
 
-The end-to-end play-through and the screenshot tool both use headless Chromium. Serve the build
-first, because workers can't start from a `file://` page:
+Both run on GitHub for every push and pull request, with the build (`.github/workflows/checks.yml`).
+
+The end-to-end play-through and the screenshot tool both use headless Chromium, through `playwright`
+(a dev dependency; `npm install` does not download a browser: run `npx playwright install chromium` once
+if the machine has none). Serve the build first, because workers can't start from a `file://` page:
 
 ```bash
 npx vite preview --port 4173

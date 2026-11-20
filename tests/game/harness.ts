@@ -76,6 +76,7 @@ export interface Inside {
   ready: boolean;
   booted: boolean;
   time: number;
+  last: number;
   playTime: number;
   lastSave: number;
   cachedCode: string | null;
@@ -96,6 +97,9 @@ export async function openPage(store: Store = browserStore(), pending = memoryPe
   const game = new Game(canvas as unknown as HTMLCanvasElement, {} as HTMLElement, { renderChunks: 2, store, pending, ...opts });
   await game.boot();
   const inside = game as unknown as Inside;
+  // The game took the real clock as its last frame: move the frames' clock past it, so time never runs backwards.
+  clock = Math.max(clock, performance.now()) + 16;
+  inside.last = clock;
   return { game, in: inside, hud: inside.hud, store, pending };
 }
 

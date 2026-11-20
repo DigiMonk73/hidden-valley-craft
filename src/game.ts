@@ -218,6 +218,7 @@ export class Game {
   /** What the pack could not hold when a save was made: put down in a sack once the land is in. */
   private spill: Stack[] = [];
   keeper!: Keeper;
+  private landFailSaid = false;
   /** Has the game been played since the last save? Position, health and the hour are saved even with no edit. */
   private playedSince = false;
   private accumulator = 0;
@@ -288,6 +289,13 @@ export class Game {
       if (m === 'off' && this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
       if (m === 'free') this.hud.toast('This page can’t capture the mouse here: move the mouse to look, or use the arrow keys.', 6000);
     };
+    // The browser can take the picture away and give it back (docs/REVIEW.md, N8): wait on the menu meanwhile.
+    this.renderer.onContextLost = () => {
+      if (this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
+      this.hud.notice('The picture was lost. It will come back in a moment…');
+    };
+    this.renderer.onContextRestored = () => this.hud.notice('The picture is back.', 4000);
+    this.renderer.onContextStuck = () => this.hud.notice('The picture has not come back. Save from the menu, then reload the page.');
     const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
     window.addEventListener('resize', resize);
     resize();
@@ -478,6 +486,11 @@ export class Game {
     // Every frame, so turning F3 off hides the panel too (it used to stay up with its last text).
     this.hud.setDebug(this.hud.debugVisible ? this.debugText() : '');
 
+    // Land that could not be built after every retry: say so once, rather than leave a silent hole.
+    if (this.streamer.stats.failed && !this.landFailSaid) {
+      this.landFailSaid = true;
+      this.hud.notice('Part of the land could not be built here. Pause, use “Save now”, then reload the page.', 20000);
+    }
     // Save a couple of seconds after the player stops changing things, and at least once a minute.
     if (this.playing && shouldAutosave({ unsaved: this.unsaved, played: this.playedSince, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
   }
