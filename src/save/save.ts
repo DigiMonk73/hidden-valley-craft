@@ -22,9 +22,13 @@ export const SAVE_VERSION = 5;
 /** How a valley is played: Survival is the game; Builder's mode adds flying, endless blocks and the sky's clock. */
 export type Mode = 'survival' | 'builder';
 
-/** Blocks and items renamed since a save was made: old name → new name. Empty until a build renames one. */
+/** Blocks and items renamed since a save was made: old name → new name. */
 export const BLOCK_ALIASES: Record<string, string> = {};
-export const ITEM_ALIASES: Record<string, string> = {};
+export const ITEM_ALIASES: Record<string, string> = {
+  // Track A's build (main after its merge) let a cut bunch be carried as a block; set down here it would be a banana
+  // plant fruiting on bare ground. Carried, it is fruit now (docs/PHASE9B.md, "The second fresh review", 2).
+  banana_bunch: 'banana',
+};
 /**
  * The designed world's layout, counted up when a change to it moves what a save points at (chests, the bed, rooms).
  * 2: the home rebuilt (docs/HOME.md). A save from an earlier layout is not opened: a fresh valley starts, and says so.

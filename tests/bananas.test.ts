@@ -71,3 +71,35 @@ describe('the banana bunch', () => {
     expect(blockName(w.blockAt(x, y, z))).toBe('air');
   });
 });
+
+// ---- The second fresh review (after Track A's merge) ----------------------------------------------------------
+import { mineSeconds } from '../src/world/items.ts';
+import { normaliseSave, newSave } from '../src/save/state.ts';
+import { packSpot } from '../src/sim/death.ts';
+
+describe('after Track A’s merge: the second review’s findings', () => {
+  it('1 · the hammer is a fist on grown things drawn of boxes (a banana stem, a vine, a fallen branch), and still quick on a chair', () => {
+    const hammer = itemId('hammer'), axe = itemId('steel_axe');
+    for (const name of ['banana_trunk', 'vine', 'vine@east', 'dead_branch']) {
+      const b = blockId(name);
+      expect(mineSeconds(b, hammer), name).toBe(mineSeconds(b, 0)); // as bare hands
+      expect(mineSeconds(b, hammer), name).toBeGreaterThanOrEqual(mineSeconds(b, axe));
+    }
+    expect(mineSeconds(blockId('chair'), hammer)).toBeLessThan(mineSeconds(blockId('chair'), 0));
+  });
+
+  it('2 · a bunch carried as a block from Track A’s build opens as fruit, in the pack and in a chest', () => {
+    const d = normaliseSave({ ...newSave(), hotbar: [{ name: 'banana_bunch', count: 2 }], containers: [[1700, 70, 1000, [{ name: 'banana_bunch', count: 1 }]]] })!;
+    expect(d.hotbar[0]).toEqual({ name: 'banana', count: 2 });
+    expect(d.containers![0][3][0]).toEqual({ name: 'banana', count: 1 });
+  });
+
+  it('3 · a lost pack is never left in a bunch’s place (it would take the fruit with it)', () => {
+    const { w, bunches } = land();
+    for (const [x, y, z] of bunches) {
+      const at = packSpot(w, x + 0.5, y, z + 0.5);
+      expect(at && at.join(), `${x},${y},${z}`).not.toBe([x, y, z].join());
+      expect(at && w.blockAt(...at)).not.toBe(GREEN);
+    }
+  });
+});

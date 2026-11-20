@@ -67,8 +67,12 @@ export function toolFor(block: number): ToolDef['kind'] | null {
 
 /** Things that were built, not dug: planks, bricks, glass, and everything made of boxes (furniture, slabs, stairs, railings, stations). */
 const BUILT = new Set(['planks', 'stone_bricks', 'cobble', 'glass', 'cinder_block', 'tin_roof', 'bookshelf']);
+/** Drawn of boxes, and grown, not built: a fallen branch, a banana stem, a vine (the fresh review after Track A's merge, 1). */
+const GROWN = new Set(['dead_branch', 'banana_trunk', 'vine']);
 export function isBuilt(block: number): boolean {
-  return B_RENDER[block] === RENDER.model || BUILT.has(BLOCK_DEFS[block]?.name ?? '');
+  const d = BLOCK_DEFS[block];
+  if (GROWN.has(d?.base ?? d?.name ?? '')) return false;
+  return B_RENDER[block] === RENDER.model || BUILT.has(d?.name ?? '');
 }
 /** The builder's hammer takes built things apart this many times faster than their own tool does (docs/PHASE9B.md, 6). */
 export const HAMMER_SPEED = 2;
