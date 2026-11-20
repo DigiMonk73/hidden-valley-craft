@@ -151,6 +151,13 @@ void main() {
   outColor = vec4(col, alpha);
 }`;
 
+const NOTHING = (): void => {};
+
+/** Run by three.js on a vertex attribute once its data is on the card: the page's copy is dropped. */
+function releaseArray(this: THREE.BufferAttribute): void {
+  (this as unknown as { array: null }).array = null;
+}
+
 /** The view's angle, top to bottom, with nothing held to the eye. */
 const BASE_FOV = 72;
 /** The train of satellites: how many, and how far off they are drawn (inside the far plane). */
@@ -209,8 +216,9 @@ export class Renderer {
   private context: ContextWatch;
   private clearColor = new THREE.Color();
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  /** `antialias`: smoothed edges. Fixed when the picture is made (a browser cannot change it afterwards). */
+  constructor(canvas: HTMLCanvasElement, opts: { antialias?: boolean } = {}) {
+    this.gl = new THREE.WebGLRenderer({ canvas, antialias: opts.antialias ?? true, powerPreference: 'high-performance' });
     // Listened for after three.js's own listeners (made with the renderer above), so on a restore
     // three has already set its new context up by the time restore() runs.
     this.context = watchContext(canvas, {
@@ -306,9 +314,11 @@ export class Renderer {
   /**
    * After the context comes back. three.js r187 (WebGLRenderer.onContextRestore → initGLContext)
    * starts again with empty caches, so every geometry buffer, texture and shader is sent again from
-   * the data still held here the next time it is drawn: nothing of ours needs rebuilding. Two things
-   * it does not carry over are put back here: the clear colour (its new WebGLBackground starts at
-   * black) and the viewport (only ever applied by setViewport or setRenderTarget).
+   * the data still held here the next time it is drawn. The chunks' vertices are not held here any more
+   * (makePart lets them go once sent), so the game has every chunk meshed again (onContextRestored →
+   * Streamer.remeshAll); the rest needs no rebuilding. Two things three does not carry over are put back here:
+   * the clear colour (its new WebGLBackground starts at black) and the viewport (only ever applied by
+   * setViewport or setRenderTarget).
    */
   private restore(): void {
     this.gl.setClearColor(this.clearColor);
@@ -346,6 +356,19 @@ export class Renderer {
   }
   private sats: THREE.Points | null = null;
   private zoomed = false;
+
+  /**
+   * How sharp the picture is drawn, as a part of the screen's own sharpness: 0.5 draws a quarter of the pixels
+   * and the browser stretches them over the same window (docs/PHASE9B.md, 1). The largest saving on a weak card.
+   */
+  setScale(scale: number): void {
+    this.scale = scale;
+    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1) * scale); // (three sizes the canvas again by itself)
+  }
+  private scale = 1;
+  get renderScale(): number { return this.scale; }
+  /** Is the picture being drawn with smoothed edges (as it was made)? */
+  get antialias(): boolean { return this.gl.getContextAttributes()?.antialias ?? false; }
 
   resize(w: number, h: number): void {
     this.gl.setSize(w, h, false);
@@ -404,15 +427,21 @@ export class Renderer {
     if (part.quads === 0) return undefined;
     if (part.quads > this.indexQuads) throw new Error(`chunk ${key} has ${part.quads} quads, over the index buffer`);
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(part.positions, 3));
-    g.setAttribute('aPack', new THREE.BufferAttribute(part.pack, 4));
-    g.setAttribute('aLayer', new THREE.BufferAttribute(part.layers, 1));
-    g.setAttribute('aUv', new THREE.BufferAttribute(part.uvs, 2));
+    // Once the card has a chunk's vertices the page lets its own copy go: it was 170 MB at 256 m, held twice.
+    // (After a lost picture the chunks are meshed again: Streamer.remeshAll.)
+    g.setAttribute('position', new THREE.BufferAttribute(part.positions, 3).onUpload(releaseArray));
+    g.setAttribute('aPack', new THREE.BufferAttribute(part.pack, 4).onUpload(releaseArray));
+    g.setAttribute('aLayer', new THREE.BufferAttribute(part.layers, 1).onUpload(releaseArray));
+    g.setAttribute('aUv', new THREE.BufferAttribute(part.uvs, 2).onUpload(releaseArray));
     g.setIndex(this.index);
     g.setDrawRange(0, part.quads * 6);
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(CS / 2, CS / 2, CS / 2), CS * 0.87);
     g.boundingBox = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(CS, CS, CS));
     const m = new THREE.Mesh(g, mat);
+    // Drawn once wherever it is, so its vertices go to the card (and the page's copy is let go) even while it is
+    // behind the player; after that it is skipped when out of view, like any other.
+    m.frustumCulled = false;
+    m.onAfterRender = () => { m.frustumCulled = true; m.onAfterRender = NOTHING; };
     m.position.set(cx * CS, cy * CS, cz * CS);
     m.matrixAutoUpdate = false;
     m.updateMatrix();

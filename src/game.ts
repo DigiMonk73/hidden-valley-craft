@@ -16,7 +16,10 @@ import { stationAt, type Station } from './sim/crafting.ts';
 import { Gate, GATE_LEVER } from './sim/gate.ts';
 import { randomTicks, till, sow, pickCoffee, growWhileAway, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
-import { Hud, nearestViewChunks } from './ui/hud.ts';
+import { Hud } from './ui/hud.ts';
+import { DEFAULT_SETTINGS, FALLBACK_VIEW, parseSettings, encodeSettings, nearestViewChunks, nearestScale, type Settings } from './game/settings.ts';
+import { FrameWatch, lighter, lighterLine, type Picture } from './game/quality.ts';
+import { readHint, writeHint } from './platform/hints.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
 import { PaperScreen } from './ui/paperScreen.ts';
 import { drawMap } from './ui/mapView.ts';
@@ -296,13 +299,20 @@ export class Game {
   private cachedCode: string | null = null;
   private sky: SkyState = skyAt(16.5);
   private downloads: Downloads | null = null;
+  /** The player's settings (docs/PHASE9B.md, 2): applied at boot, shown in the menu, saved when one changes. */
+  settings: Settings = { ...DEFAULT_SETTINGS };
+  /** Said once, when play begins, where the land is built on the page's own thread and the view was shortened for it. */
+  private fallbackLine: string | null = null;
+  /** Watches the frame rate while playing, to make the picture lighter on a computer that can't keep up. */
+  private watch = new FrameWatch();
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
     this.ui = ui;
     this.player.flow = riverCurrent;
     this.wild.spawning = !opts.test;
-    this.renderer = new Renderer(canvas);
+    // Smoothed edges are fixed when the picture is made, before the saved settings can be read: a hint says which.
+    this.renderer = new Renderer(canvas, { antialias: readHint('aa') !== 'off' });
     this.look = new Look(canvas);
     this.screen = new InventoryScreen(ui);
     this.paper = new PaperScreen(ui);
@@ -339,10 +349,16 @@ export class Game {
       newGame: () => void this.newGame(),
       openBackup: () => void this.openBackup(),
       pickMode: (m) => this.pickMode(m),
-      setRenderDistance: (c) => this.setRenderDistance(c, true),
-      setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
-      setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
-      setVolume: (v) => { this.sound.volume = v; void this.saveSettings(); },
+      setRenderDistance: (c) => { this.settings.rdOwn = true; this.setRenderDistance(c, true); this.watch.reset(); },
+      setSensitivity: (v) => this.changeSettings({ sens: v }),
+      setInvertY: (v) => this.changeSettings({ inv: v }),
+      setVolume: (v) => this.changeSettings({ vol: v }),
+      setScale: (v) => { this.changeSettings({ scale: v }); this.watch.reset(); },
+      setAntialias: (v) => {
+        this.changeSettings({ aa: v });
+        this.hud.toast(v ? 'Smooth edges will be on the next time the page is opened.' : 'Smooth edges will be off the next time the page is opened.', 5000);
+      },
+      setAuto: (v) => { this.changeSettings({ auto: v }); this.watch.reset(); },
     });
     this.look.onDelta = (dx, dy) => {
       // Through the telescope the hand is as much finer as the view is narrower.
@@ -360,7 +376,11 @@ export class Game {
       if (this.playing && !this.screen.isOpen && !this.paper.isOpen) this.pause();
       this.hud.notice('The picture was lost. It will come back in a moment…');
     };
-    this.renderer.onContextRestored = () => this.hud.notice('The picture is back.', 4000);
+    this.renderer.onContextRestored = () => {
+      // The card has lost every chunk, and the page keeps no copy of what it sent: mesh them all again.
+      this.streamer?.remeshAll();
+      this.hud.notice('The picture is back.', 4000);
+    };
     this.renderer.onContextStuck = () => this.hud.notice('The picture has not come back. Save from the menu, then reload the page.');
     const resize = () => this.renderer.resize(canvas.clientWidth, canvas.clientHeight);
     window.addEventListener('resize', resize);
@@ -378,7 +398,16 @@ export class Game {
     this.streamer = new Streamer(this.world, this.exec, this.renderer);
     this.streamer.onDrawnChange = (mask) => this.renderer.setDrawnColumns(mask);
     void this.exec.submit({ kind: 'far' }).then((r) => { if (r.kind === 'far') this.renderer.setFarLand(r.mesh); }, (e) => console.error('distant land failed', e));
-    this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
+    // Where the page must build the land on its own thread, a long view means a long, halting wait: keep it short
+    // unless the player has chosen one (docs/PHASE9B.md, 1).
+    // (For this page only: the setting kept is still the player's, for a browser where workers start.)
+    let view = this.settings.rd;
+    if (this.exec.kind === 'main-thread' && !this.settings.rdOwn && view > FALLBACK_VIEW && this.opts.renderChunks === undefined) {
+      view = FALLBACK_VIEW;
+      this.hud.showSettings({ ...this.settings, rd: view });
+      this.fallbackLine = `This page can’t build the land in the background here, so the view is kept short (${FALLBACK_VIEW * 32} m). Settings (Esc) can lengthen it.`;
+    }
+    this.setRenderDistance(this.opts.renderChunks ?? view, false);
 
     // One tab plays a valley at a time.
     if (!this.opts.test && (await tabLock('hidden-valley-blocks:play', () => void this.otherTabClosed())) === 'taken') {
@@ -473,14 +502,20 @@ export class Game {
 
   private frame(now: number): void {
     requestAnimationFrame((t) => this.frame(t));
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const gap = (now - this.last) / 1000;
+    const dt = Math.min(0.1, gap);
     this.frameDt = dt;
     this.last = now;
     this.time += dt;
     const p = this.player;
 
-    this.exec.pump(this.ready ? 6 : 14);
-    this.streamer.update(p.x, p.z, this.ready ? 4 : 12);
+    // Bringing the land in is given a share of each frame, not a fixed few milliseconds: a computer that draws
+    // slowly used to load slowly as well (at one frame a second the far valley never came in).
+    // (At 60 frames a second the share is the old fixed budget; at one frame a second, about a tenth of the frame.)
+    const share = Math.max(1, Math.min(24, gap / (1 / 60) / 4));
+    this.exec.pump((this.ready ? 6 : 14) * share);
+    this.streamer.update(p.x, p.z, (this.ready ? 4 : 12) * share, (this.ready ? 2 : 12) * share);
+    this.watchFrames(gap);
 
     if (!this.ready) {
       const r = 2;
@@ -1786,6 +1821,7 @@ export class Game {
     this.hud.showMenu(false);
     this.look.engage();
     if (this.sayAtPlay) { this.hud.toast(this.sayAtPlay, 8000); this.sayAtPlay = null; }
+    if (this.fallbackLine) { this.hud.notice(this.fallbackLine, 12000); this.fallbackLine = null; }
   }
 
   private pause(): void {
@@ -1806,12 +1842,55 @@ export class Game {
   }
 
   private setRenderDistance(chunks: number, persist: boolean): void {
-    // At least 224 m from the menu; a test address may ask for less (?rd=…).
-    chunks = Math.max(this.opts.renderChunks !== undefined && !persist ? 2 : 7, Math.min(12, chunks || 8));
+    // From the menu, one of the offered distances; a test address may ask for less (?rd=…).
+    chunks = this.opts.renderChunks !== undefined && !persist ? Math.max(2, Math.min(12, chunks || 8)) : nearestViewChunks(chunks || 8);
     this.streamer.radius = chunks;
     this.renderer.setRenderDistance(chunks * CS);
-    this.hud.settingsInputs.rd.value = String(chunks);
-    if (persist) void this.saveSettings();
+    if (persist) { this.settings.rd = chunks; this.hud.showSettings(this.settings); void this.saveSettings(); }
+  }
+
+  /** The player changed settings in the menu: apply them, and keep them. */
+  private changeSettings(change: Partial<Settings>): void {
+    Object.assign(this.settings, change);
+    this.applySettings();
+    this.hud.showSettings({ ...this.settings, rd: this.streamer?.radius ?? this.settings.rd });
+    void this.saveSettings();
+  }
+
+  /** Puts the settings to work (all but the view distance, which the streamer has to exist for: setRenderDistance). */
+  private applySettings(): void {
+    const s = this.settings;
+    this.look.sensitivity = 0.0022 * s.sens;
+    this.look.invertY = s.inv;
+    this.sound.volume = s.vol;
+    this.renderer.setScale(s.scale);
+    writeHint('aa', s.aa ? 'on' : 'off');
+  }
+
+  /** Sets the picture's scale and view by hand, as the menu would (for the measuring tool and the checks). */
+  setPicture(p: Partial<Picture>): void {
+    if (p.scale !== undefined) this.changeSettings({ scale: nearestScale(p.scale) });
+    if (p.view !== undefined) this.setRenderDistance(p.view, true);
+    this.watch.reset();
+  }
+
+  /**
+   * Each frame: while the game is being played and runs slowly for long enough, the picture is made one step
+   * lighter and the player is told (docs/PHASE9B.md, 1). Not while loading, paused, or with the page hidden; not on
+   * a test address that fixes the view; and not at all once the player has turned it off.
+   */
+  private watchFrames(gap: number): void {
+    if (!this.settings.auto || this.opts.test || this.opts.renderChunks !== undefined) return;
+    if (!this.playing || !this.ready || document.hidden || this.renderer.contextLost) { this.watch.reset(); return; }
+    if (!this.watch.frame(gap)) return;
+    const now: Picture = { scale: this.settings.scale, view: this.streamer.radius };
+    const next = lighter(now);
+    if (!next) return;
+    this.settings.scale = next.scale;
+    this.applySettings();
+    if (next.view !== now.view) this.setRenderDistance(next.view, true); // (keeps the settings and shows them in the menu)
+    else { this.hud.showSettings({ ...this.settings, rd: now.view }); void this.saveSettings(); }
+    this.hud.toast(lighterLine(now, next), 9000);
   }
 
   // ---- Saving ------------------------------------------------------------------------------
@@ -2151,21 +2230,15 @@ export class Game {
   }
 
   private async saveSettings(): Promise<void> {
-    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume };
-    await this.store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify(s)));
+    try { await this.store.set(SETTINGS_KEY, encodeSettings(this.settings)); } catch (e) { console.warn('settings could not be kept', e); }
   }
 
   private async loadSettings(): Promise<void> {
-    try {
-      const b = await this.store.get(SETTINGS_KEY);
-      if (!b) return;
-      const s = JSON.parse(new TextDecoder().decode(b));
-      // Older builds allowed 4 and 6; the least now is 7 (224 m), and the menu offers 7, 8, 10 and 12.
-      if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(nearestViewChunks(s.rd));
-      if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }
-      if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
-      if (typeof s.vol === 'number') { this.sound.volume = s.vol; this.hud.settingsInputs.vol.value = String(s.vol); }
-    } catch { /* bad settings are ignored */ }
+    let bytes: Uint8Array | null = null;
+    try { bytes = await this.store.get(SETTINGS_KEY); } catch { /* settings that can't be read are the defaults */ }
+    this.settings = parseSettings(bytes);
+    this.applySettings();
+    this.hud.showSettings(this.settings);
   }
 
   // ---- Zone-2 and power (docs/PHASE6.md) ----------------------------------------------------------
@@ -2639,6 +2712,7 @@ export class Game {
       `time ${Math.floor(this.hour)}:${String(Math.floor((this.hour % 1) * 60)).padStart(2, '0')} · light sky ${light >> 4} block ${light & 15}`,
       `columns ${s.columns} · gen queue ${s.genQueued} · mesh queue ${s.meshQueued}`,
       `chunk meshes ${r.chunks} · quads ${Math.round(r.quads / 1000)}k · draw calls ${this.renderer.gl.info.render.calls}`,
+      `picture ${this.renderer.gl.domElement.width}×${this.renderer.gl.domElement.height} · scale ${this.settings.scale} · view ${this.streamer.radius * CS} m · smooth edges ${this.renderer.antialias ? 'on' : 'off'} · auto ${this.settings.auto ? 'on' : 'off'}`,
       this.target ? `target ${this.target.x} ${this.target.y} ${this.target.z} (${this.target.id})` : 'target —',
     ].join('\n');
   }

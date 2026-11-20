@@ -32,6 +32,9 @@ export interface Listener {
   raiders?: boolean;
 }
 
+/** Seconds a placed one-shot sound keeps its panner: the longest of them (the deep band's stinger) lasts under four. */
+export const PLACED_LIFE = 8;
+
 export class Sound {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
@@ -50,6 +53,12 @@ export class Sound {
   private nextOwl = 0;
   private nextBand = 0;
   private hum: { osc: OscillatorNode; gain: GainNode } | null = null;
+  /**
+   * The panners of short placed sounds, each with the audio time after which it is silent for good. A panner left
+   * connected is never freed (an HRTF one holds convolvers): they piled up by the thousand in an hour's play, which
+   * Safari and Firefox answer with crackling and then silence (docs/REVIEW.md, E1). `update` lets the spent ones go.
+   */
+  private placedSounds: { node: PannerNode; until: number }[] = [];
   volume = 0.8;
   muted = false;
 
@@ -159,11 +168,26 @@ export class Sound {
   suspend(): void { void this.ctx?.suspend(); }
   resume(): void { void this.ctx?.resume(); }
 
+  /** A short placed sound's panner, to be let go once the sound is over. */
+  private placed(node: PannerNode): PannerNode {
+    this.placedSounds.push({ node, until: this.ctx!.currentTime + PLACED_LIFE });
+    return node;
+  }
+
+  /** How many placed sounds are still wired in (for the checks). */
+  get placedCount(): number { return this.placedSounds.length; }
+
   /** Every frame: where the player is and what is around them. */
   update(l: Listener): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
+    // Placed sounds that are over are unwired (the audio clock stands still while paused, as the sounds do).
+    if (this.placedSounds.length && this.placedSounds[0].until <= t) {
+      let n = 0;
+      while (n < this.placedSounds.length && this.placedSounds[n].until <= t) { try { this.placedSounds[n].node.disconnect(); } catch { /* already gone */ } n++; }
+      this.placedSounds.splice(0, n);
+    }
     const set = (p: AudioParam, v: number, tc = 0.25) => p.setTargetAtTime(v, t, tc);
     set(this.master.gain, this.muted ? 0 : this.volume, 0.05);
     set(this.muffle.frequency, l.underwater ? 500 : 20000, 0.08);
@@ -240,7 +264,7 @@ export class Sound {
     const p = new PannerNode(this.ctx!, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 6, rolloffFactor: 1,
       positionX: l.x + Math.cos(a) * r, positionY: l.y + height * Math.random(), positionZ: l.z + Math.sin(a) * r });
     p.connect(this.ambience);
-    return p;
+    return this.placed(p);
   }
 
   private chirp(dest: AudioNode, at: number, f0: number, f1: number, dur: number, gain: number, type: OscillatorType = 'sine'): void {
@@ -346,7 +370,7 @@ export class Sound {
   private at(x: number, y: number, z: number): PannerNode {
     const p = new PannerNode(this.ctx!, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 4, rolloffFactor: 1.2, positionX: x, positionY: y, positionZ: z });
     p.connect(this.sfx);
-    return p;
+    return this.placed(p);
   }
 
   private noiseAt(dest: AudioNode, at: number, dur: number, type: BiquadFilterType, freq: number, q: number, gain: number, attack = 0.005): void {
@@ -616,6 +640,7 @@ export class Sound {
     if (!ctx) return;
     const p = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 12, rolloffFactor: 0.6, positionX: x, positionY: y, positionZ: z });
     p.connect(this.ambience);
+    this.placed(p);
     const t = ctx.currentTime;
     const base = [70, 92, 58, 110][variant & 3], len = [2.2, 1.6, 2.8, 1.9][variant & 3];
     // A throat that isn't quite one: a low voice bending down and catching, with a wet rasp over it.

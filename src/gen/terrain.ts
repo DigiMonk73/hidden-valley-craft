@@ -130,6 +130,16 @@ function farPlace(x: number, z: number): boolean {
 }
 
 export function generateColumn(cx: number, cz: number): Uint16Array {
+  const steps = generateColumnSteps(cx, cz);
+  for (;;) { const r = steps.next(); if (r.done) return r.value; }
+}
+
+/**
+ * The same column, built a part at a time: each `next()` does one part and the last returns the column. Where
+ * workers are blocked the page's own thread builds the land, and a whole column in one go holds a frame for
+ * 25–75 ms; a part at a time holds it for a few (docs/PHASE9B.md, 1).
+ */
+export function* generateColumnSteps(cx: number, cz: number): Generator<void, Uint16Array, void> {
   const col = new Uint16Array(COLUMN_VOLUME);
   const x0 = cx * CS, z0 = cz * CS;
   const tops = new Int16Array(CS * CS); // walking height after shaping, per (x, z)
@@ -164,15 +174,19 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
     }
   }
 
+  yield;
   // 2. Karst caves: two noise fields, carved where both are near zero (long tubes).
   carveCaves(col, x0, z0, tops);
 
+  yield;
   // 3. Ore, in pockets, by zone: tier-1 (iron, flint) inside the valley, more outside.
   placeOre(col, x0, z0, tops);
 
+  yield;
   // 4. Surface: soil, grass, forest floor, moss on wet cliffs.
   dressSurface(col, x0, z0, tops);
 
+  yield;
   // 5. Water: the pool, the creek, the waterfall, the canyon pool and the drowned tunnel.
   placeWater(col, x0, z0, tops);
   buildGate(col, x0, z0);
@@ -186,10 +200,12 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   buildZone3(col, x0, z0);
   buildZone4(col, x0, z0);
 
+  yield;
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
   plantGarden(col, x0, z0);
 
+  yield;
   // 7. Trees and ground plants.
   placeTrees(col, x0, z0);
   placeGroundPlants(col, x0, z0);

@@ -28,6 +28,12 @@ export class Streamer {
   private meshing = new Map<number, number>(); // chunk key → version being meshed
   private urgent = new Set<number>(); // chunk keys changed by the player: mesh first
   private uploads: { key: number; result: MeshResult }[] = [];
+  /**
+   * Columns built and waiting to be joined to the world. Joining floods light across the new column's seams on the
+   * main thread (3–28 ms each here), and about nineteen arrive for each chunk walked across: joined as they
+   * came, several landed in one frame and the walk hitched. They are joined nearest first, within a budget.
+   */
+  private arrived: GenResult[] = [];
   /** Columns that failed to generate: how often, and when to ask again (Infinity: left out). */
   private genFails = new Map<number, { tries: number; retryAt: number }>();
   /** Chunks whose mesh failed, and how often. At MESH_TRIES the chunk waits for a change. */
@@ -89,9 +95,15 @@ export class Streamer {
     return out.map(([cx, cz]) => [cx, cz]);
   }
 
-  update(x: number, z: number, uploadBudgetMs = 4): void {
+  /**
+   * Once a frame. `uploadBudgetMs` is what asking for meshes and handing them to the card may each take;
+   * `joinBudgetMs` what joining arrived columns may take (one is always joined, so the land comes in however
+   * small the budget: 0 means one a frame).
+   */
+  update(x: number, z: number, uploadBudgetMs = 4, joinBudgetMs = 0): void {
     this.px = x;
     this.pz = z;
+    this.joinArrived(joinBudgetMs);
     // 1. Ask for missing columns.
     const now = this.clock();
     for (const [cx, cz] of this.wanted(x, z)) {
@@ -104,15 +116,7 @@ export class Streamer {
       const epoch = this.epoch;
       this.exec.submit(job).then((r) => {
         if (epoch !== this.epoch) return;
-        try {
-          this.onColumn(r as GenResult);
-        } catch (e) {
-          this.pendingCols.delete(key);
-          const col = this.world.column(cx, cz);
-          // If it got in before the failure, draw what is there; otherwise it counts as a failed job.
-          if (col) for (const ch of col.chunks) { ch.dirty = true; this.dirty.add(ch); }
-          else this.genFailed(key, cx, cz, e);
-        }
+        this.arrived.push(r as GenResult);
       }, (e) => {
         if (epoch !== this.epoch) return;
         this.pendingCols.delete(key);
@@ -184,12 +188,55 @@ export class Streamer {
       this.onDrawnChange?.(this.drawn);
     }
     this.stats.columns = this.world.columns.reduce((n, c) => n + (c ? 1 : 0), 0);
-    this.stats.genQueued = this.pendingCols.size;
+    this.stats.genQueued = this.pendingCols.size; // asked for and not yet joined (being built, or waiting their turn to join)
     this.stats.meshQueued = this.meshing.size + this.dirty.size;
     let failed = 0;
     for (const f of this.genFails.values()) if (f.retryAt === Infinity) failed++;
     for (const n of this.meshFails.values()) if (n >= MESH_TRIES) failed++;
     this.stats.failed = failed;
+  }
+
+  /** Joins columns that have arrived, the nearest to the player first: one, and then more while the budget lasts. */
+  private joinArrived(budgetMs: number): void {
+    if (!this.arrived.length) return;
+    const start = performance.now();
+    do {
+      let best = 0, bd = Infinity;
+      for (let i = 0; i < this.arrived.length; i++) {
+        const r = this.arrived[i], d = Math.hypot(r.cx * CS + 16 - this.px, r.cz * CS + 16 - this.pz);
+        if (d < bd) { bd = d; best = i; }
+      }
+      const [r] = this.arrived.splice(best, 1);
+      const key = r.cz * COLS_X + r.cx;
+      try {
+        this.onColumn(r);
+      } catch (e) {
+        this.pendingCols.delete(key);
+        const col = this.world.column(r.cx, r.cz);
+        // If it got in before the failure, draw what is there; otherwise it counts as a failed job.
+        if (col) for (const ch of col.chunks) { ch.dirty = true; this.dirty.add(ch); }
+        else this.genFailed(key, r.cx, r.cz, e);
+      }
+    } while (this.arrived.length && performance.now() - start < budgetMs);
+  }
+
+  /**
+   * Every loaded chunk is to be meshed again and sent to the card: after the browser took the picture away and
+   * gave it back, the card holds nothing and the page no longer keeps a copy of what it sent (docs/PHASE9B.md, 1).
+   */
+  remeshAll(): void {
+    for (const col of this.world.columns) {
+      if (!col) continue;
+      for (const ch of col.chunks) {
+        this.renderer.removeChunk(ch.key);
+        ch.hasMesh = false;
+        ch.dirty = true;
+        this.dirty.add(ch);
+        this.meshFails.delete(ch.key);
+      }
+    }
+    this.uploads = []; // built for the old picture: their chunks are dirty again and will be asked for anew
+    this.drawnDirty = true;
   }
 
   /** A column could not be generated: wait, longer each time, before asking again; in the end leave it out. */
@@ -232,6 +279,7 @@ export class Streamer {
     this.meshing.clear();
     this.urgent.clear();
     this.uploads = [];
+    this.arrived = [];
     this.drawnDirty = true;
   }
 

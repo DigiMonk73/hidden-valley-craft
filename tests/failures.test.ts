@@ -279,7 +279,7 @@ function rig(radius = 1, flat = true): { world: World; exec: SyncExecutor; view:
 async function frames(r: ReturnType<typeof rig>, x: number, z: number, n: number, stepMs = 0): Promise<void> {
   for (let i = 0; i < n; i++) {
     r.clock.t += stepMs;
-    r.s.update(x, z, 1000);
+    r.s.update(x, z, 1000, 1000); // (a budget for joining arrived columns too: with none, one is joined a frame)
     await settle();
   }
 }

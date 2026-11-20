@@ -1,0 +1,65 @@
+// The player's settings, kept across sessions: what they are, their limits, and reading a saved copy that may be
+// from an older build, or damaged (docs/PHASE9B.md, 2). Pure: the game applies them and the menu shows them.
+
+/** The view distances the menu offers, in chunks of 32 m. 224 m keeps the whole valley at full detail from inside it. */
+export const VIEW_CHUNKS = [4, 5, 7, 8, 10, 12];
+/** How much of the screen's own sharpness the picture is drawn at: full, three quarters, half (a quarter of the pixels). */
+export const SCALES = [1, 0.75, 0.5];
+/** The view where the page must build the land on its own thread (workers blocked), unless the player chose one. */
+export const FALLBACK_VIEW = 5;
+
+export interface Settings {
+  /** View distance, in chunks. */
+  rd: number;
+  /** The player picked the view distance in this build's menu (so a blocked-workers page does not shorten it). */
+  rdOwn: boolean;
+  /** Mouse sensitivity, 0.5–2.5 (1 is the default). */
+  sens: number;
+  /** Mouse up looks down. */
+  inv: boolean;
+  /** Sound volume, 0–1. */
+  vol: number;
+  /** Render scale: one of SCALES. */
+  scale: number;
+  /** Smoothed edges (anti-aliasing). Takes effect when the page is next opened. */
+  aa: boolean;
+  /** Make the picture lighter by itself when the game runs slowly. */
+  auto: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = { rd: 8, rdOwn: false, sens: 1, inv: false, vol: 0.8, scale: 1, aa: true, auto: true };
+
+/** The offered value nearest a wanted one (the higher of two equally near). */
+function nearest(offered: number[], n: number): number {
+  return offered.reduce((a, b) => (Math.abs(b - n) <= Math.abs(a - n) ? b : a));
+}
+export const nearestViewChunks = (n: number): number => nearest(VIEW_CHUNKS, n);
+export const nearestScale = (n: number): number => nearest([...SCALES].reverse(), n);
+
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** Settings from a saved copy: anything missing, of the wrong kind or out of range takes its default or its limit. */
+export function readSettings(raw: unknown): Settings {
+  const s = { ...DEFAULT_SETTINGS };
+  if (!raw || typeof raw !== 'object') return s;
+  const r = raw as Record<string, unknown>;
+  if (num(r.rd)) s.rd = nearestViewChunks(r.rd);
+  if (typeof r.rdOwn === 'boolean') s.rdOwn = r.rdOwn;
+  if (num(r.sens)) s.sens = clamp(r.sens, 0.5, 2.5);
+  if (typeof r.inv === 'boolean') s.inv = r.inv;
+  if (num(r.vol)) s.vol = clamp(r.vol, 0, 1);
+  if (num(r.scale)) s.scale = nearestScale(r.scale);
+  if (typeof r.aa === 'boolean') s.aa = r.aa;
+  if (typeof r.auto === 'boolean') s.auto = r.auto;
+  return s;
+}
+
+export function parseSettings(bytes: Uint8Array | null): Settings {
+  if (!bytes) return { ...DEFAULT_SETTINGS };
+  try { return readSettings(JSON.parse(new TextDecoder().decode(bytes))); } catch { return { ...DEFAULT_SETTINGS }; }
+}
+
+export function encodeSettings(s: Settings): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(s));
+}

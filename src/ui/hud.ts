@@ -5,6 +5,7 @@ import { iconFor } from './icons.ts';
 import { BLOCK_DEFS } from '../world/blocks.ts';
 import type { Inventory } from '../sim/inventory.ts';
 import { itemLabel, foodOf } from '../world/items.ts';
+import { VIEW_CHUNKS, SCALES, type Settings } from '../game/settings.ts';
 
 const CSS = `
 #ui * { box-sizing: border-box; }
@@ -113,15 +114,15 @@ export interface MenuActions {
   setSensitivity(v: number): void;
   setInvertY(v: boolean): void;
   setVolume(v: number): void;
+  /** How sharp the picture is drawn: 1, 0.75 or 0.5 of the screen's own sharpness. */
+  setScale(v: number): void;
+  /** Smoothed edges, from the next time the page is opened. */
+  setAntialias(v: boolean): void;
+  /** Whether the game may make the picture lighter by itself when it runs slowly. */
+  setAuto(v: boolean): void;
 }
 
-/** The view distances the menu offers, in chunks of 32 m: 224 m keeps the whole valley at full detail. */
-export const VIEW_CHUNKS = [7, 8, 10, 12];
-
-/** The offered view distance nearest a saved one (older builds also allowed 4 and 6). */
-export function nearestViewChunks(n: number): number {
-  return VIEW_CHUNKS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
-}
+export { VIEW_CHUNKS, nearestViewChunks } from '../game/settings.ts';
 
 /** What right-click does with the thing in hand, said with its name: how to eat and drink is never a secret. */
 export function useHint(id: number): string {
@@ -334,10 +335,23 @@ export class Hud {
     this.modeText = el('span', '', set);
     el('label', '', set).textContent = 'View distance';
     const rd = el('select', '', set);
-    // 224 m is the least: it keeps the whole valley at full detail from anywhere inside it.
-    for (const c of VIEW_CHUNKS) { const o = el('option', '', rd); o.value = String(c); o.textContent = `${c * 32} m`; }
+    // 224 m keeps the whole valley at full detail from anywhere inside it; the two shorter are for weaker computers.
+    for (const c of VIEW_CHUNKS) { const o = el('option', '', rd); o.value = String(c); o.textContent = `${c * 32} m${c === VIEW_CHUNKS[0] ? ' (fastest)' : ''}`; }
     rd.value = '8';
     rd.onchange = () => a.setRenderDistance(Number(rd.value));
+    el('label', '', set).textContent = 'Picture';
+    const scale = el('select', '', set);
+    for (const [v, name] of [[SCALES[0], 'Sharp'], [SCALES[1], 'Softer (faster)'], [SCALES[2], 'Soft (fastest)']] as const) { const o = el('option', '', scale); o.value = String(v); o.textContent = name; }
+    scale.value = '1';
+    scale.onchange = () => a.setScale(Number(scale.value));
+    el('label', '', set).textContent = 'Smooth edges (off is faster; changes the next time the page is opened)';
+    const aa = el('input', '', set);
+    aa.type = 'checkbox'; aa.checked = true;
+    aa.onchange = () => a.setAntialias(aa.checked);
+    el('label', '', set).textContent = 'If the game runs slowly, make the picture lighter by itself';
+    const auto = el('input', '', set);
+    auto.type = 'checkbox'; auto.checked = true;
+    auto.onchange = () => a.setAuto(auto.checked);
     el('label', '', set).textContent = 'Mouse sensitivity';
     const sens = el('input', '', set);
     sens.type = 'range'; sens.min = '0.5'; sens.max = '2.5'; sens.step = '0.1'; sens.value = '1';
@@ -350,7 +364,19 @@ export class Hud {
     const vol = el('input', '', set);
     vol.type = 'range'; vol.min = '0'; vol.max = '1'; vol.step = '0.05'; vol.value = '0.8';
     vol.oninput = () => a.setVolume(Number(vol.value));
-    this.settingsInputs = { rd, sens, inv, vol };
+    this.settingsInputs = { rd, sens, inv, vol, scale, aa, auto };
+  }
+
+  /** Shows the settings as they are (when they are loaded, and when the game changes one by itself). */
+  showSettings(s: Settings): void {
+    const i = this.settingsInputs;
+    i.rd.value = String(s.rd);
+    i.scale.value = String(s.scale);
+    i.aa.checked = s.aa;
+    i.auto.checked = s.auto;
+    i.sens.value = String(s.sens);
+    i.inv.checked = s.inv;
+    i.vol.value = String(s.vol);
   }
 
   private downloadBtn!: HTMLButtonElement;
@@ -441,7 +467,7 @@ export class Hud {
 
   setLoadingText(text: string): void { this.loadText.textContent = text; }
 
-  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement };
+  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement; scale: HTMLSelectElement; aa: HTMLInputElement; auto: HTMLInputElement };
 
   setLoading(done: number, total: number): void {
     this.loadBar.style.width = `${Math.round((done / Math.max(1, total)) * 100)}%`;
