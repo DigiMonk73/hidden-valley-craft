@@ -424,7 +424,7 @@ export class Hud {
       ['Mouse', 'look'], ['W A S D', 'walk'], ['Space', 'jump · swim up'], ['Shift', mode === 'builder' ? 'sprint (flying: down)' : 'sprint'],
       ['Left click (hold)', 'mine the block you look at · strike'],
       ['Right click', 'use what you look at (chest, bed, bench, a person) · eat or drink what is in hand · place a block · aim'],
-      ['1–9 · wheel', 'choose what is in hand'], ['E', 'your pack, and making things by hand'], ['Q', 'focus: slow the world for a careful shot (gun or bow in hand)'], ['H (hold)', 'lost? head home'],
+      ['1–9 · wheel', 'choose what is in hand'], ['~ (the key left of 1)', 'empty hand'], ['E', 'your pack, and making things by hand'], ['Q', 'focus: slow the world for a careful shot (gun or bow in hand)'], ['H (hold)', 'lost? head home'],
       ...(mode === 'builder' ? [['F', 'fly on / off'], ['G', 'endless blocks on / off'], ['[ and ]', 'turn the sky’s clock back / forward an hour']] : []),
       ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
     ];

@@ -78,7 +78,7 @@ describe('inventory', () => {
 
 import { newSave, normaliseSave } from '../src/save/state.ts';
 describe('the bare hand in a save', () => {
-  it('a save holding the bare hand loads holding it; anything below it loads as slot 1', () => {
+  it('a save holding the bare hand loads holding it; anything below it loads as the hand too', () => {
     const d = newSave();
     d.selected = HAND;
     expect(normaliseSave(JSON.parse(JSON.stringify(d)))!.selected).toBe(HAND);
