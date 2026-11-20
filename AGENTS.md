@@ -39,6 +39,7 @@ The owner has handed over the finish: "just finish building it to the best of yo
 - **Sub-sessions** run on Fable 5.2 at High effort.
 - **Models (the owner, 2026-11-20, later the same day):** every new session or agent runs on Opus 5.5 at **high** effort (Agent tool: `model: "opus"`, `effort: "high"`; a new session: `claude-opus-5-5`, `high`). This replaces the earlier "extra effort" rule.
 - **Tweaks (the owner, 2026-11-20):** the lead stays open as the owner's one conversation. Each change the owner asks for is built in **its own new session** on its own branch (`tweak-<name>`), which reports back; the lead reads the diff, checks, merges, publishes and tells the owner. A question gets an answer and options; nothing is changed unless the owner says so.
+- **Checks scaled to the change (the owner, 2026-11-20):** for each change the lead decides how much checking it needs and says so in the session's brief. A minor change (a text, a look, one place): `tsc`, the unit tests that cover it, then the whole `npm test`, and the one play-through part that walks that area (often `PARTS=valley`, about 10 minutes). The full six parts (about an hour) only for big merges, changes to saves or combat, anything that moves what the play-through itself walks to, and before version 1. A small tweak's session is told to keep it fast.
 
 ## Sessions (the owner, 2026-11-17)
 
