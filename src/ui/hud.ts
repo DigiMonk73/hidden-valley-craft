@@ -4,6 +4,7 @@
 import { iconFor } from './icons.ts';
 import { BLOCK_DEFS } from '../world/blocks.ts';
 import { HAND, type Inventory } from '../sim/inventory.ts';
+import { clockText } from './clock.ts';
 import { itemLabel, foodOf } from '../world/items.ts';
 
 /** An open hand in a field jacket's cuff, drawn in sixteenths like the game's own icons. */
@@ -26,6 +27,13 @@ const CSS = `
 .hv-slot.sel { border-color: #ffe7b0; box-shadow: 0 0 0 2px rgba(255, 220, 150, .35); }
 .hv-slot img { position: absolute; inset: 1px; width: 44px; height: 44px; image-rendering: pixelated; }
 .hv-slot span { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
+/* The time and the day: a plate the height of a slot, warm from five in the evening, when the bed can be slept in. */
+.hv-clock { width: 88px; height: 50px; margin-right: 6px; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background: rgba(0,0,0,.35);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hv-clock b { font-size: 17px; font-weight: 700; letter-spacing: .3px; text-shadow: 0 1px 2px #000; }
+.hv-clock small { font-size: 11px; opacity: .7; }
+.hv-clock.sleep { border-color: rgba(255, 196, 110, .7); }
+.hv-clock.sleep b { color: #ffd38a; }
 /* The bare hand's place: a little apart from the nine, so it reads as not one of them. */
 .hv-slot.hv-hand { margin-right: 6px; }
 .hv-slot.hv-hand svg { position: absolute; inset: 7px; width: 36px; height: 36px; opacity: .85; }
@@ -154,6 +162,9 @@ export class Hud {
   private slots: HTMLDivElement[] = [];
   /** The bare hand's place, left of slot 1: it never holds anything (src/sim/inventory.ts, HAND). */
   private handSlot!: HTMLDivElement;
+  /** The time and the day, at the start of the hotbar. */
+  private clockEl!: HTMLDivElement;
+  private clockSig = '';
   private label: HTMLDivElement;
   private breath: HTMLDivElement;
   private focusEl!: HTMLDivElement;
@@ -204,6 +215,7 @@ export class Hud {
     root.appendChild(svg);
 
     const bar = el('div', 'hv-hotbar', root);
+    this.clockEl = el('div', 'hv-clock', bar);
     this.handSlot = el('div', 'hv-slot', bar);
     this.handSlot.innerHTML = `<i>~</i>${HAND_ICON}`;
     this.handSlot.title = 'Empty hand (the key left of 1)';
@@ -512,6 +524,16 @@ export class Hud {
       if (!h.creative && s.count > 1) el('span', '', d).textContent = String(s.count);
     });
     if (selChanged) this.flashLabel(h.current ? itemLabel(h.current.id) + useHint(h.current.id) : 'Empty hand');
+  }
+
+  /** The clock at the start of the hotbar: drawn again only when the minute changes. */
+  setClock(hour: number, day: number): void {
+    const c = clockText(hour, day), sig = `${c.time}|${c.day}|${c.sleep}`;
+    if (sig === this.clockSig) return;
+    this.clockSig = sig;
+    this.clockEl.className = 'hv-clock' + (c.sleep ? ' sleep' : '');
+    this.clockEl.innerHTML = `<b>${c.time}</b><small>${c.day}${c.sleep ? ' · bed' : ''}</small>`;
+    this.clockEl.title = c.sleep ? 'The bed can be slept in now' : 'The bed can be slept in from 5 PM';
   }
 
   flashLabel(text: string): void {

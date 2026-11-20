@@ -10,6 +10,7 @@ import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { WATER, FALLING_WATER, BLOCK_DEFS, blockName } from './world/blocks.ts';
 import { Inventory, HAND, type Stack } from './sim/inventory.ts';
+import { canSleep } from './ui/clock.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationAt, type Station } from './sim/crafting.ts';
@@ -586,6 +587,7 @@ export class Game {
 
     // HUD.
     this.hud.updateHotbar(this.hotbar);
+    this.hud.setClock(this.hour, this.day);
     this.hud.setVitals(this.vitals.hp, this.vitals.hunger, this.vitals.thirst, !this.hotbar.creative);
     this.hud.setDose(this.dose, healthCap(this.dose), !this.hotbar.creative && (this.dose > 0.05 || zoneAt(p.x, p.z) === 'zone2' || zoneAt(p.x, p.z) === 'zone4' || !!this.doseLine.text), this.doseLine.text, this.doseLine.alarm);
     // The bow's draw shows on the same bar as mining; switching away from the bow lets the string down.
@@ -1413,7 +1415,7 @@ export class Game {
     // (Not with a bow or a gun in hand: a seat in front of what you are shooting at must not take the shot.)
     if (SEATS.has(name) && !isWeapon(this.hotbar.current?.id)) { this.sit(x, y, z, id); return true; }
     if (name === 'bed' || name === 'bed_head' || name === 'bed_foot') {
-      if (this.hour < 17 && this.hour >= 6) { this.hud.toast('You can sleep from five in the evening'); return true; }
+      if (!canSleep(this.hour)) { this.hud.toast('You can sleep from five in the evening (the clock turns warm)'); return true; }
       // A night's sleep (up to thirteen hours) moves the garden on as if those hours had passed.
       const hours = (6 - this.hour + 24) % 24;
       growWhileAway(this.world, this.player.x, this.player.z, hours, Math.random);
