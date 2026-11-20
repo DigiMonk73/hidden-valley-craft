@@ -118,8 +118,10 @@ check('there is a stove in the hut on the pass', /stove|range/.test(await g((c) 
 // ---- The sump's edge; the observatory; the yard ---------------------------------------------------------------
 await standAt(Z.sump.x + Z.sump.r - 6, Z.sump.z, Math.PI / 2);
 const sumpSeen = await waitFlag('ridge_sump');
+// The meter's line is written on the game's next tick after the place is noticed: wait for it, not for the wall clock.
+await page.waitForFunction(() => /\+\d+\/s/.test(document.querySelector('.hv-doseline')?.textContent ?? ''), null, { timeout: 60_000, polling: 100 }).catch(() => {});
 const hot = await meter();
-check('at the sump’s ring: the toast says go round, and the meter shows why (several times the road’s rate, in the suit)', sumpSeen && /\+(\d+)\/s/.test(hot ?? '') && Number((hot ?? '').match(/\+(\d+)\/s/)?.[1] ?? 0) >= 1, hot ?? '');
+check('at the sump’s ring: the toast says go round, and the meter shows why (several times the road’s rate, in the suit)', sumpSeen && /\+(\d+)\/s/.test(hot ?? '') && Number((hot ?? '').match(/\+(\d+)\/s/)?.[1] ?? 0) >= 1, `seen ${sumpSeen}; meter “${hot ?? ''}”`);
 await g(() => { window.__woke = 0; window.__watch = setInterval(() => { const gm = window.__hv.game; if (gm.wild.creatures.some((c) => c.kind === 'ashen' && ['charge', 'windup', 'lunge', 'seek'].includes(c.mind))) window.__woke++; }, 100); });
 await standAt(Z.observatory.x + 1.5, Z.observatory.z + 7, 0);
 check('at the observatory: the toast says the optics come away with a pick', await waitFlag('ridge_dome'));
