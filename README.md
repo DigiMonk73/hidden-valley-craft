@@ -79,6 +79,7 @@ node --experimental-strip-types tools/texsheet.ts
 
 `node --experimental-strip-types --no-warnings tools/homeslice.ts y=82` prints a level of the home as letters, and
 `tools/landhash.ts` hashes the land outside the home, to show a change to the home changed nothing else (docs/HOME.md).
+`node tools/showroom.mjs table chair@south` photographs pieces of furniture from where a player would stand.
 
 `npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
 tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, and `tools/zone3map.ts` Zone-3's into
