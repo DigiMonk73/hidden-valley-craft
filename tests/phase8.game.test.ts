@@ -387,16 +387,27 @@ describe('M5 at home', () => {
     const g = inside(p);
     land(p, 1790, 1016, 1812, 1030);
     // In the cave, under rock.
-    p.game.world.setBlock(1808, HOME.floor, 1024, blockId('telescope')); p.in.edited();
+    p.game.world.setBlock(1808, HOME.floor, 1024, blockId('telescope'));
     at(p, 1806, HOME.floor, 1024);
     g.tickZone4();
     expect([g.scopeOk, p.game.flags.has('telescope_set')]).toEqual([false, false]);
     // On the balcony, under the sky.
     p.game.world.setBlock(1808, HOME.floor, 1024, 0);
-    p.game.world.setBlock(1795, HOME.floor, 1022, blockId('telescope')); p.in.edited();
+    p.game.world.setBlock(1795, HOME.floor, 1022, blockId('telescope'));
     at(p, 1796.5, HOME.floor, 1022.5);
     g.tickZone4();
     expect([g.scopeOk, p.game.flags.has('telescope_set')]).toEqual([true, true]);
+    expect(p.game.linkNeeds().telescope).toBe(true);
+    // Away from home it counts as last seen (the search is not run out there), and is looked at again on coming back.
+    at(p, 1000, 90, 1000);
+    p.game.world.setBlock(1795, HOME.floor, 1022, 0);
+    g.tickZone4();
+    expect(p.game.linkNeeds().telescope).toBe(true);
+    at(p, 1796.5, HOME.floor, 1022.5);
+    g.tickZone4();
+    expect(p.game.linkNeeds().telescope).toBe(false);
+    p.game.world.setBlock(1795, HOME.floor, 1022, blockId('telescope'));
+    g.tickZone4();
     expect(p.game.linkNeeds().telescope).toBe(true);
     // Looking through it: the body stands still; E puts it down.
     g.startScope(1795, HOME.floor, 1022);
@@ -407,7 +418,7 @@ describe('M5 at home', () => {
     expect(g.scoping).toBeNull();
     expect(g.screen.opened.length).toBe(0); // E put the telescope down; it did not open the pack
     // Taken indoors again it stops counting, and the link says so.
-    p.game.world.setBlock(1795, HOME.floor, 1022, 0); p.in.edited();
+    p.game.world.setBlock(1795, HOME.floor, 1022, 0);
     g.tickZone4();
     expect(p.game.linkNeeds().telescope).toBe(false);
   });

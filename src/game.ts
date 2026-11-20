@@ -1936,7 +1936,7 @@ export class Game {
     this.running = devicesFromSave(d.running);
     // A telescope counted when saved counts until the home's land is looked at again.
     this.scopeOk = this.flags.has('telescope_set');
-    this.scopesEdit = -1;
+    this.scopesAt = null;
     // A save made unsuited on the ridge's poisoned ground (any save from before the fallout was there) would load
     // into certain death, the pack left where no one can fetch it: such a player wakes outside the gate instead.
     if (!fresh && this.mode === 'survival' && !this.suited() && doseRate(this.player.x, this.player.z, false) > 0 && inFallout(this.player.x, this.player.z)) {
@@ -2392,9 +2392,8 @@ export class Game {
 
   // ---- Zone-4 and the uplink (docs/PHASE8.md) ------------------------------------------------------
 
-  /** The telescopes set down at home, and the count of edits they were found at (the world is searched only when it has changed). */
-  private scopesAt: [number, number, number][] = [];
-  private scopesEdit = -1;
+  /** The telescopes set down at home, as last looked for (null: not yet since the valley was opened). */
+  private scopesAt: [number, number, number][] | null = null;
 
   /** Lures that called this tick, for the Ashen to hear. */
   private lureCalls: { x: number; z: number; r: number }[] = [];
@@ -2441,7 +2440,9 @@ export class Game {
     const T = PLACES.ridgeTower;
     if (Math.hypot(p.x - T.x, p.z - T.z) < 90) this.sound.beacon(T.x, p.y + 30, T.z);
     // A telescope under open sky at home (the valley, or the home's grounds); away from home, as last seen.
-    if (this.scopesEdit !== this.editCount) { this.scopesEdit = this.editCount; this.scopesAt = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5)); }
+    // (Looked for only while you are at home, or after a load: away from home nothing there changes, and the
+    // search reads every edit. Keyed on where you are, not on a count of edits that some path might forget to move.)
+    if (this.scopesAt === null || inSanctuary(p.x, p.z)) this.scopesAt = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5));
     const scopes = this.scopesAt;
     if (!scopes.length) this.scopeOk = false;
     else if (scopes.some(([x, , z]) => this.world.isLoaded(x, z))) this.scopeOk = scopes.some(([x, y, z]) => this.world.isLoaded(x, z) && skyOf(this.world.lightAt(x, y + 1, z)) >= 13);
