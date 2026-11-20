@@ -280,6 +280,101 @@ describe('the home, rebuilt', () => {
     for (const y of [F, F + 1]) { expect(name(d, l[0], y, l[2])).toBe('door_wood_open'); expect(name(d, r[0], y, r[2])).toBe('door_wood_r_open'); }
   });
 
+  it('nowhere a player can come to stand on the balcony is above the furniture, on the railing or beyond it', () => {
+    // A flood of every standing place reached by walking, sprinting and jumping from the middle of the balcony. The
+    // second review climbed bench → lantern post → the railing's (unseen) top, and walked it: two steps, which a
+    // test of single jumps from pieces beside the rail could not find.
+    const w = home(), at = (x: number, y: number, z: number) => w.blockAt(x, y, z), b = HOME.balcony;
+    const Q = 0.5, key = (x: number, y: number, z: number) => `${Math.round(x / Q)},${Math.round(y * 4)},${Math.round(z / Q)}`;
+    const seen = new Set<string>(), queue: [number, number, number][] = [];
+    const push = (x: number, y: number, z: number) => { const k = key(x, y, z); if (!seen.has(k)) { seen.add(k); queue.push([x, y, z]); } };
+    push(1796.5, F, 1024.5);
+    const onBalcony = (x: number, z: number) => x > b.x0 - 2 && x < b.x1 && z > b.z0 - 0.8 && z < b.z1 + 1; // not through the gap, not indoors
+    const wrong: string[] = [];
+    const p = new Player();
+    while (queue.length && wrong.length < 5) {
+      const [sx, sy, sz] = queue.pop()!;
+      for (let d = 0; d < 8; d++) for (const sprint of [false, true]) for (const jumpAt of [-1, 0, 12, 28]) {
+        p.setPosition(sx, sy, sz);
+        p.yaw = (d * Math.PI) / 4;
+        p.onGround = true;
+        for (let i = 0; i < 60; i++) {
+          p.step(1 / 60, { forward: 1, strafe: 0, jump: jumpAt >= 0 && i >= jumpAt, sprint, descend: false }, at);
+          if (p.y < F - 0.5 && p.z < b.z0 + 1) break; // down off the side of the path outside the gap: not the balcony's business
+          if (!onBalcony(p.x, p.z)) { if (p.x <= b.x0 - 2 || p.z >= b.z1 + 1) wrong.push(`over the railing from ${sx},${sy},${sz}`); break; }
+          if (!p.onGround) continue;
+          if (p.y > F + 1.01) { wrong.push(`stands at ${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)} from ${sx},${sy},${sz}`); break; }
+          push(p.x, p.y, p.z);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect(seen.size).toBeGreaterThan(300);
+  }, 120_000);
+
+  it('a door leaf put back from either side of the wall, or along it, matches its pair', () => {
+    const [l, r] = HOME_FIT.door;
+    for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const [leaf, x] of [['door_wood', l[0]], ['door_wood_r', r[0]]] as [string, number][]) {
+      const d = home(), z = l[2], inv = new Inventory(), was = leaf + '_open';
+      for (const y of [F + 1, F]) breakBlock(d, inv, x, y, z);
+      inv.select(inv.slots.findIndex((s) => s && s.id === blockId('door_wood')));
+      for (const y of [F, F + 1]) placeBlock(d, inv, { intersectsBlock: () => false, yaw }, { x, y: y - 1, z, nx: 0, ny: 1, nz: 0, id: d.blockAt(x, y - 1, z), dist: 1 });
+      for (const y of [F, F + 1]) expect(name(d, x, y, z), `${was} put back facing ${yaw.toFixed(2)}`).toBe(was);
+    }
+  });
+
+  it('a double door built from nothing, in either order and from either side, is a left and a right leaf that open to the jambs', () => {
+    const [l, r] = HOME_FIT.door, z = l[2];
+    for (const yaw of [0, Math.PI]) for (const order of [[l[0], r[0]], [r[0], l[0]]]) {
+      const d = home(), inv = new Inventory();
+      for (const x of [l[0], r[0]]) for (const y of [F + 1, F]) breakBlock(d, inv, x, y, z);
+      expect(inv.count(blockId('door_wood'))).toBe(4);
+      inv.select(inv.slots.findIndex((s) => s && s.id === blockId('door_wood')));
+      for (const x of order) for (const y of [F, F + 1]) placeBlock(d, inv, { intersectsBlock: () => false, yaw }, { x, y: y - 1, z, nx: 0, ny: 1, nz: 0, id: d.blockAt(x, y - 1, z), dist: 1 });
+      const what = `yaw ${yaw.toFixed(2)}, ${order.join(' then ')}`;
+      // Shut, both leaves are in one plane and one facing; one click opens all four halves.
+      const shut = [l[0], r[0]].map((x) => name(d, x, F, z));
+      expect(shut.map((n) => n.replace(/^door_wood(_r)?/, '')), what).toEqual([shut[0].replace(/^door_wood(_r)?/, ''), shut[0].replace(/^door_wood(_r)?/, '')]);
+      expect(shut.filter((n) => /^door_wood_r/.test(n)).length, what).toBe(1);
+      expect(toggleDoor(d, l[0], F, z)).toBe(true);
+      // Open, the west leaf stands along the west jamb and the east leaf along the east: the doorway is clear.
+      for (const y of [F, F + 1]) {
+        const west = B_BOXES[d.blockAt(l[0], y, z)]![0], east = B_BOXES[d.blockAt(r[0], y, z)]![0];
+        expect(name(d, l[0], y, z), what).toMatch(/_open/);
+        expect([west[0], west[3]], `${what}: west leaf`).toEqual([0, 3]);
+        expect([east[0], east[3]], `${what}: east leaf`).toEqual([13, 16]);
+      }
+    }
+  });
+
+  it('what stands on a piece of furniture comes up with it, a whole stack of it, and nothing is lost when the pack is full', () => {
+    const d = home(), inv = new Inventory();
+    // The sideboard's lamp, on its counter.
+    expect(name(d, 1802, F + 1, 1032)).toBe('table_lamp');
+    expect(breakBlock(d, inv, 1802, F, 1032).changed).toBe(true);
+    expect(name(d, 1802, F + 1, 1032)).toBe('air');
+    expect(inv.count(blockId('table_lamp'))).toBe(1);
+    expect(inv.count(blockId('counter'))).toBe(1);
+    // A storm lantern on the kettle on the next counter: all three.
+    d.setBlock(1804, F + 2, 1032, blockId('storm_lantern'));
+    expect(breakBlock(d, inv, 1804, F, 1032).changed).toBe(true);
+    for (const y of [F, F + 1, F + 2]) expect(name(d, 1804, y, 1032)).toBe('air');
+    expect(inv.count(blockId('kettle'))).toBe(1);
+    expect(inv.count(blockId('storm_lantern'))).toBe(1);
+    // With room for the desk but not for the computer on it, both stay.
+    const full = new Inventory();
+    for (let i = 0; i < full.slots.length; i++) full.slots[i] = { id: blockId('cobble'), count: 1 };
+    full.slots[0] = null;
+    const [cx, cy, cz] = HOME_FIT.desk.computer;
+    expect(breakBlock(d, full, cx, cy - 1, cz)).toMatchObject({ changed: false, full: true });
+    expect(name(d, cx, cy, cz)).toBe('computer@west');
+    expect(name(d, cx, cy - 1, cz)).toBe('desk@west');
+    // What hangs on a wall is not standing on anything: the lamp over the firewood stays when the firewood goes.
+    const H = HOME_FIT.hearth;
+    expect(breakBlock(d, inv, H.x - 3, F, H.z + 1).changed).toBe(true);
+    expect(name(d, H.x - 3, F + 2, H.z + 1)).toBe('wall_lamp@south');
+  });
+
   it('a door leaf taken out goes back matching: either leaf, either half, open or shut', () => {
     const [l, r] = HOME_FIT.door;
     for (const shut of [false, true]) for (const [leaf, x] of [['door_wood', l[0]], ['door_wood_r', r[0]]] as [string, number][]) {

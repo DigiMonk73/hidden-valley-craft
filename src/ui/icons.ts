@@ -34,7 +34,7 @@ export function iconFor(id: number): string {
   if (item) ctx.drawImage(pixelCanvas(drawItemIcon(item.icon)), 4, 4, S - 8, S - 8);
   else if (B_RENDER[id] === RENDER.cube || B_RENDER[id] === RENDER.liquid) {
     const top = textureCanvas(B_FACE_TEX[id * 6 + 2]);
-    const left = textureCanvas(B_FACE_TEX[id * 6 + 4]);
+    const left = textureCanvas(B_FACE_TEX[id * 6 + 5]); // the north face: a block with a front (a fridge, a safe) shows it
     const right = textureCanvas(B_FACE_TEX[id * 6 + 0]);
     const face = (tex: HTMLCanvasElement, a: number, b: number, cc: number, d: number, e: number, f: number, dark: number) => {
       ctx.setTransform(a * k, b * k, cc * k, d * k, e, f);

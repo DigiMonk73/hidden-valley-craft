@@ -115,6 +115,17 @@ A fresh reviewer drove the first build. Each bug has a test that fails on the ol
 - **After the merge with Phase 7**, two names collided: both branches had added a `firebrick`, and the home's counter top had the same texture name as the pharmacy counter's. The home's are now `hearth_brick` and `stone_counter`, and a test refuses any block or texture defined twice.
 - **Not done:** lanterns are now plentiful in the home (about 30) and sell for 1 each. That is a question for the money pass (N4), not for the home.
 
+## What the second review found, and what was done
+
+A second fresh reviewer checked everything after the first review: the fixes, the merge with Phase 7 and the furniture pass.
+
+- **The railing could still be crossed**, in two steps: bench, then the lantern on its one-block post, then along the railing's unseen top. The lantern posts are now two high, a bench stops the body at its seat, and a test floods every place a player can come to stand on the balcony (it fails with the old posts).
+- **A door leaf put back from the bedroom side did not match.** The leaf now takes its facing and state from the leaf beside it, whichever way the player looks, and a double door built from nothing in either order comes out as a left and a right leaf. Tested from all four sides.
+- **The rule for things standing on furniture had no test.** It has one now, and a whole stack comes up (a lantern on a kettle on a counter).
+- **Looks:** icons are scaled to fill their slot with a pale rim, and a cube with a front shows it (the fridge); the phone has a pale cradle and a lit display; the powder mill is a stamp mill (a pestle hung in a frame over a mortar); the smoker has a dark iron top so it is not taken for the coop; the forge's painted mouths, which did not glow, are gone (its coals do); the old fireplace's back is dressed stone; the pantry's shelves are pale pine so they are not taken for the library's; desk and patio table tops are flush so nothing hovers; a big bench stands in the middle of the workshop floor.
+- **A buried player:** out in the land Phase 7's lift to the surface runs first; inside the home's grounds, where a hill of rock is overhead, they go back to the cave.
+- **Left:** from the hall you see the desk side-on (the screen faces the mouth); the jerky rack's stray texels are from before this work; the path outside the gap has an open drop beside it that the `fixes` session is closing.
+
 ## Kept true
 
 - **Everything that does something still does it:** the bed, the journal at the bookshelves, the computer, the phone, the map table, the wall safe and its code, every chest with its contents, the stations, the vault's doors.

@@ -31,7 +31,7 @@ import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, cl
 import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, fromEarlierLayout, SAVE_FORMAT, SAVE_VERSION, WORLD_LAYOUT, type SaveData } from './save/save.ts';
 import { HOME_FIT } from './gen/home.ts';
-import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
+import { HOME, HOME_GROUNDS, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS, WORLD_Y } from './world/constants.ts';
 import { packPos, skyOf } from './world/light.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
@@ -353,9 +353,12 @@ export class Game {
         this.ready = true;
         // A save from before the home was rebuilt may stand inside a wall or furniture; one from before the land
         // changed may stand inside rock. The first moves them to the cave, the second lifts them to the surface.
-        if (!this.opts.cam) this.settleIn();
-        if (this.checkBuried && !p.flying && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
+        const inHome = p.x >= HOME_GROUNDS.x0 && p.x < HOME_GROUNDS.x1 && p.z >= HOME_GROUNDS.z0 && p.z < HOME_GROUNDS.z1;
+        // Out in the land the lift comes first (straight up to the surface); in the home there is a hill of rock
+        // overhead, so the cave is the safe place, and it is the fallback anywhere the lift finds no room.
+        if (this.checkBuried && !p.flying && !inHome && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
         this.checkBuried = false;
+        if (!this.opts.cam) this.settleIn();
         this.hud.setReady(false);
         if (this.opts.test) this.hud.showMenu(false);
       }

@@ -83,7 +83,8 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
     put(x, F, b.z1 - 1, 'stone_railing');
     if (x < 1795 || x > 1797) put(x, F, b.z0, 'stone_railing');
   }
-  for (const x of [1794, 1798]) { put(x, F, b.z0, 'fence_post'); put(x, F + 1, b.z0, 'lantern'); }
+  // Each lantern on a post two high: on a post of one, the lantern was a step from the bench onto the railing.
+  for (const x of [1794, 1798]) { put(x, F, b.z0, 'fence_post'); put(x, F + 1, b.z0, 'fence_post'); put(x, F + 2, b.z0, 'lantern'); }
   // A potted fern either side of the mouth, at the foot of each pier.
   put(1800, F, 1017, 'potted_fern');
   put(1800, F, 1030, 'potted_fern');
@@ -273,6 +274,9 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(1821, F, 1012, 'barrel');
   for (const z of [1012, 1013, 1014]) { put(1831, F, z, 'table'); put(1831, F + 1, z, 'tool_board@west'); }
   for (const [x, y, z] of [[1831, F, 1018], [1831, F, 1019], [1830, F, 1019], [1831, F + 1, 1019]]) put(x, y, z, 'supply_crate');
+  // A big bench in the middle of the floor, a storm lantern on it.
+  fill(1824, 1826, F, F, 1015, 1016, 'table');
+  put(1825, F + 1, 1015, 'storm_lantern');
   put(1817, F, 1019, 'barrel');
   put(1817, F, 1018, 'barrel');
   // The pantry: shelves of jars and tins along the north and west walls, barrels and sacks in the corners, herbs

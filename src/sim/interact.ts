@@ -21,11 +21,14 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   if (held?.some(Boolean)) return { changed: false, full: false, keepsItems: true };
   // Crops give their harvest; everything else its one drop. A plant on top loses its footing and drops too.
   const above = world.blockAt(x, y + 1, z);
-  // So does a lamp, a pot or a clock standing on a piece of furniture (unless it is holding something, or is furniture too).
-  const plantAbove = B_RENDER[above] === RENDER.cross || (B_RESTS[above] === 1 && B_RESTS[id] === 0 && !world.containerAt(x, y + 1, z));
+  const plantAbove = B_RENDER[above] === RENDER.cross;
+  // So does whatever stands on it: a lamp, a pot, a clock, and what stands on those (a kettle, then a lantern on the kettle).
+  let resting = 0;
+  while (!plantAbove && resting < 4 && B_RESTS[world.blockAt(x, y + 1 + resting, z)] === 1 && !world.containerAt(x, y + 1 + resting, z)) resting++;
   // A hearth fire's flames stand in the block above it, and go out with it.
   const flamesAbove = id === HEARTH_FIRE && above === HEARTH_FLAMES;
   const drops: [number, number][] = [...(cropDrops(id) ?? [[dropOf(id), 1]]), ...(plantAbove ? cropDrops(above) ?? [[dropOf(above), 1]] : [])];
+  for (let k = 1; k <= resting; k++) drops.push([dropOf(world.blockAt(x, y + k, z)), 1]);
   // Nothing is ever lost: if the pack can't take everything, the block stays where it is.
   if (!hotbar.creative) {
     const trial = hotbar.clone();
@@ -37,6 +40,7 @@ export function breakBlock(world: World, hotbar: Inventory, x: number, y: number
   // An emptied chest's record stays (empty), so a chest put back here never refills with the builder's things.
   if (held) world.containers.set(packPos(x, y, z), held.map(() => null));
   if (plantAbove || flamesAbove) world.setBlock(x, y + 1, z, AIR);
+  for (let k = 1; k <= resting; k++) world.setBlock(x, y + k, z, AIR);
   if (!hotbar.creative) for (const [item, n] of drops) if (item && n > 0) hotbar.add(item, n);
   return { changed: true, full: false };
 }
@@ -66,23 +70,40 @@ export function placeBlock(world: World, hotbar: Inventory, body: Body, t: RayHi
 
 const WOOD_LEAF = /^door_wood(_r)?(_open)?(@\w+)?$/;
 
+/** Which side a left leaf's hinge is on, for a facing: read from where the leaf stands when open (a strip along one edge). */
+function hingeSide(facing: string): [number, number] {
+  const [x0, , z0, x1, , z1] = B_BOXES[blockId('door_wood_open' + facing)]![0];
+  return [x1 - x0 < 16 ? (x0 === 0 ? -1 : 1) : 0, z1 - z0 < 16 ? (z0 === 0 ? -1 : 1) : 0];
+}
+
 /**
  * A wooden door comes up as one kind of leaf. Set back on or under a half that still stands, it becomes that
- * half's twin; set beside a leaf, it becomes the other leaf of the pair, open or shut as that one is. So a leaf
- * taken out of a double door goes back matching, whichever leaf it was.
+ * half's twin. Set beside a leaf, in line with it, it takes that leaf's facing and state and becomes the other
+ * leaf of the pair, whichever way the one placing it is looking. So a leaf taken out of a double door goes back
+ * matching, from either side of the wall. A left leaf's partner stands away from its hinge; if the new leaf lands
+ * on the hinge side of a leaf that has no partner, that leaf is turned into the right leaf instead.
  */
 function doorLeafFor(world: World, x: number, y: number, z: number, id: number): number {
-  const placed = blockName(id).match(/^door_wood(@\w+)?$/);
-  if (!placed) return id;
+  if (!/^door_wood(@\w+)?$/.test(blockName(id))) return id;
   for (const dy of [-1, 1]) { const n = world.blockAt(x, y + dy, z); if (WOOD_LEAF.test(blockName(n))) return n; }
-  // Which side the left leaf's hinge is on, from where it stands when open (a strip along one edge of its cell).
-  const f = placed[1] ?? '';
-  const [x0, , z0, x1, , z1] = B_BOXES[blockId('door_wood_open' + f)]![0];
-  const hx = x1 - x0 < 16 ? (x0 === 0 ? -1 : 1) : 0, hz = z1 - z0 < 16 ? (z0 === 0 ? -1 : 1) : 0;
-  const left = blockName(world.blockAt(x + hx, y, z + hz)).match(WOOD_LEAF); // a left leaf on the hinge side: this is its right leaf
-  if (left && !left[1] && (left[3] ?? '') === f) return blockId('door_wood_r' + (left[2] ?? '') + f);
-  const right = blockName(world.blockAt(x - hx, y, z - hz)).match(WOOD_LEAF); // a right leaf on the other side: this is its left leaf
-  if (right && right[1] && (right[3] ?? '') === f) return blockId('door_wood' + (right[2] ?? '') + f);
+  const leafAt = (ax: number, az: number) => blockName(world.blockAt(ax, y, az)).match(WOOD_LEAF);
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const n = leafAt(x + dx, z + dz);
+    if (!n) continue;
+    const f = n[3] ?? '', state = n[2] ?? '', [hx, hz] = hingeSide(f);
+    if (dx * hz !== dz * hx || (dx === 0 && dz === 0)) continue; // not in line with that door
+    const onHingeSide = n[1] ? dx === hx && dz === hz : dx === -hx && dz === -hz; // is the new leaf on the neighbour's hinge side?
+    if (!onHingeSide) return blockId((n[1] ? 'door_wood' : 'door_wood_r') + state + f); // its free side: the other leaf of the pair
+    // On its hinge side. If the neighbour already has its partner, this is a new door beside it; otherwise the
+    // neighbour changes hands (every half of it) and the new leaf takes the hand it had.
+    const partner = n[1] ? leafAt(x + dx - hx, z + dz - hz) : leafAt(x + dx + hx, z + dz + hz);
+    if (partner) continue;
+    for (let by = y - 2; by <= y + 2; by++) {
+      const half = blockName(world.blockAt(x + dx, by, z + dz)).match(WOOD_LEAF);
+      if (half && (half[3] ?? '') === f) world.setBlock(x + dx, by, z + dz, blockId((half[1] ? 'door_wood' : 'door_wood_r') + (half[2] ?? '') + f));
+    }
+    return blockId((n[1] ? 'door_wood_r' : 'door_wood') + state + f);
+  }
   return id;
 }
 

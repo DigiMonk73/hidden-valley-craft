@@ -1343,6 +1343,7 @@ DRAW.lit_screen = (c) => { c.noise(hex('#0c1d30'), 2); terminal(c, 2, 3, 13, 10)
 DRAW.computer_screen = (c) => { DRAW.monitor(c); terminal(c, 2, 3, 13, 11); };
 DRAW.keyboard = (c) => { c.noise(hex('#2b2d30'), 2); for (let y = 1; y <= 4; y++) for (let x = 3; x <= 12; x++) if ((x + y) % 2 === 0 || y === 4) c.set(x, y, y === 4 && x > 5 && x < 11 ? hex('#8d9299') : hex('#6c7178')); };
 DRAW.phone_base = (c) => { c.noise(hex('#2a2c2e'), 3, [hex('#35373a')], 0.2); for (let x = 0; x < TEX; x++) c.set(x, 14, hex('#1c1d1f')); c.set(10, 4, hex('#c0392b')); };
+DRAW.phone_cradle = (c) => { c.noise(hex('#c4c9ce'), 3, [hex('#b3b9bf')], 0.2); for (let x = 0; x < TEX; x++) c.set(x, 14, hex('#8d949a')); c.set(10, 4, hex('#c0392b')); };
 DRAW.phone = (c) => {
   c.noise(hex('#1f2123'), 3);
   rect(c, 6, 5, 9, 5, hex('#7fd3a0')); // its little screen
@@ -1581,7 +1582,7 @@ DRAW.burlap = (c) => {
 };
 /** Pantry shelves: jars with cloth tops, tins with labels, crocks and a sack, on three boards between dark uprights. */
 DRAW.pantry_shelf = (c) => {
-  c.noise(hex('#33241a'), 3);
+  c.noise(hex('#4a382a'), 3);
   const glass = [hex('#b8782a'), hex('#a8342a'), hex('#5f7a2c'), hex('#d8c890'), hex('#7a3a5a'), hex('#c9a13a')];
   const label = [hex('#c8443a'), hex('#2f6f9a'), hex('#e0c040'), hex('#4f8a4a'), hex('#e8e2d0')];
   // Top shelf: jars, two wide, a pale lid on each.
@@ -1593,8 +1594,8 @@ DRAW.pantry_shelf = (c) => {
   rect(c, 6, 11, 9, 14, hex('#8a6a4a')); for (let x = 6; x <= 9; x++) c.set(x, 11, hex('#5e4632'));
   rect(c, 11, 12, 14, 14, hex('#c2a878')); c.set(12, 11, hex('#a89060')); c.set(13, 11, hex('#a89060')); c.set(12, 13, hex('#8e4a3a')); c.set(13, 13, hex('#8e4a3a'));
   // The boards and uprights.
-  for (const y of [0, 5, 10, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, y === 0 || y === 15 ? hex('#5a3d26') : hex('#7a5536'));
-  for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#5a3d26')); c.set(15, y, hex('#5a3d26')); }
+  for (const y of [0, 5, 10, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, y === 0 || y === 15 ? hex('#a07c4c') : hex('#c09a66'));
+  for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#a07c4c')); c.set(15, y, hex('#a07c4c')); }
 };
 DRAW.dried_herb = (c) => { c.noise(hex('#6f7f4a'), 10, [hex('#5a6a3a'), hex('#86905a'), hex('#4e5a34')], 0.4); for (let x = 0; x < TEX; x++) for (const y of [2, 3]) c.set(x, y, hex('#c8b98f')); };
 DRAW.dried_chili = (c) => { c.noise(hex('#a8281e'), 8, [hex('#8a1e18'), hex('#c8402a'), hex('#701812')], 0.4); for (let x = 0; x < TEX; x += 3) for (let y = 0; y < TEX; y++) c.shade(x, y, 0.7); };
