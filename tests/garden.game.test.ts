@@ -12,7 +12,8 @@ vi.mock('../src/ui/icons.ts', async () => (await import('./game/stubs.ts')).icon
 vi.mock('../src/ui/mapView.ts', async () => (await import('./game/stubs.ts')).mapModule);
 vi.mock('../src/platform/tablock.ts', async () => (await import('./game/stubs.ts')).tablockModule);
 
-import { openPage, type Page } from './game/harness.ts';
+import { openPage, fire, type Page } from './game/harness.ts';
+import { HAND } from '../src/sim/inventory.ts';
 import { runJob, type GenResult } from '../src/jobs/tasks.ts';
 import { blockId, blockName } from '../src/world/blocks.ts';
 import { CS } from '../src/world/constants.ts';
@@ -90,3 +91,22 @@ describe('the garden says what to do', () => {
     expect(p.hud.toasts.at(-1)).toContain('right-click a ripe bush');
   });
 });
+
+describe('the bare hand (the owner, 2026-11-20)', () => {
+  it('the key left of 1 empties the hand with a full pack; 1 takes slot 1 back', async () => {
+    const p = await garden();
+    const slots = (p.game.hotbar as unknown as { slots: Slots }).slots;
+    for (let i = 0; i < slots.length; i++) slots[i] = { id: itemId('canned_food'), count: 1 };
+    for (const code of ['Backquote', 'IntlBackslash']) {
+      p.game.hotbar.select(3);
+      fire('window', 'keydown', { code });
+      fire('window', 'keyup', { code });
+      expect(p.game.hotbar.selected, code).toBe(HAND);
+      expect(p.game.hotbar.current).toBeNull();
+    }
+    fire('window', 'keydown', { code: 'Digit1' });
+    fire('window', 'keyup', { code: 'Digit1' });
+    expect(p.game.hotbar.selected).toBe(0);
+  });
+});
+
