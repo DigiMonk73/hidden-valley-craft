@@ -99,6 +99,8 @@ export interface Creature {
   home: [number, number] | null;
   /** The pack's bearing from the player when it noticed them: the sides are taken round this. */
   flankBase: number;
+  /** Seconds a stalking puma has been held still by the player's eyes. */
+  watched?: number;
   /** Seconds a hurt animal still fights back wherever the player is (a dog shot from afar comes for them). */
   angry: number;
   /** A raider's post (feet, and the way he watches), which he keeps to. */
@@ -227,9 +229,16 @@ export interface Senses {
   night: boolean;
   /** A gunshot this tick, heard within 60 m. */
   shot: boolean;
+  /** Which way the player is facing (their yaw), if known: the puma stalks out of their sight. */
+  pyaw?: number;
 }
 
 export interface Hit { damage: number; by: Kind }
+
+/** The stalking puma: inside this distance it runs in; a player facing it within this much of dead ahead (a cosine) holds it still; watched this long, it gives up. */
+export const STALK_RUSH = 7;
+export const STALK_SEEN = 0.55;
+export const STALK_GIVES_UP = 8;
 
 /** How far above or below a creature the player can be and still be struck. */
 export const STRIKE_HEIGHT = 1.5;
@@ -359,12 +368,30 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
       if (dist > 40) { c.mind = 'wander'; c.timer = 0; }
       break;
     }
-    case 'stalk':
+    case 'stalk': {
       // Close in quietly, then charge from cover.
-      toX = dx; toZ = dz; speed = dist > 7 ? d.walk : d.run;
+      toX = dx; toZ = dz; speed = dist > STALK_RUSH ? d.walk : d.run;
+      // The puma stalks from cover (docs/PHASE9B.md, 6): it comes round behind, and while the player is looking
+      // its way with nothing between them it does not move. Watched for long enough, it gives the hunt up.
+      // Facing it is the defence; a turned back is what it waits for.
+      if (s.pyaw !== undefined && dist > STALK_RUSH) {
+        const fx = -Math.sin(s.pyaw), fz = -Math.cos(s.pyaw); // the way the player faces
+        const ahead = (-dx * fx - dz * fz) / (dist || 1); // 1: dead ahead of the player; −1: straight behind
+        if (ahead > STALK_SEEN && canSee(c, s, blockAt)) {
+          speed = 0;
+          c.watched = (c.watched ?? 0) + dt;
+          if (c.watched > STALK_GIVES_UP) { c.mind = 'flee'; c.timer = 6; c.watched = 0; }
+        } else {
+          // Round to the player's back, keeping its distance until it is there, then in.
+          const behind = ahead < -0.5;
+          const gx = s.px - fx * (behind ? 0 : Math.min(dist, 9)), gz = s.pz - fz * (behind ? 0 : Math.min(dist, 9));
+          toX = gx - c.x; toZ = gz - c.z;
+        }
+      }
       if (dist < 1.4 + d.width / 2 && inReach(c, s, blockAt)) { c.mind = 'windup'; c.timer = d.windup; speed = 0; }
       if (!s.night || c.timer <= 0) { c.mind = 'wander'; c.timer = 0; }
       break;
+    }
     case 'windup':
       toX = dx; toZ = dz; speed = 0;
       if (c.timer <= 0) {

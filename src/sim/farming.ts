@@ -38,6 +38,7 @@ export function cropDrops(block: number): [number, number][] | undefined {
   const c = cropOf(block);
   if (!c) return undefined;
   if (c.kind === 'coffee') return [[itemId('coffee_beans'), c.stage === 2 ? 3 : 1]]; // a bean to plant again
+  if (c.kind === 'banana') return c.stage >= 1 ? [[itemId('banana'), BANANAS_A_BUNCH]] : []; // a green bunch is no use yet
   const info = CROPS[c.kind];
   if (c.stage < LAST_STAGE) return [[itemId(info.seed), 1]];
   const out: [number, number][] = [[itemId(info.produce), info.ripe]];
@@ -99,6 +100,22 @@ export function pickApple(world: World, inv: Inventory, x: number, y: number, z:
   return true;
 }
 
+/** What a ripe bunch gives. */
+export const BANANAS_A_BUNCH = 4;
+
+/**
+ * Picks a ripe bunch of bananas from its plant (docs/PHASE9B.md, 6): bananas, and a green bunch hangs in its place
+ * and yellows as a crop ripens (about five game hours while you are near, or over a night's sleep).
+ */
+export function pickBananas(world: World, inv: Inventory, x: number, y: number, z: number): boolean | 'full' {
+  if (blockName(world.blockAt(x, y, z)) !== 'banana_bunch') return false;
+  const trial = inv.clone();
+  if (trial.add(itemId('banana'), BANANAS_A_BUNCH) > 0) return 'full';
+  world.setBlock(x, y, z, blockId('banana_bunch_green'));
+  inv.add(itemId('banana'), BANANAS_A_BUNCH);
+  return true;
+}
+
 /**
  * Hours passing at once (a night's sleep): every crop near the player grows as many stages as random
  * ticks would have given it in that time, on average about one stage every five game hours.
@@ -131,12 +148,13 @@ export function growWhileAway(world: World, px: number, pz: number, hours: numbe
 export function grow(world: World, x: number, y: number, z: number): boolean {
   const c = cropOf(world.blockAt(x, y, z));
   if (!c) return false;
-  const last = c.kind === 'coffee' ? 2 : LAST_STAGE;
+  const last = c.kind === 'coffee' ? 2 : c.kind === 'banana' ? 1 : LAST_STAGE;
   if (c.stage >= last) return false;
-  if (c.kind !== 'coffee' && !isFarmland(world.blockAt(x, y - 1, z))) return false;
+  // (The coffee bushes and the banana plants grow wild: no farmland under them.)
+  if (c.kind !== 'coffee' && c.kind !== 'banana' && !isFarmland(world.blockAt(x, y - 1, z))) return false;
   const lv = world.lightAt(x, y, z);
   if ((lv >> 4) < 9 && (lv & 15) < 9) return false; // crops need light
-  const next = c.kind === 'coffee' ? `coffee_bush_${c.stage + 1}` : `crop_${c.kind}_${c.stage + 1}`;
+  const next = c.kind === 'coffee' ? `coffee_bush_${c.stage + 1}` : c.kind === 'banana' ? 'banana_bunch' : `crop_${c.kind}_${c.stage + 1}`;
   return world.setBlock(x, y, z, blockId(next));
 }
 

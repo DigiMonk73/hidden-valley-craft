@@ -709,7 +709,7 @@ describe('the raiders’ outpost, on the generated land', () => {
   // runs along a slope that falls toward the outpost, so its bushes stand on lower ground than the player and
   // the lookout on his roof sees over them (he notices at x 889 and shouts by x 880). It needs blocks: the
   // brush a block or two taller on that leg's north side (src/gen/zone1far.ts). Told to the lead.
-  it.skip('the stealth route hides the player from the lookout all the way (needs taller brush on the west leg: blocks, not posts)', () => {
+  it('the stealth route hides the player from the lookout all the way (the brush on ground below the trail is grown taller: docs/PHASE9B.md, 3)', () => {
     expect(walkTheTrail().sightings).toEqual([]);
   });
 });

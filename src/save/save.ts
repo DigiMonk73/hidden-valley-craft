@@ -14,21 +14,35 @@ export const SAVE_FORMAT = 'hidden-valley-blocks-save';
  * 2: each valley has an id and each write a counter (docs/FIXES.md, N1).
  * 3: each valley has a mode, Survival or Builder's, chosen when it is begun (docs/FIXES.md, N2).
  * 4: the days are counted, and the uplink's last drawing and the lures and pots still running are kept (docs/PHASE8.md).
+ * 5: the builder's handbooks are read or not (docs/PHASE9B.md, 6); a valley begun before has read them. The save
+ *    records the world generator's version (WORLD_GEN); one from before counts as today's.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** How a valley is played: Survival is the game; Builder's mode adds flying, endless blocks and the sky's clock. */
 export type Mode = 'survival' | 'builder';
 
-/** Blocks and items renamed since a save was made: old name → new name. Empty until a build renames one. */
+/** Blocks and items renamed since a save was made: old name → new name. */
 export const BLOCK_ALIASES: Record<string, string> = {};
-export const ITEM_ALIASES: Record<string, string> = {};
+export const ITEM_ALIASES: Record<string, string> = {
+  // Track A's build (main after its merge) let a cut bunch be carried as a block; set down here it would be a banana
+  // plant fruiting on bare ground. Carried, it is fruit now (docs/PHASE9B.md, "The second fresh review", 2).
+  banana_bunch: 'banana',
+};
 /**
  * The designed world's layout, counted up when a change to it moves what a save points at (chests, the bed, rooms).
  * 2: the home rebuilt (docs/HOME.md). A save from an earlier layout is not opened: a fresh valley starts, and says so.
  * (Before version 1 saves are not carried across such changes; after it, a change ships with a map from old to new.)
  */
 export const WORLD_LAYOUT = 2;
+/**
+ * The world generator's version: the land as it is generated, apart from what the player changed. Counted up when a
+ * build changes generated land a valley may already have walked (new plants, a mended rim), so that a later build can
+ * keep an older valley's land whole if it ever needs to. Nothing reads it yet: it is recorded from save version 5 on,
+ * and a save without it counts as today's land (the lead's call, docs/PHASE9B.md, "Generator version").
+ * 1: the land of Phase 9 (version 14): the valley's rim mended, the new trees and plants.
+ */
+export const WORLD_GEN = 1;
 
 export interface Slot { name: string; count: number; wear?: number }
 
@@ -40,6 +54,8 @@ export interface SaveData {
   seq?: number;
   /** The world layout the save was made in (absent: the first). */
   layout?: number;
+  /** The world generator's version the valley was begun in (WORLD_GEN). Absent before save version 5: today's. */
+  gen?: number;
   savedAt: string;
   /** Survival or Builder's mode (absent before version 3: Survival), and, in Builder's mode, whether blocks are endless now. */
   mode?: Mode;

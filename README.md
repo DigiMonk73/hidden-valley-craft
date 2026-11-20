@@ -66,6 +66,24 @@ tab, a slow storage open, a broken save (docs/FIXES.md, 1).
 node tests/e2e/saves.mjs
 ```
 
+The engine has its own browser check (about ten minutes): the page keeps no copy of vertices the card has, a lost
+picture comes back whole, the picture's settings do what they say and survive a reload, the land comes in with
+workers blocked, and the game runs inside a sandboxed frame (docs/PHASE9B.md). `MINUTES=5` leaves the game running
+in the frame for five minutes of its own clock.
+
+```bash
+node tests/e2e/engine.mjs
+```
+
+`node tests/e2e/capture.mjs` plays for under a minute with the mouse really captured (the play-through refuses
+capture: see below): capture on Play, the captured sensitivity, Esc and Resume, a screen opened and closed.
+
+`node --experimental-strip-types --no-warnings tools/rimwalk.ts` lists every place where a walk from the canyon gets
+below the valley's rim (`jumps` adds running jumps and falls that hurt): run it after any change to the valley's cliff.
+
+`node tools/perf.mjs` measures the load at the balcony (draw calls, triangles, memory, the main thread's time on a
+walk); `RD=4` and `SET='{"scale":0.5}'` try other settings, `NOWORKERS=1` the main-thread fallback.
+
 ```bash
 RD=8 node tools/shot.mjs
 ```

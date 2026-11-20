@@ -239,20 +239,51 @@ export class World implements LightHost {
     return true;
   }
 
-  /** The chunk plus a one-block border, blocks and light, as the mesher wants them. */
+  /**
+   * The chunk plus a one-block border, blocks and light, as the mesher wants them. Opaque blocks carry no light.
+   * Each row's 32 inner cells lie in one chunk and are copied in one piece; only the two end cells are looked up
+   * one by one (it was 39,304 look-ups a chunk, on the main thread, for every mesh asked for).
+   */
   padded(c: Chunk): { blocks: Uint16Array; light: Uint8Array } {
     const blocks = new Uint16Array(PADDED_VOLUME);
     const light = new Uint8Array(PADDED_VOLUME);
-    const bx = c.cx * CS - 1, by = c.cy * CS - 1, bz = c.cz * CS - 1;
-    let i = 0;
-    for (let py = 0; py < PS; py++)
-      for (let pz = 0; pz < PS; pz++)
-        for (let px = 0; px < PS; px++, i++) {
-          const x = bx + px, y = by + py, z = bz + pz;
-          const id = this.blockAt(x, y, z);
-          blocks[i] = id;
-          light[i] = B_OPAQUE[id] ? 0 : this.lightAt(x, y, z);
+    const x0 = c.cx * CS, by = c.cy * CS - 1, bz = c.cz * CS - 1;
+    const here = this.columns[columnKey(c.cx, c.cz)];
+    for (let py = 0; py < PS; py++) {
+      const y = by + py;
+      for (let pz = 0; pz < PS; pz++) {
+        const z = bz + pz, o = (py * PS + pz) * PS;
+        // The two ends of the row: the columns to the west and east.
+        for (const px of [0, PS - 1]) {
+          const x = x0 - 1 + px, id = this.blockAt(x, y, z);
+          blocks[o + px] = id;
+          light[o + px] = B_OPAQUE[id] ? 0 : this.lightAt(x, y, z);
         }
+        // The 32 between them: below the world is bedrock, above it open sky, off its edge or unloaded is bedrock.
+        if (y < 0) { blocks.fill(BEDROCK, o + 1, o + 1 + CS); continue; }
+        if (y >= WORLD_Y) { light.fill(0xf0, o + 1, o + 1 + CS); continue; } // (blocks are already air)
+        const col = z >> 5 === c.cz ? here : z < 0 || z >= WORLD_Z ? null : this.columns[columnKey(c.cx, z >> 5)];
+        if (!col) { blocks.fill(BEDROCK, o + 1, o + 1 + CS); continue; }
+        const ch = col.chunks[y >> 5], i = ((y & 31) << 10) | ((z & 31) << 5);
+        if (ch.blocks) {
+          blocks.set(ch.blocks.subarray(i, i + CS), o + 1);
+          if (ch.light) {
+            const l = ch.light;
+            for (let k = 0; k < CS; k++) light[o + 1 + k] = B_OPAQUE[blocks[o + 1 + k]] ? 0 : l[i + k];
+          } else if (ch.uniformLight !== 0) {
+            const u = ch.uniformLight;
+            for (let k = 0; k < CS; k++) light[o + 1 + k] = B_OPAQUE[blocks[o + 1 + k]] ? 0 : u;
+          }
+        } else {
+          const id = ch.uniformBlock;
+          if (id !== AIR) blocks.fill(id, o + 1, o + 1 + CS);
+          if (!B_OPAQUE[id]) {
+            if (ch.light) light.set(ch.light.subarray(i, i + CS), o + 1);
+            else if (ch.uniformLight !== 0) light.fill(ch.uniformLight, o + 1, o + 1 + CS);
+          }
+        }
+      }
+    }
     return { blocks, light };
   }
 }

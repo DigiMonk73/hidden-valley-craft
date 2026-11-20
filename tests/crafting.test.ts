@@ -14,7 +14,7 @@ describe('crafting', () => {
     const inv = new Inventory();
     inv.add(blockId('iron_ore'), 2);
     inv.add(itemId('charcoal'), 1);
-    const r = recipesAt('smelter')[0];
+    const r = recipesAt('smelter', new Set(['books_read']))[0]; // (the workshop is learned from the builder's handbooks: docs/PHASE9B.md, 6)
     expect(make(inv, r)).toBe('made');
     expect(inv.count(itemId('iron_ingot'))).toBe(1);
     expect(make(inv, r)).toBe('short'); // out of charcoal

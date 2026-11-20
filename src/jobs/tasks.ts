@@ -2,7 +2,7 @@
 // worker and by the main-thread fallback so both give identical results.
 
 import { CS, CHUNKS_Y } from '../world/constants.ts';
-import { generateColumn } from '../gen/terrain.ts';
+import { generateColumnSteps } from '../gen/terrain.ts';
 import { lightColumn } from '../world/light.ts';
 import { meshChunk, type ChunkMesh } from '../mesh/mesher.ts';
 import { buildFarLand, type FarMesh } from '../gen/farland.ts';
@@ -26,12 +26,26 @@ function uniformOf<T extends Uint16Array | Uint8Array>(a: T): number | null {
   return first;
 }
 
-export function runJob(job: Job): { result: JobResult; transfer: ArrayBuffer[] } {
+export type Done = { result: JobResult; transfer: ArrayBuffer[] };
+
+export function runJob(job: Job): Done {
+  const steps = stepJob(job);
+  for (;;) { const r = steps.next(); if (r.done) return r.value; }
+}
+
+/**
+ * A job done a part at a time: each `next()` does one part, the last returns the result. A worker runs it straight
+ * through; the main-thread fallback does a part or two a frame, so building a column never holds a frame for
+ * the whole 25–75 ms (docs/PHASE9B.md, 1). The result is the same either way.
+ */
+export function* stepJob(job: Job): Generator<void, Done, void> {
   if (job.kind === 'gen') {
-    const col = generateColumn(job.cx, job.cz);
+    const col = yield* generateColumnSteps(job.cx, job.cz);
     // The player's edits go in before lighting, so a rebuilt column is lit as the player left it.
     for (let k = 0; k < job.edits.length; k += 3) col[job.edits[k] * V + job.edits[k + 1]] = job.edits[k + 2];
+    yield;
     const light = lightColumn(col);
+    yield;
     const chunks: ChunkPayload[] = [];
     const transfer: ArrayBuffer[] = [];
     for (let cy = 0; cy < CHUNKS_Y; cy++) {

@@ -19,8 +19,8 @@ function free(world: World, x: number, y: number, z: number): boolean {
   if (x >= GATE.x0 && x < GATE.x1 && y >= GATE.y0 && y < GATE.y1 && z >= GATE.z0 && z < GATE.z1) return false;
   const id = world.blockAt(x, y, z);
   if (BLOCK_DEFS[id]?.container) return false;
-  // Wild plants can be flattened; a set snare or a crop someone planted cannot.
-  if (/^(snare|crop_)/.test(blockName(id))) return false;
+  // Wild plants can be flattened; a set snare, a crop someone planted or a bunch of bananas cannot.
+  if (/^(snare|crop_)/.test(blockName(id)) || BLOCK_DEFS[id]?.crop) return false;
   return id === AIR || isWaterId(id) || (!B_SOLID[id] && B_RENDER[id] === RENDER.cross);
 }
 

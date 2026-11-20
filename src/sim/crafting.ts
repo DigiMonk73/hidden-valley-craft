@@ -84,6 +84,11 @@ export function waitingAt(station: Station, known: ReadonlySet<string> = new Set
   return RECIPES.filter((r) => r.station === station && !!r.after && !known.has(r.after));
 }
 
+/** Are there recipes at this station that the player has yet to learn from the builder's handbooks? */
+export function taughtByBooks(station: Station, known: ReadonlySet<string> = new Set()): boolean {
+  return !known.has('books_read') && RECIPES.some((r) => r.station === station && r.learn === 'books_read');
+}
+
 /** May this recipe be made yet (learned, and its milestone come)? */
 export function unlocked(r: Recipe, known: ReadonlySet<string>): boolean {
   return (!r.learn || known.has(r.learn)) && (!r.after || known.has(r.after));

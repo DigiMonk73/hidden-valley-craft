@@ -19,7 +19,7 @@ import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
 import { buildZone3, zone3Place } from './zone3.ts';
 import { buildZone4, zone4Place } from './zone4.ts';
-import { PATH, inSanctuary, type ZoneId } from './layout.ts';
+import { PATH, inSanctuary, rimMendHeight, type ZoneId } from './layout.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -82,8 +82,13 @@ function wallRadius(x: number, y: number, z: number, floorH: number, topH: numbe
   let r = VALLEY.radius;
   // Large bays and buttresses around the rim, then ledges and overhangs that vary with height.
   r += 5 * wallNoise.noise2(ux * 2.2, uz * 2.2);
-  r += 2.6 * wallNoise.noise3(x / 11, y / 7, z / 11);
-  r += 1.2 * wallNoise.noise3(x / 4, y / 3, z / 4);
+  let rough = 2.6 * wallNoise.noise3(x / 11, y / 7, z / 11) + 1.2 * wallNoise.noise3(x / 4, y / 3, z / 4);
+  // In a mended band (layout.ts, RIM_MENDS) the face never comes forward on the way down: at each height it stands
+  // at least as far back as everywhere above it in the band. The rock keeps its roughness as roofs and hollows,
+  // an overhang; what it loses is every ledge, so there is nowhere in the band to stand.
+  const top = rimMendHeight(x, y, z);
+  for (let yy = y + 1; yy <= top; yy++) rough = Math.max(rough, 2.6 * wallNoise.noise3(x / 11, yy / 7, z / 11) + 1.2 * wallNoise.noise3(x / 4, yy / 3, z / 4));
+  r += rough;
   // Scree at the foot: the cliff meets the floor in a short slope.
   if (y < floorH + 5) r -= (floorH + 5 - y) * 1.1;
   // The rim's edge is worn back.
@@ -145,6 +150,16 @@ function farPlace(x: number, z: number): boolean {
 export type Plants = 'now' | 'v13';
 
 export function generateColumn(cx: number, cz: number, plants: Plants = 'now'): Uint16Array {
+  const steps = generateColumnSteps(cx, cz, plants);
+  for (;;) { const r = steps.next(); if (r.done) return r.value; }
+}
+
+/**
+ * The same column, built a part at a time: each `next()` does one part and the last returns the column. Where
+ * workers are blocked the page's own thread builds the land, and a whole column in one go holds a frame for
+ * 25–75 ms; a part at a time holds it for a few (docs/PHASE9B.md, 1).
+ */
+export function* generateColumnSteps(cx: number, cz: number, plants: Plants = 'now'): Generator<void, Uint16Array, void> {
   const col = new Uint16Array(COLUMN_VOLUME);
   const x0 = cx * CS, z0 = cz * CS;
   const tops = new Int16Array(CS * CS); // walking height after shaping, per (x, z)
@@ -179,15 +194,19 @@ export function generateColumn(cx: number, cz: number, plants: Plants = 'now'): 
     }
   }
 
+  yield;
   // 2. Karst caves: two noise fields, carved where both are near zero (long tubes).
   carveCaves(col, x0, z0, tops);
 
+  yield;
   // 3. Ore, in pockets, by zone: tier-1 (iron, flint) inside the valley, more outside.
   placeOre(col, x0, z0, tops);
 
+  yield;
   // 4. Surface: soil, grass, forest floor, moss on wet cliffs.
   dressSurface(col, x0, z0, tops);
 
+  yield;
   // 5. Water: the pool, the creek, the waterfall, the canyon pool and the drowned tunnel.
   placeWater(col, x0, z0, tops);
   buildGate(col, x0, z0);
@@ -201,10 +220,12 @@ export function generateColumn(cx: number, cz: number, plants: Plants = 'now'): 
   buildZone3(col, x0, z0);
   buildZone4(col, x0, z0);
 
+  yield;
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
   plantGarden(col, x0, z0);
 
+  yield;
   // 7. Trees and ground plants; then vines down the valley's cliffs.
   placeTrees(col, x0, z0, plants);
   placeGroundPlants(col, x0, z0);
