@@ -123,6 +123,15 @@ await page.waitForFunction((c) => window.__hv.game.world.containerAt(...c).some(
 const eggs = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('egg') ? s.count : 0), 0), coopAt);
 check('in the morning the coop has eggs', eggs === 2, `eggs ×${eggs}`);
 // The eggs are left in: another night, and one hatches. Her hens walk round the coop, one per hen.
+// (A record of the night, printed if the hatch fails: the clock as each frame saw it, and what was said.)
+await g(() => {
+  const gm = window.__hv.game, log = window.__night = [];
+  const toast = gm.hud.toast.bind(gm.hud);
+  gm.hud.toast = (line, ms) => { log.push(`said: ${String(line).slice(0, 40)}`); return toast(line, ms); };
+  let last = '';
+  const f = () => { const now = `${gm.hour.toFixed(2)}/${gm.dayClock.toFixed(2)}`; if (now !== last && log.length < 60) log.push(last = now); if (window.__night === log) requestAnimationFrame(f); };
+  requestAnimationFrame(f);
+});
 for (let attempt = 0; attempt < 3; attempt++) {
   await useAt(() => { const gm = window.__hv.game; gm.hour = 21; gm.player.setPosition(1808.5, 82, 1037.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; },
     (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1810 && t.z === 1037; });
@@ -131,7 +140,8 @@ for (let attempt = 0; attempt < 3; attempt++) {
 // The hatch is the game's to do in its own time: wait for it, not for the wall clock.
 await page.waitForFunction((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0) === 3, coopAt, { timeout: 60_000, polling: 250 }).catch(() => {});
 const hens3 = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
-check('an egg left in hatches: three hens in the coop', hens3 === 3, `hens ×${hens3}`);
+check('an egg left in hatches: three hens in the coop', hens3 === 3, `hens ×${hens3}` + (hens3 === 3 ? '' : ' · the night: ' + (await g(() => window.__night.join(' | ')))));
+await g(() => { window.__night = null; });
 await g((c) => { const p = window.__hv.game.player; p.setPosition(c[0] + 0.5, c[1], c[2] + 3.5); }, coopAt);
 const walkers = await page.waitForFunction(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length === 3, null, { timeout: 300_000, polling: 300 }).then(() => true, () => false);
 check('her three hens walk round the coop', walkers, `${await g(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length)} walking`);
