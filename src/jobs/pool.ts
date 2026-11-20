@@ -6,7 +6,7 @@
 // asked can wait before asking again. If no worker is left, the main thread takes over.
 
 import JobWorker from './worker.ts?worker&inline';
-import { runJob, type Job, type JobResult } from './tasks.ts';
+import { stepJob, type Job, type JobResult, type Done } from './tasks.ts';
 
 type Pending = {
   id: number; job: Job; resolve: (r: JobResult) => void; reject: (e: Error) => void;
@@ -174,9 +174,11 @@ class MainThreadExecutor implements Executor {
   readonly threads = 1;
   private waiting: Pending[] = [];
   private nextId = 1;
+  /** The job being done, a part at a time (src/jobs/tasks.ts, stepJob). */
+  private current: { p: Pending; steps: Generator<void, Done, void> } | null = null;
   priority: Priority;
   constructor(priority: Priority) { this.priority = priority; }
-  get queued(): number { return this.waiting.length; }
+  get queued(): number { return this.waiting.length + (this.current ? 1 : 0); }
 
   submit(job: Job): Promise<JobResult> {
     return new Promise((resolve, reject) => this.waiting.push({ id: this.nextId++, job, resolve, reject, lost: 0 }));
@@ -185,12 +187,23 @@ class MainThreadExecutor implements Executor {
   /** Takes over a job that was waiting for a worker. */
   take(p: Pending): void { this.waiting.push(p); }
 
+  /**
+   * Does parts of jobs until the budget is spent: always at least one part, so the work moves on however small
+   * the budget. A job begun is finished before the next is chosen.
+   */
   pump(budgetMs: number): void {
     const end = performance.now() + budgetMs;
     do {
-      const p = takeBest(this.waiting, this.priority);
-      if (!p) return;
-      try { p.resolve(runJob(p.job).result); } catch (e) { p.reject(asError(e)); }
+      if (!this.current) {
+        const p = takeBest(this.waiting, this.priority);
+        if (!p) return;
+        this.current = { p, steps: stepJob(p.job) };
+      }
+      const { p, steps } = this.current;
+      try {
+        const r = steps.next();
+        if (r.done) { this.current = null; p.resolve(r.value.result); }
+      } catch (e) { this.current = null; p.reject(asError(e)); }
     } while (performance.now() < end);
   }
 }

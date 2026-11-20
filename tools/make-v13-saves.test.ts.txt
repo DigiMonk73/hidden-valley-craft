@@ -1,0 +1,64 @@
+// Makes real version 13 saves with version 13's own code (branch main), for Phase 9B's tests: run in the
+// worktree of origin/main, it writes the stored bytes of three valleys into the phase9b checkout's fixtures.
+import { describe, it, expect, vi } from 'vitest';
+import { writeFileSync } from 'node:fs';
+
+vi.mock('../src/render/renderer.ts', async () => (await import('./game/stubs.ts')).rendererModule);
+vi.mock('../src/ui/hud.ts', async () => (await import('./game/stubs.ts')).hudModule);
+vi.mock('../src/ui/inventoryScreen.ts', async () => (await import('./game/stubs.ts')).screenModule);
+vi.mock('../src/ui/paperScreen.ts', async () => (await import('./game/stubs.ts')).paperModule);
+vi.mock('../src/audio/audio.ts', async () => (await import('./game/stubs.ts')).audioModule);
+vi.mock('../src/platform/look.ts', async () => (await import('./game/stubs.ts')).lookModule);
+vi.mock('../src/ui/icons.ts', async () => (await import('./game/stubs.ts')).iconsModule);
+vi.mock('../src/ui/mapView.ts', async () => (await import('./game/stubs.ts')).mapModule);
+vi.mock('../src/platform/tablock.ts', async () => (await import('./game/stubs.ts')).tablockModule);
+
+import { openPage, memoryPending, loadLand, play, settle, browserStore } from './game/harness.ts';
+import { SAVE_KEY } from '../src/save/keeper.ts';
+import { blockId } from '../src/world/blocks.ts';
+import { itemId } from '../src/world/items.ts';
+import { SAVE_VERSION, WORLD_LAYOUT } from '../src/save/save.ts';
+
+vi.setConfig({ testTimeout: 300_000 });
+const OUT = '/home/user/hidden-valley-craft/tests/fixtures/v13';
+
+describe('version 13 saves for Phase 9B', () => {
+  it('are written', async () => {
+    expect([SAVE_VERSION, WORLD_LAYOUT]).toEqual([4, 2]);
+    const made: Record<string, string> = {};
+    // Where the player is left: at home; on the south-east stair's ledge; on the north-east stair's ledge.
+    for (const [name, at] of [['home', null], ['ledgeA', [1757.5, 94, 1107.5]], ['ledgeB', [1790.5, 104, 975.5]]] as const) {
+      const store = browserStore(), pending = memoryPending();
+      const p = await openPage(store, pending);
+      p.hud.actions.pickMode('survival' as never);
+      await loadLand(p);
+      p.in.resume();
+      play(p, 3);
+      const g = p.game;
+      // A valley that has been lived in: blocks set and mined, a chest opened and changed, things carried, money, flags, a dose, days.
+      g.world.setBlock(1790, 82, 1030, blockId('planks'));
+      g.world.setBlock(1791, 82, 1030, blockId('lantern'));
+      g.world.setBlock(1789, 81, 1030, 0);
+      const chest = g.world.containerAt(1803, 82, 1017) ?? null;
+      g.hotbar.add(itemId('iron_ingot'), 7);
+      g.hotbar.add(itemId('cordage'), 2);
+      g.hotbar.add(blockId('limestone'), 40);
+      g.wallet = 123_456_789;
+      for (const f of ['been_out', 'gate_both', 'reached_near', 'shelter_found', 'safe_open', 'forge_made']) g.flags.add(f);
+      g.dose = 12.5;
+      g.day = 9;
+      g.hour = 10.25;
+      g.vitals.hp = 64; g.vitals.hunger = 71; g.vitals.thirst = 58;
+      g.explored[33 * 64 + 53] = 1;
+      if (at) g.player.setPosition(at[0], at[1], at[2]);
+      p.in.edited();
+      await p.in.save(true);
+      await settle(p);
+      const bytes = await store.get(SAVE_KEY);
+      expect(bytes && bytes.length).toBeGreaterThan(100);
+      made[name] = Buffer.from(bytes!).toString('base64');
+      void chest;
+    }
+    writeFileSync(`${OUT}/saves.json`, JSON.stringify({ madeBy: 'origin/main at version 13 (save version 4, world layout 2), tests/zz_make_v13.test.ts', ...made }, null, 1));
+  });
+});

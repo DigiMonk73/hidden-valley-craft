@@ -135,7 +135,9 @@ describe('the gorge’s east rim', () => {
 
 describe('the land of earlier phases', () => {
   /** The only columns east of x 672 that Phase 7 may change: the dam road's corridor (the lot's kerb, smoothed, lies in its last two). */
-  const MAY_CHANGE = new Set(['21,23', '22,23', '23,23', '24,23', '25,23']);
+  // (And three columns of the brush by the outpost, whose bushes Phase 9B grew taller where the trail climbs:
+  // docs/PHASE9B.md, 3. They and their neighbours are pinned against version 13's land in tests/faults9b.test.ts.)
+  const MAY_CHANGE = new Set(['21,23', '22,23', '23,23', '24,23', '25,23', '27,32', '28,31', '28,32']);
 
   it('hashes the same as before Phase 7 in a sample of columns east of the gorge, zone by zone', () => {
     const base = baseline as Record<string, number>;

@@ -70,6 +70,9 @@ describe('the home, rebuilt', () => {
   // fixes (docs/FIXES.md 3: the valley's ring, the creek's banks; each is named in tests/walk.test.ts, MENDED) and the
   // list now holds those as mended. When the two were merged, all 4,096 columns outside the home's box were hashed
   // with tools/landhash.ts before and after: every one matched (docs/FIXES.md 10).
+  // Phase 9B (docs/PHASE9B.md, 3) then mended the valley's cliff in two places, on purpose: columns 55,30 and 56,30
+  // (the north-east stair) and 54,34 and 55,34 (the south-east stair) have their new hashes in the list. Which
+  // columns changed, and that their neighbours did not, is pinned by tests/faults9b.test.ts against version 13's land.
   it('changes nothing outside the home: the land round it is block for block what it was', () => {
     const before = readFileSync(new URL('./fixtures/land-near-home.txt', import.meta.url), 'utf8').trim().split('\n');
     expect(before.length).toBe(64);

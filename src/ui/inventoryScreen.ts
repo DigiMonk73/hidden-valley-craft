@@ -5,7 +5,7 @@ import { iconFor } from './icons.ts';
 import { itemLabel, toolOf } from '../world/items.ts';
 import { BLOCK_DEFS, B_RENDER, RENDER } from '../world/blocks.ts';
 import { clickSlot, quickMove, HOTBAR, type Inventory, type Stack } from '../sim/inventory.ts';
-import { recipesAt, waitingAt, canMake, make, AFTER_LABEL, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
+import { recipesAt, waitingAt, canMake, make, taughtByBooks, AFTER_LABEL, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
 import { putAway, pickFromPalette } from '../sim/cursor.ts';
 
 const CSS = `
@@ -42,6 +42,9 @@ const CSS = `
 .iv-make:disabled { background: #444; color: #999; cursor: default; }
 `;
 
+/** Said at a workshop station before the builder's handbooks are read (docs/PHASE9B.md, 6). */
+export const BOOKS_HINT = 'How to work this is in the builder’s handbooks: right-click the bookshelves in the cave.';
+
 export class InventoryScreen {
   private wrap: HTMLDivElement;
   private panel: HTMLDivElement;
@@ -60,6 +63,10 @@ export class InventoryScreen {
   known: ReadonlySet<string> = new Set();
   /** Called when something can't be made because the pack has no room for it. */
   onFull: () => void = () => {};
+  /** Called when a stack held on the cursor is let go outside the window: true if it was set down (the cursor is then empty). */
+  onDrop: (s: Stack) => boolean = () => false;
+  /** Called on a click outside the window with nothing held: the game closes the screen. */
+  onOutside: () => void = () => {};
 
   constructor(root: HTMLElement) {
     const style = document.createElement('style');
@@ -85,6 +92,13 @@ export class InventoryScreen {
       this.tip.style.top = `${e.clientY + 14}px`;
     });
     this.wrap.addEventListener('contextmenu', (e) => e.preventDefault());
+    // A click on the dim ground outside the window: what is held is set down there (a palette block is simply let
+    // go); with nothing held the screen closes.
+    this.wrap.addEventListener('mousedown', (e) => {
+      if (e.target !== this.wrap || e.button !== 0) return;
+      if (!this.cursor) { this.onOutside(); return; }
+      if (this.fromPalette || this.onDrop(this.cursor)) { this.cursor = null; this.fromPalette = false; this.onChange(); this.render(); }
+    });
   }
 
   get isOpen(): boolean { return !this.wrap.hidden; }
@@ -144,7 +158,7 @@ export class InventoryScreen {
     try { this.renderSlots(inv); } finally { this.panel = panel; }
     const help = document.createElement('div');
     help.className = 'iv-help';
-    help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · E or Esc: close';
+    help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · Click outside this window: set what you hold down at your feet · E or Esc: close';
     this.panel.appendChild(help);
     this.renderCursor();
   }
@@ -186,7 +200,13 @@ export class InventoryScreen {
     if (!recipes.length && !waitingAt(this.station, this.known).length) {
       const p = document.createElement('div');
       p.className = 'iv-help';
-      p.textContent = this.station === 'tannery' ? 'Hides come from hunting outside the valley.' : 'Nothing to make here yet.';
+      p.textContent = taughtByBooks(this.station, this.known) ? BOOKS_HINT : this.station === 'tannery' ? 'Hides come from hunting outside the valley.' : 'Nothing to make here yet.';
+      list.append(p);
+    } else if (taughtByBooks(this.station, this.known)) {
+      // Some of this station's work is known already (a milestone's); the rest is in the handbooks.
+      const p = document.createElement('div');
+      p.className = 'iv-help';
+      p.textContent = BOOKS_HINT;
       list.append(p);
     }
     for (const r of recipes) {

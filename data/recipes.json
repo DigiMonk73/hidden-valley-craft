@@ -1,7 +1,8 @@
 {
-  "_comment": "What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery, forge (M2), powder_mill (M3). learn: a flag the player must have earned before it shows (the leghold, learned from the camp's trap). At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug). after (docs/FIXES.md, 6): the milestone that must be done first (m1_done, m2_done, m3_done): each milestone's recipes need the one before. Until then the recipe is listed, greyed, with what it waits for. Phase 8 (docs/PHASE8.md): crucible_furnace and lathe are M4's stations; med_bench and distiller are M5's (they work only while a hydro generator turns), and M5's recipes wait for m4_done, but for those that wait on a flag of their own (Ray's word, the manual, a drawing), which cannot be earned before M4 is done.",
+  "_comment": "Phase 9B (docs/PHASE9B.md, 6): the workshop's stations (kiln, smelter, anvil, tannery) are learned from the builder's handbooks on the bookshelves (learn: books_read); a valley begun before they existed has read them. The handsaw gets six planks from a log instead of four, and the hammer twelve nails from an ingot instead of eight: each is held, not used up. What can be made, and where. station: hand (from the inventory screen), workbench, kiln, smelter, anvil, stove (the balcony stove or the fireplace), tannery, forge (M2), powder_mill (M3). learn: a flag the player must have earned before it shows (the leghold, learned from the camp's trap). At most 4 kinds of input (DESIGN.md: recipe depth rule). returns: items given back (an emptied jug). after (docs/FIXES.md, 6): the milestone that must be done first (m1_done, m2_done, m3_done): each milestone's recipes need the one before. Until then the recipe is listed, greyed, with what it waits for. Phase 8 (docs/PHASE8.md): crucible_furnace and lathe are M4's stations; med_bench and distiller are M5's (they work only while a hydro generator turns), and M5's recipes wait for m4_done, but for those that wait on a flag of their own (Ray's word, the manual, a drawing), which cannot be earned before M4 is done.",
   "recipes": [
     { "station": "hand", "out": ["planks", 4], "in": [["log", 1]] },
+    { "station": "hand", "out": ["planks", 6], "in": [["log", 1], ["handsaw", 0]] },
     { "station": "hand", "out": ["cobble", 1], "in": [["limestone", 1]] },
     { "station": "hand", "out": ["cobble", 1], "in": [["limestone_mossy", 1]] },
     { "station": "hand", "out": ["stick", 4], "in": [["planks", 2]] },
@@ -41,28 +42,29 @@
     { "station": "workbench", "out": ["leghold_trap", 1], "in": [["iron_ingot", 2], ["nails", 4], ["cordage", 1]], "learn": "leghold_learned", "after": "m1_done" },
     { "station": "workbench", "out": ["raised_bed", 2], "in": [["planks", 2], ["cordage", 1]], "after": "m1_done" },
 
-    { "station": "kiln", "out": ["charcoal", 2], "in": [["log", 1]] },
-    { "station": "kiln", "out": ["glass", 2], "in": [["sand", 2], ["charcoal", 1]] },
+    { "station": "kiln", "out": ["charcoal", 2], "in": [["log", 1]], "learn": "books_read" },
+    { "station": "kiln", "out": ["glass", 2], "in": [["sand", 2], ["charcoal", 1]], "learn": "books_read" },
 
-    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["iron_ore", 1], ["charcoal", 1]] },
-    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["iron_ore", 1], ["coal", 1]] },
-    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["scrap_metal", 2], ["coal", 1]] },
-    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["scrap_metal", 2], ["charcoal", 1]] },
+    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["iron_ore", 1], ["charcoal", 1]], "learn": "books_read" },
+    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["iron_ore", 1], ["coal", 1]], "learn": "books_read" },
+    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["scrap_metal", 2], ["coal", 1]], "learn": "books_read" },
+    { "station": "smelter", "out": ["iron_ingot", 1], "in": [["scrap_metal", 2], ["charcoal", 1]], "learn": "books_read" },
 
-    { "station": "anvil", "out": ["nails", 8], "in": [["iron_ingot", 1]] },
-    { "station": "anvil", "out": ["iron_pickaxe", 1], "in": [["iron_ingot", 3], ["stick", 2]] },
-    { "station": "anvil", "out": ["lantern", 2], "in": [["iron_ingot", 1], ["glass", 1], ["charcoal", 1]] },
-    { "station": "anvil", "out": ["arrow", 4], "in": [["stick", 2], ["flint", 1], ["plant_fiber", 1]] },
-    { "station": "anvil", "out": ["arrowhead", 6], "in": [["iron_ingot", 1]] },
+    { "station": "anvil", "out": ["nails", 8], "in": [["iron_ingot", 1]], "learn": "books_read" },
+    { "station": "anvil", "out": ["nails", 12], "in": [["iron_ingot", 1], ["hammer", 0]], "learn": "books_read" },
+    { "station": "anvil", "out": ["iron_pickaxe", 1], "in": [["iron_ingot", 3], ["stick", 2]], "learn": "books_read" },
+    { "station": "anvil", "out": ["lantern", 2], "in": [["iron_ingot", 1], ["glass", 1], ["charcoal", 1]], "learn": "books_read" },
+    { "station": "anvil", "out": ["arrow", 4], "in": [["stick", 2], ["flint", 1], ["plant_fiber", 1]], "learn": "books_read" },
+    { "station": "anvil", "out": ["arrowhead", 6], "in": [["iron_ingot", 1]], "learn": "books_read" },
 
     { "station": "forge", "out": ["iron_ingot", 2], "in": [["scrap_metal", 3], ["coal", 1]] },
     { "station": "forge", "out": ["iron_ingot", 2], "in": [["scrap_metal", 3], ["charcoal", 1]] },
     { "station": "forge", "out": ["arrowhead", 8], "in": [["iron_ingot", 1]] },
     { "station": "forge", "out": ["nails", 12], "in": [["iron_ingot", 1]] },
 
-    { "station": "tannery", "out": ["leather", 2], "in": [["hide", 1], ["salt", 1]] },
-    { "station": "tannery", "out": ["leather", 6], "in": [["jaguar_pelt", 1], ["salt", 1]] },
-    { "station": "tannery", "out": ["leather", 4], "in": [["puma_pelt", 1], ["salt", 1]] },
+    { "station": "tannery", "out": ["leather", 2], "in": [["hide", 1], ["salt", 1]], "learn": "books_read" },
+    { "station": "tannery", "out": ["leather", 6], "in": [["jaguar_pelt", 1], ["salt", 1]], "learn": "books_read" },
+    { "station": "tannery", "out": ["leather", 4], "in": [["puma_pelt", 1], ["salt", 1]], "learn": "books_read" },
 
     { "station": "stove", "out": ["trout_cooked", 1], "in": [["trout_raw", 1]] },
     { "station": "stove", "out": ["rabbit_cooked", 1], "in": [["rabbit_raw", 1]] },

@@ -21,7 +21,9 @@ export class FakeRenderer {
   rain = blank({});
   effects = true;
   stats = { chunks: 0, quads: 0 };
-  gl = { info: { render: { calls: 0 } } };
+  gl = { info: { render: { calls: 0 } }, domElement: { width: 0, height: 0 } };
+  contextLost = false;
+  antialias = true;
   constructor() { return blank(this); }
 }
 export const rendererModule = { Renderer: FakeRenderer };
@@ -65,10 +67,14 @@ export class FakeHud {
   showIntro(cards: string[], done: () => void) { this.introCards = cards; done(); }
   chipText = '';
   setChip(text: string) { this.chipText = text; }
+  /** The settings as the menu was last told to show them. */
+  shownSettings: Record<string, unknown> | null = null;
+  showSettings(s: Record<string, unknown>) { this.shownSettings = { ...s }; }
+  introOpen = false;
   notices: string[] = [];
   notice(text: string | null) { if (text) this.notices.push(text); }
 }
-export const hudModule = { Hud: FakeHud, VIEW_CHUNKS: [7, 8, 10, 12], nearestViewChunks: (n: number) => n };
+export const hudModule = { Hud: FakeHud, VIEW_CHUNKS: [4, 5, 7, 8, 10, 12], nearestViewChunks: (n: number) => n };
 
 export class FakeScreen {
   isOpen = false;
@@ -77,6 +83,8 @@ export class FakeScreen {
   onChange: () => void = () => {};
   onMake: (r: unknown) => void = () => {};
   onFull: () => void = () => {};
+  onDrop: (s: Stack) => boolean = () => false;
+  onOutside: () => void = () => {};
   opened: unknown[] = [];
   constructor() { return blank(this); }
   open(...a: unknown[]) { this.isOpen = true; this.opened.push(a); }

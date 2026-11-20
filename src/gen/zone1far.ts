@@ -51,6 +51,12 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
 
   // ---- The brush: thick low bushes either side of a game trail, from the road round to the outpost's back.
   const o = F.outpost, OF = o.floor;
+  /** The trail's centre line, a point a metre. */
+  const trailPoints: [number, number][] = [];
+  for (let i = 0; i < F.brushTrail.length - 1; i++) {
+    const [ax, az] = F.brushTrail[i], [bx, bz] = F.brushTrail[i + 1], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az)));
+    for (let k = 0; k <= n; k++) trailPoints.push([ax + ((bx - ax) * k) / n + 0.5, az + ((bz - az) * k) / n + 0.5]);
+  }
   /** Is (x, z) ground the brush grows on (a bush, or a gap between bushes)? */
   const brushGround = (x: number, z: number) => {
     if (z < 1018 || z >= 1056 || x < 850 || x >= 912) return false;
@@ -58,9 +64,23 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
     return !onRoad(x, z, 1) && !nearHouse && inBrush(x, z);
   };
   /** The height a walker stands at on the brush's own bush at (x, z): the ground, in a gap. */
-  const bushTop = (x: number, z: number) => {
+  const ownTop = (x: number, z: number) => {
     const g = outsideHeight(x, z);
     return r(x, 2, z) < 0.08 ? g : r(x, 4, z) < 0.25 ? g + 3 : r(x, 3, z) < 0.85 ? g + 2 : g + 1;
+  };
+  /**
+   * The same, with the bushes on ground lower than the trail near them grown taller by what the ground falls. The
+   * trail climbs as it leaves the outpost, and the ground north of it falls toward the yard: a walker up the trail
+   * stood head and shoulders over the bushes lower down, and the lookout on his roof saw them along the slope
+   * (docs/PHASE9B.md, 3). Each bush now stands as tall over the highest ground of the trail within six metres as
+   * it did over its own. A gap between bushes stays a gap.
+   */
+  const bushTop = (x: number, z: number) => {
+    const g = outsideHeight(x, z), own = ownTop(x, z);
+    if (own === g) return g;
+    let high = g;
+    for (const [tx, tz] of trailPoints) if (Math.hypot(tx - x - 0.5, tz - z - 0.5) <= 6) high = Math.max(high, outsideHeight(Math.floor(tx), Math.floor(tz)));
+    return own + (high - g);
   };
   /**
    * The height the brush stands to at (x, z). No bush, and no gap, stands two blocks or more below its
@@ -86,7 +106,7 @@ export function buildZone1Far(col: Uint16Array, x0: number, z0: number): void {
         if (r(x, 4, z) < 0.25) put(x, g + 2, z, 'leaves');
       }
       const top = brushTop(x, z);
-      if (top > bushTop(x, z)) for (let y = g; y < top; y++) put(x, y, z, 'leaves');
+      if (top > ownTop(x, z)) for (let y = g; y < top; y++) put(x, y, z, 'leaves');
     }
 
   // ---- The outpost: a cinder-block tienda, two rooms, a flat roof with a lookout platform.
