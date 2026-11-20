@@ -106,11 +106,12 @@ export function fillUplink(p: HTMLElement, v: UplinkView, pace = 450): () => voi
     go.onclick = () => {
       go.disabled = true;
       const { handshake, first } = v.open();
+      // From here the first answer is owed: a page put down during the handshake still counts as read.
+      pendingFirst = v.firstRead;
       out.textContent = '';
       handshake.forEach((line, i) => later(() => { out.textContent += (i ? '\n' : '') + line; }, pace * (i + 1)));
       later(() => {
         print(first);
-        pendingFirst = v.firstRead;
         title.textContent = 'UPLINK · LINK UP';
       }, pace * (handshake.length + 2));
     };

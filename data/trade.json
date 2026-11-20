@@ -210,6 +210,7 @@
     "sulfur": "ammo_made",
     "gunpowder": "ammo_made"
   },
+  "raySuit": {"item": "hazard_suit", "lot": 1, "price": 30},
   "catalogRayM5": [
     {
       "item": "rad_tablets",
@@ -225,6 +226,7 @@
       "item": "antenna_section",
       "lot": 1,
       "price": 40
-    }
+    },
+    {"item": "pipe_fittings", "lot": 2, "price": 12}
   ]
 }

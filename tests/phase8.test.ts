@@ -356,7 +356,9 @@ describe('Zone-4’s places, built and lit', () => {
     for (let x = G.x - 2; x <= G.x + 1; x++) for (let y = GF; y < GF + 3; y++) expect(B_SOLID[w.blockAt(x, y, G.z - 5)], `room under the board at x ${x}`).toBe(0);
     expect(count(G.x - 3, G.x + 3, GF, GF + 1, G.z - 3, G.z + 5, 'concrete_barrier')).toBe(4);
     expect(name(...Z4.BOOTH_SHELF)).toBe('stock_crate');
-    expect(has(Z4.BOOTH_SHELF, 'rad_tablets')).toBe(true);
+    // No tablets this side of the gate (the fresh review, 7): one let a runner reach the refuge alive, at the limit.
+    expect(has(Z4.BOOTH_SHELF, 'rad_tablets')).toBe(false);
+    expect(has(Z4.BOOTH_SHELF, 'bandage')).toBe(true);
     expect(open(Z4.BOOTH_SHELF[0] + 1, GF, Z4.BOOTH_SHELF[2])).toBe(true); // reached from the road's side
     expect(lamp(G.x, GF + 1, G.z)).toBeGreaterThanOrEqual(9);
     expect(falloutAt(G.x, G.z)).toBe(0);
@@ -665,7 +667,7 @@ describe('M5’s data', () => {
 
   it('shows the suit only on Ray’s word, and makes it from what Zones 1–3 and the kiln give', () => {
     expect(recipe('workbench', 'hazard_suit')).toBeUndefined();
-    const r = recipe('workbench', 'hazard_suit', ['suit_word'])!; // (his word itself waits for M4: src/sim/ridge.ts)
+    const r = recipe('workbench', 'hazard_suit', ['suit_word', 'm4_done'])!; // (his word itself waits for M4: src/sim/ridge.ts)
     expect(r.in.map(([id]) => id).sort()).toEqual(['canvas', 'scrap_lead', 'glass', 'charcoal'].map(itemId).sort());
     const inv = bag(['canvas', 4], ['scrap_lead', 4], ['glass', 1], ['charcoal', 2]);
     expect(make(inv, r)).toBe('made');
@@ -675,17 +677,17 @@ describe('M5’s data', () => {
   it('chains the uplink: the dish’s sections → the antenna; the optics → the telescope; Ray’s modem and the racks → the terminal, the plans kept', () => {
     expect(recipe('workbench', 'sat_antenna')).toBeUndefined();
     const ant = bag(['antenna_section', 3], ['steel_ingot', 4], ['wiring', 2], ['pipe_fittings', 2]);
-    expect(make(ant, recipe('workbench', 'sat_antenna', ['uplink_plans'])!)).toBe('made');
+    expect(make(ant, recipe('workbench', 'sat_antenna', ['uplink_plans', 'm4_done'])!)).toBe('made');
     const tel = bag(['telescope_optics', 1], ['steel_ingot', 2], ['glass', 1], ['planks', 2]);
     expect(recipe('lathe', 'telescope')).toBeUndefined(); // each milestone's recipes wait for the one before
     expect(make(tel, recipe('lathe', 'telescope', ['m4_done'])!)).toBe('made');
     expect(tel.count(blockId('telescope'))).toBe(1);
     const term = bag(['sat_modem', 1], ['rare_components', 2], ['wiring', 4], ['uplink_plans', 1]);
-    expect(make(term, recipe('workbench', 'uplink_terminal', ['uplink_plans'])!)).toBe('made');
+    expect(make(term, recipe('workbench', 'uplink_terminal', ['uplink_plans', 'm4_done'])!)).toBe('made');
     expect(term.count(itemId('uplink_plans'))).toBe(1);
     expect(term.count(itemId('sat_modem'))).toBe(0);
     // Without the plans in the pack it cannot be made.
-    expect(make(bag(['sat_modem', 1], ['rare_components', 2], ['wiring', 4]), recipe('workbench', 'uplink_terminal', ['uplink_plans'])!)).toBe('short');
+    expect(make(bag(['sat_modem', 1], ['rare_components', 2], ['wiring', 4]), recipe('workbench', 'uplink_terminal', ['uplink_plans', 'm4_done'])!)).toBe('short');
   });
 
   it('makes the medical bench and the distiller stations, shown by the manual; three medicines from the valley’s own crops', () => {
@@ -693,8 +695,8 @@ describe('M5’s data', () => {
     expect(stationOf(blockId('distiller'))).toBe('distiller');
     expect(STATION_LABEL.med_bench).toBe('Medical bench');
     expect(recipe('workbench', 'med_bench')).toBeUndefined();
-    expect(recipe('workbench', 'med_bench', ['pharma_learned'])).toBeDefined();
-    expect(recipe('workbench', 'distiller', ['pharma_learned'])).toBeDefined();
+    expect(recipe('workbench', 'med_bench', ['pharma_learned', 'm4_done'])).toBeDefined();
+    expect(recipe('workbench', 'distiller', ['pharma_learned', 'm4_done'])).toBeDefined();
     const still = bag(['corn', 4], ['water_jug', 1], ['charcoal', 1]);
     expect(recipesAt('distiller')).toEqual([]);
     const M4 = new Set(['m4_done']);
@@ -711,9 +713,10 @@ describe('M5’s data', () => {
   it('hides each drawing’s recipe until its drawing is pulled', () => {
     for (const [station, out, flag] of [['lathe', 'thermal_optic', 'sch_thermal'], ['workbench', 'sonic_lure', 'sch_sonic'], ['powder_mill', 'smoke_pot', 'sch_smoke'], ['lathe', 'engineer_armor', 'sch_armor']]) {
       expect(recipe(station, out), out).toBeUndefined();
-      expect(recipe(station, out, [flag]), out).toBeDefined();
+      expect(recipe(station, out, [flag]), out).toBeUndefined(); // and each waits for M4 besides
+      expect(recipe(station, out, [flag, 'm4_done']), out).toBeDefined();
     }
-    expect(recipe('lathe', 'engineer_armor', ['sch_armor'])!.in.map(([id]) => id)).toContain(itemId('plate_armor'));
+    expect(recipe('lathe', 'engineer_armor', ['sch_armor', 'm4_done'])!.in.map(([id]) => id)).toContain(itemId('plate_armor'));
   });
 
   it('needs seven rare components for everything; six are in the racks and Ray sells more', () => {

@@ -37,8 +37,9 @@ export function uplinkView(g: LinkHost): UplinkView {
   };
   return {
     needs: linkStatus(needs), ready,
-    // Once opened, the queries show at once, but only while everything the link needs still holds.
-    live: ready && g.flags.has('uplink_live'),
+    // Once opened and its first answer read, the queries show at once, but only while everything the link needs
+    // still holds. (A link opened and the page lost before the answer was read opens again, answer and all.)
+    live: ready && g.flags.has('uplink_live') && g.flags.has('ending_seen'),
     queries: QUERIES,
     drawings: () => SCHEMATICS.map((s) => ({ flag: s.flag, code: s.code, held: g.flags.has(s.flag) })),
     open: () => {

@@ -113,7 +113,7 @@ check('Ray is at the refuge by day, by its door', !!ray && Math.hypot(ray[0] - P
 await useAt((r) => { const gm = window.__hv.game; gm.player.setPosition(r[0] - 2.6, r[1], r[2]); },
   (gm, r) => { const p = gm.player, tx = r[0] - p.x, ty = r[1] + 1.2 - p.eyeY, tz = r[2] - p.z; p.yaw = Math.atan2(-tx, -tz); p.pitch = Math.atan2(ty, Math.hypot(tx, tz)); return window.__hv.idle() && gm.wild.creatures.some((c) => c.kind === 'ray'); }, ray ?? [P.RAY_SPOT.x, 110, P.RAY_SPOT.z]);
 check('right-clicked, he hands over the dam’s modem and two boxes of tablets, once', (await flags()).includes('ray_met') && (await count('sat_modem')) === 1 && (await count('rad_tablets')) === 2, `modem ×${await count('sat_modem')} tablets ×${await count('rad_tablets')}`);
-check('the hut’s stove is a stove: the pass is a place to cook and rest', /stove|range/.test(await g((c) => window.__hv.blockName(window.__hv.game.world.blockAt(...c)), Z4.HUT_STOVE)), await g((c) => window.__hv.blockName(window.__hv.game.world.blockAt(...c)), Z4.HUT_STOVE));
+check('there is a stove in the hut on the pass', /stove|range/.test(await g((c) => window.__hv.blockName(window.__hv.game.world.blockAt(...c)), Z4.HUT_STOVE)), await g((c) => window.__hv.blockName(window.__hv.game.world.blockAt(...c)), Z4.HUT_STOVE));
 
 // ---- The sump's edge; the observatory; the yard ---------------------------------------------------------------
 await standAt(Z.sump.x + Z.sump.r - 6, Z.sump.z, Math.PI / 2);
@@ -283,11 +283,11 @@ check('the lathe makes the engineer’s armour from plate armour, steel and comp
 const lureAt = await setDown('sonic_lure', 4);
 await use(lureAt, [lureAt[0] + 0.5, lureAt[1], lureAt[2] + 2.2], 0.3);
 const wail = await g((c) => ({ block: window.__hv.blockName(window.__hv.game.world.blockAt(...c)), running: window.__hv.game.running.length }), lureAt);
-check('a lure set down and right-clicked starts to wail (its time runs, and the save keeps it)', wail.block === 'sonic_lure_on' && wail.running === 1, JSON.stringify(wail));
+check('a lure set down and right-clicked starts to wail: its block is on, and it is among what is running', wail.block === 'sonic_lure_on' && wail.running === 1, JSON.stringify(wail));
 check('M5 · the uplink: all nine steps are done', await waitFlag('m5_done'), (await flags()).filter((f) => /ridge_home|ray_met|antenna_up|telescope_set|uplink_live|agi_asked|med_made|schematic_built|armor3_made/.test(f)).join(' '));
 await computer();
 const screen = (await page.locator('.pp-panel').textContent().catch(() => '')) ?? '';
-check('the computer shows M5 done, and the link up', /M5 · the uplinkdone ✓/.test(screen.replace(/\s+/g, ' ')) || (/M5 · the uplink/.test(screen) && /link up/.test(screen)), screen.replace(/\s+/g, ' ').slice(-260));
+check('the computer shows M5 done, and the link up', /M5 · the uplink\s*done ✓/.test(screen) && /link up/.test(screen), screen.replace(/\s+/g, ' ').slice(-260));
 await closeScreens();
 
 // ---- Last: the gate is a wall. Without the suit the road past it kills, and you wake at the cave -------------

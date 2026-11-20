@@ -7,7 +7,7 @@ import people from '../../data/people.json' with { type: 'json' };
 import type { Inventory } from '../sim/inventory.ts';
 import type { Vitals } from '../sim/survival.ts';
 import type { TradeView, TradeRow } from '../ui/paperScreen.ts';
-import { CATALOG, CATALOG_M3, CATALOG_RAY, CATALOG_RAY_M5, RAY_PLANS_PRICE, DOC_PRICE, PURSE, buy, sell, sellPrice, sellable, keptFor, btc } from '../sim/trade.ts';
+import { CATALOG, CATALOG_M3, CATALOG_RAY, CATALOG_RAY_M5, RAY_SUIT, RAY_PLANS_PRICE, DOC_PRICE, PURSE, buy, sell, sellPrice, sellable, keptFor, btc } from '../sim/trade.ts';
 import { M1_STEPS, M2_STEPS, M3_STEPS, M4_STEPS } from '../sim/milestones.ts';
 import { M5_STEPS } from '../sim/m5.ts';
 import { rayCall } from '../sim/ridge.ts';
@@ -192,7 +192,8 @@ export function rayCatalog(g: Dealer, say: string): () => TradeView {
         },
       }]),
       // After the meeting he sells what the ridge gives, so nothing in M5 can be lost for good.
-      ...[...CATALOG_RAY, ...(g.flags.has('ray_met') ? CATALOG_RAY_M5 : [])].map((lot): TradeRow => ({
+      // A suit of his own make once he has given his word (lead is finite, and a suit can lie in a lost pack on the ridge).
+      ...[...CATALOG_RAY, ...(g.flags.has('suit_word') ? [RAY_SUIT] : []), ...(g.flags.has('ray_met') ? CATALOG_RAY_M5 : [])].map((lot): TradeRow => ({
         icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy', can: g.wallet >= lot.sats,
         act: () => {
           const r = buy(g.hotbar, g.wallet, lot);

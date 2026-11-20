@@ -79,7 +79,7 @@ import { isWaterId } from './world/blocks.ts';
 // Zone-4 and the uplink (docs/PHASE8.md).
 import { absorb, doseRate, meterLine, roadDose } from './sim/radiation.ts';
 import { isMedicine, useMedicine, medicineIdle, blowFelt, stepAdrenaline } from './sim/medicine.ts';
-import { ridgePlaceAt, ridgeToast, rayWaiting, canAskMeeting, RAY_SPOT } from './sim/ridge.ts';
+import { ridgePlaceAt, ridgeToast, rayWaiting, canAskMeeting, gateRefuge, RAY_SPOT, RAY_FROM, RAY_UNTIL } from './sim/ridge.ts';
 import { trackM5, craftedFlag, diedOutsideM5 } from './sim/m5.ts';
 import { startDevice, stepDevices, smokeOf, devicesFromSave, LURE_HEARD, type Device } from './sim/countermeasures.ts';
 import { scopeTargets, aimedAt, scopeLabel, satTrain, SCOPE_ZOOM, SCOPE_NEAR } from './sim/telescope.ts';
@@ -621,7 +621,7 @@ export class Game {
     this.tickGate(world);
     // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
     const hurt = this.vitals.hp < this.hpBefore - 0.01;
-    if (hurt) this.lastHurt = this.playTime;
+    if (hurt) { this.lastHurt = this.playTime; this.endScope(); }
     this.hpBefore = this.vitals.hp;
     const h = this.home.update(dt, this.keys.has('KeyH'), hurt || (this.home.held !== null && this.ashenOnYou()));
     if (h === 'go') this.goHome();
@@ -642,8 +642,9 @@ export class Game {
     // Arrow keys turn too (useful where the mouse can't be captured).
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
     const tilt = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
-    this.player.yaw += turn * dt * 2.2;
-    this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch + tilt * dt * 1.6));
+    const fine = this.scoping ? 1 / SCOPE_ZOOM : 1; // through the telescope the keys are as fine as the mouse
+    this.player.yaw += turn * dt * 2.2 * fine;
+    this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch + tilt * dt * 1.6 * fine));
     this.tickMining(dt);
   }
 
@@ -1366,7 +1367,7 @@ export class Game {
     if (this.flags.has('doc_known')) rows.push({ name: DOC.contact, status: this.flags.has('doc_called') ? 'by phone' : 'new', cls: 'btc', call: () => { const line = this.callDoc(); return line; } });
     if (this.flags.has('ray_known')) rows.push({ name: RAY.contact, status: this.flags.has('uplink_plans') ? 'by phone · plans sent' : this.flags.has('ray_called') ? 'by phone' : 'new', cls: 'btc', call: () => this.callRay() });
     // Once Ray has given his word: asking him to the refuge (docs/PHASE8.md, 3).
-    if (canAskMeeting(this.flags)) rows.push({ name: RAY.meetButton, status: this.flags.has('ray_coming') ? 'by day, at the refuge' : 'needs a hazard suit', cls: 'btc', call: () => askRayToMeet(this) });
+    if (canAskMeeting(this.flags)) rows.push({ name: RAY.meetButton, status: this.flags.has('ray_coming') ? 'by day, at the refuge' : this.suited() ? 'you carry the suit: ask him' : 'needs a hazard suit', cls: 'btc', call: () => askRayToMeet(this) });
     // The beacon the uplink's endpoints table found: a position, no voice.
     if (this.flags.has('agi_end')) rows.push({ name: MIRA.id, status: `beacon · ${String(MIRA.brg).padStart(3, '0')}° · ${MIRA.km} km · no voice`, cls: 'dim' });
     rows.push({ name: 'Mamá', status: 'no answer', cls: 'dim' }, { name: 'Lucía', status: 'no answer', cls: 'dim' }, { name: 'Dr. Alvarez', status: 'no answer', cls: 'dim' }, { name: 'Raúl (pilot)', status: 'no answer', cls: 'dim' });
@@ -1677,7 +1678,8 @@ export class Game {
         return;
       }
       if (this.paper.isOpen) {
-        if (e.code === 'Escape' || e.code === 'KeyE') this.closePaper();
+        // (Not on a held key's repeats: the E that put the uplink's page down would close the card it brought up.)
+        if (e.code === 'Escape' || e.code === 'KeyE') { if (!e.repeat) this.closePaper(); }
         else this.paper.key(e.code);
         return;
       }
@@ -1753,7 +1755,10 @@ export class Game {
    * (The key used to pay a rig nearly a day's sats a press, and to start a new dawn each time before six.)
    */
   private turnSky(hours: number): void {
-    this.hour = (((this.hour + hours) % 24) + 24) % 24;
+    // (The uplink's clock is the day and the hour: a turn across midnight moves the day with it.)
+    const to = this.hour + hours;
+    this.day = Math.max(0, this.day + Math.floor(to / 24));
+    this.hour = ((to % 24) + 24) % 24;
     this.dayClock = this.hour;
     if (this.powerHour !== null) this.powerHour = this.hour;
     this.edited();
@@ -1930,6 +1935,15 @@ export class Game {
     this.running = devicesFromSave(d.running);
     // A telescope counted when saved counts until the home's land is looked at again.
     this.scopeOk = this.flags.has('telescope_set');
+    this.scopesEdit = -1;
+    // A save made unsuited on the ridge's poisoned ground (any save from before the fallout was there) would load
+    // into certain death, the pack left where no one can fetch it: such a player wakes outside the gate instead.
+    if (!fresh && this.mode === 'survival' && !this.suited() && doseRate(this.player.x, this.player.z, false) > 0 && inFallout(this.player.x, this.player.z)) {
+      const at = gateRefuge();
+      this.player.setPosition(at.x, at.y, at.z);
+      this.player.yaw = at.yaw;
+      this.sayAtPlay = 'The ridge’s ground is poisoned now, and you carry no suit: you have been set down outside its gate.';
+    }
     this.powerHour = null;
     // Arrays and generators count as they did when saved (in the sun, at the water) until their land is seen again.
     this.devices = liveFromSave(findDevices(this.world.edits), d.live);
@@ -2167,7 +2181,9 @@ export class Game {
     this.dose = r.dose;
     if (r.harm > 0) this.vitals.hp = Math.max(0, this.vitals.hp - r.harm);
     const cap = healthCap(this.dose);
-    if (this.vitals.hp > cap) this.vitals.hp = cap;
+    // The cap coming down a point is not being hurt (it kept hold H from ever working on the ridge road:
+    // a point every five seconds, and H waits ten after any hurt). Health past the limit is.
+    if (this.vitals.hp > cap) { this.vitals.hp = cap; this.hpBefore = Math.min(this.hpBefore, cap); }
     const rate = doseRate(p.x, p.z, suited);
     this.doseLine = meterLine(this.dose, rate, suited);
     // What the uplink's RAD answer adds: the dose the rest of the road costs at a walk, each way.
@@ -2375,6 +2391,10 @@ export class Game {
 
   // ---- Zone-4 and the uplink (docs/PHASE8.md) ------------------------------------------------------
 
+  /** The telescopes set down at home, and the count of edits they were found at (the world is searched only when it has changed). */
+  private scopesAt: [number, number, number][] = [];
+  private scopesEdit = -1;
+
   /** Lures that called this tick, for the Ashen to hear. */
   private lureCalls: { x: number; z: number; r: number }[] = [];
 
@@ -2404,7 +2424,8 @@ export class Game {
     // Ray keeps the meeting by day, at the refuge's door, until he has been met (as Marco at his shelter).
     const ray = this.wild.creatures.find((c) => c.kind === 'ray');
     const dist = Math.hypot(p.x - RAY_SPOT.x, p.z - RAY_SPOT.z);
-    const here = rayWaiting(f, this.hour);
+    // (After the hand-over he stays while you are by him: he used to vanish under his own words.)
+    const here = rayWaiting(f, this.hour) || (!!ray && f.has('ray_met') && dist < 40 && this.hour >= RAY_FROM && this.hour < RAY_UNTIL);
     if (here && !ray && dist < 120 && this.world.column(Math.floor(RAY_SPOT.x / CS), Math.floor(RAY_SPOT.z / CS))) {
       const y = groundAt(RAY_SPOT.x, RAY_SPOT.z, (bx, by, bz) => this.world.blockAt(bx, by, bz));
       if (y !== null) { const r = makeCreature('ray', RAY_SPOT.x, y, RAY_SPOT.z); r.yaw = RAY_SPOT.yaw; this.wild.add(r); }
@@ -2419,7 +2440,8 @@ export class Game {
     const T = PLACES.ridgeTower;
     if (Math.hypot(p.x - T.x, p.z - T.z) < 90) this.sound.beacon(T.x, p.y + 30, T.z);
     // A telescope under open sky at home (the valley, or the home's grounds); away from home, as last seen.
-    const scopes = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5));
+    if (this.scopesEdit !== this.editCount) { this.scopesEdit = this.editCount; this.scopesAt = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5)); }
+    const scopes = this.scopesAt;
     if (!scopes.length) this.scopeOk = false;
     else if (scopes.some(([x, , z]) => this.world.isLoaded(x, z))) this.scopeOk = scopes.some(([x, y, z]) => this.world.isLoaded(x, z) && skyOf(this.world.lightAt(x, y + 1, z)) >= 13);
     // What the uplink's answers add to the screen: the time left to dusk outside (EPH), a nest close by (BIO).
@@ -2590,7 +2612,7 @@ export class Game {
     const p = this.player;
     this.renderer.setSats(satTrain(this.time, this.hour));
     if (!this.scoping) return;
-    // Walked off, the telescope mined, or hurt: it is put down.
+    // Walked off, or the telescope mined: it is put down. (Being hurt puts it down too: `tick`.)
     const s = this.scoping;
     if (Math.hypot(p.x - s.x - 0.5, p.z - s.z - 0.5) > 4 || blockName(this.world.blockAt(s.x, s.y, s.z)).split('@')[0] !== 'telescope') { this.endScope(); return; }
     // Nothing is named through a roof or a wall: the first 120 m of the line must be clear of blocks

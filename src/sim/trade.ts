@@ -19,6 +19,8 @@ export const CATALOG_M3: Lot[] = data.catalogM3.map((c) => ({ id: itemId(c.item)
 /** What Ray sells (docs/PHASE7.md, 3): plans and parts at a premium. He buys nothing. */
 export const CATALOG_RAY: Lot[] = data.catalogRay.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));
 /** What Ray adds once you have met him at the refuge (docs/PHASE8.md): tablets and M5's parts. */
+/** A hazard suit, from Ray, once he has given his word on the ridge: lead is finite, and a suit can be lost on the ridge with a pack (docs/PHASE8.md, the fresh review, 1). */
+export const RAY_SUIT: Lot = { id: itemId(data.raySuit.item), lot: data.raySuit.lot, sats: Math.round(data.raySuit.price * UNIT) };
 export const CATALOG_RAY_M5: Lot[] = data.catalogRayM5.map((c) => ({ id: itemId(c.item), lot: c.lot, sats: Math.round(c.price * UNIT) }));
 /** Ray's price for his micro-hydro plans: knowledge, not an item (DESIGN.md: schematics are recipe-unlock flags). */
 export const RAY_PLANS_PRICE = Math.round(data.ray.plans * UNIT);
@@ -36,7 +38,7 @@ export function sellPrice(id: number): number {
 }
 
 /** Every name in the trade data is a real item (checked by a test, so a typo fails the build's checks). */
-export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...data.catalogRay.map((c) => c.item), ...data.catalogRayM5.map((c) => c.item), ...Object.keys(data.value), ...Object.keys(data.keep)]; }
+export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...data.catalogRay.map((c) => c.item), ...data.catalogRayM5.map((c) => c.item), data.raySuit.item, ...Object.keys(data.value), ...Object.keys(data.keep)]; }
 export const tradeNamesValid = (): boolean => tradeNames().every(hasItem);
 
 /** The most Marco can pay out in one day, in satoshis: he carries what a man and a mule can. It is whole again each dawn. */

@@ -101,20 +101,20 @@
     {"station": "lathe", "out": ["steel_pickaxe", 1], "in": [["steel_ingot", 3], ["stick", 2]], "after": "m3_done" },
     {"station": "workbench", "out": ["planter_box", 2], "in": [["planks", 3], ["dirt", 1]], "after": "m3_done" },
 
-    {"station": "workbench", "out": ["hazard_suit", 1], "in": [["canvas", 4], ["scrap_lead", 4], ["glass", 1], ["charcoal", 2]], "learn": "suit_word"},
-    {"station": "workbench", "out": ["sat_antenna", 1], "in": [["antenna_section", 3], ["steel_ingot", 4], ["wiring", 2], ["pipe_fittings", 2]], "learn": "uplink_plans"},
+    {"station": "workbench", "out": ["hazard_suit", 1], "in": [["canvas", 4], ["scrap_lead", 4], ["glass", 1], ["charcoal", 2]], "learn": "suit_word", "after": "m4_done"},
+    {"station": "workbench", "out": ["sat_antenna", 1], "in": [["antenna_section", 3], ["steel_ingot", 4], ["wiring", 2], ["pipe_fittings", 2]], "learn": "uplink_plans", "after": "m4_done"},
     {"station": "lathe", "out": ["telescope", 1], "in": [["telescope_optics", 1], ["steel_ingot", 2], ["glass", 1], ["planks", 2]], "after": "m4_done" },
-    {"station": "workbench", "out": ["uplink_terminal", 1], "in": [["sat_modem", 1], ["rare_components", 2], ["wiring", 4], ["uplink_plans", 0]], "learn": "uplink_plans"},
-    {"station": "workbench", "out": ["med_bench", 1], "in": [["steel_ingot", 4], ["glass", 4], ["rare_components", 1], ["wiring", 2]], "learn": "pharma_learned"},
-    {"station": "workbench", "out": ["distiller", 1], "in": [["copper_nugget", 6], ["glass", 2], ["pipe_fittings", 2], ["steel_ingot", 1]], "learn": "pharma_learned"},
+    {"station": "workbench", "out": ["uplink_terminal", 1], "in": [["sat_modem", 1], ["rare_components", 2], ["wiring", 4], ["uplink_plans", 0]], "learn": "uplink_plans", "after": "m4_done"},
+    {"station": "workbench", "out": ["med_bench", 1], "in": [["steel_ingot", 4], ["glass", 4], ["rare_components", 1], ["wiring", 2]], "learn": "pharma_learned", "after": "m4_done"},
+    {"station": "workbench", "out": ["distiller", 1], "in": [["copper_nugget", 6], ["glass", 2], ["pipe_fittings", 2], ["steel_ingot", 1]], "learn": "pharma_learned", "after": "m4_done"},
     {"station": "distiller", "out": ["spirit", 2], "in": [["corn", 4], ["water_jug", 1], ["charcoal", 1]], "returns": [["empty_jug", 1]], "after": "m4_done" },
     {"station": "distiller", "out": ["spirit", 2], "in": [["potato", 4], ["water_jug", 1], ["charcoal", 1]], "returns": [["empty_jug", 1]], "after": "m4_done" },
     {"station": "med_bench", "out": ["rad_tablets", 2], "in": [["spirit", 1], ["iron_ingot", 1], ["herbs", 2], ["charcoal", 1]], "after": "m4_done" },
     {"station": "med_bench", "out": ["antibiotics", 2], "in": [["spirit", 1], ["herbs", 3], ["honey", 1]], "after": "m4_done" },
     {"station": "med_bench", "out": ["adrenaline", 1], "in": [["spirit", 1], ["coffee_beans", 4], ["salt", 1]], "after": "m4_done" },
-    {"station": "lathe", "out": ["thermal_optic", 1], "in": [["glass", 2], ["rare_components", 1], ["battery_cell", 1], ["steel_ingot", 1]], "learn": "sch_thermal"},
-    {"station": "workbench", "out": ["sonic_lure", 2], "in": [["rare_components", 1], ["battery_cell", 1], ["wiring", 2], ["scrap_metal", 2]], "learn": "sch_sonic"},
-    {"station": "powder_mill", "out": ["smoke_pot", 2], "in": [["sulfur", 2], ["saltpeter", 1], ["charcoal", 1], ["clay", 1]], "learn": "sch_smoke"},
-    {"station": "lathe", "out": ["engineer_armor", 1], "in": [["plate_armor", 1], ["steel_ingot", 4], ["rare_components", 1], ["canvas", 2]], "learn": "sch_armor"}
+    {"station": "lathe", "out": ["thermal_optic", 1], "in": [["glass", 2], ["rare_components", 1], ["battery_cell", 1], ["steel_ingot", 1]], "learn": "sch_thermal", "after": "m4_done"},
+    {"station": "workbench", "out": ["sonic_lure", 2], "in": [["rare_components", 1], ["battery_cell", 1], ["wiring", 2], ["scrap_metal", 2]], "learn": "sch_sonic", "after": "m4_done"},
+    {"station": "powder_mill", "out": ["smoke_pot", 2], "in": [["sulfur", 2], ["saltpeter", 1], ["charcoal", 1], ["clay", 1]], "learn": "sch_smoke", "after": "m4_done"},
+    {"station": "lathe", "out": ["engineer_armor", 1], "in": [["plate_armor", 1], ["steel_ingot", 4], ["rare_components", 1], ["canvas", 2]], "learn": "sch_armor", "after": "m4_done"}
   ]
 }

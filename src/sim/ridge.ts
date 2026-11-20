@@ -1,7 +1,7 @@
 // The ridge's places as the player meets them (docs/PHASE8.md): which place a position is at, what is said the
 // first time there, when Ray is at the refuge. Pure: the game asks once a second and shows what comes back.
 
-import { ZONE4, ZONE3, PLACES, ridgeRoadAt, ridgeRoadMark, inFallout } from '../gen/layout.ts';
+import { ZONE4, ZONE3, PLACES, ridgeRoadAt, ridgeRoadMark, ridgeRoadPoint, ridgeRoadHeight, inFallout } from '../gen/layout.ts';
 
 export type RidgePlace = 'bend' | 'gate' | 'edge' | 'pass' | 'sump' | 'dome' | 'yard';
 
@@ -43,6 +43,15 @@ export const RAY_FROM = 6, RAY_UNTIL = 18;
 /** Is Ray at the refuge now? Once asked, by day, until he has been met. */
 export function rayWaiting(flags: ReadonlySet<string>, hour: number): boolean {
   return flags.has('ray_coming') && !flags.has('ray_met') && hour >= RAY_FROM && hour < RAY_UNTIL;
+}
+
+/**
+ * A safe place outside the gate, on the road, for a save that would otherwise load onto poisoned ground with no
+ * suit (docs/PHASE8.md, the fresh review, 4): well short of the line of signs, facing the gate.
+ */
+export function gateRefuge(): { x: number; y: number; z: number; yaw: number } {
+  const s = ridgeRoadMark(ZONE4.road.gate[0]) - 24, [x, z] = ridgeRoadPoint(s), [x2, z2] = ridgeRoadPoint(s + 4);
+  return { x, y: ridgeRoadHeight(s) + 1, z, yaw: Math.atan2(-(x2 - x), -(z2 - z)) };
 }
 
 /** Where Ray stands, and which way he looks (west, down the road he came up). */

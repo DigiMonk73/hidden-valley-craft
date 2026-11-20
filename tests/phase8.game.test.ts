@@ -219,6 +219,15 @@ describe('Ray', () => {
     expect(call(p, 'Ray')).toBe(RAY.ridge);
     expect(p.game.flags.has('suit_word')).toBe(true);
     expect(recipe('workbench', 'hazard_suit', p.game.flags)).toBeDefined();
+    // From his word on he sells a suit of his own make: lead is finite, and a suit can lie in a lost pack on the ridge.
+    const lots = paper(p).tradeView!().buy;
+    const suit = lots.find((r) => r.label.startsWith('Hazard suit'))!;
+    expect(suit).toBeDefined();
+    p.game.wallet = 10_000_000;
+    suit.act();
+    expect(count(p, 'hazard_suit')).toBe(1);
+    expect(lots.some((r) => r.label.startsWith('Blue tablets'))).toBe(false); // the ridge's own things only after the meeting
+    p.game.hotbar.remove(itemId('hazard_suit'), 1);
     // His usual talk after that.
     expect(RAY.again).toContain(call(p, 'Ray'));
   });
@@ -228,7 +237,10 @@ describe('Ray', () => {
     const g = inside(p);
     expect(call(p, RAY.meetButton)).toBe(RAY.meetNoSuit);
     expect(p.game.flags.has('ray_coming')).toBe(false);
+    const status = () => { g.openPhone(); return paper(p).phoneRows.find((r) => r.name === RAY.meetButton)!.status; };
+    expect(status()).toBe('needs a hazard suit');
     give(p, 'hazard_suit');
+    expect(status()).toBe('you carry the suit: ask him'); // (it said "needs a hazard suit" to someone carrying one)
     expect(call(p, RAY.meetButton)).toBe(RAY.meetDay);
     expect(call(p, RAY.meetButton)).toBe(RAY.meetWaiting);
     // At the pass by day he is there; at night he is not.
@@ -254,15 +266,25 @@ describe('Ray', () => {
     g.meetRay();
     expect([p.game.flags.has('ray_met'), count(p, 'sat_modem'), count(p, 'rad_tablets')]).toEqual([true, 1, 2]);
     expect(said(p, 'The dam’s telemetry modem')).toBe(true);
-    // Once met he is gone, the button with him, and his catalogue has grown.
+    // He stays while you stand with him (he used to vanish under his own words), and has no more to give.
+    g.tickZone4();
+    expect(ray()).toBeDefined();
+    g.meetRay();
+    expect(said(p, RAY.look)).toBe(true);
+    expect(count(p, 'sat_modem')).toBe(1);
+    // Walk off and he is gone for good, the button with him; his catalogue has grown.
+    at(p, RAY_SPOT.x - 60, 110, RAY_SPOT.z);
+    g.tickZone4();
+    expect(ray()).toBeUndefined();
+    at(p, RAY_SPOT.x - 4, 110, RAY_SPOT.z);
     g.tickZone4();
     expect(ray()).toBeUndefined();
     g.openPhone();
     expect(paper(p).phoneRows.some((r) => r.name === RAY.meetButton)).toBe(false);
     call(p, 'Ray');
     const labels = paper(p).tradeView!().buy.map((r) => r.label);
-    expect(CATALOG_RAY_M5.length).toBe(3);
-    for (const part of ['Blue tablets', 'Rare components', 'Antenna section']) expect(labels.some((l) => l.startsWith(part)), part).toBe(true);
+    expect(CATALOG_RAY_M5.length).toBe(4);
+    for (const part of ['Blue tablets', 'Rare components', 'Antenna section', 'Pipe fittings', 'Hazard suit']) expect(labels.some((l) => l.startsWith(part)), part).toBe(true);
     // A second meeting gives nothing more.
     g.meetRay();
     expect(count(p, 'sat_modem')).toBe(1);
@@ -365,13 +387,13 @@ describe('M5 at home', () => {
     const g = inside(p);
     land(p, 1790, 1016, 1812, 1030);
     // In the cave, under rock.
-    p.game.world.setBlock(1808, HOME.floor, 1024, blockId('telescope'));
+    p.game.world.setBlock(1808, HOME.floor, 1024, blockId('telescope')); p.in.edited();
     at(p, 1806, HOME.floor, 1024);
     g.tickZone4();
     expect([g.scopeOk, p.game.flags.has('telescope_set')]).toEqual([false, false]);
     // On the balcony, under the sky.
     p.game.world.setBlock(1808, HOME.floor, 1024, 0);
-    p.game.world.setBlock(1795, HOME.floor, 1022, blockId('telescope'));
+    p.game.world.setBlock(1795, HOME.floor, 1022, blockId('telescope')); p.in.edited();
     at(p, 1796.5, HOME.floor, 1022.5);
     g.tickZone4();
     expect([g.scopeOk, p.game.flags.has('telescope_set')]).toEqual([true, true]);
@@ -385,7 +407,7 @@ describe('M5 at home', () => {
     expect(g.scoping).toBeNull();
     expect(g.screen.opened.length).toBe(0); // E put the telescope down; it did not open the pack
     // Taken indoors again it stops counting, and the link says so.
-    p.game.world.setBlock(1795, HOME.floor, 1022, 0);
+    p.game.world.setBlock(1795, HOME.floor, 1022, 0); p.in.edited();
     g.tickZone4();
     expect(p.game.linkNeeds().telescope).toBe(false);
   });
@@ -619,5 +641,158 @@ describe('saves', () => {
     // Over nothing at all (land not loaded): nothing.
     p.setPosition(10.5, 160, 10.5);
     expect(p.setDown(() => 0)).toBe(false);
+  });
+});
+
+// ---- The fresh review (docs/PHASE8.md, "The fresh review"): each finding, held by a test ---------------------
+
+describe('the fresh review', () => {
+  /** A stand-in for the page's elements: enough for the uplink page to be filled and clicked. */
+  function fakeDom() {
+    const node = (tag: string) => {
+      const n: Record<string, unknown> & { children: unknown[] } = { tag, children: [], dataset: {}, style: {}, textContent: '', className: '', hidden: false, disabled: false, onclick: null,
+        append(...c: unknown[]) { n.children.push(...c); } };
+      Object.defineProperty(n, 'innerHTML', { set() { n.children = []; } });
+      return n;
+    };
+    (globalThis as Record<string, unknown>).document = { ...(globalThis as unknown as { document: object }).document, createElement: node, createTextNode: (t: string) => ({ text: t }) };
+    const find = (p: { children?: unknown[] }, pred: (n: { dataset?: Record<string, string>; onclick?: () => void }) => boolean): { onclick: () => void } | null => {
+      for (const c of (p.children ?? []) as { children?: unknown[]; dataset?: Record<string, string>; onclick?: () => void }[]) { if (pred(c)) return c as { onclick: () => void }; const r = find(c, pred); if (r) return r; }
+      return null;
+    };
+    return { node, find };
+  }
+  const host = (flags: string[] = []) => {
+    const g = { flags: new Set(['uplink_fitted', 'antenna_up', ...flags]), day: 3, hour: 10, lastPull: null as number | null, opened: 0, reads: 0,
+      linkNeeds: () => ({ antenna: true, telescope: true, hydro: true, terminal: true }), edited() {}, linkOpened() { g.opened++; }, firstRead() { g.reads++; g.flags.add('ending_seen'); } };
+    return g;
+  };
+
+  it('2 · the closing card cannot be lost: a page put down during the handshake still counts as read, and a link opened but never read opens again', async () => {
+    const { fillUplink } = await import('../src/ui/uplinkScreen.ts');
+    const { uplinkView } = await import('../src/game/uplink.ts');
+    const { node, find } = fakeDom();
+    // Put down one line into the handshake (it runs 2.7 s as shipped): the first answer is owed, so the card comes.
+    const g = host(), panel = node('div');
+    const down = fillUplink(panel as unknown as HTMLElement, uplinkView(g), 450);
+    find(panel, (n) => !!n.dataset?.open)!.onclick();
+    expect(g.flags.has('uplink_live')).toBe(true);
+    down();
+    expect(g.reads).toBe(1);
+    down();
+    expect(g.reads).toBe(1); // once
+    // The tab closed with the answer on the page: the save has the link open and no card seen. The page offers
+    // OPEN LINK again, not the queries, and the card follows as it should have.
+    const h = host(['uplink_live', 'agi_end']), v = uplinkView(h);
+    expect([v.ready, v.live]).toEqual([true, false]);
+    const panel2 = node('div');
+    const down2 = fillUplink(panel2 as unknown as HTMLElement, v, 0);
+    expect(find(panel2, (n) => !!n.dataset?.query)).toBeNull();
+    find(panel2, (n) => !!n.dataset?.open)!.onclick();
+    down2();
+    expect([h.reads, h.flags.has('ending_seen')]).toEqual([1, true]);
+    expect(uplinkView(h).live).toBe(true);
+  });
+
+  it('3 · the manual and the pages cannot be mined away; a lure or pot cannot be mined while it runs; the dome’s shell goes back matching', async () => {
+    const { BLOCK_DEFS } = await import('../src/world/blocks.ts');
+    const { dropOf } = await import('../src/world/items.ts');
+    for (const n of ['manual_shelf', 'note_desk', 'sonic_lure_on', 'smoke_pot_lit']) expect(BLOCK_DEFS[blockId(n)].hardness, n).toBeLessThan(0);
+    for (const n of ['dome_shell', 'scope_tube', 'dead_trunk', 'sludge']) expect(dropOf(blockId(n)), n).toBe(blockId(n));
+    // And a lure not yet started can still be picked up again.
+    expect(BLOCK_DEFS[blockId('sonic_lure')].hardness).toBeGreaterThan(0);
+  });
+
+  it('4 · a save made with no suit on what is now poisoned ground wakes outside the gate, not into certain death; with a suit it is left where it was', async () => {
+    const { gateRefuge } = await import('../src/sim/ridge.ts');
+    const { inFallout, radiationAt } = await import('../src/gen/layout.ts');
+    const at0 = gateRefuge();
+    expect(inFallout(at0.x, at0.z)).toBe(false);
+    expect(radiationAt(at0.x, at0.z)).toBe(0);
+    const old = { ...newSave(), version: 3, flags: ['begun'] } as Record<string, unknown>;
+    (old.player as { x: number; y: number; z: number }) = { ...(old.player as object), x: 300.5, y: 150, z: 300.5 } as never;
+    const p = await begun();
+    p.game.applySave(normaliseSave(old)!);
+    expect([p.game.player.x, p.game.player.z]).toEqual([at0.x, at0.z]);
+    inside(p).tickRadiation(5);
+    expect(p.game.dose).toBe(0);
+    // Carrying a suit: where they were.
+    const suited = normaliseSave({ ...old, hotbar: [{ name: 'hazard_suit', count: 1 }, ...new Array(35).fill(null)] })!;
+    p.game.applySave(suited);
+    expect([p.game.player.x, p.game.player.z]).toEqual([300.5, 300.5]);
+    // On the pass's clean ground with no suit: left alone too (hold H works there).
+    (old.player as { x: number; z: number }).x = ZONE4.clean.x; (old.player as { x: number; z: number }).z = ZONE4.clean.z;
+    p.game.applySave(normaliseSave(old)!);
+    expect([p.game.player.x, p.game.player.z]).toEqual([ZONE4.clean.x, ZONE4.clean.z]);
+  });
+
+  it('5 · the dose’s cap coming down is not a blow: hold H works for a whole, suited player on the ridge road; health past the limit is a blow', async () => {
+    const p = await begun();
+    const g = inside(p);
+    give(p, 'hazard_suit');
+    at(p, ...onRoad(60)); // between the gate and the pass
+    let hurts = 0;
+    for (let i = 0; i < 90; i++) { g.tickRadiation(1); if (p.game.vitals.hp < p.game.hpBefore - 0.01) hurts++; p.game.hpBefore = p.game.vitals.hp; }
+    expect(p.game.dose).toBeGreaterThan(20);
+    expect(p.game.vitals.hp).toBeLessThan(90); // the cap did come down
+    expect(hurts).toBe(0);
+    // Without the suit, at the limit: that is being hurt.
+    p.game.hotbar.remove(itemId('hazard_suit'), 1);
+    p.game.dose = 100; p.game.vitals.hp = 40; p.game.hpBefore = 40;
+    g.tickRadiation(0.5);
+    expect(p.game.vitals.hp).toBeLessThan(p.game.hpBefore - 1);
+  });
+
+  it('7 · there are no tablets this side of the gate, to find or to buy, before a suit has been carried through it', async () => {
+    const { ZONE4_CHESTS } = await import('../src/gen/inheritance.ts');
+    const { BOOTH_SHELF } = await import('../src/gen/zone4.ts');
+    const { inFallout } = await import('../src/gen/layout.ts');
+    const outside = ZONE4_CHESTS.filter((c) => !inFallout(c.x, c.z) || (c.x === BOOTH_SHELF[0] && c.z === BOOTH_SHELF[2]));
+    expect(outside.length).toBeGreaterThan(0);
+    for (const c of outside) expect(c.items.some(([n]) => n === 'rad_tablets'), c.title).toBe(false);
+    const { HOME_CHESTS, ZONE1_CHESTS, ZONE2_CHESTS, ZONE3_CHESTS } = await import('../src/gen/inheritance.ts');
+    for (const c of [...HOME_CHESTS, ...ZONE1_CHESTS, ...ZONE2_CHESTS, ...ZONE3_CHESTS]) expect(c.items.some(([n]) => n === 'rad_tablets'), c.title).toBe(false);
+  });
+
+  it('8 · a night slept through counts a day, a nap after midnight does not; what was running is running after a load', async () => {
+    const p = await begun();
+    const g = inside(p);
+    const bed = blockId('bed');
+    for (const [hour, days] of [[17.2, 1], [23.5, 1], [0.5, 0], [5.5, 0]] as const) {
+      p.game.hour = hour;
+      const before = p.game.day;
+      g.useFurniture(0, 0, 0, bed);
+      expect(p.game.day - before, `slept from ${hour}`).toBe(days);
+      expect(p.game.hour).toBe(6);
+    }
+    land(p, 400, 400, 400, 400);
+    p.game.world.setBlock(400, 150, 400, blockId('smoke_pot'));
+    g.usePhase8('smoke_pot', 400, 150, 400);
+    g.tickDevices(7);
+    const q = await begun();
+    q.game.applySave(normaliseSave(JSON.parse(JSON.stringify(p.game.snapshot())))!);
+    expect(q.game.running).toEqual([{ kind: 'pot', x: 400, y: 150, z: 400, left: POT_SECONDS - 7, call: 0 }]);
+  });
+
+  it('9 · Builder’s clock keys carry the day across midnight; a held key’s repeats do not put a screen down; every one of M5’s recipes waits for M4', async () => {
+    const p = await openPage();
+    p.hud.actions.pickMode('builder' as never);
+    p.in.ready = true; p.in.resume();
+    p.game.hour = 23.5; p.game.day = 4;
+    fire('window', 'keydown', { code: 'BracketRight' });
+    expect([p.game.day, p.game.hour]).toEqual([5, 0.5]);
+    fire('window', 'keydown', { code: 'BracketLeft' });
+    expect([p.game.day, p.game.hour]).toEqual([4, 23.5]);
+    // E held: its repeats leave the open screen alone; a fresh press puts it down.
+    inside(p).useComputer();
+    fire('window', 'keydown', { code: 'KeyE', repeat: true });
+    expect(paper(p).isOpen).toBe(true);
+    fire('window', 'keydown', { code: 'KeyE' });
+    expect(paper(p).isOpen).toBe(false);
+    const { RECIPES } = await import('../src/sim/crafting.ts');
+    const m5 = ['hazard_suit', 'sat_antenna', 'telescope', 'uplink_terminal', 'med_bench', 'distiller', 'spirit', 'rad_tablets', 'antibiotics', 'adrenaline', 'thermal_optic', 'sonic_lure', 'smoke_pot', 'engineer_armor'];
+    const mine = RECIPES.filter((r) => m5.includes(itemName(r.out[0])));
+    expect(mine.length).toBe(15);
+    for (const r of mine) expect(r.after, itemName(r.out[0])).toBe('m4_done');
   });
 });

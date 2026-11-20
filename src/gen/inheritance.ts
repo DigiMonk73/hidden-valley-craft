@@ -104,8 +104,8 @@ export const ZONE3_CHESTS: HomeChest[] = [
 // station's spares. Blue tablets at each stop on the way up; a fourth antenna section in the spares, so the
 // three the antenna needs do not hang on every dish panel being mined.
 export const ZONE4_CHESTS: HomeChest[] = [
-  { x: BOOTH_SHELF[0], y: BOOTH_SHELF[1], z: BOOTH_SHELF[2], title: 'The gate’s booth: a shelf', items: [['rad_tablets', 1], ['bandage', 2]] },
-  { x: HUT_CRATE[0], y: HUT_CRATE[1], z: HUT_CRATE[2], title: 'The refuge’s stores', items: [['canned_food', 3], ['water_jug', 2], ['rad_tablets', 2], ['bandage', 2], ['charcoal', 4], ['coffee', 2]] },
+  { x: BOOTH_SHELF[0], y: BOOTH_SHELF[1], z: BOOTH_SHELF[2], title: 'The gate’s booth: a shelf', items: [['bandage', 2], ['water_jug', 1]] }, // (no tablets this side of the gate: one let a runner reach the refuge alive, stranded)
+  { x: HUT_CRATE[0], y: HUT_CRATE[1], z: HUT_CRATE[2], title: 'The refuge’s stores', items: [['canned_food', 3], ['water_jug', 2], ['rad_tablets', 3], ['bandage', 2], ['charcoal', 4], ['coffee', 2]] },
   { x: DOME_CRATE[0], y: DOME_CRATE[1], z: DOME_CRATE[2], title: 'Observatory: a crate', items: [['glass', 4], ['wiring', 2], ['battery_cell', 1]] },
   { x: RELAY_CRATE[0], y: RELAY_CRATE[1], z: RELAY_CRATE[2], title: 'Relay station: spares', items: [['antenna_section', 1], ['wiring', 6], ['pipe_fittings', 2], ['battery_cell', 2], ['rad_tablets', 2]] },
 ];
