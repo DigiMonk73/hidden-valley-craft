@@ -25,6 +25,11 @@ export interface Settings {
   aa: boolean;
   /** Make the picture lighter by itself when the game runs slowly. */
   auto: boolean;
+  /**
+   * Settings this build does not know, kept as they were read and written back unchanged: another branch's
+   * setting (Track A's `fx`), or a later build's, survives a load and a save here.
+   */
+  others?: Record<string, boolean | number | string>;
 }
 
 export const DEFAULT_SETTINGS: Settings = { rd: 8, rdOwn: false, sens: 1, inv: false, vol: 0.8, scale: 1, aa: true, auto: true };
@@ -52,6 +57,12 @@ export function readSettings(raw: unknown): Settings {
   if (num(r.scale)) s.scale = nearestScale(r.scale);
   if (typeof r.aa === 'boolean') s.aa = r.aa;
   if (typeof r.auto === 'boolean') s.auto = r.auto;
+  const others: Record<string, boolean | number | string> = {};
+  for (const [k, v] of Object.entries(r)) {
+    if (k in DEFAULT_SETTINGS || k === 'others' || k.length > 40) continue;
+    if (typeof v === 'boolean' || typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v))) others[k] = typeof v === 'string' ? v.slice(0, 200) : v;
+  }
+  if (Object.keys(others).length) s.others = others;
   return s;
 }
 
@@ -61,5 +72,6 @@ export function parseSettings(bytes: Uint8Array | null): Settings {
 }
 
 export function encodeSettings(s: Settings): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify(s));
+  const { others, ...known } = s;
+  return new TextEncoder().encode(JSON.stringify({ ...(others ?? {}), ...known }));
 }

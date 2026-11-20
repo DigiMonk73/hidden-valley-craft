@@ -4,6 +4,12 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-20)
 
+- **Phase 9, Track B (soundness) is on branch `phase9b`, steps 1 to 7 of 8 built and pushed; it stopped at a checkpoint at the lead's word** and is to be carried on by a new session. Where it stands, what has not yet been run, what is left and what to expect at the merge with Track A: [PHASE9B.md](PHASE9B.md), "Resume here".
+  - **Built:** a path for weaker computers (picture scale, smooth edges, 128 m and 160 m views, an automatic drop, less memory, a lighter fallback where workers are blocked); settings kept across sessions; the valley no longer walked into over its rim (two 12-block overhangs, pictures in `docs/phase9b/`); the outpost's stealth route hiding the walker; the three save notes; Esc resuming, hold H while starving or drowning, things set down in a sack; N5j; the builder's handbooks, the hammer, saw, filter and binoculars, fruit from Marco, the puma stalking from cover; the review's tests.
+  - **Saves are version 5** (a valley begun before has read the handbooks); the world layout is still 2. A real version 13 save opens and keeps everything (`tests/fixtures/v13/`).
+  - **Checks:** 959 unit tests, none skipped. In the browser: the valley part 45 of 45, saves 16 of 16 (before version 5), the engine's check and the captured-mouse check pass. **The other five play-through parts have not been run on this branch.**
+  - **Left:** the full browser runs; the fresh review; the rest of the `src/game.ts` split, the headlamp's light and the banana bunch (all three wait for Track A's merge).
+
 - **The home is rebuilt on branch `home`** (with `main` and Phase 7 merged in), waiting for the lead's review. What was built, what differs from the review's plan and why: [HOME.md](HOME.md).
   - **Built:** the hearth and its chimney; the cast-iron range, hood and flue; the bedroom with its window, double bed and wardrobes; the living room's sofa, armchairs and dining table; a study with a real computer desk against the bookshelves; the patio table, loungers and lanterns; lamps so every room is lit at night; the workshop and pantry dressed; the vault lined.
   - **The furniture pass** (the owner's later notes): every piece set out and judged by eye, 25 redrawn, pack icons drawn from each piece's boxes.

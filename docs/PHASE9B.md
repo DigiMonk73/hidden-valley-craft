@@ -2,6 +2,51 @@
 
 _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief is [PHASE9.md](PHASE9.md), Track B. Each step is marked DONE here when it is committed with its tests._
 
+## Resume here (checkpoint, 2026-11-20, at the lead's word: the session that built steps 1–7 stopped here)
+
+**Where it stands.** Steps 1 to 7 are built, tested, committed and pushed on `phase9b`. Nothing is half-done in the working tree. 959 unit tests pass, none skipped (`npx vitest run`, about 3 minutes); `npx tsc --noEmit` is clean.
+
+**What has NOT been run on this branch's last commit, and must be before the report to the lead:**
+
+- **The play-through's other five parts** (near, mid, Zone-2, Zone-3, Zone-4) have not been run on this branch at all. The valley part passed 45 of 45 on the build before the last two small changes (the third goal's wording; settings keeping unknown keys). Run `npm run build`, serve it, then `node tests/e2e/play.mjs` (all six; allow two hours).
+  - Likely to need a look: the parts set their scenes by hand and none reads the bookshelf, and the workshop's recipes now wait for the handbooks (step 6). No part uses the kiln, smelter, anvil or tannery today (checked by reading them), so none should fail; if one does, add `books_read` to the flags its scene sets.
+  - The water filter (step 6): a part that drinks from water outside the valley with an empty hand would now lose 6 health a drink. None was found doing so.
+- `node tests/e2e/saves.mjs` (16 of 16 on the step 3 build; not run since save version 5).
+- `node tests/e2e/engine.mjs`: parts `picture`, `lost`, `settings`, `fallback` passed 25 of 25 on the step 6 build; part `sandbox` passed 8 of 9, and the ninth was the check's own selector, fixed since and not run again. Run it whole, and once with `MINUTES=5 PARTS=sandbox`.
+- `node tests/e2e/capture.mjs`: 15 of 15, three runs.
+
+**What is left, in order**
+
+1. The runs above; fix what they find, with tests.
+2. **The ending the brief asks for:** a fresh reviewer (an agent that wrote none of this, read-only, told to attack saves, settings and the mended land with its own probes); fix every finding with a test or answer it here with evidence; merge `origin/main` once more; all unit tests, all six play-through parts, the save checks; update this page and `docs/STATUS.md`; push; message the lead with what was built, the test counts, the measured numbers (step 1's table), the before-and-after camera lines (step 3's table), what only the owner can check (steps 4 and 5 have the lists), and the weak spots (below).
+3. **Waits for the lead's word that Track A is merged:**
+   - **Step 8, the rest of the `src/game.ts` split** (`tickZone4`, `usePhase8`, `useHoist`, the telescope; docs/FIXES.md, 8). Not started.
+   - **The headlamp's light.** One uniform and two lines in the block shader (`src/render/renderer.ts`, `BLOCK_FRAG`: raise the floor of `light` within a few metres of the camera while a headlamp is carried and the sky light there is low). A right-click with it in hand already says what it will do (`KIT_HINT` in `src/game.ts`).
+   - **The banana bunch.** Track A adds banana plants and a `banana_bunch` block (the lead's message, 13:28). Make the bunch pickable and regrow, as the apple is (`pickApple`, `src/sim/farming.ts`). Do not add a second banana plant. Marco already sells bananas (step 6): keep that.
+
+**At the merge with Track A, expect and keep** (the lead's message, 13:28):
+
+- `src/render/renderer.ts`, the constructor: Track A asks `WebGLRenderer` for `stencil: true` and sets `gl.info.autoReset = false`. This branch's line there passes `antialias: opts.antialias ?? true`. Keep all three. With `autoReset` off, `tools/perf.mjs` and `tests/e2e/engine.mjs` read `gl.info.render.calls` and `.frame`: check they still mean a frame.
+- **Settings.** Track A saves a checkbox as `fx` in the settings object and reads it in `loadSettings`/`saveSettings`. This branch moved settings into `src/game/settings.ts` (`Settings`, `readSettings`, `encodeSettings`) and `Game.settings`. An unknown key such as `fx` now survives a load and a save here (`others`, tested in `tests/settings.test.ts`), but Track A's own code will conflict in `Game.loadSettings`/`saveSettings` and `Hud.settingsInputs`: move `fx` into `Settings` as a known key (default true), add it to `Hud.showSettings`, and drop it from `others`.
+- **Save version.** This branch is at 5 (`MIGRATIONS[4]`: a begun valley has read the handbooks). If Track A raised it too, put the two steps one after the other and make this one the later number or the earlier, whichever the dates of the published builds say; both steps are safe to run in either order.
+- **`src/gen/terrain.ts`.** This branch turned `generateColumn` into a generator (`generateColumnSteps`, with `yield` between its seven parts) and changed three lines of `wallRadius` (the rim mends). Track A's trees and plants are in the last part: keep the `yield` lines.
+- **Fixtures.** If Track A changes any land east of the gorge, `tests/fixtures/v13-land.json` (seven changed columns and their neighbours, against version 13) and the five budgets in `tests/e5.test.ts` will say so. Re-measure the budgets and write the new numbers with the reason; for the land fixture, the seven columns' `now` hashes are this branch's alone.
+
+**Decided or measured and written only here**
+
+- The anti-aliasing setting changes at the next opening of the page (a browser fixes it when the picture is made); the menu says so. Reason and the alternative weighed: step 1, "Calls".
+- The engine's browser check found that **workers do start inside a sandboxed frame** in Chromium (`workers ×3` with storage blocked). So the published page most likely builds its land on workers; the owner can confirm with F3's first line.
+- The play-through's valley part ran in 10 minutes on this branch, against the 15 to 25 the README gives. Not looked into; nothing was removed from it.
+
+**Weak spots known**
+
+- **The valley's rim is closed to a free walk only.** With falls that hurt, it is still come down (35 health at the cheapest place found), and a dive from the ridge over the falls into the pool costs nothing. Both are for the lead to decide (step 3).
+- **Nothing here was judged on a real graphics card:** frame rate, the automatic drop happening by itself, smooth edges off, the look of Picture: Soft. The numbers that are fair on this machine are in step 1's table.
+- **Safari and Firefox were not run** (not installed here). One fault was found by reading and fixed; step 5 has the owner's list.
+- **The handbooks gate is new play.** It is one right-click on a bookshelf the goals already point at, but the owner has not seen it.
+- **The water filter adds a cost outside** for a player who left it at home. It is said in plain words when it happens.
+- **The taller brush** on the outpost's trail is a hedge 4 to 7 blocks high for about ten metres; it hides the walker and was judged from one picture pair (`docs/phase9b/brush.jpg`).
+
 ## The plan, in the order it is built
 
 | # | Step | State |

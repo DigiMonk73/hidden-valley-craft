@@ -52,4 +52,19 @@ describe('settings kept across sessions (docs/PHASE9B.md, 2)', () => {
     expect(readSettings({ scale: 7 }).scale).toBe(1);
     expect(readSettings({ scale: 0.01 }).scale).toBe(0.5);
   });
+
+  it('a setting this build does not know (another branch’s, a later build’s) survives a load and a save unchanged', () => {
+    const saved = new TextEncoder().encode(JSON.stringify({ rd: 10, vol: 0.5, fx: false, later: 'x', count: 3, junk: { a: 1 }, bad: null }));
+    const s = parseSettings(saved);
+    expect(s.rd).toBe(10);
+    expect(s.others).toEqual({ fx: false, later: 'x', count: 3 }); // plain values only
+    s.vol = 0.9; // a setting changed in the menu
+    const back = JSON.parse(new TextDecoder().decode(encodeSettings(s)));
+    expect(back).toMatchObject({ rd: 10, vol: 0.9, fx: false, later: 'x', count: 3, scale: 1, aa: true, auto: true });
+    expect(back.others).toBeUndefined();
+    // And through a second load and save.
+    expect(JSON.parse(new TextDecoder().decode(encodeSettings(parseSettings(encodeSettings(s)))))).toEqual(back);
+    // An unknown key can never take a known setting's place.
+    expect(parseSettings(new TextEncoder().encode(JSON.stringify({ others: { rd: 4 }, rd: 12 }))).rd).toBe(12);
+  });
 });
