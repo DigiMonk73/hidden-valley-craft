@@ -4,6 +4,17 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-20)
 
+- **Phase 9A ("the finish: feel and look", Track A of [PHASE9.md](PHASE9.md)) is built on branch `phase9a`**, waiting for the lead's review, merge and publish. Every call and its reason, the hooks in `src/game.ts`, and how it merges with Track B: [PHASE9A.md](PHASE9A.md).
+  - **In hand:** an arm and what it holds, drawn over the world. Models for the tools and weapons, the block itself for a block. It chops while mining, kicks on a shot, comes up to the eye in focus, bends with the bow.
+  - **Under water:** the water's colour, a fog a few metres deep, light without its red, bubbles. The tunnel reads as water and its lamps still lead.
+  - **Light:** a glow round every lamp and fire (one draw call), fires flicker, moonlight drawn brighter (the night's `daylight` number is unchanged). The home shows across the valley at night.
+  - **Far cliffs:** shaded block by block like the near ones (beds, moss, crowns), the treeless rim no longer drawn as forest, the two waterfalls in the far land. No holes of sky: the real blocks mark a stencil bit and the far land fills only what they leave.
+  - **Plants:** three more broadleaf shapes (an emergent, a round tree, the guarumo), bananas, vines in curtains on the valley's cliffs. Nothing built moved: `tests/plants.test.ts` checks the world against version 13's, and the old fixtures are hashed with version 13's plants (`generateColumn(cx, cz, 'v13')`). Along the gorge, in the end mountains and outside the valley's rim the trees are version 13's.
+  - **Life and weather:** hummingbirds at the flowers, doves on the valley floor, the quetzal on its tree some mornings with its call; rain most afternoons. All scenery; all off with the one new setting, "Effects".
+  - **From the phases' lists:** sitting on chairs, sofas, benches and loungers; the jerky rack has legs; the sump glows and breathes.
+  - **Not built:** water edges; a gun rack; Ray's face; the thermal optic and the dish were not photographed.
+  - **Engine changes others will meet:** `ChunkMesh.glows`; the WebGL context asks for a stencil buffer; `gl.info.autoReset` is off (F3 counts the whole frame); `generateColumn` takes a third argument; the shading byte's third bit marks a vine; `Renderer.effects`, `setEye`, `hand`, `birds`, `rain`, `glows`; four new blocks (`leaves_pale`, `banana_trunk`, `banana_leaves`, `vine`).
+
 - **The home is rebuilt on branch `home`** (with `main` and Phase 7 merged in), waiting for the lead's review. What was built, what differs from the review's plan and why: [HOME.md](HOME.md).
   - **Built:** the hearth and its chimney; the cast-iron range, hood and flue; the bedroom with its window, double bed and wardrobes; the living room's sofa, armchairs and dining table; a study with a real computer desk against the bookshelves; the patio table, loungers and lanterns; lamps so every room is lit at night; the workshop and pantry dressed; the vault lined.
   - **The furniture pass** (the owner's later notes): every piece set out and judged by eye, 25 redrawn, pack icons drawn from each piece's boxes.

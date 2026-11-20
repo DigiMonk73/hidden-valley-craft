@@ -1050,23 +1050,31 @@ function placeVines(col: Uint16Array, x0: number, z0: number): void {
       const d = distToValley(x, z);
       if (d < R_IN - 2 || d > R_OUT + 2) continue;
       if (x > HOME_BOUNDS.x0 - 14 && z > HOME_BOUNDS.z0 - 10 && z < HOME_BOUNDS.z1 + 10) continue; // the home's face, the balcony, the hoist
-      if (pathAt(x, z).dist < 4) continue;
       if (SPRINGS.some((f) => Math.abs(x - f.x) < 8 && z > f.z0 - 5 && z < f.z1 + 6)) continue; // the falls and the mouths under them
-      const wet = detail.noise2(x / 14, z / 14);
-      const nearFall = SPRINGS.some((f) => Math.hypot(x - f.x, z - (f.z0 + f.z1) / 2) < 34);
+      // What a strand here would need to know, worked out only if there is rock to hang one on (most columns of the
+      // band are open air from top to bottom, and this is asked of every column the game builds near the valley).
+      let wet = 0, nearFall = false, known = false, clear = true;
       const floorH = valleyFloorHeight(x, z);
       for (let y = Math.min(WORLD_Y - 2, VALLEY.rim + 20); y > floorH + 3; y--) {
         const i = ci(lx, y, lz);
         if (col[i] !== AIR) continue;
+        // Most open cells have no rock beside them: they are passed over here, before anything dearer is asked.
+        if (!rock(col[i + 1]) && !rock(col[i - 1]) && !rock(col[i + CS]) && !rock(col[i - CS])) continue;
+        if (!known) {
+          known = true;
+          clear = pathAt(x, z).dist >= 4;
+          wet = detail.noise2(x / 14, z / 14);
+          nearFall = SPRINGS.some((f) => Math.hypot(x - f.x, z - (f.z0 + f.z1) / 2) < 34);
+        }
+        if (!clear) break; // the home path: none in this column
+        // Against whichever side has rock (looking round from a side of its own, so no side is favoured).
+        let k = Math.floor(rand3(x, y, z, SEED + 42) * 4);
+        for (let n = 0; n < 4; n++, k = (k + 1) % 4) if (rock(col[ci(lx + SIDES[k][0], y, lz + SIDES[k][1])])) break;
+        const [dx, dz] = SIDES[k];
         // Vines grow in curtains, not as lone threads: thick in a damp patch of the wall (most of all near the falls),
         // hardly at all between the patches. (As single strands they were lost against the moss.)
         const patch = detail.noise3(x / 11, y / 16, z / 11) + wet * 0.35 + (nearFall ? 0.25 : 0);
         if (rand3(x, y, z, SEED + 41) > (patch > 0.3 ? 0.55 : 0.015)) continue;
-        // Against whichever side has rock (looking round from a side of its own, so no side is favoured).
-        let k = Math.floor(rand3(x, y, z, SEED + 42) * 4), found = false;
-        for (let n = 0; n < 4 && !found; n++, k = (k + 1) % 4) if (rock(col[ci(lx + SIDES[k][0], y, lz + SIDES[k][1])])) { found = true; break; }
-        if (!found) continue;
-        const [dx, dz] = SIDES[k];
         // Under the open sky, not in a cave: nothing solid within a few blocks straight above the strand's top.
         let open = true;
         for (let u = 1; u <= 6 && y + u < WORLD_Y; u++) if (col[ci(lx, y + u, lz)] !== AIR && col[ci(lx, y + u, lz)] !== VINES[k]) { open = false; break; }

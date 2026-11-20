@@ -98,3 +98,26 @@ Every item is judged by eye. Before anything was changed, one set of pictures wa
 - **The jerky rack's stray texels.** Its four legs were drawn with the rack's own cut-out picture, of which two texels fall on each leg: the legs were invisible but for two dots apiece. They are oak posts now.
 - **The sump reads as dangerous.** The black sludge gives off a dim, sick green light of its own (a glow, item 3: faint by day, plain at dusk; it lights nothing) and a slow yellow-green vapour rises off it. The signs said it; now the pond does.
 - **Not done, and why:** a gun rack in the vault (a new piece of furniture inside the home, which the home's own fixtures pin: a job for a pass over the home, not this one); Ray's face at a distance (the people's models are Phase 8's; nothing in this track touches `src/render/creatures.ts`); the thermal optic's glow and the dish from the far garden were to be photographed and judged, and were not reached.
+
+## Hooks in `src/game.ts` (each in one place)
+
+| Hook | Where | What |
+|---|---|---|
+| `updateHand(dt)` | called once in `frame`, before `render` | tells the hand what is held and what the player is doing |
+| three lines in the canvas's `mousedown` listener | `bindInput` | a click swings the hand, a shot kicks it |
+| `renderer.setEye(...)` | `frame`, before `applySky` | is the eye in water, and the light there |
+| `updateBirds(dt)` | called once in `frame`, before `render` | birds, rain, and the sounds and the one line they cause |
+| the sump's vapour | `emitParticles` (7 lines) | |
+| `sit`, `seatBody`, `keepSeat`, `stand`; `SEATS` | by `useFurniture`; one line each in `tick` (no step while seated), the hurt check, `useFurniture`, `usableTarget`, the key-down listener; `snapshot` saves where you stood | sitting |
+| `setEffects`, and `fx` in `saveSettings` / `loadSettings` | with the other settings | the Effects setting |
+
+Outside it: `src/audio/audio.ts` gained `rain`, `quetzal`, `flutter` and two names in `materialOf`; `src/entity/spawner.ts` three names in its list of what is not ground; `src/world/items.ts` three names in what an axe cuts.
+
+## Merging with Track B
+
+Track B's first push (`phase9b` at 16cb1a3, seen 2026-11-20) meets this branch in four files. None of it is a disagreement; each is two additions to the same lines.
+
+- **`src/gen/terrain.ts`:** B made `generateColumn` a wrapper over a generator, `generateColumnSteps(cx, cz)`. Keep B's shape and carry the plants through: `generateColumn(cx, cz, plants = 'now')` calls `generateColumnSteps(cx, cz, plants)`, whose last part is `placeTrees(col, x0, z0, plants); placeGroundPlants(col, x0, z0); if (plants === 'now') placeVines(col, x0, z0);`.
+- **`src/ui/hud.ts` and `src/game.ts` (settings):** B moved the settings into `src/game/settings.ts`. The Effects checkbox becomes one more field there (`fx: boolean`, default true), shown by `showSettings`, and its action `setEffects` sets `renderer.effects`.
+- **`src/render/renderer.ts`:** B chooses anti-aliasing when the context is made. Keep `stencil: true` in the same options (the far land needs it: without a stencil buffer it would cover the real land in every column at the edge of what is loaded), and `gl.info.autoReset = false` after it.
+- **`src/jobs/tasks.ts` / the mesher:** a chunk's mesh now carries `glows` (a small `Float32Array`); if B releases a mesh's CPU arrays after upload, `glows` is read once in `Renderer.setChunkMesh` and can go with them.
