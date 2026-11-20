@@ -57,15 +57,18 @@ describe('FINDING 1 · the one backup slot is written over by the next thing tha
 
   it('"Open the backup" to look at it, then the page is closed: this session’s play must still be somewhere next time', async () => {
     const store = browserStore(), pending = memoryPending();
-    await store.set(SAVE_KEY, await encodeSave(valley(OLDER))); // the valley as the session finds it
+    await store.set(SAVE_KEY, await encodeSave(valley(OLDER)));
     let p = await openPage(store, pending);
+    await p.in.loadFromCode(saveToCode(await encodeSave(valley(REAL - 1)))); // OLDER is the backup now
     p.game.wallet = REAL; p.in.edited();
     await p.in.save(false); // the session's play, saved
     await p.in.openBackup(); // "The backup is open. The valley you just left is the backup now."
+    expect(p.game.wallet).toBe(OLDER);
     expect((await stored(store, BACKUP_KEY))!.wallet).toBe(REAL);
     hide(); await settle(p);
     p = await openPage(store, pending);
     expect(await wallets(store, pending)).toContain(REAL);
+    expect((await stored(store, BACKUP_KEY))!.wallet).toBe(REAL); // the page load did not touch the backup
   });
 
   it('New game by mistake, then a second tab is opened to look: the valley left must still be somewhere', async () => {
@@ -183,7 +186,8 @@ describe('FINDING 9 · a write that never answers stops saving for the session a
     p.in.ready = true;
     p.game.player.flying = true;
     hung = true;
-    for (let i = 0; i < 5; i++) { p.in.edited(); play(p, 70); await new Promise((r) => setTimeout(r, 30)); }
+    p.game.keeper.writeWaitMs = 20; // (30 s in the page)
+    for (let i = 0; i < 5; i++) { p.in.edited(); play(p, 70); await new Promise((r) => setTimeout(r, 60)); }
     p.in.pause();
     await new Promise((r) => setTimeout(r, 100));
     const said = p.hud.statusWarn || p.hud.toasts.some((t) => /sav/i.test(t));
@@ -285,10 +289,13 @@ describe('FINDING 4 · a swap goes ahead when the backup of the valley being lef
     const lost: number[] = [], opened: number[] = [];
     for (let n = 1; n <= writes; n++) {
       const store = failingAt(n), pending = memoryPending();
-      await script(store, pending);
+      const p = await script(store, pending);
       // The valley as played (REAL + 1) or as found (REAL), and the one loaded (OLDER), must each be held somewhere.
       const all = await wallets(store, pending);
-      if (!(all.includes(REAL + 1) || all.includes(REAL)) || !all.includes(OLDER)) { lost.push(n); console.info(`REVIEW write ${n} (${store.keys[n - 1]}) failed of [${store.keys.join(', ')}]: the browser holds wallets ${JSON.stringify(all)}`); }
+      // (If the valley being left could not be kept, the load is refused and says so: the valley loaded stays in the
+      // player's own code, and nothing in the browser changes.)
+      const refused = p.hud.toasts.some((t) => t.includes('could not be kept as the backup'));
+      if (!(all.includes(REAL + 1) || all.includes(REAL)) || !(all.includes(OLDER) || refused)) { lost.push(n); console.info(`REVIEW write ${n} (${store.keys[n - 1]}) failed of [${store.keys.join(', ')}]: the browser holds wallets ${JSON.stringify(all)}`); }
       // Next start, on the same storage now healthy: a real valley opens (not a fresh one), at a working menu.
       const again = await openPage(store, pending);
       opened.push(again.game.wallet);

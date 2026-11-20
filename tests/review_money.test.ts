@@ -100,7 +100,7 @@ describe('FINDING 3 · two one-of-a-kind desks can be mined for planks before th
 });
 
 describe('FINDING 8 · with a screen open the clock runs and the body, the wild and Marco’s hours do not', () => {
-  it('a whole day spent in the pack screen should cost a day’s food and water', async () => {
+  it('a day does not pass in the pack screen: the clock stands still with the body, and the rig is paid nothing for it', async () => {
     const p = await begun();
     const g = p.game;
     g.player.flying = false;
@@ -114,8 +114,11 @@ describe('FINDING 8 · with a screen open the clock runs and the body, the wild 
     hands(p).closeScreen();
     p.in.tickPlaces();
     console.info(`REVIEW a game day in the pack screen: hour ${hour.toFixed(2)} → ${g.hour.toFixed(2)}, hunger ${g.vitals.hunger}, thirst ${g.vitals.thirst}, the rig paid ${g.wallet - wallet} sats`);
-    expect(g.wallet - wallet).toBeGreaterThan(RIG_SATS_PER_DAY * 0.95); // the day did pass: the rig was paid for it
-    expect(g.vitals.hunger).toBeLessThan(80); // …so the body should have lived it
+    // (The fix chosen, docs/FIXES.md 9: the clock stops with the body, rather than the body living the day.)
+    expect(g.hour).toBeCloseTo(hour, 5);
+    expect(g.wallet - wallet).toBe(0);
+    expect(g.vitals.hunger).toBe(80);
+    expect(RIG_SATS_PER_DAY).toBeGreaterThan(0);
   });
 
   it('Marco’s trade left open past six in the evening and through the night: he should not still be dealing at dawn with a new purse', async () => {
@@ -170,7 +173,10 @@ describe('FINDING 11 · the home phone is a block: mined, carried and set down, 
     const care = p.in.paper.tradeView?.().buy[0];
     care?.act();
     console.info(`REVIEW the phone mined gives ${carried} phone; set down at the pharmacy in Zone 2 and Doc called: health 20 → ${g.vitals.hp}`);
-    expect({ carried, healedInTheField: g.vitals.hp > 20 }).toEqual({ carried: 0, healedInTheField: false });
+    // (The fix chosen, docs/FIXES.md 9: the phone may be moved, as furniture is, but it rings only from the valley.)
+    expect(carried).toBe(1);
+    expect(g.vitals.hp).toBe(20);
+    expect(p.hud.toasts.at(-1)).toContain('No signal out here');
   });
 });
 

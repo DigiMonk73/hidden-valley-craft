@@ -1,7 +1,7 @@
 // M1, the first outside run (docs/PHASE4.md, step 7). DESIGN.md's four M1 unlocks are narrative, with no
 // new recipes; here each is a flag the game sets when the player has done it. Pure.
 
-import { inSanctuary, zoneAt, GATE, ZONE2, ZONE3 } from '../gen/layout.ts';
+import { inSanctuary, zoneAt, GATE, TUNNEL, VALLEY, ZONE2, ZONE3 } from '../gen/layout.ts';
 
 export interface Step { flag: string; label: string }
 
@@ -21,13 +21,16 @@ export const M1_STEPS: Step[] = [
  * taken from his pockets (`scoutPistolTaken`), not any pistol carried. And the way home has to be travelled:
  * `notWalkedHome` below undoes a run that ended with hold H or a death.
  */
-export function trackM1(flags: Set<string>, x: number, z: number, scoutPistolTaken: boolean): string[] {
+export function trackM1(flags: Set<string>, x: number, z: number, scoutPistolTaken: boolean, y = 0): string[] {
   const added: string[] = [];
   const set = (f: string) => { if (!flags.has(f)) { flags.add(f); added.push(f); } };
   const home = inSanctuary(x, z);
   // Out means through the gate to its canyon side: turning back in the tunnel doesn't count.
   if (!home && x < GATE.x0) set('been_out');
-  else if (home && flags.has('been_out')) set('gate_both');
+  // Back means swum back: seen in the tunnel on the valley side of the gate, under the rock. (The valley's rim can
+  // be reached on foot from outside and climbed down: that is not the gate, and does not tick this step.)
+  if (flags.has('been_out') && inTunnelHome(x, y, z)) set('swum_back');
+  if (home && flags.has('been_out') && flags.has('swum_back')) set('gate_both');
   const zone = zoneAt(x, z);
   if (zone === 'near' || zone === 'mid' || zone === 'deep') set('reached_near');
   if (home && flags.has('reached_near')) set('extracted');
@@ -36,13 +39,18 @@ export function trackM1(flags: Set<string>, x: number, z: number, scoutPistolTak
   return added;
 }
 
+/** In the tunnel itself, under the rock between the gate and the valley's mouth: the last stretch of the swim home. */
+export function inTunnelHome(x: number, y: number, z: number): boolean {
+  return x >= GATE.x0 && x < TUNNEL.x1 && Math.abs(z - (TUNNEL.z + 0.5)) <= TUNNEL.halfWidth + 1.5 && y <= VALLEY.water + 1;
+}
+
 /**
  * The first run's way home has to be swum and walked: waking at the bed after a death, or holding H, is not
  * coming home through the gate. Undoes the half-made steps of M1 (a step already ticked stays ticked).
  */
 export function notWalkedHome(flags: Set<string>): void {
   if (!flags.has('extracted')) flags.delete('reached_near');
-  if (!flags.has('gate_both')) flags.delete('been_out');
+  if (!flags.has('gate_both')) { flags.delete('been_out'); flags.delete('swum_back'); }
 }
 
 /** A death outside is not a safe way home: the run to Zone-1 has to be walked back. */

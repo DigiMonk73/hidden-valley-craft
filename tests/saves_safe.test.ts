@@ -17,7 +17,8 @@ vi.mock('../src/platform/tablock.ts', async () => (await import('./game/stubs.ts
 import { openPage, memoryPending, loadLand, play, hide, settle, browserStore } from './game/harness.ts';
 import { tab } from './game/stubs.ts';
 import { MemoryStore, openStore, markHome, OPEN_WAIT_MS, OPEN_WAIT_KNOWN_MS, type Store } from '../src/platform/storage.ts';
-import { Keeper, SAVE_KEY, BACKUP_KEY, BAD_KEY, NOTES } from '../src/save/keeper.ts';
+import { Keeper, SAVE_KEY, BACKUP_KEY, PREVIOUS_KEY, BAD_KEY, NOTES } from '../src/save/keeper.ts';
+import { BEGUN } from '../src/save/state.ts';
 import { newSave, normaliseSave, migrate, START } from '../src/save/state.ts';
 import { encodeSave, encodeSaveNow, parseSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from '../src/save/save.ts';
 import { saveToCode } from '../src/platform/fileio.ts';
@@ -130,20 +131,21 @@ describe('the keeper: which copy opens, the backup, and who may write', () => {
     expect([earlier.from, earlier.data!.wallet]).toEqual(['store', 100]);
   });
 
-  it('keeps a backup of the save as each session found it, and opens it when the save cannot be read', async () => {
+  it('keeps a copy of the save as each session found it (apart from the backup), and opens it when the save cannot be read', async () => {
     const store = new MemoryStore();
     const k1 = new Keeper(store, memoryPending());
     k1.adopt(valley(700));
     await k1.save(() => valley(700));
-    await new Keeper(store, memoryPending()).load(); // the next session: its backup is the save as found
-    expect((await stored(store, BACKUP_KEY))!.wallet).toBe(700);
+    await new Keeper(store, memoryPending()).load(); // the next session keeps the save as found…
+    expect((await stored(store, PREVIOUS_KEY))!.wallet).toBe(700);
+    expect(await store.get(BACKUP_KEY)).toBeNull(); // …and never touches the backup: that is the valley left by a swap
     const junk = new Uint8Array([0x1f, 0x8b, 1, 2, 3, 4]);
     await store.set(SAVE_KEY, junk);
     const k3 = new Keeper(store, memoryPending());
     const r = await k3.load();
-    expect(r.from).toBe('backup');
+    expect(r.from).toBe('previous');
     expect(r.data!.wallet).toBe(700);
-    expect(r.note).toContain('backup');
+    expect(r.note).toContain('kept beside it');
     expect(r.unsaved).toBe(true);
     expect(await store.get(BAD_KEY)).toEqual(junk); // the unreadable bytes are kept aside, not written over
   });
@@ -165,7 +167,7 @@ describe('the keeper: which copy opens, the backup, and who may write', () => {
     expect([r.data, r.note, k.stopped]).toEqual([null, NOTES.newer, 'newer-build']);
     expect(await k.save(() => valley(1))).toBe('stopped');
     expect(k.saveNow(() => valley(1))).toBeNull();
-    expect(await k.replace(valley(1), null)).toBe(false);
+    expect(await k.replace(valley(1), null)).toBe('stopped');
     expect(await store.get(SAVE_KEY)).toEqual(newer);
   });
 
@@ -177,7 +179,7 @@ describe('the keeper: which copy opens, the backup, and who may write', () => {
     const r = await k.load();
     expect([r.data, r.note, k.stopped]).toEqual([null, NOTES.storeError, 'store-error']);
     expect(await k.save(() => valley(1))).toBe('stopped');
-    expect(await k.replace(valley(1), null)).toBe(false);
+    expect(await k.replace(valley(1), null)).toBe('stopped');
     expect((await stored(inner))!.wallet).toBe(9_999_999);
   });
 
@@ -214,7 +216,7 @@ describe('the keeper: which copy opens, the backup, and who may write', () => {
     const old = valley(123);
     k.adopt(old);
     const fresh = newSave();
-    expect(await k.replace(fresh, old)).toBe(true);
+    expect(await k.replace(fresh, old)).toBe('ok');
     expect((await stored(store))!.id).toBe(fresh.id);
     expect((await k.backup())!.wallet).toBe(123);
     expect(k.backupWhen).not.toBeNull();
@@ -397,7 +399,8 @@ describe('the game and its saves', () => {
   it('a good save pasted in opens, is stored at once, and the valley left becomes the backup', async () => {
     const a = await openPage();
     a.game.wallet = 777;
-    await a.in.loadFromCode(saveToCode(await encodeSave(valley(4242))));
+    a.game.flags.add(BEGUN); // a valley that has been played: one never begun is not worth the backup slot
+    await a.in.loadFromCode(saveToCode(await encodeSave(valley(4242, { flags: [BEGUN] }))));
     expect(a.game.wallet).toBe(4242);
     expect((await stored(a.store))!.wallet).toBe(4242);
     expect((await stored(a.store, BACKUP_KEY))!.wallet).toBe(777);
@@ -412,7 +415,7 @@ describe('the game and its saves', () => {
     const { fakeBrowser } = await import('./game/harness.ts');
     fakeBrowser();
     const store = browserStore();
-    await store.set(SAVE_KEY, await encodeSave(valley(9_999_999)));
+    await store.set(SAVE_KEY, await encodeSave(valley(9_999_999, { seq: 7 })));
     const g = new Game({ clientWidth: 1, clientHeight: 1, addEventListener() {} } as unknown as HTMLCanvasElement, {} as HTMLElement, { renderChunks: 2, store, pending: memoryPending() });
     expect(g.handover()).toBeUndefined(); // before boot: the review's blank game at 0,0,0
     await g.boot();
@@ -423,8 +426,14 @@ describe('the game and its saves', () => {
       const p = await openPage(store, memoryPending(), { handover });
       expect(p.game.wallet).toBe(9_999_999);
     }
-    // A real one does, and is written to the store.
-    const p = await openPage(store, memoryPending(), { handover: valley(31) });
+    // Nor does a whole valley that is not the stored one (some other page's), or an earlier state of it.
+    const mine = (await stored(store))!;
+    for (const handover of [valley(31), { ...mine, wallet: 31, seq: mine.seq! - 1 }]) {
+      const q = await openPage(store, memoryPending(), { handover });
+      expect(q.game.wallet).toBe(9_999_999);
+    }
+    // The stored valley's own later state does, and is written to the store.
+    const p = await openPage(store, memoryPending(), { handover: { ...mine, wallet: 31 } });
     expect(p.game.wallet).toBe(31);
     await p.in.save(false);
     expect((await stored(store))!.wallet).toBe(31);
@@ -437,6 +446,7 @@ describe('the game and its saves', () => {
     a.game.wild.ashen.down = 3;
     a.game.dose = 60;
     a.game.flags.add('safe_open');
+    a.game.flags.add(BEGUN);
     a.game.vitals.hp = 5;
     a.in.edited();
     await a.in.save(false);

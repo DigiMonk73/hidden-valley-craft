@@ -32,10 +32,12 @@ and is written down with its reason.
   - each valley has an **id** and each write a **counter**. The copy made as the page closes replaces the
     stored save only as a later write of the same valley. A fresh valley started while the real one could not
     be reached has another id, so it can never replace it;
-  - a **backup** (`save:backup`): the save as each session found it. New game and "Load" make the valley
-    being left the backup first. The menu has **Open the backup**, which swaps the two, so it can be undone;
-  - a save that **cannot be read** is kept aside (`save:bad`), and the close-time copy, then the backup, then a
-    fresh valley is opened, with a plain line in the menu and on screen when play begins;
+  - a **backup** (`save:backup`): the valley left behind by New game, a load or "Open the backup", written
+    before the new one takes its place and never touched by a page load. The menu has **Open the backup**,
+    which swaps the two, so it can be undone. Beside it, `save:previous` keeps the save as each session found
+    it (item 9 tells why they are two);
+  - a save that **cannot be read** is kept aside (`save:bad`), and the close-time copy, then the copy kept as
+    the last session found it, then the backup, then a fresh valley is opened, with a plain line in the menu and on screen when play begins;
   - a save from a **newer build** is never written over by an older page: it says "reload the page";
   - a **failed read** is not taken for "no save": the page stops saving rather than write over what it could
     not read;
@@ -68,11 +70,11 @@ and is written down with its reason.
 - *The owner's test saves still open* (version 1 is upgraded), because it cost nothing. The home rebuild on
   branch `home` starts a fresh valley by its own rule; that is its call, not this one's.
 
-**Tests.** `tests/saves_safe.test.ts` (31): the check, the keeper, the storage open, and the real `Game` built in
+**Tests.** `tests/saves_safe.test.ts` (32): the check, the keeper, the storage open, and the real `Game` built in
 Node (`tests/game/harness.ts`, with the picture, screens, sound and mouse stubbed): a full round-trip, play with
 no edit saved on a timer, on pause and at close, malformed saves at boot and at import, a hand-over before
 boot, New game, two tabs with and without locks. `tests/e2e/saves.mjs` runs the same cases in a real browser
-(14 checks), with a real IndexedDB made slow and made to never answer.
+(16 checks), with a real IndexedDB made slow and made to never answer.
 
 ---
 
@@ -119,6 +121,14 @@ second near any obstacle; at dawn the night's hunters were deleted in plain view
 
 **Left undone.**
 
+- **The valley can be walked into over its rim** (the fresh review's finding 6; it is so on `main` too). From
+  the canyon a walker climbs the valley's outer slope, crosses the line at about (1734, 115, 1125) and comes down
+  the south cliff by falls that do no harm: 146 seconds from the tunnel's canyon mouth to the middle of the floor.
+  The premise is that the tunnel is the only way in. Closing it means making the valley's cliff sheer all round
+  for at least a deadly fall, which reshapes the most looked-at land in the game and the land near the home that
+  branch `home` is also changing; it wants its own pass, with pictures for the owner. The check is written and
+  skipped in `tests/review_land.test.ts`. No hostile can use it (the sanctuary rule is in code), and M1 no longer
+  ticks by it.
 - **The outpost's stealth route does not hide the player from the lookout** on its west leg (x 889–879, z 1046):
   the brush there stands on lower ground than the trail and he sees over it. It needs taller brush, which is
   blocks, not a post. The check is written and skipped in `tests/creatures_real.test.ts`.
@@ -455,8 +465,77 @@ makeover on branch `home`, which edits the same functions, merges cleanly first)
 
 ---
 
+## 9. The fresh review, and its fixes
+
+A reviewer that did not write the code checked `git diff origin/main...fixes` by running things: probes on the
+real `Game` in Node and on the built page in a browser, told to break the saves and to find new ways to cheat the
+economy and the milestones. It proved twelve faults with 22 failing probes. Eleven are fixed, each held by a test
+(the probes themselves, kept as `tests/review_saves.test.ts`, `tests/review_money.test.ts` and
+`tests/review_land.test.ts`); one is not, and says so.
+
+1. **The one backup slot was written over by the next thing that happened.** Every page load copied the stored
+   save over it, and so did any second swap: New game by mistake, then a reload, and both slots held the blank
+   valley. *Fix:* two slots. `save:backup` is the valley left by New game, a load or "Open the backup", and only
+   those write it. `save:previous` is the save as each session found it, used by itself only when the save
+   cannot be read. A valley never begun is not put in the backup (two New games in a row kept nothing). One swap
+   at a time: a second click while the first is being stored does nothing. The New game button disarms after it
+   fires.
+2. **The hand-over between page versions was taken without asking whose it was.** A tab told "another tab has
+   saved since" handed its stale valley on over the newer save; so did a valley begun while storage would not
+   open. *Fix:* a hand-over takes the stored save's place only as the same valley, written no earlier; a page
+   that has stopped saving, or whose valley is such a stand-in, hands nothing on.
+3. **Two one-of-a-kind desks could be mined for planks before they were read:** the pharmacy counter (Doc's
+   card, and with it M3) and the engineer's desk (Ray's number, and with it M4). *Fix:* neither can be broken.
+4. **A swap went ahead when the valley being left could not be kept.** *Fix:* the backup is written first; if
+   that fails nothing else is written, the valley is put back, and a line says so.
+5. **A valley first kept in the browser's simpler storage was left behind** the day the main storage opened in
+   time, and a fresh one started without a word. *Fix:* it is moved across the first time the main storage opens
+   empty.
+6. **The valley can be reached on foot from the canyon, over the rim** and down the south cliff by harmless
+   falls, with the gate shut. It is so on `main` too. **Not fixed** (see "Left undone"). What it let a player
+   cheat is fixed: M1's "swim out through the gate, and back home" now needs the player to have been seen in the
+   tunnel on the valley side of the gate; standing inside the valley is no longer enough.
+7. **The address bar flew and turned the clock in Survival:** `?cam=…` set the player flying, and `?hour=5.99`
+   made every reload a new dawn (Marco's purse whole again a minute after it was emptied). *Fix:* the camera is
+   honoured only with `?test`; the hour only with `?test` or on a valley not yet begun.
+8. **A version-1 valley got a new random id at every read,** so its own close-time copy never matched it. *Fix:*
+   the id is made from the save itself.
+9. **With a screen open the clock ran but hunger, the wild and Marco's hours did not:** a day in the pack screen
+   cost no food and paid the rig in full, and Marco's trade held open overnight got a second purse. *Fix:* the
+   day stands still while a screen is open, as the body already did.
+10. **A write that never answered stopped autosave for the session and nothing said so.** *Fix:* a write has 30
+    seconds to answer, then counts as failed, with the toast and the menu line a failed write has.
+11. **The home phone, mined and set down anywhere, was Doc in the field.** *Fix:* the phone may be moved, as
+    furniture is, but outside the valley it says "No signal out here".
+12. **One failed read at the start, and the page later said another tab had the valley.** *Fix:* a head that
+    could not be read is unknown, not absent; the first one read later is taken as found.
+
+Also from its reading: New game from the pause menu with the pack screen open carried the cursor's item into the
+new valley; a swap now closes open screens first.
+
+*Suspected by the reviewer and not addressed:* if the main storage opens but will not take a write (a full
+disk), the page says the valley "can't be reached" though it could be read; and a valley saved by a newer build
+has no way out but waiting for that build if the published page is ever rolled back.
+
+**It looked for and did not find:** a buy, make and sell loop that gains sats; a kept part made sellable; the
+purse dodged by reload, New game then the backup, death, hold H or midnight; rig pay without power or more than a
+day's for a day; any key that flies, makes blocks endless or moves the hour in Survival, or the mode picked again
+after play begins; a step needing a recipe gated behind its own milestone; a lost or doubled item across New game
+during an autosave or a close mid-swap; and fourteen kinds of hostile save, each of which starts, plays through a
+dawn and saves whole.
+
+---
+
 ## Left undone, in one place
 
+- **The valley can be walked into over its rim** (the fresh review's finding 6; it is so on `main` too). From
+  the canyon a walker climbs the valley's outer slope, crosses the line at about (1734, 115, 1125) and comes down
+  the south cliff by falls that do no harm: 146 seconds from the tunnel's canyon mouth to the middle of the floor.
+  The premise is that the tunnel is the only way in. Closing it means making the valley's cliff sheer all round
+  for at least a deadly fall, which reshapes the most looked-at land in the game and the land near the home that
+  branch `home` is also changing; it wants its own pass, with pictures for the owner. The check is written and
+  skipped in `tests/review_land.test.ts`. No hostile can use it (the sanctuary rule is in code), and M1 no longer
+  ticks by it.
 - **The outpost's stealth route does not hide the player from the lookout** on two stretches (he sees over the
   brush at (906, 1028–1029) and along x 889–883, z 1046). It needs taller brush there, which is land. The check
   is written and skipped in `tests/creatures_real.test.ts`.

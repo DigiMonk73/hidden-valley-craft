@@ -175,9 +175,17 @@ describe('milestone steps tick only for the real step', () => {
     // Up on the ridge east of the gate's line, outside the valley: not home.
     const ridge: [number, number] = [GATE.x0 + 1, 900];
     expect(inSanctuary(...ridge)).toBe(false);
-    trackM1(f, ...ridge, false);
+    trackM1(f, ...ridge, false, 120);
     expect(f.has('gate_both')).toBe(false);
-    trackM1(f, ...home, false);
+    // Nor is home enough by itself: the valley's rim can be walked from outside and climbed down. The step is the
+    // swim, so the player must have been seen in the tunnel on the valley side of the gate.
+    trackM1(f, ...home, false, 72);
+    expect(f.has('gate_both')).toBe(false);
+    trackM1(f, GATE.x0 + 4, 1024.5, false, 120); // on the ridge, straight above the tunnel: not in it
+    trackM1(f, ...home, false, 72);
+    expect(f.has('gate_both')).toBe(false);
+    trackM1(f, GATE.x0 + 4, 1024.5, false, 67); // in the tunnel, swimming home
+    trackM1(f, ...home, false, 72);
     expect(f.has('gate_both')).toBe(true);
   });
 
@@ -207,6 +215,7 @@ describe('milestone steps tick only for the real step', () => {
     expect([f.has('gate_both'), f.has('extracted')]).toEqual([false, false]);
     // Whereas walked and swum, it ticks.
     trackM1(f, 1100, 1028, false);
+    trackM1(f, GATE.x0 + 4, 1024.5, false, 67);
     trackM1(f, ...home, false);
     expect([f.has('gate_both'), f.has('extracted')]).toEqual([true, true]);
     hands(p).goHome();

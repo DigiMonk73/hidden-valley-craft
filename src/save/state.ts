@@ -30,6 +30,15 @@ export function newValleyId(): string {
 /** The flag a valley gets when play first begins in it: until then its mode can still be chosen. */
 export const BEGUN = 'begun';
 
+/** A steady name for a valley saved before valleys had names: the same for the same save, however often it is read. */
+function oldValleyId(d: Record<string, unknown>): string {
+  const p = (d.player ?? {}) as Record<string, unknown>;
+  const text = [d.savedAt, p.x, p.y, p.z, d.hour, Array.isArray(d.edits) ? d.edits.length : 0].map(String).join('|');
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return `v-old-${(h >>> 0).toString(36)}`;
+}
+
 /** A new game, as a save. */
 export function newSave(mode: Mode = 'survival'): SaveData {
   return {
@@ -47,7 +56,9 @@ export function newSave(mode: Mode = 'survival'): SaveData {
 /** One step each: MIGRATIONS[n] turns a version-n save into version n + 1. Add a step whenever SAVE_VERSION goes up. */
 const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   // 1 → 2: every valley gets an id, and its writes a counter.
-  1: (d) => { d.id = newValleyId(); d.seq = 0; },
+  // (The id is made from the save itself, so the same old save read twice is the same valley: a random one each
+  // read meant its own close-time copy never matched it.)
+  1: (d) => { d.id = oldValleyId(d); d.seq = 0; },
   // 2 → 3: a valley has a mode. One made before the choice existed is Survival, and already begun.
   2: (d) => { d.mode = 'survival'; d.flags = [...(Array.isArray(d.flags) ? d.flags : []), BEGUN]; },
 };

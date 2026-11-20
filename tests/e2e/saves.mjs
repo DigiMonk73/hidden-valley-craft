@@ -35,7 +35,7 @@ await a.reload();
 await ready(a);
 const back = await a.evaluate(() => { const g = window.__hv.game; return { x: g.player.x, hp: g.vitals.hp, wallet: g.wallet, toasts: g.hud.blocked }; });
 check('a walk with no block changed is saved on pause', Math.abs(back.x - at) < 0.01 && Math.round(back.hp) === 37 && back.wallet === 424242, JSON.stringify(back));
-check('the menu offers the backup', await a.getByRole('button', { name: /Open the backup/ }).isVisible());
+check('no backup is offered until a valley has been left (a page load makes none)', !(await a.getByRole('button', { name: /Open the backup/ }).isVisible()));
 
 // 2. Leaving with no pause and no edit: the close-time copy.
 await a.getByRole('button', { name: 'Play' }).click();
@@ -109,6 +109,23 @@ await d.reload();
 await ready(d);
 const after = await d.evaluate(() => ({ wallet: window.__hv.game.wallet, status: document.querySelector('.hv-status').parentElement.querySelectorAll('.hv-status')[1]?.textContent ?? '' }));
 check('a broken stored save opens the backup at a working menu, and says so', after.wallet === 31337 && await d.getByRole('button', { name: 'Play' }).isVisible(), JSON.stringify(after).slice(0, 160));
+
+// 6. New game by mistake: the valley left is the backup, a reload does not touch it, and it opens again.
+await d.close(); // (one tab at a time: a second would be held back)
+const e = await open();
+const mine = await e.evaluate(() => window.__hv.game.wallet);
+await e.getByRole('button', { name: 'New game' }).click();
+await e.getByRole('button', { name: 'Click again to erase this save' }).click();
+await e.waitForFunction((w) => window.__hv.game.wallet !== w, mine, { timeout: 60_000 }).catch(() => {});
+await ready(e);
+await e.waitForTimeout(1500);
+await e.reload();
+await ready(e);
+check('after New game and a reload, the valley left is still offered as the backup', await e.getByRole('button', { name: /Open the backup/ }).isVisible());
+await e.getByRole('button', { name: /Open the backup/ }).click();
+await e.waitForFunction((w) => window.__hv.game.wallet === w, mine, { timeout: 60_000 }).catch(() => {});
+check('and opening it brings the valley back', (await e.evaluate(() => window.__hv.game.wallet)) === mine, `wallet ${await e.evaluate(() => window.__hv.game.wallet)} (was ${mine})`);
+await e.close();
 
 check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();

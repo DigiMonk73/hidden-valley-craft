@@ -106,6 +106,31 @@ function openIdb(waitMs: number): Promise<IDBDatabase | null> {
 }
 
 /**
+ * A valley kept in localStorage on an earlier visit (IndexedDB was slow to open that day, or blocked) is moved
+ * across the first time IndexedDB opens and holds no save of its own: it used to be left behind without a word, and
+ * a fresh valley started. Its close-time copy goes with it.
+ */
+async function adoptLocalValley(idb: Store): Promise<void> {
+  try {
+    const have = await idb.get('save:1');
+    if (have && have.length) return;
+    const local = new LocalStore();
+    const save = await local.get('save:1');
+    if (!save || !save.length) return;
+    if (!(await idb.set('save:1', save))) return;
+    for (const key of ['save:head', 'save:backup', 'save:previous', 'settings']) {
+      const v = await local.get(key);
+      if (v && !(await idb.get(key))) await idb.set(key, v);
+    }
+    const copy = localStorage.getItem(`${PENDING}:localstorage`);
+    if (copy && !localStorage.getItem(`${PENDING}:indexeddb`)) localStorage.setItem(`${PENDING}:indexeddb`, copy);
+    // It lives in IndexedDB now: the old copy must not come back as a second valley another day.
+    localStorage.removeItem('hvb:save:1');
+    localStorage.removeItem(`${PENDING}:localstorage`);
+  } catch { /* blocked: nothing to move */ }
+}
+
+/**
  * Opens the best storage this page is allowed, after checking a write actually sticks.
  * If the valley was last kept in IndexedDB, the open is given a long wait (`onSlow` fires after a moment, to
  * say "opening your save…"); if it still fails, the stand-in store is marked `degraded`.
@@ -118,7 +143,11 @@ export async function openStore(onSlow?: () => void): Promise<Store> {
   if (db) {
     const s = new IdbStore(db);
     // It opened and holds a write: from now on a slow open here is waited for, not taken for "no save".
-    if (await s.set('probe', new Uint8Array([1]))) { markHome('indexeddb'); return s; }
+    if (await s.set('probe', new Uint8Array([1]))) {
+      await adoptLocalValley(s);
+      markHome('indexeddb');
+      return s;
+    }
   }
   let store: Store = new MemoryStore();
   try {

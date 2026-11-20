@@ -316,9 +316,11 @@ export class Game {
     }
     await this.openValley();
     this.booted = true;
-    if (this.opts.hour !== undefined) this.hour = this.opts.hour;
+    // The address's hour and camera are for checks and pictures: the hour only for tests or a valley not yet begun
+    // (on a begun one, "?hour=5.99" made every reload a new dawn), the camera only for tests (it flies).
+    if (this.opts.hour !== undefined && (this.opts.test || !this.flags.has(BEGUN))) this.hour = this.opts.hour;
     this.dayClock = this.hour;
-    if (this.opts.cam) {
+    if (this.opts.cam && this.opts.test) {
       const [x, y, z, yaw, pitch] = this.opts.cam;
       this.player.setPosition(x, y - EYE, z);
       this.player.yaw = yaw; this.player.pitch = pitch;
@@ -339,11 +341,13 @@ export class Game {
    */
   private async openValley(): Promise<void> {
     let opened: SaveData | null = null, unsaved = false;
+    const stored: { id: string | null; seq: number } = { id: null, seq: 0 };
     this.notice = null;
     if (!this.opts.test) {
       try {
         const r = await this.keeper.load();
         opened = r.data; unsaved = r.unsaved; this.notice = r.note;
+        stored.id = r.storedId; stored.seq = r.storedSeq;
       } catch (e) {
         console.error('the stored save could not be opened', e);
         this.notice = NOTES.fresh;
@@ -351,7 +355,10 @@ export class Game {
     }
     const handed = this.opts.handover ? normaliseSave(this.opts.handover) : null;
     this.opts.handover = undefined;
-    if (handed) { opened = handed; unsaved = true; this.fromHandover = true; }
+    // A hand-over takes the stored save's place only as the same valley, written no earlier than the store's copy
+    // (or when the store holds nothing that can be read). Anything else is some other page's valley, or a stale one.
+    const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq));
+    if (handed && theirs && !this.keeper.stopped && !this.store.degraded) { opened = handed; unsaved = true; this.fromHandover = true; }
     try {
       this.applySave(opened ?? newSave(), !opened);
     } catch (e) {
@@ -431,7 +438,9 @@ export class Game {
         this.tick(STEP);
         this.accumulator -= STEP;
       }
-      if (!this.opts.test) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
+      // The day stands still while a screen is open, as the body does: a day spent in the pack used to cost no
+      // food, pay the rig in full and bring Marco a new purse while his trade stayed open.
+      if (!this.opts.test && !this.screen.isOpen && !this.paper.isOpen) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
     }
     // Each morning (or on waking), the hutches breed.
     if (newWatch(this.dayClock, this.hour) && smokeMeat(this.world)) this.edited();
@@ -1170,7 +1179,12 @@ export class Game {
       this.openPaper(() => this.paper.computer(computerRows(this), 'R.’s terminal'));
       return true;
     }
-    if (name === 'phone') { this.openPhone(); return true; }
+    if (name === 'phone') {
+      // The builder's phone works from the cave: carried off and set down elsewhere it finds no signal (Doc is not a field medic).
+      if (!inSanctuary(x + 0.5, z + 0.5)) { this.hud.toast('No signal out here. The phone works from the cave.', 5000); return true; }
+      this.openPhone();
+      return true;
+    }
     if (name === 'map_table') {
       const f = this.flags;
       const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
@@ -1301,7 +1315,7 @@ export class Game {
     // The coops' hens walk round them, as many as each holds.
     this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
-    const gained = trackM1(f, p.x, p.z, this.scoutPistolTaken());
+    const gained = trackM1(f, p.x, p.z, this.scoutPistolTaken(), p.y);
     if (gained.length) this.edited();
     if (gained.includes('m1_done')) this.hud.toast('M1 · the first outside run. You went out, and came home. New things can be made at the workbench now: a coop, a bow, a smoker, the forge.', 10000);
     else if (gained.includes('extracted')) this.hud.toast('Home, from Zone 1, alive. The way back is on the builder’s map now.', 6000);
@@ -1668,7 +1682,10 @@ export class Game {
 
   /** The state to hand to the page's next version: nothing until a valley has been opened (a blank game must never be handed on). */
   handover(): SaveData | undefined {
-    return this.booted && !this.secondTab ? this.snapshot() : undefined;
+    // Nor from a page that has stopped saving (another tab holds the newer valley) or whose valley is a stand-in
+    // begun while the storage would not open: neither may take the real one's place.
+    if (!this.booted || this.secondTab || this.keeper.stopped || this.store.degraded) return undefined;
+    return this.snapshot();
   }
 
   /**
@@ -1877,29 +1894,53 @@ export class Game {
    */
   private async swapValley(next: SaveData, fresh: boolean, done: string): Promise<void> {
     if (!this.booted || this.secondTab) return;
+    // One swap at a time: a second click while the first is still being stored used to put the wrong valley in the backup.
+    if (this.swapping) return;
     if (this.keeper.stopped === 'newer-build' || this.keeper.stopped === 'store-error') { this.hud.toast(NOTES[this.keeper.stopped === 'newer-build' ? 'newer' : 'storeError'], 9000); return; }
-    const current = this.snapshot();
+    // Anything held on a screen's cursor goes back into the pack of the valley being left, not on into the next.
+    if (this.screen.isOpen) this.closeScreen();
+    if (this.paper.isOpen) this.closePaper();
+    if (this.screen.isOpen) return;
+    this.swapping = true;
     try {
-      this.restart(next, fresh);
-    } catch (e) {
-      console.error('that save could not be applied', e);
-      this.restart(current, false);
-      this.hud.toast('That save could not be opened. Your valley is untouched.', 7000);
-      return;
+      const current = this.snapshot();
+      try {
+        this.restart(next, fresh);
+      } catch (e) {
+        console.error('that save could not be applied', e);
+        this.restart(current, false);
+        this.hud.toast('That save could not be opened. Your valley is untouched.', 7000);
+        return;
+      }
+      const noticeWas = this.notice, handedWas = this.fromHandover;
+      this.notice = null;
+      this.fromHandover = false;
+      if (!this.opts.test) {
+        // The valley being left is kept as the backup first (if it was ever begun); only then is the new one stored.
+        let r: 'ok' | 'not-kept' | 'failed' | 'stopped' = 'failed';
+        try { r = await this.keeper.replace(next, current, (current.flags ?? []).includes(BEGUN)); } catch (e) { console.error('storing the new valley failed', e); }
+        if (r === 'not-kept' || r === 'stopped') {
+          // It could not be kept: put it back, and change nothing.
+          this.restart(current, false);
+          this.notice = noticeWas; this.fromHandover = handedWas;
+          this.editCount++; // as it was: still to be written
+          this.hud.toast(r === 'not-kept' ? NOTES.notKept : NOTES.newer, 9000);
+          this.updateSaveStatus();
+          void this.refreshCode();
+          return;
+        }
+        this.lastWriteFailed = r !== 'ok';
+        if (r !== 'ok') this.editCount++; // still to be written
+      }
+      this.hud.setBlocked(null);
+      this.hud.toast(done, 5000);
+      this.updateSaveStatus();
+      void this.refreshCode();
+    } finally {
+      this.swapping = false;
     }
-    this.notice = null;
-    this.fromHandover = false;
-    let ok = false;
-    if (!this.opts.test) {
-      try { ok = await this.keeper.replace(next, current); } catch (e) { console.error('storing the new valley failed', e); }
-      this.lastWriteFailed = !ok;
-      if (!ok) this.editCount++; // still to be written
-    }
-    this.hud.setBlocked(null);
-    this.hud.toast(done, 5000);
-    this.updateSaveStatus();
-    void this.refreshCode();
   }
+  private swapping = false;
 
   /** Rebuilds the world from a save in place: no page reload, so it works without storage. */
   private restart(d: SaveData, fresh: boolean): void {

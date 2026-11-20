@@ -307,7 +307,7 @@ export class Hud {
     // Starting over erases the save, so it takes a second click (browser confirm boxes don't show here).
     let armed = 0;
     const newBtn = btn('New game', () => {
-      if (Date.now() - armed < 4000) { a.newGame(); return; }
+      if (Date.now() - armed < 4000) { armed = 0; newBtn.textContent = 'New game'; a.newGame(); return; } // one erase a confirmation
       armed = Date.now();
       newBtn.textContent = 'Click again to erase this save';
       setTimeout(() => (newBtn.textContent = 'New game'), 4000);
