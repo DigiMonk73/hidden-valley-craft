@@ -6,6 +6,8 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 **Where it stands.** Everything in the brief is built, committed and pushed: steps 1–8, the generator version, Track A merged in, the headlamp's light, the banana bunch, and two fresh reviews' findings (each fixed with a test that fails on the old code, or answered with evidence). The final tree is `c072d92`: 1,046 unit tests pass, none skipped; `npx tsc --noEmit` is clean. Browser checks on it: the play-through's six parts are running (the valley part had passed on `bbfbac7` before the second review's three small fixes); then `saves.mjs`, `engine.mjs` (and `MINUTES=5 PARTS=sandbox`), `capture.mjs`; then the report to the lead.
 
+**Who gets the report:** a new lead session owns `main` and the published page since 2026-11-20 18:25 (`session_01EXF2m7f6xMYiFcWXyCnS3G`); the final report goes there (send_message). Before it, merge `origin/main` once more: the new lead may tweak `main` from the owner's play.
+
 **Agents:** the owner's instruction, passed on by the lead (2026-11-20, 16:53): every agent this track opens runs on Opus 5.5 at extra effort (Agent tool: `model: "opus"`, `effort: "xhigh"`), a fresh reviewer included. (The review below was opened before this word, at the default.)
 
 **The order of what is left** (the lead's brief to this session):
