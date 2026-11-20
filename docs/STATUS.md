@@ -4,6 +4,14 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-19)
 
+- **The review's fixes are built on branch `fixes`** (2026-11-20), waiting for the lead's review and merge: saves
+  (N1), creatures on the real land (N5), traps and a test that walks every route (N3), failures (N8), Survival
+  and Builder's mode (N2), money and milestones (N4), the first ten minutes (N6) and a first part of the split of
+  `src/game.ts` (N10). What was done, each call made and why, the tests, and what was left are in
+  [FIXES.md](FIXES.md). It was built beside the home makeover (branch `home`), which had not landed: both change
+  `src/game.ts`, `src/save/save.ts`, the land near the home and its fixtures, so whichever merges second needs
+  those reconciled (FIXES.md, 8, lists the functions kept in place for that).
+
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19).
   2. The home makeover (running in parallel, branch `home`): merge after Phase 7 and publish.

@@ -76,6 +76,119 @@ boot, New game, two tabs with and without locks. `tests/e2e/saves.mjs` runs the 
 
 ---
 
+## 2. Creatures on the real land (N5, what remained)
+
+_Phase 7 had already fixed the fed player who could not die. This is the rest._
+
+**What was wrong.** Every creature test ran on flat stub ground. On the generated land creatures were born
+across the sanctuary's line or inside trees and walls and stood rooted for good; Zone-2's sentry marched on the
+spot against a truck; the jaguar walked into the shed and blinked out; a blow's warning was cut to a quarter of a
+second near any obstacle; at dawn the night's hunters were deleted in plain view.
+
+**What was done** (old → new, each measured on generated land):
+
+- **Births.** Every spawner and `Wild.add` now requires the whole body to fit: wholly outside the sanctuary and
+  wholly out of blocks. Across the sanctuary's line: 302 of 137,604 births straddled it → 0. In forest: 82 of
+  1,500 never moved in a minute → 0. In the near band: 1,142 born with a flank in a block → 0. Tame hens still
+  walk round their coops in the valley.
+- **The sentry** completed 0 of his legs in 132 s → walks all five. His beat has a new shape (up the car park's
+  lane, across the exchange's front, back), because the review's suggested line still met a street light and
+  his old way back could not climb the highway's bank. Every patrol, sentry and guard beat is now walked in a test.
+- **The jaguar** vanished in the clearing at the shed, 23 m from the player → it leaves along its path, up the
+  bank and down behind it, and is gone only once out of sight or 60 m off. Tested from over 80 places to stand.
+- **The warning before a blow** was cut to 0.25 s near obstacles (boar: 101 of 1,949 blows) → never shorter than
+  designed. The cut now applies only while wandering.
+- **Dawn.** The night's hunters (a puma, five coyotes) vanished in plain view → they run from the player and go
+  only when unseen or 80 m off.
+- **Other scenes, each given a real-ground test:** the farm den (281 of 765 dogs were born in a wall → 0), the
+  outpost's machete man (reaches the player and returns to his post), coyote packs and the puma (on real hills
+  they ignored the player; they now react up or down a slope), Marco's spot, the raiders' posts, the tower
+  guards, the placed Ashen. A new test holds the sanctuary rule on the real rim for all twelve hostile kinds.
+- **Extras from the same list:** a dimmer light no longer goes dark when a brighter one beside it is removed
+  (N5i); the bow can be loosed inside the valley, and an arrow from outside still stops at the line (N5h);
+  right-clicking a crop with a block in hand no longer replaces the crop.
+
+**Calls made.**
+
+- *Hunters come for you up or down a slope:* within 3 blocks of height or half the distance. A player straight
+  above on a ledge is still out of reach, and a blow still needs a clear line.
+- *Once the jaguar turns to go, only a shot or a blow provokes it.* Its way out passes the rusted trap, where
+  the game sends the player.
+- *A man whose post has been built over is not placed* until it is clear, instead of standing inside the block.
+- *The bow can be shot from inside the valley at things outside.* Guns already could.
+
+**Left undone.**
+
+- **The outpost's stealth route does not hide the player from the lookout** on its west leg (x 889–879, z 1046):
+  the brush there stands on lower ground than the trail and he sees over it. It needs taller brush, which is
+  blocks, not a post. The check is written and skipped in `tests/creatures_real.test.ts`.
+- N5j (a slab or stair across a chunk border darkening its neighbour) was not touched.
+
+**Tests.** `tests/creatures_real.test.ts` (32, one skipped): 22 fail on the code before this, 10 passed there.
+
+---
+
+## 3. Places to get stuck, and a test that walks every route (N3)
+
+**What was wrong.** One step east of the top of the home path was a slot seven blocks deep with no way out. A
+cave shaft opened in the valley floor at the cliff's foot, and ran past the sanctuary's line. The "impassable"
+ravine could be walked round. Nothing in the repo walked the generated world.
+
+**The test** (`tests/walk.test.ts`, helpers in `tests/walk.ts`; 59 tests, about a minute):
+
+- **The step rules are measured** on the real `Player` in small made worlds: what it steps up, jumps, leaps,
+  swims up, and what fall is safe or deadly.
+- **The valley:** every floor column is reached; the garden, the creek's end, the pool, the tunnel mouth and the
+  balcony are reached; the flood never leaves the sanctuary; no place can be entered alive and not left; no
+  still water stands beside open air; no single rock hangs off the cliffs.
+- **Fourteen routes,** each walked on its own cells with no jump, then by the real `Player` out and back, then
+  searched for pits within 16 blocks: the home path, the canyon ramp, the old road to the broken bridge, the
+  bridge deck, the farm track, the brush trail, the camp trail, the highway to Las Cruces' gate, the hot-spring
+  cave trail, the dam road, the dam's crest, the avenue, the mine trail, the far road. One more test checks
+  that they join up.
+- **The tunnel:** shut to a walker while the gate is shut; swum both ways by the real `Player` on one breath.
+- **The gorge:** flooded from every place that can be stood on along its east edge, the whole length of the
+  world, with leaps and swimming and the dam's deck barred: the far bank is not reached. With the deck, it is.
+- **On the land as it was, 12 of these fail,** covering every case the review named.
+
+**The land, before and after** (117 columns of 32 × 32 changed, and no others: `tests/fixtures/before-n3.json`
+holds a hash of every column as it was, and two tests check that only the listed ones differ):
+
+| | Before | After |
+|---|---|---|
+| The slot by the home path | 3 places to be stuck at (1798, 75, 1010–1012) | filled level with the paving (3 cells) |
+| The cave shaft and pits at the cliff's foot | 47 stuck places at (1634, 64, 1103); 22 places outside the sanctuary | none (the valley's ring, 38 columns) |
+| Pits in the brush by the outpost | 13 | none: bushes raised, not cleared (4 columns) |
+| The gorge | the far bank reached from 28,926 places | none (75 columns) |
+| The pool and the creek | 21 water cells standing proud of the bank | none |
+| Hanging rocks; the bridge deck | 24 rocks; holes in the deck at (649, 1022–1023) | none; the deck is whole to its broken end |
+| Found by the walk itself | a dead end between the dam's penstocks | a block to step out on |
+
+**Calls made.**
+
+- *Only the gorge's west wall is made sheer:* a step of six blocks under the west rim for the whole length of
+  the world. The east wall stays as it was, so the land east of the gorge stays pinned. You can climb down the
+  east side in places and back up, but never up the west: the far bank is reached by the dam, or by building.
+- *No trees stand within 20 blocks of the west wall near the world's ends, and no cave is cut within four blocks
+  of the rim line.* Without these the wall was crossed over the treetops and under the rock.
+- *The reservoir's west shore stands two above the water, and the dam's downstream face is a full wall with the
+  tailrace in a culvert.* Each was a ladder to the far bank.
+- *Cave mouths in the valley's cliff are sealed about two blocks deep,* because cave roofs are now kept under
+  the lowest open ground near them.
+
+**The wake point** (N3e; `src/sim/wake.ts`). Blocks stacked on the place you wake used to leave you inside them
+after a death or hold H; a shaft dug under it killed you over and over; a bed carried out of the valley and slept
+in moved "home" to the road. Now, once the land there is in, you stand at the wake point if it is free with
+ground under it; else at the nearest place within three blocks that is ("Something stands where you wake: you
+are set down beside it"); else on the balcony, which becomes the wake point until you sleep again. A wake point
+outside the valley is not one: hold H and death bring you to the balcony. *Call:* sleeping still works in a bed
+anywhere (a night's sleep on the road is the player's own risk); only "home" stays in the valley.
+
+**Not done.** The review's one pit far off the road in the buffer's hills, at (1261, 130, 1153), is outside the
+16-block search and was left. Columns in the valley's ring take about 6 ms longer to generate.
+
+---
+
 ## 4. Failures that are not handled (N8)
 
 _Built before items 2 and 3 landed (they were being worked on in parallel), so its commit comes first._
@@ -299,107 +412,62 @@ opening card and its "Skip".
 
 ---
 
-## 2. Creatures on the real land (N5, what remained)
+## 8. Splitting `src/game.ts` (N10)
 
-_Phase 7 had already fixed the fed player who could not die. This is the rest._
+**What it was.** One class of about 2,000 lines that ran everything and could not be built outside a browser,
+so the wiring between the tested parts (saving, dying, trading, milestones) had no tests, and that is where most
+of the review's bugs were.
 
-**What was wrong.** Every creature test ran on flat stub ground. On the generated land creatures were born
-across the sanctuary's line or inside trees and walls and stood rooted for good; Zone-2's sentry marched on the
-spot against a truck; the jaguar walked into the shed and blinked out; a blow's warning was cut to a quarter of a
-second near any obstacle; at dawn the night's hunters were deleted in plain view.
+**What was done** (no change in behaviour):
 
-**What was done** (old → new, each measured on generated land):
+| New module | What moved there | Tests |
+|---|---|---|
+| `src/save/state.ts` | What a save holds: a new game, the check every save goes through, upgrades (item 1) | `tests/saves_safe.test.ts` |
+| `src/save/keeper.ts` | Which copy opens, the backup, who may write (item 1) | `tests/saves_safe.test.ts` |
+| `src/platform/tablock.ts`, `src/platform/context.ts` | The browser's tab lock and the lost picture, behind fallbacks (items 1, 4) | `saves_safe`, `failures` |
+| `src/game/people.ts` | Marco's trade, Doc's services, Ray's catalogue and plans, from a narrow view of the game | `tests/money.test.ts`, `tests/people.test.ts` |
+| `src/game/computer.ts` | What the builder's terminal shows | `tests/people.test.ts` |
+| `src/sim/weapons.ts` | The guns, the bows, the blades | `tests/people.test.ts` |
+| `src/sim/guide.ts` | The first goals and the next milestone step (item 7) | `tests/first_minutes.test.ts` |
+| `src/sim/wake.ts` | Where you wake and stand (item 3) | `tests/wake.test.ts` |
+| `src/sim/power.ts` (`chillJugs`) | The fridge's rule | `tests/wake.test.ts` |
 
-- **Births.** Every spawner and `Wild.add` now requires the whole body to fit: wholly outside the sanctuary and
-  wholly out of blocks. Across the sanctuary's line: 302 of 137,604 births straddled it → 0. In forest: 82 of
-  1,500 never moved in a minute → 0. In the near band: 1,142 born with a flank in a block → 0. Tame hens still
-  walk round their coops in the valley.
-- **The sentry** completed 0 of his legs in 132 s → walks all five. His beat has a new shape (up the car park's
-  lane, across the exchange's front, back), because the review's suggested line still met a street light and
-  his old way back could not climb the highway's bank. Every patrol, sentry and guard beat is now walked in a test.
-- **The jaguar** vanished in the clearing at the shed, 23 m from the player → it leaves along its path, up the
-  bank and down behind it, and is gone only once out of sight or 60 m off. Tested from over 80 places to stand.
-- **The warning before a blow** was cut to 0.25 s near obstacles (boar: 101 of 1,949 blows) → never shorter than
-  designed. The cut now applies only while wandering.
-- **Dawn.** The night's hunters (a puma, five coyotes) vanished in plain view → they run from the player and go
-  only when unseen or 80 m off.
-- **Other scenes, each given a real-ground test:** the farm den (281 of 765 dogs were born in a wall → 0), the
-  outpost's machete man (reaches the player and returns to his post), coyote packs and the puma (on real hills
-  they ignored the player; they now react up or down a slope), Marco's spot, the raiders' posts, the tower
-  guards, the placed Ashen. A new test holds the sanctuary rule on the real rim for all twelve hostile kinds.
-- **Extras from the same list:** a dimmer light no longer goes dark when a brighter one beside it is removed
-  (N5i); the bow can be loosed inside the valley, and an arrow from outside still stops at the line (N5h);
-  right-clicking a crop with a block in hand no longer replaces the crop.
+- **The real `Game` now runs in Node** (`tests/game/harness.ts`, `tests/game/stubs.ts`): the picture, the
+  screens, sound and the mouse are stood in for, the store and the close-time copy are in memory, and a test
+  can open a page, play frames, press keys, close the page and open it again. Five test files use it (saves,
+  modes, money, the first ten minutes, the wake point): about 80 tests on the class that had none.
+- `src/game.ts` is 2,172 lines, against 1,999 before this branch: items 1–7 added to it, and the trade screens,
+  the terminal, the weapons and the fridge's rule moved out. It is still the largest file by far; the list below is
+  what would bring it down.
 
-**Calls made.**
+**Left for the next pass, in the review's order** (each mergeable by itself; none was started, so that the home
+makeover on branch `home`, which edits the same functions, merges cleanly first):
 
-- *Hunters come for you up or down a slope:* within 3 blocks of height or half the distance. A player straight
-  above on a ledge is still out of reach, and a blow still needs a clear line.
-- *Once the jaguar turns to go, only a shot or a blow provokes it.* Its way out passes the rusted trap, where
-  the game sends the player.
-- *A man whose post has been built over is not placed* until it is clear, instead of standing inside the block.
-- *The bow can be shot from inside the valley at things outside.* Guns already could.
-
-**Left undone.**
-
-- **The outpost's stealth route does not hide the player from the lookout** on its west leg (x 889–879, z 1046):
-  the brush there stands on lower ground than the trail and he sees over it. It needs taller brush, which is
-  blocks, not a post. The check is written and skipped in `tests/creatures_real.test.ts`.
-- N5j (a slab or stair across a chunk border darkening its neighbour) was not touched.
-
-**Tests.** `tests/creatures_real.test.ts` (32, one skipped): 22 fail on the code before this, 10 passed there.
+1. `game/interactions.ts`: the right-click chain (`placeBlock`, `useFurniture`, `usePhase6`, `usePhase7`) as a
+   table keyed by block name, with `usableTarget` derived from it. The home branch edits these.
+2. `game/places.ts`: the "near X, once" toasts of `tickPlaces`, `tickFarPlaces`, `tickZone2` and `tickZone3` as
+   data, and Marco's comings and goings and the jaguar's crossing into `src/sim/`.
+3. `game/combat.ts`: `strike`, `aim`, `loose`, `takeDrops`; the guns' numbers into `data/items.json`.
+4. `platform/input.ts`: the key and mouse bindings, so `Game` no longer touches `window` and `document`.
+5. The save methods still on `Game` (`save`, `saveNow`, `swapValley`, `openValley`): the home branch edits
+   `boot`, `snapshot` and `restart` beside them.
+6. Flags as a typed union, so a typo fails to compile.
 
 ---
 
-## 3. Places to get stuck, and a test that walks every route (N3)
+## Left undone, in one place
 
-**What was wrong.** One step east of the top of the home path was a slot seven blocks deep with no way out. A
-cave shaft opened in the valley floor at the cliff's foot, and ran past the sanctuary's line. The "impassable"
-ravine could be walked round. Nothing in the repo walked the generated world.
-
-**The test** (`tests/walk.test.ts`, helpers in `tests/walk.ts`; 59 tests, about a minute):
-
-- **The step rules are measured** on the real `Player` in small made worlds: what it steps up, jumps, leaps,
-  swims up, and what fall is safe or deadly.
-- **The valley:** every floor column is reached; the garden, the creek's end, the pool, the tunnel mouth and the
-  balcony are reached; the flood never leaves the sanctuary; no place can be entered alive and not left; no
-  still water stands beside open air; no single rock hangs off the cliffs.
-- **Fourteen routes,** each walked on its own cells with no jump, then by the real `Player` out and back, then
-  searched for pits within 16 blocks: the home path, the canyon ramp, the old road to the broken bridge, the
-  bridge deck, the farm track, the brush trail, the camp trail, the highway to Las Cruces' gate, the hot-spring
-  cave trail, the dam road, the dam's crest, the avenue, the mine trail, the far road. One more test checks
-  that they join up.
-- **The tunnel:** shut to a walker while the gate is shut; swum both ways by the real `Player` on one breath.
-- **The gorge:** flooded from every place that can be stood on along its east edge, the whole length of the
-  world, with leaps and swimming and the dam's deck barred: the far bank is not reached. With the deck, it is.
-- **On the land as it was, 12 of these fail,** covering every case the review named.
-
-**The land, before and after** (117 columns of 32 × 32 changed, and no others: `tests/fixtures/before-n3.json`
-holds a hash of every column as it was, and two tests check that only the listed ones differ):
-
-| | Before | After |
-|---|---|---|
-| The slot by the home path | 3 places to be stuck at (1798, 75, 1010–1012) | filled level with the paving (3 cells) |
-| The cave shaft and pits at the cliff's foot | 47 stuck places at (1634, 64, 1103); 22 places outside the sanctuary | none (the valley's ring, 38 columns) |
-| Pits in the brush by the outpost | 13 | none: bushes raised, not cleared (4 columns) |
-| The gorge | the far bank reached from 28,926 places | none (75 columns) |
-| The pool and the creek | 21 water cells standing proud of the bank | none |
-| Hanging rocks; the bridge deck | 24 rocks; holes in the deck at (649, 1022–1023) | none; the deck is whole to its broken end |
-| Found by the walk itself | a dead end between the dam's penstocks | a block to step out on |
-
-**Calls made.**
-
-- *Only the gorge's west wall is made sheer:* a step of six blocks under the west rim for the whole length of
-  the world. The east wall stays as it was, so the land east of the gorge stays pinned. You can climb down the
-  east side in places and back up, but never up the west: the far bank is reached by the dam, or by building.
-- *No trees stand within 20 blocks of the west wall near the world's ends, and no cave is cut within four blocks
-  of the rim line.* Without these the wall was crossed over the treetops and under the rock.
-- *The reservoir's west shore stands two above the water, and the dam's downstream face is a full wall with the
-  tailrace in a culvert.* Each was a ladder to the far bank.
-- *Cave mouths in the valley's cliff are sealed about two blocks deep,* because cave roofs are now kept under
-  the lowest open ground near them.
-
-**The wake point** (N3e) is in item 8's commit: see below.
-
-**Not done.** The review's one pit far off the road in the buffer's hills, at (1261, 130, 1153), is outside the
-16-block search and was left. Columns in the valley's ring take about 6 ms longer to generate.
+- **The outpost's stealth route does not hide the player from the lookout** on two stretches (he sees over the
+  brush at (906, 1028–1029) and along x 889–883, z 1046). It needs taller brush there, which is land. The check
+  is written and skipped in `tests/creatures_real.test.ts`.
+- **Fight and hunger numbers the review would change** and this branch did not: hunger emptying in 20 minutes
+  instead of 40, raiders at 60–70 health so the rifle needs two shots, the armory's rounds from 40 to 20. See
+  item 6's calls.
+- **From the first-ten-minutes list:** Esc resuming from the pause menu, hold H while drowning, digging beside
+  water, dropping things, Doc on a carried phone.
+- **N5j** (a slab or stair across a chunk border darkens its neighbour) and **N9** (path-finding) were not in
+  this branch's list.
+- **A lost and restored picture** has been tested with a stand-in only (item 4).
+- **The rest of the split** (item 8's list).
+- **Prices still read as `0.00025000 BTC`.** The review would show thousands of sats; the play-through reads the
+  present form.

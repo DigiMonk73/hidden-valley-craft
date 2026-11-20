@@ -71,7 +71,8 @@ import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, BANK_
 import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts';
 import { ZONE3, onDamCrest, onDamRoad, ravineX, highwayX } from './gen/layout.ts';
 import { trackM4, diedOutsideM4 } from './sim/milestones.ts';
-import { turning, liveFromSave, HYDRO_KW } from './sim/power.ts';
+import { turning, liveFromSave, HYDRO_KW, chillJugs } from './sim/power.ts';
+import { wakeFrom, settleWake } from './sim/wake.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
 
@@ -499,6 +500,7 @@ export class Game {
     }
     this.playTime += dt;
     this.playedSince = true;
+    if (this.wakeHold) this.settleAtWake();
     const input = this.readInput();
     this.sprinting = input.sprint && (input.forward !== 0 || input.strafe !== 0);
     const p = this.player;
@@ -876,7 +878,7 @@ export class Game {
    * and thirsty as you were, never below 15: dying at home used to be a free meal.
    */
   private wakeAgain(line: string, asYouWere = false): void {
-    const s = this.spawn;
+    const s = this.toWake();
     this.player.setPosition(s.x, s.y, s.z);
     this.player.yaw = s.yaw;
     this.player.pitch = 0;
@@ -884,6 +886,42 @@ export class Game {
     const least = asYouWere ? WAKE_FLOOR : 50;
     this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, least), thirst: Math.max(this.vitals.thirst, least) };
     this.hud.toast(line, 6000);
+    this.edited();
+  }
+
+  /**
+   * The place to wake or come home to (docs/FIXES.md, 3): where you last slept if that is still in the valley (a
+   * bed carried outside and slept in used to move it there), else the balcony. Once the land there is in,
+   * `settleAtWake` makes sure it can be stood on.
+   */
+  private toWake(): { x: number; y: number; z: number; yaw: number } {
+    const balcony = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    const s = wakeFrom(this.spawn, balcony);
+    if (s !== this.spawn) this.spawn = balcony;
+    this.wakeHold = { x: s.x, y: s.y, z: s.z, yaw: s.yaw };
+    return s;
+  }
+  /** Just woken or come home: held here until the land is in and the spot is checked. */
+  private wakeHold: { x: number; y: number; z: number; yaw: number } | null = null;
+
+  /**
+   * Blocks stacked on the wake point used to leave you inside them, and a shaft dug under it killed you over and
+   * over. Now you stand at the nearest place that will do, or on the balcony if nowhere near will.
+   */
+  private settleAtWake(): void {
+    const h = this.wakeHold, p = this.player;
+    if (!h) return;
+    if (!this.world.isLoaded(Math.floor(h.x), Math.floor(h.z))) { p.setPosition(h.x, h.y, h.z); p.vy = 0; return; } // wait for the land
+    this.wakeHold = null;
+    const balcony = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    const at = settleWake((x, y, z) => this.world.blockAt(x, y, z), h, balcony);
+    if (!at.moved) return;
+    p.setPosition(at.x, at.y, at.z);
+    p.vy = 0;
+    if (at.moved === 'balcony') {
+      this.spawn = balcony;
+      this.hud.toast('The place you woke is gone or built over. You wake on the balcony from now on, until you sleep again.', 8000);
+    } else this.hud.toast('Something stands where you wake: you are set down beside it.', 6000);
     this.edited();
   }
 
@@ -1204,7 +1242,7 @@ export class Game {
 
   /** Home: back where you wake (the bed if you slept, else the balcony), with nothing lost and the hour unchanged. */
   private goHome(): void {
-    const s = this.spawn;
+    const s = this.toWake();
     this.endFocus();
     this.drawing = null;
     this.mining.active = false;
@@ -1655,6 +1693,7 @@ export class Game {
     this.stingerVisit = false;
     this.marcoGreeted = false;
     this.introShown = false;
+    this.wakeHold = null;
     this.doseToasted = false;
     this.shotFired = false;
     this.quietShot = false;
@@ -1930,18 +1969,7 @@ export class Game {
       if (hours > 0 && this.power.on.fridge) {
         for (const [x, y, z] of this.devices.fridge) {
           const slots = this.world.containers.get(packPos(x, y, z));
-          if (!slots) continue;
-          for (let h = 0; h < hours; h++) {
-            const k = slots.findIndex((st) => st && st.id === itemId('water_jug'));
-            if (k < 0) break;
-            const st = slots[k]!;
-            st.count--;
-            if (st.count <= 0) slots[k] = null;
-            const cold = slots.findIndex((o) => o && o.id === itemId('cold_water') && o.count < 8);
-            if (cold >= 0) slots[cold]!.count++;
-            else { const free = slots.findIndex((o) => !o); if (free >= 0) slots[free] = { id: itemId('cold_water'), count: 1 }; else { st.count++; break; } }
-            this.edited();
-          }
+          if (slots && chillJugs(slots, hours, itemId('water_jug'), itemId('cold_water'))) this.edited();
         }
       }
       this.powerHour = (from + minutes / 60) % 24;
