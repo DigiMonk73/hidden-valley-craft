@@ -26,8 +26,8 @@ export const HOME_FIT = {
   window: { x: 1801, z0: 1036, z1: 1040, y0: F + 1, y1: F + 3 },
   /** The bedroom door's two leaves (each two blocks high). */
   door: [[1806, F, 1033], [1807, F, 1033]] as [number, number, number][],
-  /** The study, in the library corner: the desk stands against the bookshelves, its screen facing the room. */
-  desk: { computer: [1813, F + 1, 1028], phone: [1813, F + 1, 1029], chair: [1812, F, 1028] } as Record<string, [number, number, number]>,
+  /** The study, in the library corner: the desk stands against the east wall where the shelves stop, its screen facing the room. */
+  desk: { computer: [1814, F + 1, 1028], phone: [1814, F + 1, 1029], chair: [1813, F, 1028] } as Record<string, [number, number, number]>,
   /** The journal: any of the bookshelves in the living room's south-east corner. */
   bookshelf: [1814, F + 1, 1031] as [number, number, number],
   mapTable: [1812, F, 1020] as [number, number, number],
@@ -191,10 +191,12 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   for (const x of [1802, 1803, 1804]) put(x, F, 1032, 'counter');
   put(1802, F + 1, 1032, 'table_lamp');
   put(1804, F + 1, 1032, 'kettle');
-  // The study, in the library corner. Bookshelves from floor to beam along the east and south walls (the journal).
-  // Against them a desk three wide: a green-shaded lamp, the monitor and keyboard with the tower under them, the
-  // satellite phone on its cradle, and a desk chair. The screen faces the room, so it is seen, lit, from the mouth.
-  fill(1814, 1814, F, F + 3, 1027, 1032, 'bookshelf');
+  // The study, in the library corner. Bookshelves from floor to beam along the south wall and the east wall's south
+  // end (the journal). North of them, against the bare east wall, a desk three wide: a green-shaded lamp, the monitor
+  // and keyboard with the tower under them, the satellite phone on its cradle, and a desk chair. The screen faces the
+  // room, so it is seen, lit, from the mouth. (The desk once stood out in front of shelves; the owner asked for it
+  // against the wall, 2026-11-20.)
+  fill(1814, 1814, F, F + 3, 1030, 1032, 'bookshelf');
   fill(1809, 1813, F, F + 3, 1032, 1032, 'bookshelf');
   const [cx, cy, cz] = HOME_FIT.desk.computer;
   put(cx, F, cz - 1, 'desk_drawers@west');
@@ -204,7 +206,7 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(cx, cy, cz, 'computer@west');
   put(...HOME_FIT.desk.phone, 'phone');
   put(...HOME_FIT.desk.chair, 'desk_chair@east');
-  rug('blue', 1809, 1813, 1027, 1031);
+  rug('blue', 1810, 1814, 1027, 1031);
   // A corner to read in, by the fire: an armchair, a small table and its lamp.
   put(1814, F, 1017, 'armchair@west');
   put(1814, F, 1016, 'nightstand@west');

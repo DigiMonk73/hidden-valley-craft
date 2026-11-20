@@ -429,6 +429,33 @@ describe('the home, rebuilt', () => {
       }
   });
 
+  it('the desk stands against the east wall, with no shelf behind it, laid out as before', () => {
+    // The owner (2026-11-20): the shelves behind the desk looked wrong; take them out and put the desk to the wall.
+    const [cx, cy, cz] = HOME_FIT.desk.computer;
+    expect([cx, cy, cz]).toEqual([1814, F + 1, 1028]);
+    expect(HOME_FIT.desk.phone).toEqual([cx, cy, cz + 1]);
+    expect(HOME_FIT.desk.chair).toEqual([cx - 1, F, cz]);
+    // Drawers, desk, drawers; the lamp, the computer and the phone on top; the chair in front, facing it.
+    expect([cz - 1, cz, cz + 1].map((z) => name(w, cx, F, z))).toEqual(['desk_drawers@west', 'desk@west', 'desk_drawers@west']);
+    expect([cz - 1, cz, cz + 1].map((z) => name(w, cx, cy, z))).toEqual(['desk_lamp@west', 'computer@west', 'phone']);
+    expect(name(w, ...HOME_FIT.desk.chair)).toBe('desk_chair@east');
+    for (const z of [cz - 1, cz, cz + 1]) {
+      // Behind it the room's own rock, floor to ceiling: no shelf, no hole, no ore.
+      for (let y = F; y <= F + 4; y++) expect(name(w, cx + 1, y, z), `wall ${y},${z}`).toBe('limestone');
+      // Nothing is left of the shelves that stood where the desk now is, nor above it.
+      for (let y = F + 2; y <= F + 4; y++) expect(name(w, cx, y, z), `above ${y},${z}`).toBe('air');
+    }
+    // The shelves start south of the desk and stop there: none north of it, none between it and the chair.
+    for (let y = F; y <= F + 3; y++) {
+      expect(name(w, cx, y, cz + 2), `shelf ${y}`).toBe('bookshelf');
+      expect(name(w, cx, y, cz - 2), `north ${y}`).not.toBe('bookshelf');
+    }
+    for (let x = 1809; x < cx; x++) for (let z = cz - 1; z <= cz + 1; z++) expect(name(w, x, F + 1, z), `${x},${z}`).not.toBe('bookshelf');
+    // The study's rug runs under the chair to the desk.
+    expect(name(w, cx, F - 1, cz)).toMatch(/^rug_blue_/);
+    expect(name(w, cx - 1, F - 1, cz)).toMatch(/^rug_blue_/);
+  });
+
   it('the furniture is placed the right way round', () => {
     // The sofa and both armchairs look at the fire; the loungers at the falls; the range and the desk at their user.
     expect(name(w, 1806, F, 1020)).toBe('sofa_end'); expect(name(w, 1808, F, 1020)).toBe('sofa_end_r');

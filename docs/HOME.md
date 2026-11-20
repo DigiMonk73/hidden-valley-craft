@@ -21,8 +21,8 @@ Positions are blocks (x east, z south); the floor is y 82.
 - **Four ceiling beams** across the room, lanterns hung from them.
 - **Dining:** a table for four by the mouth, and a sideboard on the south wall behind it.
 - **The study** in the south-east corner, on its own rug:
-  - bookshelves from floor to beam along both walls (the journal is in any of them);
-  - a desk three wide against them: a green-shaded lamp, a monitor with a lit screen and a keyboard, the tower under the desk, the satellite phone on its cradle, and a desk chair;
+  - bookshelves from floor to beam along the south wall and the east wall's south end (the journal is in any of them);
+  - a desk three wide against the east wall, where the shelves stop: a green-shaded lamp, a monitor with a lit screen and a keyboard, the tower under the desk, the satellite phone on its cradle, and a desk chair;
   - the screen faces the room, so it is seen, lit, from the mouth.
 - **A corner to read in** by the fire: an armchair, a small table and its lamp.
 - **The map table** by the hall.
@@ -77,7 +77,7 @@ Positions are blocks (x east, z south); the floor is y 82.
 | `fire` as a cut-out block | The fire is a block of logs and embers, with sheets of flame above | It needs no special drawing code beyond "this face is lit from within". |
 | Old saves: bump the save version | The save carries a `layout` number instead (`WORLD_LAYOUT` in `src/save/save.ts`) | The version says how to read the file; the layout says which world it belongs to. A valley from before this starts fresh with one line: "This valley was made by an earlier build. A fresh one has been started." A save code or file from before is refused, and the valley in the browser is left alone. |
 | Optional: tool rack, stone bench, shop shelves, a gun rack | Tool boards, a bench, pantry shelves, barrels, sacks, herbs; no gun rack | The owner asked for all the furniture in the cave to be revisited, so the two bare rooms were dressed. The shop shelf is rusted metal from the ruins and looks wrong at home, so the pantry has its own. The vault stays austere. |
-| The desk facing out from the bookshelves (the lead's suggestion) | The desk against the bookshelves, the screen facing the room | Tried both. Facing out, a player walking in saw the monitor's black back and had to squeeze behind the desk to use it. Against the shelves, the lit screen is the first thing seen in that corner, from the mouth. |
+| The desk facing out from the bookshelves (the lead's suggestion) | The desk against the bookshelves, the screen facing the room | Tried both. Facing out, a player walking in saw the monitor's black back and had to squeeze behind the desk to use it. Against the shelves, the lit screen is the first thing seen in that corner, from the mouth. Later (the owner, 2026-11-20) the three shelf columns behind it were taken out and the whole setup moved back a block, so the desk stands against the bare east wall instead of out in front of the shelves. |
 | Optional: sitting in a chair | Not built | A change to the camera and the keys in `src/game.ts`, which the review's fixes are about to split. |
 
 ## How the furniture is made

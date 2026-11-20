@@ -32,10 +32,10 @@ const mine = async (c, from) => {
 const make = async (label, times = 1) => { for (let k = 0; k < times; k++) await page.locator('.iv-recipe', { hasText: label }).first().locator('.iv-make').click().catch(() => {}); };
 const openWorkbench = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1820.5, 82, 1009.3); gm.player.yaw = 0; gm.player.pitch = -0.55; },
   (gm) => { gm.player.yaw = 0; gm.player.pitch = -0.55; const t = gm.target; return t && t.x === 1820 && t.z === 1007; });
-const phone = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1813 && t.y === 83 && t.z === 1029; });
-const computer = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1028.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
-  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1813 && t.y === 83 && t.z === 1028; });
+const phone = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1029.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { const t = gm.target; gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; return t && t.x === 1814 && t.y === 83 && t.z === 1029; });
+const computer = () => useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1028.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
+  (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1814 && t.y === 83 && t.z === 1028; });
 /** Sets a block from the pack on the valley floor beside the garden (as a player would place it), at slot k. */
 const setDown = (name, k) => g(([n, k]) => {
   const gm = window.__hv.game, w = gm.world, x = 1735 + 3 * k, z = 1058;
@@ -77,7 +77,7 @@ check('past the board with no suit the meter says NO SUIT and the seconds to the
 check('turned back in time: alive, a dose taken, and outside the signs it climbs no more', out1.hp > 0 && out1.dose > 12 && out1.dose < 100 && out2.dose <= out1.dose, JSON.stringify(out1));
 
 // ---- Ray's word, the suit, the meeting asked for -------------------------------------------------------------
-await g(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1029.5); gm.dose = 0; gm.vitals.hp = 100; });
+await g(() => { const gm = window.__hv.game; gm.player.setPosition(1812.5, 82, 1029.5); gm.dose = 0; gm.vitals.hp = 100; });
 await phone();
 await page.locator('.pp-panel .row', { hasText: 'Ray (R. Quispe' }).locator('.pp-call').click().catch(() => {});
 await page.waitForTimeout(400);
