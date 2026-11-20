@@ -2,6 +2,7 @@
 // (one cell per 32 m column), with the cave and the player marked.
 
 import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL, ZONE2, highwayX, ZONE3, inReservoir } from '../gen/layout.ts';
+import { cpuCanvas } from '../platform/canvas.ts';
 import { SCOUT_AT } from '../gen/zone1.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
 
@@ -34,9 +35,7 @@ function landColours(): Uint8ClampedArray {
 export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean; highway?: boolean; ruins?: boolean; cave?: boolean; compound?: boolean; dam?: boolean; works?: boolean }
 
 export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, marks: MapMarks = {}): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = N;
-  const ctx = canvas.getContext('2d')!;
+  const { canvas, ctx } = cpuCanvas(N, N);
   const land = landColours();
   const img = ctx.createImageData(N, N);
   const per = N / COLS_X; // pixels per column
@@ -103,9 +102,7 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, 
 
 /** The scout's map scrap: a ridgeline's contours, a bend in a road, an arrow, and a place-name in pencil. */
 export function drawMapScrap(): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = 320; c.height = 200;
-  const ctx = c.getContext('2d')!;
+  const { canvas: c, ctx } = cpuCanvas(320, 200);
   ctx.fillStyle = '#e6dab8';
   ctx.beginPath();
   ctx.moveTo(6, 14); ctx.lineTo(300, 4); ctx.lineTo(314, 120); ctx.lineTo(296, 196); ctx.lineTo(18, 188); ctx.lineTo(4, 96);
