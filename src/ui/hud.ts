@@ -85,6 +85,8 @@ export interface MenuActions {
   loadFile(): void;
   loadCode(code: string): void;
   newGame(): void;
+  /** Opens the backup in the valley's place (the valley left becomes the backup). */
+  openBackup(): void;
   setRenderDistance(chunks: number): void;
   setSensitivity(v: number): void;
   setInvertY(v: boolean): void;
@@ -207,6 +209,9 @@ export class Hud {
     const lb = el('div', 'hv-bar', this.loadBox);
     this.loadBar = el('b', '', lb);
 
+    // Why play is held back (another tab has the valley open), when it is.
+    this.blockedEl = el('div', 'hv-status warn', p);
+    this.blockedEl.style.display = 'none';
     const row = el('div', 'hv-row', p);
     this.playBtn = el('button', 'hv-btn primary', row);
     this.playBtn.textContent = 'Play';
@@ -252,6 +257,9 @@ export class Hud {
       }
     });
     btn('Load save file', () => a.loadFile());
+    // The valley as it was when this session opened it, or just before New game or a load replaced it.
+    this.backupBtn = btn('Open the backup', () => a.openBackup(), 'hv-btn quiet');
+    this.backupBtn.hidden = true;
     const codeIn = el('textarea', 'hv-code', p);
     codeIn.placeholder = 'Paste a save code here (it starts with HVB1:), then press “Load pasted code”';
     codeIn.hidden = true;
@@ -294,6 +302,24 @@ export class Hud {
 
   private downloadBtn!: HTMLButtonElement;
   showDownload(show: boolean): void { this.downloadBtn.hidden = !show; }
+
+  private backupBtn!: HTMLButtonElement;
+  /** Shows "Open the backup (from …)" when there is one; null hides it. */
+  setBackup(when: string | null): void {
+    this.backupBtn.hidden = when === null;
+    if (when !== null) this.backupBtn.textContent = `Open the backup (${when})`;
+  }
+
+  private blockedEl!: HTMLDivElement;
+  /** Holds play back with a plain reason (another tab has the valley open); null lets it go again. */
+  setBlocked(why: string | null): void {
+    this.blockedEl.style.display = why ? '' : 'none';
+    this.blockedEl.textContent = why ?? '';
+    this.playBtn.disabled = !!why;
+    this.playBtn.style.opacity = why ? '.45' : '';
+  }
+
+  setLoadingText(text: string): void { this.loadText.textContent = text; }
 
   settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement };
 

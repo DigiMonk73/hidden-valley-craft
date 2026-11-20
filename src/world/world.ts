@@ -77,6 +77,9 @@ export class World implements LightHost {
     const key = packPos(x, y, z);
     let c = this.containers.get(key);
     if (!c) { c = initialContents(x, y, z, size); this.containers.set(key, c); }
+    // The empty record a mined box leaves (so a chest put back never refills) takes the size of the box set there
+    // next: a chest where a hutch stood is a chest, not nine slots.
+    if (c.length !== size && c.every((s) => !s)) { c = new Array<Stack | null>(size).fill(null); this.containers.set(key, c); }
     return c;
   }
 

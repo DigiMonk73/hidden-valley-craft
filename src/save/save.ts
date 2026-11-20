@@ -8,17 +8,31 @@ import { packPos } from '../world/light.ts';
 import { itemId, itemName, hasItem } from '../world/items.ts';
 
 export const SAVE_FORMAT = 'hidden-valley-blocks-save';
-export const SAVE_VERSION = 1;
+/**
+ * The save's own version. A build opens its own version and every earlier one (`migrate` in src/save/state.ts
+ * brings an older save up, one step at a time); a save from a later build is refused, and kept untouched.
+ * 2: each valley has an id and each write a counter (docs/FIXES.md, N1).
+ */
+export const SAVE_VERSION = 2;
+
+/** Blocks and items renamed since a save was made: old name → new name. Empty until a build renames one. */
+export const BLOCK_ALIASES: Record<string, string> = {};
+export const ITEM_ALIASES: Record<string, string> = {};
 
 export interface Slot { name: string; count: number; wear?: number }
 
 export interface SaveData {
   format: string;
   version: number;
+  /** Which valley this is (made at New game) and how many times it has been written. Absent before version 2. */
+  id?: string;
+  seq?: number;
   savedAt: string;
   hour: number;
   player: { x: number; y: number; z: number; yaw: number; pitch: number; flying: boolean };
   hotbar: (Slot | null)[];
+  /** What the pack could not hold when saved: an item on a screen's cursor with no room to put it down. */
+  spill?: Slot[];
   selected: number;
   palette: string[];
   /** Per chunk: [chunkKey, [index, paletteIndex, index, paletteIndex, …]]. */
@@ -65,8 +79,9 @@ export function restoreContainers(world: World, data: SaveData): void {
   world.containers.clear();
   for (const [x, y, z, slots] of data.containers ?? []) {
     world.containers.set(packPos(x, y, z), slots.map((s) => {
-      if (!s || !hasItem(s.name)) return null;
-      return { id: itemId(s.name), count: s.count, ...(s.wear ? { wear: s.wear } : {}) };
+      const name = s ? ITEM_ALIASES[s.name] ?? s.name : '';
+      if (!s || !hasItem(name)) return null;
+      return { id: itemId(name), count: s.count, ...(s.wear ? { wear: s.wear } : {}) };
     }));
   }
 }
@@ -90,7 +105,7 @@ export function collectEdits(world: World): { palette: string[]; edits: [number,
 /** Loads saved edits into the world (before any column is generated). Unknown block names become air. */
 export function restoreEdits(world: World, data: SaveData): void {
   const known = new Set(BLOCK_DEFS.map((d) => d.name));
-  const ids = data.palette.map((n) => (known.has(n) ? blockId(n) : 0));
+  const ids = data.palette.map((n) => BLOCK_ALIASES[n] ?? n).map((n) => (known.has(n) ? blockId(n) : 0));
   world.edits.clear();
   for (const [key, flat] of data.edits) {
     const m = new Map<number, number>();
@@ -119,6 +134,30 @@ export async function encodeSave(data: SaveData): Promise<Uint8Array> {
   return (await gzip(json, 'compress')) ?? json; // plain JSON if the browser can't compress
 }
 
+/** Why some bytes are not a save this build can open. */
+export type Unreadable = 'empty' | 'not-a-save' | 'newer' | 'damaged';
+export type Parsed = { ok: true; data: SaveData } | { ok: false; why: Unreadable };
+
+/**
+ * Reads bytes into a save, checked and made whole by `check` (src/save/state.ts: `normaliseSave`), or says why not:
+ * nothing there, not a Hidden Valley save, made by a newer build, or damaged.
+ */
+export async function parseSave(bytes: Uint8Array | null, check: (raw: unknown) => SaveData | null): Promise<Parsed> {
+  if (!bytes || bytes.length === 0) return { ok: false, why: 'empty' };
+  const isGzip = bytes[0] === 0x1f && bytes[1] === 0x8b;
+  const raw = isGzip ? await gzip(bytes, 'decompress') : bytes;
+  if (!raw) return { ok: false, why: 'damaged' };
+  let d: unknown;
+  try { d = JSON.parse(new TextDecoder().decode(raw)); } catch { return { ok: false, why: isGzip ? 'damaged' : 'not-a-save' }; }
+  const o = d as { format?: unknown; version?: unknown } | null;
+  if (!o || typeof o !== 'object' || o.format !== SAVE_FORMAT) return { ok: false, why: 'not-a-save' };
+  if (typeof o.version !== 'number') return { ok: false, why: 'damaged' };
+  if (o.version > SAVE_VERSION) return { ok: false, why: 'newer' };
+  const data = check(d);
+  return data ? { ok: true, data } : { ok: false, why: 'damaged' };
+}
+
+/** The header check only: bytes into whatever the save holds, unchecked. Prefer `parseSave` with `normaliseSave`. */
 export async function decodeSave(bytes: Uint8Array): Promise<SaveData | null> {
   const isGzip = bytes[0] === 0x1f && bytes[1] === 0x8b;
   const raw = isGzip ? await gzip(bytes, 'decompress') : bytes;

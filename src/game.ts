@@ -9,7 +9,7 @@ import { skyAt, DAY_SECONDS, type SkyState } from './render/sky.ts';
 import { Player, EYE, BREATH_MAX, type Input } from './sim/player.ts';
 import { raycast, type RayHit } from './sim/raycast.ts';
 import { WATER, FALLING_WATER, BLOCK_DEFS, blockName } from './world/blocks.ts';
-import { Inventory } from './sim/inventory.ts';
+import { Inventory, type Stack } from './sim/inventory.ts';
 import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationOf, type Station } from './sim/crafting.ts';
@@ -26,10 +26,13 @@ import { itemId, foodOf } from './world/items.ts';
 import { BACKPACK_SLOTS } from './sim/inventory.ts';
 import { Sound, materialOf } from './audio/audio.ts';
 import { Look } from './platform/look.ts';
-import { openStore, writePending, readPending, clearPending, type Store } from './platform/storage.ts';
+import { openStore, pendingFor, type Store, type PendingIo } from './platform/storage.ts';
+import { tabLock } from './platform/tablock.ts';
 import { downloadFile, saveToCode, codeToSave, pickFile, fileToSave, inFrame, claudeDownloads, type Downloads } from './platform/fileio.ts';
 import { shouldAutosave } from './save/schedule.ts';
-import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, encodeSaveNow, decodeSave, SAVE_FORMAT, SAVE_VERSION, type SaveData } from './save/save.ts';
+import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, SAVE_FORMAT, SAVE_VERSION, type SaveData, type Slot } from './save/save.ts';
+import { newSave, normaliseSave, START } from './save/state.ts';
+import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS, WORLD_Y } from './world/constants.ts';
 import { packPos, skyOf } from './world/light.ts';
@@ -73,7 +76,6 @@ import { turning, liveFromSave, HYDRO_KW } from './sim/power.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
 
-const SAVE_KEY = 'save:1';
 const KILL_LINE: Record<Creature['kind'], string> = {
   rabbit: 'A rabbit: meat and a small hide', deer: 'A deer: venison, a hide and bone', boar: 'A wild boar: pork, a hide and bone', puma: 'The puma is dead. Its pelt is yours',
   dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '',
@@ -108,14 +110,22 @@ const MARCO_HOURS: [number, number] = [7, 18];
 const SETTINGS_KEY = 'settings';
 const REACH = 5;
 const STEP = 1 / 60;
-const SPAWN = { x: HOME.wallX - 3.5, y: HOME.floor, z: 1024.5, yaw: Math.PI / 2, pitch: -0.06 };
+const SPAWN = START;
+/** Said when the browser's main storage held the valley last time and could not be opened now. */
+export const DEGRADED = 'This browser’s storage did not open just now, so your saved valley can’t be reached. Nothing has been lost: reload the page to try again. What you do meanwhile is kept apart and will not replace it.';
+/** Said in a second tab while a first one has the valley open. */
+export const SECOND_TAB = 'Hidden Valley is already open in another tab or window. Play there, or close it: this one will then open your valley.';
+const stackSlot = (s: Stack): Slot => ({ name: itemName(s.id), count: s.count, ...(s.wear ? { wear: s.wear } : {}) });
 
 export interface BootOptions {
   hour?: number;
   cam?: [number, number, number, number, number];
   renderChunks?: number;
   test?: boolean; // deterministic: frozen time, no saving, no waving
-  handover?: SaveData; // state passed from the previous version of an open page
+  handover?: unknown; // state passed from the previous version of an open page (checked before use)
+  /** For tests: the storage to use, and where the close-time copy goes, instead of the browser's. */
+  store?: Store;
+  pending?: PendingIo;
   effects?: boolean; // particles in test mode
 }
 
@@ -197,6 +207,19 @@ export class Game {
   private ready = false;
   /** A save was just loaded: once its land is in, check the player isn't inside rock. */
   private checkBuried = false;
+  /** A save has been applied (or a new valley begun): until then there is nothing to save or hand over. */
+  private booted = false;
+  /** Another tab has the valley open: this one neither plays nor saves until that one is gone. */
+  private secondTab = false;
+  private fromHandover = false;
+  /** A line about the save the player must see (it could not be read, the storage did not open): in the menu, and said once when play begins. */
+  private notice: string | null = null;
+  private noticeSaid = false;
+  /** What the pack could not hold when a save was made: put down in a sack once the land is in. */
+  private spill: Stack[] = [];
+  keeper!: Keeper;
+  /** Has the game been played since the last save? Position, health and the hour are saved even with no edit. */
+  private playedSince = false;
   private accumulator = 0;
   private last = 0;
   private time = 0;
@@ -208,8 +231,6 @@ export class Game {
   private lastEdit = 0;
   private saving = false;
   private lastFailure = -Infinity;
-  /** Bumped by every write; a slower save that finds it changed was overtaken and is dropped. */
-  private writeSeq = 0;
   private cachedCode: string | null = null;
   private sky: SkyState = skyAt(16.5);
   private downloads: Downloads | null = null;
@@ -252,6 +273,7 @@ export class Game {
       loadFile: () => void this.loadFromFile(),
       loadCode: (c) => void this.loadFromCode(c),
       newGame: () => void this.newGame(),
+      openBackup: () => void this.openBackup(),
       setRenderDistance: (c) => this.setRenderDistance(c, true),
       setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
       setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
@@ -273,7 +295,9 @@ export class Game {
   }
 
   async boot(): Promise<void> {
-    this.store = await openStore();
+    this.store = this.opts.store ?? await openStore(() => this.hud.setLoadingText('Opening your save…'));
+    this.hud.setLoadingText('Building the valley…');
+    this.keeper = new Keeper(this.store, this.opts.pending ?? pendingFor(this.store.kind));
     await this.loadSettings();
     const workers = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
     this.exec = await createExecutor((j) => this.streamer.priority(j), workers);
@@ -282,25 +306,13 @@ export class Game {
     void this.exec.submit({ kind: 'far' }).then((r) => { if (r.kind === 'far') this.renderer.setFarLand(r.mesh); }, (e) => console.error('distant land failed', e));
     this.setRenderDistance(this.opts.renderChunks ?? Number(this.hud.settingsInputs.rd.value), false);
 
-    let resumed = false;
-    if (this.opts.handover) { this.applySave(this.opts.handover); resumed = true; this.editCount++; }
-    else if (!this.opts.test) {
-      // The stored save, or the copy written as the page last closed, whichever is newer.
-      const bytes = await this.store.get(SAVE_KEY);
-      const stored = bytes ? await decodeSave(bytes) : null;
-      const pendingBytes = readPending();
-      const pending = pendingBytes ? await decodeSave(pendingBytes) : null;
-      const data = pending && (!stored || pending.savedAt > stored.savedAt) ? pending : stored;
-      if (data) { this.applySave(data); resumed = true; }
-      if (data === pending && pending) this.editCount++; // still to be written to the main store
-      else clearPending();
+    // One tab plays a valley at a time.
+    if (!this.opts.test && (await tabLock('hidden-valley-blocks:play', () => void this.otherTabClosed())) === 'taken') {
+      this.secondTab = true;
+      this.hud.setBlocked(SECOND_TAB);
     }
-    if (!resumed) this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
-    if (!resumed) {
-      this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
-      this.player.yaw = SPAWN.yaw;
-      this.player.pitch = SPAWN.pitch;
-    }
+    await this.openValley();
+    this.booted = true;
     if (this.opts.hour !== undefined) this.hour = this.opts.hour;
     this.dayClock = this.hour;
     if (this.opts.cam) {
@@ -315,6 +327,63 @@ export class Game {
     else void claudeDownloads().then((d) => { this.downloads = d; this.hud.showDownload(!!d); });
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
+  }
+
+  /**
+   * Opens what the browser holds: the stored save, the copy made as the page last closed, or the backup; else a new
+   * valley. A hand-over from the page's previous version takes their place. Whatever is found, this ends with a
+   * valley applied and a working menu: a save that cannot be used is kept aside and said, never thrown.
+   */
+  private async openValley(): Promise<void> {
+    let opened: SaveData | null = null, unsaved = false;
+    this.notice = null;
+    if (!this.opts.test) {
+      try {
+        const r = await this.keeper.load();
+        opened = r.data; unsaved = r.unsaved; this.notice = r.note;
+      } catch (e) {
+        console.error('the stored save could not be opened', e);
+        this.notice = NOTES.fresh;
+      }
+    }
+    const handed = this.opts.handover ? normaliseSave(this.opts.handover) : null;
+    this.opts.handover = undefined;
+    if (handed) { opened = handed; unsaved = true; this.fromHandover = true; }
+    try {
+      this.applySave(opened ?? newSave(), !opened);
+    } catch (e) {
+      // The check in normaliseSave should make this impossible; if a save still cannot be applied, it must not stop the game.
+      console.error('the save could not be applied', e);
+      if (!this.opts.test) await this.keeper.setAside(await this.store.get(SAVE_KEY));
+      this.world.edits.clear();
+      this.world.containers.clear();
+      this.applySave(newSave(), true);
+      this.notice = NOTES.fresh;
+      unsaved = true;
+    }
+    if (this.store.degraded) this.notice = DEGRADED;
+    if (unsaved) this.editCount++;
+    this.savedCount = unsaved ? this.editCount - 1 : this.editCount;
+    this.noticeSaid = false;
+  }
+
+  /** The tab that had the valley open has gone: this one opens it as that one left it. */
+  private async otherTabClosed(): Promise<void> {
+    if (!this.secondTab) return;
+    while (!this.booted) await new Promise((r) => setTimeout(r, 50));
+    this.secondTab = false;
+    if (!this.fromHandover) {
+      this.streamer.reset();
+      this.world.edits.clear();
+      this.world.containers.clear();
+      await this.openValley();
+      this.ready = false;
+      this.hud.setLoading(0, 1);
+      this.hud.setLoadingVisible();
+    }
+    this.hud.setBlocked(null);
+    this.updateSaveStatus();
+    void this.refreshCode();
   }
 
   // ---- The loop ---------------------------------------------------------------------------
@@ -341,6 +410,7 @@ export class Game {
         // A save from before the land changed may stand inside rock: set them on the surface, once.
         if (this.checkBuried && !p.flying && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
         this.checkBuried = false;
+        this.dropSpill();
         this.hud.setReady(false);
         if (this.opts.test) this.hud.showMenu(false);
       }
@@ -409,7 +479,7 @@ export class Game {
     this.hud.setDebug(this.hud.debugVisible ? this.debugText() : '');
 
     // Save a couple of seconds after the player stops changing things, and at least once a minute.
-    if (this.playing && shouldAutosave({ unsaved: this.unsaved, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
+    if (this.playing && shouldAutosave({ unsaved: this.unsaved, played: this.playedSince, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
   }
 
   private tick(dt: number): void {
@@ -419,6 +489,7 @@ export class Game {
       return;
     }
     this.playTime += dt;
+    this.playedSince = true;
     const input = this.readInput();
     this.sprinting = input.sprint && (input.forward !== 0 || input.strafe !== 0);
     const p = this.player;
@@ -1430,14 +1501,17 @@ export class Game {
     }, { passive: false });
     // Leaving: the write has to start before this event returns, so it skips compression.
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { this.saveNow(); this.sound.suspend(); }
-      else if (this.playing) this.sound.resume();
+      if (document.hidden) { this.saveNow(); this.sound.suspend(); return; }
+      if (this.playing) this.sound.resume();
+      // Back in front: has another tab saved this valley meanwhile?
+      if (this.booted && !this.opts.test) void this.keeper.check().then((stopped) => { if (stopped) this.stoppedSaving(); });
     });
     window.addEventListener('pagehide', () => this.saveNow());
   }
 
   private resume(): void {
-    if (!this.ready) return;
+    if (!this.ready || this.secondTab || this.keeper.stopped === 'other-tab') return;
+    if (this.notice && !this.noticeSaid) { this.noticeSaid = true; this.hud.toast(this.notice, 12000); }
     this.sound.start(); // browsers only allow sound to begin from a click
     this.playing = true;
     this.hud.showMenu(false);
@@ -1455,6 +1529,8 @@ export class Game {
     this.look.release();
     this.hud.setReady(true);
     this.hud.showMenu(true);
+    // Pausing saves: where you stand, your health and the hour, whether or not a block changed.
+    if (this.unsaved || this.playedSince) void this.save(false);
     this.updateSaveStatus();
     void this.refreshCode();
   }
@@ -1470,23 +1546,33 @@ export class Game {
 
   // ---- Saving ------------------------------------------------------------------------------
 
-  /** The pack as it should be saved: with anything held on a screen's cursor put back in it. */
-  private carried(): Inventory {
+  /** What the pack cannot hold: an item on a screen's cursor, and anything a loaded save had too much of. */
+  private spilled(): Slot[] {
     const held = this.screen.held;
-    if (!held) return this.hotbar;
-    const inv = this.hotbar.clone();
-    const left = inv.stow({ ...held });
-    if (left) { inv.grow(inv.size + 1); inv.stow(left); } // no room: one extra slot rather than lose it
-    return inv;
+    return [...(held ? [stackSlot(held)] : []), ...this.spill.map(stackSlot)];
+  }
+
+  /** Once the land is in: what a loaded save's pack could not hold is put down in a sack at the player's feet. */
+  private dropSpill(): void {
+    if (!this.spill.length) return;
+    const sack = new Inventory(this.spill.length);
+    this.spill.forEach((s, i) => (sack.slots[i] = s));
+    const p = this.player;
+    const at = leaveLostPack(this.world, sack, p.x, p.y + 0.2, p.z);
+    if (!at) return; // nowhere to put it here: it stays with the save
+    this.spill = [];
+    this.streamer.markUrgentAround(at[0], at[1], at[2]);
+    this.hud.toast('Your pack was over-full: what did not fit is in a sack at your feet.', 7000);
+    this.edited();
   }
 
   snapshot(): SaveData {
     const p = this.player;
     const { palette, edits } = collectEdits(this.world);
     return {
-      format: SAVE_FORMAT, version: SAVE_VERSION, savedAt: new Date().toISOString(), hour: this.hour,
+      format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, savedAt: new Date().toISOString(), hour: this.hour,
       player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
-      hotbar: this.carried().toSave(), selected: this.hotbar.selected, palette, edits,
+      hotbar: this.hotbar.toSave(), spill: this.spilled(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
@@ -1497,7 +1583,38 @@ export class Game {
     };
   }
 
-  applySave(d: SaveData): void {
+  /** The state to hand to the page's next version: nothing until a valley has been opened (a blank game must never be handed on). */
+  handover(): SaveData | undefined {
+    return this.booted && !this.secondTab ? this.snapshot() : undefined;
+  }
+
+  /**
+   * Makes the game what a save says, and nothing else: everything a session gathers along the way (creatures,
+   * the gate, a drawn bow, timers) is put back to its start. A new game is a fresh save applied (`fresh`),
+   * so loading, New game and the hand-over cannot drift apart. The save has been through `normaliseSave`.
+   */
+  applySave(d: SaveData, fresh = false): void {
+    // What a session gathers.
+    this.gate = new Gate();
+    this.wild.clear();
+    this.mining.active = false;
+    this.fishing = null;
+    this.drawing = null;
+    this.endFocus();
+    this.focus = new Focus();
+    this.home.cancel();
+    this.lastHurt = -Infinity;
+    this.lastBlow = -Infinity;
+    this.lastShot = -Infinity;
+    this.coffeeUntil = 0;
+    this.stingerVisit = false;
+    this.marcoGreeted = false;
+    this.doseToasted = false;
+    this.shotFired = false;
+    this.quietShot = false;
+    this.shake = 0;
+    this.keys.clear();
+    // What the save holds.
     restoreEdits(this.world, d);
     restoreContainers(this.world, d);
     // A save made in the old tunnel or air pocket (now rock) wakes afloat by the valley mouth instead.
@@ -1506,21 +1623,27 @@ export class Game {
     this.player.yaw = d.player.yaw;
     this.player.pitch = d.player.pitch;
     this.player.flying = d.player.flying;
-    this.checkBuried = true;
+    this.player.breath = BREATH_MAX;
+    this.checkBuried = !fresh;
     this.hour = d.hour;
     this.dayClock = d.hour;
     this.hotbar = Inventory.fromSave(d.hotbar, d.selected);
+    this.spill = [];
+    for (const s of d.spill ?? []) {
+      const left = this.hotbar.stow({ id: itemId(s.name), count: s.count, ...(s.wear ? { wear: s.wear } : {}) });
+      if (left) this.spill.push(left);
+    }
     this.vitals = d.vitals ? { ...d.vitals } : freshVitals();
     this.hpBefore = this.vitals.hp; // loading a hurt player is not being hurt now
     this.flags = new Set(d.flags ?? []);
+    this.screen.known = this.flags;
     this.wallet = d.wallet ?? START_WALLET;
     this.wild.denLeft = d.den ?? 3;
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
     this.wild.outpost = outpostFromSave(d.outpost);
     this.power = powerFromSave(d.power);
     this.wild.faction.down = Number.isFinite(d.factionDown) ? d.factionDown! & 31 : 0; // the men killed stay down until dawn, reload or not
-    this.wild.ashen.down = Number.isFinite(d.ashenDown) ? d.ashenDown! & ALL_ASHEN : 0;
-    this.wild.ashen.firstOut = !this.flags.has('ashen_seen');
+    this.wild.ashen = { down: Number.isFinite(d.ashenDown) ? d.ashenDown! & ALL_ASHEN : 0, firstOut: !this.flags.has('ashen_seen') };
     this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
     this.powerHour = null;
     // Arrays and generators count as they did when saved (in the sun, at the water) until their land is seen again.
@@ -1528,52 +1651,84 @@ export class Game {
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    this.keeper?.adopt(d);
   }
 
   private get unsaved(): boolean { return this.editCount !== this.savedCount; }
 
   private edited(): void { this.editCount++; this.lastEdit = this.time; }
 
+  private lastWriteFailed = false;
+
   private async save(announce: boolean): Promise<void> {
-    if (this.opts.test) return;
+    if (this.opts.test || !this.booted || this.secondTab) return;
     const holds = this.editCount;
-    const seq = ++this.writeSeq;
     this.saving = true;
-    const bytes = await encodeSave(this.snapshot());
-    if (seq !== this.writeSeq) { this.saving = false; return; } // a close-time save wrote newer state meanwhile
-    const ok = await this.store.set(SAVE_KEY, bytes);
-    this.saving = false;
+    let r: 'ok' | 'failed' | 'stopped' | 'overtaken' = 'failed';
+    try {
+      r = await this.keeper.save(() => { this.playedSince = false; return this.snapshot(); });
+    } catch (e) {
+      console.error('saving failed', e);
+    } finally {
+      this.saving = false; // whatever happened, autosave goes on
+    }
     this.lastSave = this.time;
-    if (ok) {
+    if (r === 'overtaken') return;
+    if (r === 'stopped') { this.stoppedSaving(); return; }
+    this.lastWriteFailed = r === 'failed';
+    if (r === 'ok') {
       this.savedCount = Math.max(this.savedCount, holds);
-      if (!this.unsaved && seq === this.writeSeq) clearPending();
     } else {
       this.lastFailure = this.time;
+      this.playedSince = true;
+      // Said every time (a failed write is retried a minute later, not every frame).
+      if (!announce) this.hud.toast('Saving did not work just now: this browser’s storage may be full or blocked. Pause and use “Copy save code” to keep your valley.', 9000);
     }
-    if (announce) this.hud.toast(ok && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
+    if (announce) this.hud.toast(r === 'ok' && this.store.kind !== 'memory' ? 'Saved in this browser' : 'This page can’t keep saves: use “Copy save code”');
     if (!this.playing) void this.refreshCode();
     this.updateSaveStatus();
   }
 
   /** Saves at once, uncompressed, without waiting: used when the page is being hidden or closed. */
   private saveNow(): void {
-    if (this.opts.test || !this.unsaved || !this.store) return;
+    if (this.opts.test || !this.booted || this.secondTab || !this.keeper) return;
+    if (!this.unsaved && !this.playedSince) return;
     const holds = this.editCount;
-    this.writeSeq++;
-    const bytes = encodeSaveNow(this.snapshot());
-    writePending(bytes); // finishes before this returns, whatever happens to the page next
-    void this.store.set(SAVE_KEY, bytes).then((ok) => {
-      if (ok) this.savedCount = Math.max(this.savedCount, holds);
-    });
+    try {
+      // The copy beside the store is written before this returns, whatever happens to the page next.
+      const r = this.keeper.saveNow(() => this.snapshot());
+      if (!r) return;
+      void r.stored.then((ok) => {
+        if (!ok) return;
+        this.savedCount = Math.max(this.savedCount, holds);
+        this.playedSince = this.playing;
+      });
+    } catch (e) {
+      console.error('saving as the page closed failed', e);
+    }
+  }
+
+  /** Another tab has saved this valley since: this page stops, and says why. */
+  private stoppedSaving(): void {
+    if (this.playing) this.pause();
+    const line = this.keeper.stopped === 'newer-build' ? NOTES.newer : this.keeper.stopped === 'store-error' ? NOTES.storeError : NOTES.otherTab;
+    if (this.keeper.stopped === 'other-tab') this.hud.setBlocked(line);
+    this.hud.toast(line, 12000);
+    this.updateSaveStatus();
   }
 
   private updateSaveStatus(): void {
-    const n = [...this.world.edits.values()].reduce((s, m) => s + m.size, 0);
-    if (this.store.kind === 'memory') {
-      this.hud.setSaveStatus(`This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe. (${n} blocks changed)`, true);
-    } else {
-      this.hud.setSaveStatus(`Saves automatically in this browser every minute and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer. (${n} blocks changed)`, false);
-    }
+    const k = this.keeper;
+    this.hud.setBackup(k.stopped || this.secondTab ? null : k.backupWhen);
+    const say = (text: string, warn = true) => this.hud.setSaveStatus(text, warn);
+    if (k.stopped === 'newer-build') say(NOTES.newer);
+    else if (k.stopped === 'store-error') say(NOTES.storeError);
+    else if (k.stopped === 'other-tab') say(NOTES.otherTab);
+    else if (this.secondTab) say(SECOND_TAB);
+    else if (this.notice) say(this.notice);
+    else if (this.store.kind === 'memory') say('This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe.');
+    else if (this.lastWriteFailed) say('The last save did not go through: this browser’s storage may be full or blocked. Use “Copy save code” and keep the code somewhere safe.');
+    else say('Saves in this browser every minute while you play, when you pause and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer.', false);
   }
 
   private async downloadSave(): Promise<void> {
@@ -1596,17 +1751,18 @@ export class Game {
   /** Makes the save code ahead of time, so "Copy save code" can write it straight from the click. */
   private async refreshCode(): Promise<void> {
     this.cachedCode = null;
-    this.cachedCode = saveToCode(await encodeSave(this.snapshot()));
+    if (!this.booted) return;
+    try { this.cachedCode = saveToCode(await encodeSave(this.snapshot())); } catch (e) { console.error('the save code could not be made', e); }
   }
 
   private async loadBytes(bytes: Uint8Array | null): Promise<void> {
-    const d = bytes ? await decodeSave(bytes) : null;
-    if (!d) { this.hud.toast('That isn’t a Hidden Valley save'); return; }
-    // Stamp it with this computer's clock, so it compares fairly with saves made here afterwards.
-    d.savedAt = new Date().toISOString();
-    await this.store.set(SAVE_KEY, await encodeSave(d));
-    this.restart(d);
-    this.hud.toast('Save loaded');
+    const r = await parseSave(bytes, normaliseSave);
+    if (!r.ok) {
+      this.hud.toast(r.why === 'newer' ? 'That save was made by a newer build of the game. Reload this page to get the new build, then load it again.'
+        : r.why === 'damaged' ? 'That save is damaged and can’t be opened. Your valley is untouched.' : 'That isn’t a Hidden Valley save', 7000);
+      return;
+    }
+    await this.swapValley(r.data, false, 'Save loaded');
   }
 
   private async loadFromFile(): Promise<void> {
@@ -1615,50 +1771,56 @@ export class Game {
   }
   private async loadFromCode(code: string): Promise<void> { await this.loadBytes(codeToSave(code)); }
 
-  private async newGame(): Promise<void> {
-    await this.store.set(SAVE_KEY, new Uint8Array(0));
-    this.restart(null);
-    this.hud.toast('A fresh valley');
+  private async newGame(): Promise<void> { await this.swapValley(newSave(), true, 'A fresh valley. (The one you left is kept as the backup.)'); }
+
+  /** The backup takes the valley's place, and the valley just left becomes the backup: so this can be undone. */
+  private async openBackup(): Promise<void> {
+    const b = this.booted && !this.opts.test ? await this.keeper.backup() : null;
+    if (!b) { this.hud.toast('There is no backup to open'); return; }
+    await this.swapValley(b, false, 'The backup is open. The valley you just left is the backup now.');
   }
 
-  /** Rebuilds the world from a save (or from nothing) in place: no page reload, so it works without storage. */
-  private restart(d: SaveData | null): void {
-    clearPending(); // a close-time copy of the old valley must not come back at the next start
+  /**
+   * Puts another valley in this one's place (New game, a loaded save, the backup). It is applied first and stored
+   * second, so a save that cannot be applied never reaches the store; the valley being left becomes the backup.
+   */
+  private async swapValley(next: SaveData, fresh: boolean, done: string): Promise<void> {
+    if (!this.booted || this.secondTab) return;
+    if (this.keeper.stopped === 'newer-build' || this.keeper.stopped === 'store-error') { this.hud.toast(NOTES[this.keeper.stopped === 'newer-build' ? 'newer' : 'storeError'], 9000); return; }
+    const current = this.snapshot();
+    try {
+      this.restart(next, fresh);
+    } catch (e) {
+      console.error('that save could not be applied', e);
+      this.restart(current, false);
+      this.hud.toast('That save could not be opened. Your valley is untouched.', 7000);
+      return;
+    }
+    this.notice = null;
+    this.fromHandover = false;
+    let ok = false;
+    if (!this.opts.test) {
+      try { ok = await this.keeper.replace(next, current); } catch (e) { console.error('storing the new valley failed', e); }
+      this.lastWriteFailed = !ok;
+      if (!ok) this.editCount++; // still to be written
+    }
+    this.hud.setBlocked(null);
+    this.hud.toast(done, 5000);
+    this.updateSaveStatus();
+    void this.refreshCode();
+  }
+
+  /** Rebuilds the world from a save in place: no page reload, so it works without storage. */
+  private restart(d: SaveData, fresh: boolean): void {
     this.streamer.reset();
     this.world.edits.clear();
     this.world.containers.clear();
-    this.mining.active = false;
-    this.gate = new Gate();
-    this.wild.clear();
-    if (d) this.applySave(d);
-    else {
-      this.hotbar = Inventory.starter();
-      this.vitals = freshVitals();
-      this.spawn = { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
-      this.flags = new Set();
-      this.wallet = START_WALLET;
-      this.wild.denLeft = 3;
-      this.wild.flockLeft = FLOCK_SIZE;
-      this.wild.outpost = { left: ALL_RAIDERS, alert: false };
-      this.wild.faction.down = 0;
-      this.wild.ashen = { down: 0, firstOut: true };
-      this.power = newPower();
-      this.dose = 0;
-      this.powerHour = null;
-      this.devices = findDevices(new Map());
-      this.explored = new Uint8Array(64 * 64);
-      this.hour = 16.5;
-      this.dayClock = 16.5;
-      this.player.flying = false;
-      this.player.setPosition(SPAWN.x, SPAWN.y, SPAWN.z);
-      this.player.yaw = SPAWN.yaw;
-      this.player.pitch = SPAWN.pitch;
-    }
+    this.applySave(d, fresh);
     this.savedCount = this.editCount;
+    this.playedSince = false;
     this.ready = false;
     this.hud.setLoading(0, 1);
     this.hud.setLoadingVisible();
-    this.updateSaveStatus();
   }
 
   private async saveSettings(): Promise<void> {

@@ -33,12 +33,15 @@ if (q.has('cam')) {
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ui = document.getElementById('ui') as HTMLElement;
 
-function fail(err: unknown): void {
+function fail(err: unknown, started = false): void {
   console.error(err);
   ui.innerHTML = '';
   const box = document.createElement('div');
   box.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;pointer-events:auto';
-  box.textContent = `Hidden Valley couldn't start here: ${err instanceof Error ? err.message : String(err)}. It needs a browser with WebGL 2 (current Chrome, Safari, Firefox or Edge).`;
+  const why = err instanceof Error ? err.message : String(err);
+  box.textContent = started
+    ? `Hidden Valley couldn't finish starting: ${why}. Reload the page to try again. Your saved valley has not been touched.`
+    : `Hidden Valley couldn't start here: ${why}. It needs a browser with WebGL 2 (current Chrome, Safari, Firefox or Edge).`;
   ui.appendChild(box);
 }
 
@@ -50,7 +53,7 @@ const hot = (window as unknown as { claude?: { hot?: Hot } }).claude?.hot;
 function start(data: unknown): void {
   try {
     const d = data as SaveData | undefined;
-    if (d && d.format === SAVE_FORMAT) opts.handover = d;
+    if (d && d.format === SAVE_FORMAT) opts.handover = d; // checked and made whole in boot, like any save
     const game = new Game(canvas, ui, opts);
     (window as unknown as { __hv: unknown }).__hv = {
       game,
@@ -96,8 +99,9 @@ function start(data: unknown): void {
         return n;
       },
     };
-    try { hot?.snapshot?.(() => game.snapshot()); } catch { /* an older viewer without hand-over */ }
-    game.boot().catch(fail);
+    // Nothing is handed on until a valley has been opened: a blank game must never replace a real one.
+    try { hot?.snapshot?.(() => game.handover()); } catch { /* an older viewer without hand-over */ }
+    game.boot().catch((e) => fail(e, true));
   } catch (e) {
     fail(e);
   }

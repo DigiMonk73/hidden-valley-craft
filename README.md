@@ -55,6 +55,13 @@ minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `pla
 (Zone-2 and power) and `play-zone3.mjs` (Zone-3, the Ashen and hydro). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
 tests/e2e/play.mjs` runs only some, and `node tests/e2e/play-zone2.mjs` runs one directly.
 
+The saves have their own short browser check (about two minutes): a walk with no edit surviving a reload, a second
+tab, a slow storage open, a broken save (docs/FIXES.md, 1).
+
+```bash
+node tests/e2e/saves.mjs
+```
+
 ```bash
 RD=8 node tools/shot.mjs
 ```

@@ -1,8 +1,11 @@
 // When to save automatically: a few seconds after the player stops changing things, at least once
-// a minute while there are changes, and never again straight after a failed write.
+// a minute while there are changes or the game is simply being played (where you stand, your health and
+// the hour are worth keeping too), and never again straight after a failed write.
 
 export interface SaveClock {
   unsaved: boolean;
+  /** Has the game been played since the last save, with or without an edit? */
+  played?: boolean;
   saving: boolean;
   now: number; // seconds of play
   lastEdit: number;
@@ -15,7 +18,8 @@ export const MAX_GAP_SECONDS = 60;
 export const RETRY_SECONDS = 60;
 
 export function shouldAutosave(c: SaveClock): boolean {
-  if (!c.unsaved || c.saving) return false;
+  if (c.saving || (!c.unsaved && !c.played)) return false;
   if (c.now - c.lastFailure < RETRY_SECONDS) return false;
+  if (!c.unsaved) return c.now - c.lastSave > MAX_GAP_SECONDS;
   return c.now - c.lastEdit > QUIET_SECONDS || c.now - c.lastSave > MAX_GAP_SECONDS;
 }

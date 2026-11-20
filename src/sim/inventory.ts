@@ -2,7 +2,7 @@
 // Holds blocks and items alike. Tools wear with use and break when worn out.
 
 import { itemId, itemName, maxStack, toolOf } from '../world/items.ts';
-import type { Slot } from '../save/save.ts';
+import { ITEM_ALIASES, type Slot } from '../save/save.ts';
 
 export interface Stack { id: number; count: number; wear?: number }
 
@@ -123,13 +123,15 @@ export class Inventory {
   }
 
   static fromSave(slots: (Slot | null)[], selected: number): Inventory {
-    // One past the backpack's size is allowed: a save made with an item held and no room left.
-    const inv = new Inventory(Math.max(BASE_SLOTS, Math.min(BACKPACK_SLOTS + 1, slots.length)));
+    // A pack is 36 slots or, with the expedition backpack, 45: never some other size. (A save made with an item
+    // held and no room once grew the pack by a slot for good; what does not fit is the save's `spill` now.)
+    const inv = new Inventory(slots.length > BASE_SLOTS ? BACKPACK_SLOTS : BASE_SLOTS);
     slots.slice(0, inv.size).forEach((s, i) => {
       if (!s) return;
-      try { inv.slots[i] = { id: itemId(s.name), count: Math.min(maxStack(itemId(s.name)), s.count), ...(s.wear ? { wear: s.wear } : {}) }; } catch { /* an item that no longer exists */ }
+      const name = ITEM_ALIASES[s.name] ?? s.name;
+      try { inv.slots[i] = { id: itemId(name), count: Math.min(maxStack(itemId(name)), s.count), ...(s.wear ? { wear: s.wear } : {}) }; } catch { /* an item that no longer exists */ }
     });
-    inv.selected = selected;
+    inv.selected = ((Math.floor(selected) % HOTBAR) + HOTBAR) % HOTBAR || 0;
     return inv;
   }
 }
