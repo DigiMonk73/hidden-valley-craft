@@ -54,6 +54,11 @@ export class FakeHud {
   mode = '';
   canChooseMode = false;
   showMode(mode: string, canChoose: boolean) { this.mode = mode; this.canChooseMode = canChoose; }
+  goal: string | null = null;
+  setGoal(text: string | null) { this.goal = text; }
+  introCards: string[] = [];
+  /** The opening is read at once here: the cards are kept for the test to look at, and play begins. */
+  showIntro(cards: string[], done: () => void) { this.introCards = cards; done(); }
   notices: string[] = [];
   notice(text: string | null) { if (text) this.notices.push(text); }
 }

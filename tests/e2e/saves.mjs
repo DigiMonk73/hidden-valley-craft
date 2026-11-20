@@ -23,6 +23,7 @@ const ready = (page) => page.waitForFunction(() => window.__hv && window.__hv.id
 const a = await open();
 check('the store is the browser’s own', (await a.evaluate(() => window.__hv.game.store.kind)) === 'indexeddb');
 await a.getByRole('button', { name: 'Play' }).click();
+await a.locator('.hv-intro .skip').click().catch(() => {}); // the opening, on a new valley
 await a.waitForTimeout(500);
 await a.evaluate(() => { const g = window.__hv.game; g.player.setPosition(g.player.x - 4, g.player.y, g.player.z + 2); g.vitals.hp = 37; g.wallet = 424242; });
 const at = await a.evaluate(() => window.__hv.game.player.x);

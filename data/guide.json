@@ -1,0 +1,25 @@
+{
+  "_comment": "The first ten minutes (docs/FIXES.md, 7). opening: the cards shown once, before play first begins in a valley; each is a few lines, in the script's voice (the Unity repo's docs/DESIGN.md: the Event, the player, the discovery), and all of them can be skipped. goals: the first things to do, shown on screen one at a time in this order; each is done when its flag is set (by doing the thing, in any order). After them the screen shows the next step of the milestone in hand. hints: one-line lessons said once, when they are first needed.",
+  "opening": [
+    "Eight years since the bombs and the sickness.\nYou were an engineer once. You had a family once.\nYou have been walking ever since.",
+    "Yesterday raiders ran you into a canyon with no way out.\nYou dove under a waterfall to get away from their guns,\nand a current pulled you sideways, into the rock.",
+    "You came up in the greenest place you have ever seen.\nSomeone built a home in its cliff, and never came back.\nNothing out there can reach you here. This valley is yours now."
+  ],
+  "goals": [
+    { "flag": "ate", "text": "You are hungry. Choose the tinned food (keys 1–9 or the wheel) and right-click to eat" },
+    { "flag": "drank", "text": "You are thirsty. Choose the water jug and right-click to drink (or right-click any water with an empty hand)" },
+    { "flag": "journal_read", "text": "Read the builder’s journal: right-click the bookshelves in the cave behind you" },
+    { "flag": "armory_found", "text": "Find the armory: the chest in the vault, through the hall at the back of the cave" },
+    { "flag": "slept", "text": "Sleep in the builder’s bed (from five in the evening): you wake there from then on" },
+    { "flag": "left_valley", "text": "The way out: down the path at the balcony’s north end, across the valley, and dive under the waterfall. The tunnel is lit" }
+  ],
+  "hints": {
+    "hungry": "Hungry. Put food in your hand (keys 1–9 or the wheel) and right-click to eat. There is more in the pantry, and the garden grows it.",
+    "thirsty": "Thirsty. Right-click any water with an empty hand, or drink from a jug in your hand.",
+    "safeWrong": "Not that. The builder wrote the day down in his journal: four digits, the month first.",
+    "noSky": "This array is under rock or a roof: it makes nothing. Set it under open sky, at home.",
+    "smoker": "A smoker. Put raw meat in it (right-click): by the next watch of the day it is smoked, and keeps.",
+    "jerky_rack": "A jerky rack. Hang raw meat on it (right-click): it is cured by morning.",
+    "hutch": "A hutch. Put two live rabbits in it (right-click): they breed each morning. Snares in the buffer catch them."
+  }
+}

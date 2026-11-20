@@ -240,3 +240,108 @@ kept parts (and that every one is a real item waiting on a real step); rows that
 clicks; M1's real steps, with H; milestones in order; every gated recipe before and after its milestone; waking
 after a death at home and outside; the jug. Older tests that pinned the old numbers or made M2–M4's things with no
 milestone done were brought in line (`tests/phase5`, `phase6`, `phase7`, `nearband`, `chests`).
+
+---
+
+## 7. The first ten minutes (N6)
+
+**What was wrong.** A new player met a menu that said "Phase 0", then the balcony, with no word of who they are,
+what happened, what to do first, or how to eat.
+
+**What was done.**
+
+- **An opening**, shown once, when play first begins in a new valley: three short cards in the script's voice
+  (who you are, how you came here, where you are). Each is three lines; "Go on" shows the next, the last
+  begins, and "Skip" ends them at any point. The words are in `data/guide.json`.
+- **One goal on screen at a time**, small, at the top: "Next: …". First the six things a new arrival should
+  do, in order: eat, drink, read the journal, find the armory, sleep, the way out. Each is ticked by doing it,
+  in any order. After them the line shows the next unticked step of the milestone in hand ("M1 · Meet Marco
+  and trade with him"), and so on through M4. A valley already past M1 skips the first six.
+- **Eating and drinking.**
+  - You arrive unhurt but hungry and thirsty (Food 55, Water 45), with two tins and a jug of water on the
+    hotbar, so the first two goals can be done where you stand and teach the one thing the controls never said.
+  - Choosing any food or drink shows its name with "right-click to eat" (or "to drink").
+  - Later, the first time you run low, one line says how, and that the pantry and the garden hold more.
+  - The list of controls now says what right-click does.
+- **Small things that were hard to find** (from the review's list):
+  - Once Marco trusts you, he keeps the shelter every day from seven to six; the phone call is for the first
+    meeting only. His daily purse (item 6) keeps this from being a money tap.
+  - A wrong code on the safe says where the code is written (the journal: four digits, the month first), and the
+    keypad takes typed digits, Enter and Backspace as well as clicks.
+  - A solar array under rock or a roof says so when used, instead of reporting the others' power.
+  - Setting down a smoker, a jerky rack or a hutch says, once, what goes in it and when it acts.
+
+**Calls made.**
+
+- *The opening is three cards, not a scene.* The script's opening is a chase and a dive, played. That is a
+  phase of work by itself; three cards carry the same facts in fifteen seconds, and the tunnel is still there
+  to be swum as the way out.
+- *The player arrives hungry and thirsty.* It is true to the script (years of drifting, a run through the
+  canyon), and it turns "how do I eat?" from a mystery into the first thing done.
+- *Marco is there every day after the first deal.* The review left this to the owner. Calling from the cave and
+  walking back for every trade is a chore, not a danger, and the owner's standard is "simple, short, easy to
+  find". The first meeting keeps the call, because finding his number at the shelter is the story.
+- *Doc stays on the home phone.* The script heals at home ("injured: retreat to the valley"); a phone in the
+  pocket would make Doc a field medic.
+
+**Not done from the review's list:** Esc on the pause menu does not resume (a browser will not give the mouse
+back to a page straight after Esc took it away); holding H while drowning; digging beside water letting the
+water in; dropping things on the ground.
+
+**Tests.** `tests/first_minutes.test.ts` (9): the cards' length and what they say; shown once per valley and not to
+an older one; the six goals in order and the milestone steps after them; arriving hungry with food and water in
+reach, and each act moving the goal on, on the real `Game`; the low-food and low-water lines said once; the
+"right-click to eat" label; Marco at the shelter by day once trusted. The play-through's first check is now the
+opening card and its "Skip".
+
+---
+
+## 2. Creatures on the real land (N5, what remained)
+
+_Phase 7 had already fixed the fed player who could not die. This is the rest._
+
+**What was wrong.** Every creature test ran on flat stub ground. On the generated land creatures were born
+across the sanctuary's line or inside trees and walls and stood rooted for good; Zone-2's sentry marched on the
+spot against a truck; the jaguar walked into the shed and blinked out; a blow's warning was cut to a quarter of a
+second near any obstacle; at dawn the night's hunters were deleted in plain view.
+
+**What was done** (old → new, each measured on generated land):
+
+- **Births.** Every spawner and `Wild.add` now requires the whole body to fit: wholly outside the sanctuary and
+  wholly out of blocks. Across the sanctuary's line: 302 of 137,604 births straddled it → 0. In forest: 82 of
+  1,500 never moved in a minute → 0. In the near band: 1,142 born with a flank in a block → 0. Tame hens still
+  walk round their coops in the valley.
+- **The sentry** completed 0 of his legs in 132 s → walks all five. His beat has a new shape (up the car park's
+  lane, across the exchange's front, back), because the review's suggested line still met a street light and
+  his old way back could not climb the highway's bank. Every patrol, sentry and guard beat is now walked in a test.
+- **The jaguar** vanished in the clearing at the shed, 23 m from the player → it leaves along its path, up the
+  bank and down behind it, and is gone only once out of sight or 60 m off. Tested from over 80 places to stand.
+- **The warning before a blow** was cut to 0.25 s near obstacles (boar: 101 of 1,949 blows) → never shorter than
+  designed. The cut now applies only while wandering.
+- **Dawn.** The night's hunters (a puma, five coyotes) vanished in plain view → they run from the player and go
+  only when unseen or 80 m off.
+- **Other scenes, each given a real-ground test:** the farm den (281 of 765 dogs were born in a wall → 0), the
+  outpost's machete man (reaches the player and returns to his post), coyote packs and the puma (on real hills
+  they ignored the player; they now react up or down a slope), Marco's spot, the raiders' posts, the tower
+  guards, the placed Ashen. A new test holds the sanctuary rule on the real rim for all twelve hostile kinds.
+- **Extras from the same list:** a dimmer light no longer goes dark when a brighter one beside it is removed
+  (N5i); the bow can be loosed inside the valley, and an arrow from outside still stops at the line (N5h);
+  right-clicking a crop with a block in hand no longer replaces the crop.
+
+**Calls made.**
+
+- *Hunters come for you up or down a slope:* within 3 blocks of height or half the distance. A player straight
+  above on a ledge is still out of reach, and a blow still needs a clear line.
+- *Once the jaguar turns to go, only a shot or a blow provokes it.* Its way out passes the rusted trap, where
+  the game sends the player.
+- *A man whose post has been built over is not placed* until it is clear, instead of standing inside the block.
+- *The bow can be shot from inside the valley at things outside.* Guns already could.
+
+**Left undone.**
+
+- **The outpost's stealth route does not hide the player from the lookout** on its west leg (x 889–879, z 1046):
+  the brush there stands on lower ground than the trail and he sees over it. It needs taller brush, which is
+  blocks, not a post. The check is written and skipped in `tests/creatures_real.test.ts`.
+- N5j (a slab or stair across a chunk border darkening its neighbour) was not touched.
+
+**Tests.** `tests/creatures_real.test.ts` (32, one skipped): 22 fail on the code before this, 10 passed there.

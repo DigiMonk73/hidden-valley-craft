@@ -33,6 +33,7 @@ import { shouldAutosave } from './save/schedule.ts';
 import { collectContainers, restoreContainers, collectEdits, restoreEdits, encodeSave, parseSave, SAVE_FORMAT, SAVE_VERSION, type SaveData, type Slot, type Mode } from './save/save.ts';
 import { newSave, normaliseSave, START, BEGUN } from './save/state.ts';
 import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
+import { OPENING, HINTS, nextGoal } from './sim/guide.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS, WORLD_Y } from './world/constants.ts';
 import { packPos, skyOf } from './world/light.ts';
@@ -223,6 +224,8 @@ export class Game {
   private spill: Stack[] = [];
   keeper!: Keeper;
   private landFailSaid = false;
+  /** The opening has been shown for this valley (it is shown once, when play first begins in it). */
+  private introShown = false;
   /**
    * How this valley is played (docs/FIXES.md, N2): chosen before play first begins in it, saved, and fixed after.
    * In Survival the keys for flying, endless blocks and the clock do nothing.
@@ -1030,7 +1033,7 @@ export class Game {
     const chest = this.world.containerAt(t.x, t.y, t.z);
     if (chest && blockName(t.id).startsWith('wall_safe') && !this.flags.has('safe_open')) {
       this.openPaper(() => this.paper.keypad('Wall safe', (code) => {
-        if (code !== '0618') return false;
+        if (code !== '0618') { this.hud.toast(HINTS.safeWrong, 6000); return false; }
         this.flags.add('safe_open');
         this.edited();
         this.closePaper();
@@ -1044,7 +1047,12 @@ export class Game {
       this.hud.toast('Shot from the front, a day or two ago. A raider scout, walking out toward the saddle. Someone out here shoots back. (In your notes: the journal.)', 9000);
       this.edited();
     }
-    if (chest) { this.openScreen({ title: homeChestAt(t.x, t.y, t.z)?.title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest }); return; }
+    if (chest) {
+      const title = homeChestAt(t.x, t.y, t.z)?.title;
+      if (title === 'Armory' && !this.flags.has('armory_found')) { this.flags.add('armory_found'); this.edited(); }
+      this.openScreen({ title: title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest });
+      return;
+    }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
     const snare = emptySnare(this.world, this.hotbar, t.x, t.y, t.z);
     if (snare === 'full') { this.hud.toast('No room in your pack for the rabbit'); return; }
@@ -1093,6 +1101,8 @@ export class Game {
     if (placeBlock(this.world, this.hotbar, this.player, this.target)) {
       this.edited();
       this.sound.place(materialOf(id));
+      const placed = itemName(id);
+      if (placed === 'smoker' || placed === 'jerky_rack' || placed === 'hutch') this.once(`hint_${placed}`, HINTS[placed], 8000);
       if (id === COOP) this.hud.toast('A coop. Put two chickens in it (right-click): they lay eggs every morning. Leave an egg in and it may hatch.', 7000);
     }
   }
@@ -1111,6 +1121,7 @@ export class Game {
       this.vitals.hunger = Math.max(0, this.vitals.hunger - 10);
       this.vitals.thirst = Math.max(0, this.vitals.thirst - 10);
       this.edited();
+      this.flags.add('slept');
       this.hud.toast('You sleep, and wake to mist on the valley. You will wake here from now on.', 4500);
       void this.save(false);
       return true;
@@ -1134,7 +1145,7 @@ export class Game {
     }
     if (name === 'pale_body' || name === 'pale_legs') { this.hud.toast('You don’t touch it.', 4000); return true; }
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
-    if (this.usePhase6(name)) return true;
+    if (this.usePhase6(name, x, y, z)) return true;
     if (this.usePhase7(name)) return true;
     if (name === 'computer') {
       const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
@@ -1171,6 +1182,7 @@ export class Game {
 
   /** The builder's journal, and after it the player's own notes as they are earned. */
   private openJournal(): void {
+    if (!this.flags.has('journal_read')) { this.flags.add('journal_read'); this.edited(); }
     const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
     const all = [...journalData.entries, ...notes];
     this.openPaper(() => this.paper.journal(all, notes.length ? all.length - 1 : 0)); // at your newest note
@@ -1291,6 +1303,14 @@ export class Game {
     this.edited();
   }
 
+  /** Notes, once, that the player has done one of the first things (eaten, drunk): the goal on screen moves on. */
+  private learned(flag: string): void {
+    if (this.flags.has(flag)) return;
+    this.flags.add(flag);
+    this.hud.setGoal(nextGoal(this.flags));
+    this.edited();
+  }
+
   /** Says something the first time only. */
   private once(flag: string, line: string, ms = 5000): void {
     if (this.flags.has(flag)) return;
@@ -1319,6 +1339,11 @@ export class Game {
     this.tickFarPlaces();
     this.tickZone2();
     this.tickZone3();
+    // The first ten minutes (docs/FIXES.md, 7): the goal on screen, and how to eat and drink the first time it is needed.
+    if (!inSanctuary(p.x, p.z) && p.x < GATE.x0) this.learned('left_valley');
+    if (!this.hotbar.creative && f.has('ate') && this.vitals.hunger < 35) this.once('hint_hungry', HINTS.hungry, 9000);
+    if (!this.hotbar.creative && f.has('drank') && this.vitals.thirst < 35) this.once('hint_thirsty', HINTS.thirsty, 9000);
+    this.hud.setGoal(nextGoal(f));
     // The coops' hens walk round them, as many as each holds.
     this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
@@ -1332,7 +1357,8 @@ export class Game {
     const dist = Math.hypot(p.x - MARCO_SPOT[0], p.z - MARCO_SPOT[2]);
     // The meeting is over once you have been to him and walked away (60 m), dealt or not.
     if (f.has('marco_meeting') && f.has('marco_seen') && dist > 60) { f.delete('marco_meeting'); f.delete('marco_seen'); this.edited(); }
-    const here = f.has('marco_meeting') && day;
+    // Once he trusts you he keeps the shelter every day: the call is for the first meeting only (docs/FIXES.md, 7).
+    const here = (f.has('marco_meeting') || f.has('marco_trust1')) && day;
     if (here && !marco && dist < 120 && this.world.column(Math.floor(MARCO_SPOT[0] / CS), Math.floor(MARCO_SPOT[2] / CS))) {
       const m = makeCreature('marco', MARCO_SPOT[0], MARCO_SPOT[1], MARCO_SPOT[2]);
       m.yaw = Math.PI; // facing the road
@@ -1425,7 +1451,7 @@ export class Game {
     const wet = raycast((x, y, z) => this.world.blockAt(x, y, z), p.x, p.eyeY, p.z, dx, dy, dz, REACH, true);
     const water = wet && (wet.id === WATER || wet.id === FALLING_WATER) && (!this.target || wet.dist <= this.target.dist);
     if (water && !held) {
-      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); }
+      if (consume(this.vitals, { thirst: 25 })) { this.sound.splash(); this.hud.toast('Cold, clear water'); this.learned('drank'); }
       else this.hud.toast('You are not thirsty');
       return true;
     }
@@ -1474,6 +1500,8 @@ export class Game {
       }
       if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
       this.hotbar.take();
+      if ((food?.hunger ?? 0) > 0) this.learned('ate');
+      if ((food?.thirst ?? 0) > (food?.hunger ?? 0)) this.learned('drank'); // a drink, not the little water in a tin
       if (jug && !this.hotbar.creative) this.hotbar.add(itemId('empty_jug'));
       if (held.id === itemId('coffee')) { this.coffeeUntil = this.playTime + 90; this.hud.toast('Coffee on the balcony: a spring in your step'); }
       this.edited();
@@ -1521,6 +1549,7 @@ export class Game {
       }
       if (this.paper.isOpen) {
         if (e.code === 'Escape' || e.code === 'KeyE') this.closePaper();
+        else this.paper.key(e.code);
         return;
       }
       if (e.code === 'Escape' && this.playing) this.pause();
@@ -1597,7 +1626,19 @@ export class Game {
 
   private resume(): void {
     if (!this.ready || this.secondTab || this.keeper.stopped === 'other-tab') return;
-    if (!this.flags.has(BEGUN)) { this.flags.add(BEGUN); this.edited(); this.hud.showMode(this.mode, false); }
+    if (!this.flags.has(BEGUN)) {
+      // The first time in a valley: a few short cards saying who you are and where (docs/FIXES.md, 7), then play.
+      if (!this.introShown && !this.opts.test) {
+        this.introShown = true;
+        this.hud.showMenu(false);
+        this.hud.showIntro(OPENING, () => this.resume());
+        return;
+      }
+      this.flags.add(BEGUN);
+      this.edited();
+      this.hud.showMode(this.mode, false);
+    }
+    this.hud.setGoal(nextGoal(this.flags));
     if (this.notice && !this.noticeSaid) { this.noticeSaid = true; this.hud.toast(this.notice, 12000); }
     this.sound.start(); // browsers only allow sound to begin from a click
     this.playing = true;
@@ -1697,6 +1738,7 @@ export class Game {
     this.coffeeUntil = 0;
     this.stingerVisit = false;
     this.marcoGreeted = false;
+    this.introShown = false;
     this.doseToasted = false;
     this.shotFired = false;
     this.quietShot = false;
@@ -2016,7 +2058,7 @@ export class Game {
   }
 
   /** Right-click on Phase 6's things. True if handled. */
-  private usePhase6(name: string): boolean {
+  private usePhase6(name: string, x: number, y: number, z: number): boolean {
     const P = this.power, d = this.devices;
     if (name === 'water_pump') {
       if (!P.on.water_pump) { this.hud.toast('The pump is dead: no power. It needs the sun, or a charged battery bank.'); return true; }
@@ -2028,7 +2070,7 @@ export class Game {
         this.sound.splash();
         this.hud.toast(`The pump runs: ${empties - left} jug${empties - left === 1 ? '' : 's'} filled.`);
         this.edited();
-      } else if (this.vitals.thirst < 99) { this.vitals.thirst = 100; this.sound.splash(); this.hud.toast('You drink your fill from the pump.'); }
+      } else if (this.vitals.thirst < 99) { this.vitals.thirst = 100; this.sound.splash(); this.hud.toast('You drink your fill from the pump.'); this.learned('drank'); }
       else this.hud.toast('The pump: right-click with empty jugs to fill them, or to drink.');
       return true;
     }
@@ -2037,6 +2079,8 @@ export class Game {
       return true;
     }
     if (name === 'battery_bank') { this.hud.toast(`Battery bank: ${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh.`); return true; }
+    // An array under rock or a roof says so (it used to report the others' power and leave you guessing).
+    if (name === 'solar_array' && this.world.isLoaded(x, z) && !d.solar_array.some((a) => a[0] === x && a[1] === y && a[2] === z)) { this.hud.toast(HINTS.noSky, 6000); return true; }
     if (name === 'solar_array') { this.hud.toast(`Solar: ${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} making ${P.solar.toFixed(1)} kW now.`); return true; }
     if (name === 'pharmacy_counter') {
       if (!this.flags.has('doc_known')) { this.flags.add('doc_known'); this.edited(); this.hud.toast(DOC.card, 10000); }

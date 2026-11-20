@@ -4,7 +4,7 @@
 import { iconFor } from './icons.ts';
 import { BLOCK_DEFS } from '../world/blocks.ts';
 import type { Inventory } from '../sim/inventory.ts';
-import { itemLabel } from '../world/items.ts';
+import { itemLabel, foodOf } from '../world/items.ts';
 
 const CSS = `
 #ui * { box-sizing: border-box; }
@@ -69,6 +69,14 @@ const CSS = `
 .hv-keys b { font-weight: 600; color: #ffe2a8; }
 .hv-set { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; font-size: 13px; }
 .hv-set select, .hv-set input { pointer-events: auto; }
+.hv-goal { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); max-width: min(720px, 86vw); text-align: center; font-size: 13px;
+  padding: 5px 12px; border-radius: 8px; background: rgba(12,16,12,.5); color: #f3ead2; text-shadow: 0 1px 2px #000; }
+.hv-goal:empty { display: none; }
+.hv-goal b { color: #ffe2a8; font-weight: 600; }
+.hv-intro { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(6,9,7,.86); pointer-events: auto; }
+.hv-intro .card { max-width: 560px; padding: 28px 30px; text-align: center; }
+.hv-intro p { white-space: pre-line; font-size: 19px; line-height: 1.65; color: #f3ead2; margin: 0 0 22px; }
+.hv-intro .skip { display: block; margin: 14px auto 0; background: none; border: 0; color: #c9c2ad; opacity: .75; cursor: pointer; font: inherit; font-size: 13px; pointer-events: auto; }
 .hv-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 2px; }
 .hv-mode-btn { pointer-events: auto; cursor: pointer; text-align: left; font: inherit; color: #eaf3e6; padding: 9px 11px; border-radius: 8px;
   background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); }
@@ -109,6 +117,13 @@ export const VIEW_CHUNKS = [7, 8, 10, 12];
 /** The offered view distance nearest a saved one (older builds also allowed 4 and 6). */
 export function nearestViewChunks(n: number): number {
   return VIEW_CHUNKS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+}
+
+/** What right-click does with the thing in hand, said with its name: how to eat and drink is never a secret. */
+export function useHint(id: number): string {
+  const f = foodOf(id);
+  if (!f) return '';
+  return (f.thirst ?? 0) > 0 && !((f.hunger ?? 0) > 0) ? ' · right-click to drink' : ' · right-click to eat';
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', parent?: HTMLElement): HTMLElementTagNameMap[K] {
@@ -206,8 +221,10 @@ export class Hud {
     this.debugEl.style.display = 'none';
     this.modeEl = el('div', 'hv-mode', root);
 
+    this.goalEl = el('div', 'hv-goal', root);
     this.menu = el('div', 'hv-menu', root);
     this.buildMenu(actions);
+    this.introEl = el('div', 'hv-intro', root);
     this.noticeEl = el('div', 'hv-notice', root);
   }
 
@@ -324,6 +341,42 @@ export class Hud {
   private downloadBtn!: HTMLButtonElement;
   showDownload(show: boolean): void { this.downloadBtn.hidden = !show; }
 
+  private goalEl!: HTMLDivElement;
+  private introEl!: HTMLDivElement;
+
+  /** The one thing to do next, small, at the top of the screen; null or '' hides it. */
+  setGoal(text: string | null): void {
+    if (this.goalText === (text ?? '')) return;
+    this.goalText = text ?? '';
+    this.goalEl.innerHTML = '';
+    if (!text) return;
+    el('b', '', this.goalEl).textContent = 'Next: ';
+    this.goalEl.append(text);
+  }
+  private goalText = '';
+
+  /**
+   * The opening: a few short cards, one at a time, over everything. "Go on" shows the next, the last one's button
+   * begins, and "Skip" ends it at any point. `done` runs from the click, so the mouse can be captured by it.
+   */
+  showIntro(cards: string[], done: () => void): void {
+    let i = 0;
+    const end = () => { this.introEl.style.display = 'none'; this.introEl.innerHTML = ''; done(); };
+    const draw = () => {
+      this.introEl.innerHTML = '';
+      const card = el('div', 'card', this.introEl);
+      el('p', '', card).textContent = cards[i];
+      const last = i === cards.length - 1;
+      const next = el('button', 'hv-btn primary', card);
+      next.textContent = last ? 'Begin' : 'Go on';
+      next.onclick = () => { if (last) end(); else { i++; draw(); } };
+      if (!last) { const skip = el('button', 'skip', card); skip.textContent = 'Skip'; skip.onclick = end; }
+      next.focus();
+    };
+    this.introEl.style.display = 'flex';
+    draw();
+  }
+
   private keysEl!: HTMLDivElement;
   private modeBox!: HTMLDivElement;
   private modeBtns: Partial<Record<'survival' | 'builder', HTMLButtonElement>> = {};
@@ -421,7 +474,7 @@ export class Hud {
       const img = el('img', '', d); img.src = iconFor(s.id); img.alt = '';
       if (!h.creative && s.count > 1) el('span', '', d).textContent = String(s.count);
     });
-    if (selChanged) this.flashLabel(h.current ? itemLabel(h.current.id) : 'Empty hand');
+    if (selChanged) this.flashLabel(h.current ? itemLabel(h.current.id) + useHint(h.current.id) : 'Empty hand');
   }
 
   flashLabel(text: string): void {
@@ -490,7 +543,7 @@ export class Hud {
 
   /** Hides the crosshair, hotbar and bars while a screen (inventory, chest) is open over the game. */
   showWorldHud(show: boolean): void {
-    for (const e of this.root.querySelectorAll<HTMLElement>('.hv-cross, .hv-ring, .hv-hotbar, .hv-label, .hv-breath, .hv-vitals, .hv-focusbar')) e.style.visibility = show ? '' : 'hidden';
+    for (const e of this.root.querySelectorAll<HTMLElement>('.hv-cross, .hv-ring, .hv-hotbar, .hv-label, .hv-breath, .hv-vitals, .hv-focusbar, .hv-goal')) e.style.visibility = show ? '' : 'hidden';
   }
 
   setDebug(text: string): void {

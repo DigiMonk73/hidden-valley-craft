@@ -21,7 +21,8 @@ export class Inventory {
   /** What the player starts with in their hands: the builder's coat-hook tools. The rest is in the home. */
   static starter(): Inventory {
     const inv = new Inventory();
-    const kit: [string, number][] = [['steel_pickaxe', 1], ['steel_axe', 1], ['steel_shovel', 1], ['lantern', 8], ['canned_food', 2]];
+    // (A jug of water too: you arrive thirsty, and the first lesson is how to eat and drink.)
+    const kit: [string, number][] = [['steel_pickaxe', 1], ['steel_axe', 1], ['steel_shovel', 1], ['lantern', 8], ['canned_food', 2], ['water_jug', 1]];
     kit.forEach(([n, c], i) => (inv.slots[i] = { id: itemId(n), count: c }));
     return inv;
   }

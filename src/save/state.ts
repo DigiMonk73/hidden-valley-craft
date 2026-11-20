@@ -18,6 +18,8 @@ import { ALL_ASHEN } from '../entity/ashen.ts';
 /** Where a new game begins: on the balcony, looking west over the valley. */
 export const START = { x: HOME.wallX - 3.5, y: HOME.floor, z: 1024.5, yaw: Math.PI / 2, pitch: -0.06 };
 export const START_HOUR = 16.5;
+/** How you arrive: unhurt, but hungry and thirsty after the canyon, so the first things to learn are to eat and to drink. */
+export const ARRIVAL = { hp: 100, hunger: 55, thirst: 45 };
 
 /** A name for a valley, so a copy of one valley is never mistaken for a newer save of another. */
 export function newValleyId(): string {
@@ -34,7 +36,7 @@ export function newSave(mode: Mode = 'survival'): SaveData {
     format: SAVE_FORMAT, version: SAVE_VERSION, id: newValleyId(), seq: 0, savedAt: new Date().toISOString(), mode, endless: mode === 'builder', hour: START_HOUR,
     player: { x: START.x, y: START.y, z: START.z, yaw: START.yaw, pitch: START.pitch, flying: false },
     hotbar: Inventory.starter().toSave(), spill: [], selected: 0, palette: [], edits: [], containers: [],
-    vitals: { hp: 100, hunger: 100, thirst: 100 }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
+    vitals: { ...ARRIVAL }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
     flags: [], explored: [], wallet: START_WALLET, marcoPaid: 0, den: 3, flock: FLOCK_SIZE, outpost: ALL_RAIDERS,
     dose: 0, factionDown: 0, ashenDown: 0, live: { solar: [], hydro: [] },
   };

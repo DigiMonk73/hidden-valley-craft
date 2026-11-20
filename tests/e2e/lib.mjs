@@ -23,7 +23,14 @@ export async function start(query = 'rd=4&hour=12') {
   await idle();
   check('loads and becomes ready', true);
   await page.getByRole('button', { name: 'Play' }).click();
+  // A new valley opens with a few short cards (docs/FIXES.md, 7): the first says who you are; "Skip" ends them.
+  const opening = await page.locator('.hv-intro .card p').first().textContent({ timeout: 5000 }).catch(() => null);
+  check('a new valley opens with a short card saying who you are, and it can be skipped', /engineer/.test(opening ?? '') && (opening ?? '').length < 220, (opening ?? 'no card').replace(/\n/g, ' '));
+  await page.locator('.hv-intro .skip').click().catch(() => {});
   await page.waitForTimeout(1200);
+  // You arrive hungry and thirsty (the first lesson is to eat and drink; part 1 checks eating). The scenes these
+  // parts set by hand assume a fed player, as before.
+  await page.evaluate(() => { const v = window.__hv.game.vitals; v.hunger = 100; v.thirst = 100; });
   const mode = await g(() => window.__hv.game.look.mode);
   check('play starts (mouse captured or free-look fallback)', mode === 'captured' || mode === 'free', `look mode: ${mode}`);
 
