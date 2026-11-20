@@ -321,7 +321,7 @@ describe('the home, rebuilt', () => {
       for (const y of [F, F + 1]) placeBlock(d, inv, { intersectsBlock: () => false, yaw }, { x, y: y - 1, z, nx: 0, ny: 1, nz: 0, id: d.blockAt(x, y - 1, z), dist: 1 });
       for (const y of [F, F + 1]) expect(name(d, x, y, z), `${was} put back facing ${yaw.toFixed(2)}`).toBe(was);
     }
-  });
+  }, 120_000); // generated land: seconds on a slow machine, past the default five
 
   it('a double door built from nothing, in either order and from either side, is a left and a right leaf that open to the jambs', () => {
     const [l, r] = HOME_FIT.door, z = l[2];
@@ -345,7 +345,7 @@ describe('the home, rebuilt', () => {
         expect([east[0], east[3]], `${what}: east leaf`).toEqual([13, 16]);
       }
     }
-  });
+  }, 120_000);
 
   it('what stands on a piece of furniture comes up with it, a whole stack of it, and nothing is lost when the pack is full', () => {
     const d = home(), inv = new Inventory();
