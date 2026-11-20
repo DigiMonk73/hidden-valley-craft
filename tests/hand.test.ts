@@ -138,3 +138,19 @@ describe('the hand in play', () => {
     expect(v.quads).toBeLessThan(6000); // a few thousand triangles: nothing beside a view of two million
   });
 });
+
+// The lead, publishing Phase 9A (2026-11-20): food, parts and plants were held upright as the pack picture given a
+// thickness, which is another block game's look. They lie flat on the open palm.
+describe('a held thing that is not a tool, a weapon or a block', () => {
+  it('lies flat on the open palm, thin, not upright', () => {
+    const held = heldShape(itemId('canned_food'));
+    expect(held.grip).toBe('flat');
+    const pose = handPose({ ...REST, grip: 'flat' });
+    expect(Math.abs(pose.item.rx + Math.PI / 2)).toBeLessThan(1e-9); // the picture's plane turned to lie level
+    // Thin: the shape's depth is a fraction of a pixel of its picture.
+    const p = held.shape.pos;
+    let zMin = Infinity, zMax = -Infinity;
+    for (let i = 2; i < p.length; i += 3) { zMin = Math.min(zMin, p[i]); zMax = Math.max(zMax, p[i]); }
+    expect(zMax - zMin).toBeLessThan(0.5);
+  });
+});

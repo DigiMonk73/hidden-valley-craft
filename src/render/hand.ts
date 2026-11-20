@@ -1,7 +1,7 @@
 // The player's own arm, and what the hand holds, drawn in front of everything (docs/PHASE9A.md, 1): a pickaxe
 // that swings as it mines, a rifle that comes up to the eye in focus, a bow that bends as it is drawn, a block
 // on the palm. Every shape is this game's own drawing: small models built from boxes for tools and weapons,
-// the block itself for a block, and the pack icon given a thickness for the rest.
+// the block itself for a block, and for the rest the pack icon lying flat on the open palm.
 //
 // Cheap by design: two draw calls (the arm, the thing held), a few thousand triangles, no texture, no pass of
 // its own beyond a depth clear. The shapes and the poses are plain data and arithmetic (heldShape, handPose),
@@ -325,14 +325,14 @@ export function heldShape(id: number | undefined): Held {
     }
     if (B_RENDER[id] === RENDER.cube) return { grip: 'block', shape: s.texBox([0, 0, 0, 16, 16, 16], (f) => B_FACE_TEX[id * 6 + f]), scale: 0.16 / 16 };
     // A plant, or anything else drawn flat in the world: its picture, held up.
-    return { grip: 'flat', shape: s.sprite(texturePixels(B_FACE_TEX[id * 6]), 0.8), scale: 0.26 / 16 };
+    return { grip: 'flat', shape: s.sprite(texturePixels(B_FACE_TEX[id * 6]), 0.35), scale: 0.15 / 16 };
   }
   const name = itemName(id);
   const made = (TOOLS[name] ?? WEAPONS[name])?.();
   if (made) return made;
   const icon = itemDef(id)?.icon ?? '';
   const px = hasIcon(icon) ? drawItemIcon(icon) : texturePixels(0);
-  return { grip: 'flat', shape: new Shape().sprite(px, 1), scale: 0.26 / 16 };
+  return { grip: 'flat', shape: new Shape().sprite(px, 0.35), scale: 0.15 / 16 };
 }
 
 // ---- The arm ----------------------------------------------------------------------------------
@@ -408,7 +408,9 @@ const GRIPS: Record<Grip, HandPoses> = {
   pistol: { arm: { x: 0.2, y: -0.2, z: -0.5, rx: 0.12, ry: 0.14, rz: 0 }, item: { x: 0, y: 0.05, z: 0, rx: -0.1, ry: 0, rz: 0 } },
   bow: { arm: { x: 0.15, y: -0.17, z: -0.56, rx: 0.2, ry: 0.5, rz: 0.2 }, item: { x: 0, y: 0, z: 0, rx: -0.2, ry: -0.5, rz: -0.32 } },
   block: { arm: { x: 0.27, y: -0.24, z: -0.46, rx: 0.2, ry: 0.4, rz: 0 }, item: { x: -0.08, y: 0.012, z: -0.17, rx: 0, ry: 0.45, rz: 0 } },
-  flat: { arm: { x: 0.27, y: -0.2, z: -0.52, rx: 0.3, ry: 0.5, rz: 0.06 }, item: { x: 0, y: 0.09, z: -0.05, rx: -0.6, ry: -1.1, rz: 0 } },
+  // Food, parts, papers and plants lie flat on the open palm, as a thing is carried in the hand: never an upright
+  // picture given a thickness and held like a blade, which is another block game's look (AGENTS.md: nothing from it).
+  flat: { arm: { x: 0.27, y: -0.24, z: -0.46, rx: 0.2, ry: 0.4, rz: 0 }, item: { x: -0.01, y: 0.016, z: -0.09, rx: -Math.PI / 2, ry: 0, rz: 0.45 } },
 };
 /** A weapon raised to the eye: its muzzle under the cross in the middle of the view. */
 const AIMED: Partial<Record<Grip, Pose>> = {
@@ -606,7 +608,7 @@ export class HandView {
     const pose = handPose(st);
     place(this.root, pose.arm);
     this.root.scale.setScalar(HAND_SIZE);
-    const open = this.grip === 'block';
+    const open = this.grip === 'block' || this.grip === 'flat';
     this.arm.visible = !open; this.armOpen.visible = open;
     if (this.item) place(this.item, pose.item);
     const bowHeld = this.grip === 'bow' && !!this.item;
