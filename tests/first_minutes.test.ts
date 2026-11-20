@@ -92,6 +92,9 @@ describe('the first goals, one at a time', () => {
     for (const m of ['m1_done', 'm2_done', 'm3_done']) f.add(m);
     expect(nextGoal(f)).toBe(`M4 · ${M4_STEPS[0].label}`);
     f.add('m4_done');
+    // Phase 8: M5's steps follow (docs/PHASE8.md); with every milestone done there is nothing left to point at.
+    expect(nextGoal(f)).toMatch(/^M5 · /);
+    f.add('m5_done');
     expect(nextGoal(f)).toBeNull();
   });
 

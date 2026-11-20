@@ -4,10 +4,8 @@
 
 import type { Answer, QueryId } from '../sim/uplink.ts';
 
-const CSS = `
-.up-wrap[hidden] { display: none; }
-.up-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; background: rgba(2, 5, 4, .78); }
-.up-panel { width: min(760px, 96vw); max-height: 92vh; overflow: auto; padding: 18px 22px; border-radius: 8px; background: #050c08; color: #9df0b4; border: 2px solid #1d3a2a;
+export const UPLINK_CSS = `
+.pp-panel.up-panel { width: min(760px, 96vw); max-height: 92vh; padding: 18px 22px; border-radius: 8px; background: #050c08; color: #9df0b4; border: 2px solid #1d3a2a;
   font: 14px/1.45 ui-monospace, Menlo, Consolas, monospace; box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 0 60px rgba(40,120,70,.08); }
 .up-panel h2 { margin: 0 0 10px; font-size: 15px; letter-spacing: 2px; color: #d6ffe2; font-weight: 600; }
 .up-need { display: flex; gap: 12px; padding: 5px 0; border-bottom: 1px dashed rgba(157,240,180,.14); }
@@ -42,109 +40,86 @@ export interface UplinkView {
   firstRead: () => void;
 }
 
-export class UplinkScreen {
-  private wrap: HTMLDivElement;
-  private panel: HTMLDivElement;
-  private pendingFirst: (() => void) | null = null;
-  private timers: ReturnType<typeof setTimeout>[] = [];
-  /** How long each line of the handshake waits for the one before (ms); the play-through sets it to 0. */
-  pace = 450;
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''): HTMLElementTagNameMap[K] => {
+  const e = document.createElement(tag);
+  if (text) e.textContent = text;
+  if (cls) e.className = cls;
+  return e;
+};
 
-  constructor(root: HTMLElement) {
-    const style = document.createElement('style');
-    style.textContent = CSS;
-    document.head.appendChild(style);
-    this.wrap = document.createElement('div');
-    this.wrap.className = 'up-wrap';
-    this.wrap.hidden = true;
-    this.panel = document.createElement('div');
-    this.panel.className = 'up-panel';
-    this.wrap.appendChild(this.panel);
-    root.appendChild(this.wrap);
-  }
+/**
+ * Fills a panel with the uplink page. `pace`: ms between the handshake's lines (0 in the play-through).
+ * Returns what to do when the page is put down: stop the handshake's timers and, if the first answer was on
+ * the page, count it as read.
+ */
+export function fillUplink(p: HTMLElement, v: UplinkView, pace = 450): () => void {
+  let pendingFirst: (() => void) | null = null;
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const later = (f: () => void, ms: number) => { if (ms <= 0) f(); else timers.push(setTimeout(f, ms)); };
+  const title = el('h2', v.live ? 'UPLINK · LINK UP' : 'UPLINK');
+  p.append(title);
+  const out = el('div', '', 'up-out');
+  const note = el('div', '', 'up-note');
+  const print = (a: Answer) => { out.textContent = ''; out.append(el('div', a.head, 'up-head'), document.createTextNode('\n' + a.rows.join('\n'))); note.textContent = ''; };
 
-  get isOpen(): boolean { return !this.wrap.hidden; }
-
-  /** Puts the page down. If the first answer was on it, that is when it counts as read. */
-  close(): void {
-    for (const t of this.timers) clearTimeout(t);
-    this.timers = [];
-    this.wrap.hidden = true;
-    this.panel.innerHTML = '';
-    const first = this.pendingFirst;
-    this.pendingFirst = null;
-    first?.();
-  }
-
-  private el<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''): HTMLElementTagNameMap[K] {
-    const e = document.createElement(tag);
-    if (text) e.textContent = text;
-    if (cls) e.className = cls;
-    return e;
-  }
-
-  show(v: UplinkView): void {
-    const p = this.panel;
-    p.innerHTML = '';
-    this.wrap.hidden = false;
-    p.append(this.el('h2', v.live ? 'UPLINK · LINK UP' : 'UPLINK'));
-    const out = this.el('div', '', 'up-out');
-    const note = this.el('div', '', 'up-note');
-    const print = (a: Answer) => { out.textContent = ''; out.append(this.el('div', a.head, 'up-head'), document.createTextNode('\n' + a.rows.join('\n'))); note.textContent = ''; };
-
-    const queries = this.el('div');
-    const drawings = this.el('div');
-    const fillDrawings = () => {
-      drawings.innerHTML = '';
-      for (const d of v.drawings()) {
-        const b = this.el('button', d.code, 'up-btn');
-        b.dataset.pull = d.flag;
-        b.disabled = d.held;
-        b.onclick = () => {
-          const a = v.pull(d.flag);
-          if (a) { print(a); note.textContent = 'DRAWING HELD · RECIPE AT STATION'; }
-          else { print(v.ask('SCH')); note.textContent = 'WINDOW SHUT · ONE DRAWING A PASS'; }
-          fillDrawings();
-        };
-        drawings.append(b);
-      }
-    };
-    const fillQueries = () => {
-      queries.innerHTML = '';
-      for (const q of v.queries) {
-        const b = this.el('button', q.id, 'up-btn');
-        b.dataset.query = q.id;
-        b.append(this.el('small', q.note));
-        b.onclick = () => { print(v.ask(q.id)); drawings.hidden = q.id !== 'SCH'; if (q.id === 'SCH') fillDrawings(); };
-        queries.append(b);
-      }
-    };
-
-    if (v.live) { fillQueries(); p.append(queries, out, drawings, note); drawings.hidden = true; }
-    else {
-      for (const n of v.needs) {
-        const r = this.el('div', '', 'up-need');
-        r.append(this.el('b', n.label), this.el('span', n.ok ? 'OK' : '--', n.ok ? 'ok' : 'no'), this.el('span', n.ok ? '' : n.how, 'how'));
-        p.append(r);
-      }
-      const go = this.el('button', 'OPEN LINK', 'up-btn');
-      go.dataset.open = '1';
-      go.disabled = !v.ready;
-      go.style.marginTop = '12px';
-      p.append(go, out, note);
-      if (!v.ready) note.textContent = 'LINK DOWN';
-      go.onclick = () => {
-        go.disabled = true;
-        const { handshake, first } = v.open();
-        out.textContent = '';
-        handshake.forEach((line, i) => this.timers.push(setTimeout(() => { out.textContent += (i ? '\n' : '') + line; }, this.pace * (i + 1))));
-        this.timers.push(setTimeout(() => {
-          print(first);
-          this.pendingFirst = v.firstRead;
-          (p.querySelector('h2') as HTMLElement).textContent = 'UPLINK · LINK UP';
-        }, this.pace * (handshake.length + 2)));
+  const queries = el('div');
+  const drawings = el('div');
+  const fillDrawings = () => {
+    drawings.innerHTML = '';
+    for (const d of v.drawings()) {
+      const b = el('button', d.code, 'up-btn');
+      b.dataset.pull = d.flag;
+      b.disabled = d.held;
+      b.onclick = () => {
+        const a = v.pull(d.flag);
+        if (a) { print(a); note.textContent = 'DRAWING HELD · RECIPE AT STATION'; }
+        else { print(v.ask('SCH')); note.textContent = 'WINDOW SHUT · ONE DRAWING A PASS'; }
+        fillDrawings();
       };
+      drawings.append(b);
     }
-    p.append(this.el('div', 'E or Esc to step back from the screen', 'up-foot'));
+  };
+  const fillQueries = () => {
+    queries.innerHTML = '';
+    for (const q of v.queries) {
+      const b = el('button', q.id, 'up-btn');
+      b.dataset.query = q.id;
+      b.append(el('small', q.note));
+      b.onclick = () => { print(v.ask(q.id)); drawings.hidden = q.id !== 'SCH'; if (q.id === 'SCH') fillDrawings(); };
+      queries.append(b);
+    }
+  };
+
+  if (v.live) { fillQueries(); p.append(queries, out, drawings, note); drawings.hidden = true; }
+  else {
+    for (const n of v.needs) {
+      const r = el('div', '', 'up-need');
+      r.append(el('b', n.label), el('span', n.ok ? 'OK' : '--', n.ok ? 'ok' : 'no'), el('span', n.ok ? '' : n.how, 'how'));
+      p.append(r);
+    }
+    const go = el('button', 'OPEN LINK', 'up-btn');
+    go.dataset.open = '1';
+    go.disabled = !v.ready;
+    go.style.marginTop = '12px';
+    p.append(go, out, note);
+    if (!v.ready) note.textContent = 'LINK DOWN';
+    go.onclick = () => {
+      go.disabled = true;
+      const { handshake, first } = v.open();
+      out.textContent = '';
+      handshake.forEach((line, i) => later(() => { out.textContent += (i ? '\n' : '') + line; }, pace * (i + 1)));
+      later(() => {
+        print(first);
+        pendingFirst = v.firstRead;
+        title.textContent = 'UPLINK · LINK UP';
+      }, pace * (handshake.length + 2));
+    };
   }
+  p.append(el('div', 'E or Esc to step back from the screen', 'up-foot'));
+  return () => {
+    for (const t of timers) clearTimeout(t);
+    const first = pendingFirst;
+    pendingFirst = null;
+    first?.();
+  };
 }

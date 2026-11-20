@@ -677,6 +677,40 @@ export class Sound {
     if (Math.random() < dt * 2) this.burst(0.5, 'highpass', 6000, 0.5, 0.025 * rate);
   }
 
+  /** The modem's handshake when the link opens: a carrier, two warbling tones, a hiss, a settled note. */
+  modem(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime, out = this.ambience;
+    this.chirp(out, t, 1070, 1070, 0.5, 0.05);
+    this.chirp(out, t + 0.5, 1270, 2025, 0.35, 0.05, 'square');
+    this.chirp(out, t + 0.9, 2225, 1180, 0.4, 0.04, 'square');
+    this.burst(0.7, 'bandpass', 2400, 1.2, 0.1, 1.3);
+    this.chirp(out, t + 2.0, 1650, 1650, 0.9, 0.04);
+  }
+
+  /** A sonic lure's wail, from where it stands: two rising sweeps, a second apart. */
+  lure(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.chirp(p, t, 520, 1500, 0.8, 0.22, 'sawtooth');
+    this.chirp(p, t + 0.9, 520, 1500, 0.8, 0.22, 'sawtooth');
+  }
+
+  /** A smoke pot catching: a hiss. */
+  hiss(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    this.noiseAt(this.at(x, y, z), this.ctx.currentTime, 1.4, 'highpass', 2600, 0.6, 0.25, 0.08);
+  }
+
+  /** The relay tower's beacon: a slow relay tick, from the top of the frame. */
+  beacon(x: number, y: number, z: number): void {
+    if (!this.ctx) return;
+    const p = this.at(x, y, z), t = this.ctx.currentTime;
+    this.noiseAt(p, t, 0.03, 'bandpass', 1800, 6, 0.5);
+    this.chirp(p, t, 240, 236, 0.5, 0.05);
+  }
+
   /** A machine at home: the rig's fans, the fridge's compressor, the pump. A short positioned hum. */
   machine(x: number, y: number, z: number, freq: number, gain: number): void {
     if (!this.ctx) return;

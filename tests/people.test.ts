@@ -129,7 +129,7 @@ describe('the builder’s computer', () => {
 
   it('says which milestone each later one waits for, until it is done', () => {
     const waits = (flags: string[]) => milestoneRows(new Set(flags)).filter((r) => /^M\d/.test(r[0])).map((r) => r[1]);
-    expect(waits([])).toEqual([`0 of ${M1_STEPS.length}`, `0 of ${M2_STEPS.length} · after M1`, '0 of 8 · after M2', '0 of 8 · after M3']);
+    expect(waits([])).toEqual([`0 of ${M1_STEPS.length}`, `0 of ${M2_STEPS.length} · after M1`, '0 of 8 · after M2', '0 of 8 · after M3', '0 of 9 · after M4']); // M5: docs/PHASE8.md
     expect(waits(['m1_done'])[0]).toBe('done ✓');
     expect(waits(['m1_done'])[1]).toBe(`0 of ${M2_STEPS.length}`);
   });

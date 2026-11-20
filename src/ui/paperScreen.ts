@@ -1,6 +1,9 @@
 // Screens for the builder's things: reading the journal, his computer, the phone, the map table,
 // and the safe's keypad. One overlay, filled with whichever is open.
 
+import { fillUplink, UPLINK_CSS, type UplinkView } from './uplinkScreen.ts';
+import { fillEnding, ENDING_CSS } from './endingCard.ts';
+
 const CSS = `
 .pp-wrap[hidden] { display: none; }
 .pp-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; background: rgba(5, 8, 6, .6); }
@@ -44,7 +47,7 @@ export class PaperScreen {
 
   constructor(root: HTMLElement) {
     const style = document.createElement('style');
-    style.textContent = CSS;
+    style.textContent = CSS + UPLINK_CSS + ENDING_CSS;
     document.head.appendChild(style);
     this.wrap = document.createElement('div');
     this.wrap.className = 'pp-wrap';
@@ -57,7 +60,21 @@ export class PaperScreen {
 
   get isOpen(): boolean { return !this.wrap.hidden; }
 
-  close(): void { this.wrap.hidden = true; this.panel.innerHTML = ''; this.onKey = null; }
+  close(): void {
+    this.wrap.hidden = true;
+    this.wrap.classList.remove('pp-dark');
+    this.panel.innerHTML = '';
+    this.onKey = null;
+    // Putting a screen down can count for something (the uplink's first answer is read): it may open another.
+    const f = this.onPutDown;
+    this.onPutDown = null;
+    f?.();
+  }
+
+  /** Runs once when the open screen is put down. */
+  private onPutDown: (() => void) | null = null;
+  /** How fast the uplink's handshake and the closing card run: 1 as written, 0 at once (the play-through). */
+  pace = 1;
 
   /** What the open screen does with a typed key, if anything (the keypad takes digits). */
   private onKey: ((code: string) => void) | null = null;
@@ -68,7 +85,9 @@ export class PaperScreen {
     return true;
   }
 
-  private open(kind: 'pp-paper' | 'pp-screen'): HTMLDivElement {
+  private open(kind: 'pp-paper' | 'pp-screen' | 'up-panel' | 'end-card'): HTMLDivElement {
+    this.onPutDown = null;
+    this.wrap.classList.toggle('pp-dark', kind === 'end-card');
     this.panel.className = `pp-panel ${kind}`;
     this.panel.innerHTML = '';
     this.wrap.hidden = false;
@@ -102,9 +121,31 @@ export class PaperScreen {
     show();
   }
 
-  computer(rows: [string, string, string?][], title: string): void {
+  /** The uplink page of the builder's computer (docs/PHASE8.md, 6). */
+  uplink(v: UplinkView): void {
+    const p = this.open('up-panel');
+    this.onPutDown = fillUplink(p, v, 450 * this.pace);
+  }
+
+  /** The closing card (docs/PHASE8.md, 7). `back`: its one button. */
+  ending(back: () => void): void {
+    fillEnding(this.open('end-card'), back, 2.6 * this.pace);
+  }
+
+  computer(rows: [string, string, string?][], title: string, actions: { label: string; act: () => void }[] = []): void {
     const p = this.open('pp-screen');
     p.append(this.el('h2', title));
+    if (actions.length) {
+      const bar = this.el('div', '', 'pp-nav');
+      bar.style.cssText = 'justify-content:flex-start;gap:8px;margin:0 0 10px';
+      for (const a of actions) {
+        const b = this.el('button', a.label, 'pp-btn pp-call');
+        b.dataset.action = a.label;
+        b.onclick = a.act;
+        bar.append(b);
+      }
+      p.append(bar);
+    }
     for (const [k, v, cls] of rows) {
       const r = this.el('div', '', 'row');
       r.append(this.el('span', k), this.el('span', v, cls ?? ''));
