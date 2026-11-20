@@ -84,6 +84,9 @@ const SETS = {
     hand_empty: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: `(() => { const g = window.__hv.game; g.hotbar.slots[0] = null; g.hotbar.selected = 0; })()` },
     hand_pickaxe: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: hold('steel_pickaxe') },
     hand_rifle: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: hold('hunting_rifle') },
+    // The clock at the start of the hotbar: mid-afternoon, and from five when the bed can be slept in (the owner, 2026-11-20).
+    clock_day: { cam: '1790,83.62,1024.5,90,-6,15.6', play: true, run: hold('steel_pickaxe') },
+    clock_evening: { cam: '1790,83.62,1024.5,90,-6,17.4', play: true, run: hold('steel_pickaxe') },
     // The bare hand's place on the hotbar, chosen with a full hotbar (the owner, 2026-11-20).
     hand_slot: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: `(() => { const g = window.__hv.game, it = window.__hv.itemId;
       ['steel_pickaxe', 'steel_axe', 'steel_shovel', 'lantern', 'canned_food', 'water_jug', 'coffee_beans', 'seeds_corn', 'steel_hoe'].forEach((n, i) => g.hotbar.slots[i] = { id: it(n), count: n === 'coffee_beans' ? 47 : 1 });
