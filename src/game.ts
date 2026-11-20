@@ -395,6 +395,13 @@ export class Game {
       setScale: (v) => { this.changeSettings({ scale: v }); this.watch.reset(); },
       setAntialias: (v) => {
         this.changeSettings({ aa: v });
+        // The choice works only through the hint, read before the picture is made. Where the browser's simplest
+        // storage is blocked it cannot be kept, so the menu does not promise it (the fresh review, 5).
+        if (!v && readHint('aa') !== 'off') {
+          this.changeSettings({ aa: true });
+          this.hud.toast('This page can’t keep that choice here, so smooth edges stay on.', 6000);
+          return;
+        }
         this.hud.toast(v ? 'Smooth edges will be on the next time the page is opened.' : 'Smooth edges will be off the next time the page is opened.', 5000);
       },
       setAuto: (v) => { this.changeSettings({ auto: v }); this.watch.reset(); },

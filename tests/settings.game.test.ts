@@ -35,6 +35,7 @@ function fakeLocal(): Map<string, string> {
 
 describe('settings are kept across sessions', () => {
   it('every setting changed in the menu is there when the page is opened again, and is applied', async () => {
+    fakeLocal(); // (smooth edges are kept through it: below)
     const store = browserStore(), pending = memoryPending();
     const a = await openPage(store, pending, { renderChunks: undefined });
     act(a, 'setSensitivity', 1.8);
@@ -104,6 +105,19 @@ describe('settings are kept across sessions', () => {
     local.clear();
     await openPage(store);
     expect(local.get('hvb:hint:aa')).toBe('off');
+  });
+
+  it('where that simplest storage is blocked, smooth edges cannot be turned off, and the menu says so rather than promising it (the fresh review, 5)', async () => {
+    g.localStorage = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => undefined };
+    const store = browserStore();
+    const a = await openPage(store);
+    act(a, 'setAntialias', false);
+    expect(a.game.settings.aa).toBe(true);
+    expect(a.hud.shownSettings).toMatchObject({ aa: true });
+    expect(a.hud.toasts.join(' ')).toMatch(/can’t keep that choice here/);
+    expect(a.hud.toasts.join(' ')).not.toMatch(/off the next time/);
+    await settle(a);
+    expect((await stored(a)).aa).toBe(true);
   });
 
   it('a test address’s view distance is used for that page and not kept', async () => {
