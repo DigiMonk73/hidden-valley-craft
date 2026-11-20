@@ -3,7 +3,7 @@
 // Needs the build served: npx vite preview --port 4173. Run on its own, or all parts with: node tests/e2e/play.mjs
 import { start } from './lib.mjs';
 
-const { page, g, check, ensureLook, keepAlive, useAt, closeScreens, walkWest, P, flags, finish } = await start();
+const { page, g, check, ensureLook, keepAlive, useAt, closeScreens, walkWest, gameWait, P, flags, finish } = await start();
 // The scene part 1 leaves behind: the rifle from the armory and its rounds, a cooked steak to sell, and the
 // gate swum both ways (part 1 checks the swim itself).
 await g(() => {
@@ -58,7 +58,7 @@ const pockets = await page.locator('.iv-title').first().textContent().catch(() =
 check('the scout’s pockets open', /scout/i.test(pockets ?? ''), `title: ${pockets}`);
 await page.locator('.iv-grid').first().locator('.iv-slot').first().click({ modifiers: ['Shift'] }).catch(() => {});
 await closeScreens();
-await page.waitForTimeout(1200);
+await gameWait(1.3);
 const scout = await g(() => ({ pistol: window.__hv.game.hotbar.count(window.__hv.itemId('pistol')), f: [...window.__hv.game.flags] }));
 check('takes the pistol, and the lore goes into the notes', scout.pistol === 1 && scout.f.includes('scout_searched') && scout.f.includes('pistol_taken'), scout.f.join(' '));
 
@@ -128,6 +128,8 @@ for (let attempt = 0; attempt < 3; attempt++) {
     (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.35; const t = gm.target; return t && t.x === 1813 && t.z === 1019; });
   if (await g(() => window.__hv.game.hour < 7)) break;
 }
+// The hatch is the game's to do in its own time: wait for it, not for the wall clock.
+await page.waitForFunction((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0) === 3, coopAt, { timeout: 60_000, polling: 250 }).catch(() => {});
 const hens3 = await g((c) => window.__hv.game.world.containerAt(...c).reduce((n, s) => n + (s && s.id === window.__hv.itemId('live_chicken') ? s.count : 0), 0), coopAt);
 check('an egg left in hatches: three hens in the coop', hens3 === 3, `hens ×${hens3}`);
 await g((c) => { const p = window.__hv.game.player; p.setPosition(c[0] + 0.5, c[1], c[2] + 3.5); }, coopAt);
@@ -135,7 +137,7 @@ const walkers = await page.waitForFunction(() => window.__hv.game.wild.creatures
 check('her three hens walk round the coop', walkers, `${await g(() => window.__hv.game.wild.creatures.filter((c) => c.tame).length)} walking`);
 
 // 8. Home alive from Zone-1, with the gate swum both ways, Marco's trust and the pistol: M1 is done.
-await page.waitForTimeout(1300);
+await gameWait(1.3);
 const m1 = await g(() => ({ done: window.__hv.game.flags.has('m1_done'), f: [...window.__hv.game.flags] }));
 check('M1, the first outside run, is done', m1.done, m1.f.join(' '));
 check('the meeting with Marco ended once you left him', !m1.f.includes('marco_meeting'));
