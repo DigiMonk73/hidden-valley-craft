@@ -418,6 +418,9 @@ export class Hud {
     draw();
   }
 
+  /** Are the opening's cards up? */
+  get introOpen(): boolean { return this.introEl.style.display === 'flex'; }
+
   private keysEl!: HTMLDivElement;
   private modeBox!: HTMLDivElement;
   private modeBtns: Partial<Record<'survival' | 'builder', HTMLButtonElement>> = {};
@@ -431,7 +434,7 @@ export class Hud {
       ['Right click', 'use what you look at (chest, bed, bench, a person) · eat or drink what is in hand · place a block · aim'],
       ['1–9 · wheel', 'choose what is in hand'], ['E', 'your pack, and making things by hand'], ['Q', 'focus: slow the world for a careful shot (gun or bow in hand)'], ['H (hold)', 'lost? head home'],
       ...(mode === 'builder' ? [['F', 'fly on / off'], ['G', 'endless blocks on / off'], ['[ and ]', 'turn the sky’s clock back / forward an hour']] : []),
-      ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu'],
+      ['M', 'sound on / off'], ['F3', 'debug panel'], ['Esc', 'this menu, and back to the game'],
     ];
     this.keysEl.innerHTML = '';
     for (const [key, what] of k) { el('b', '', this.keysEl).textContent = key; el('span', '', this.keysEl).textContent = what; }

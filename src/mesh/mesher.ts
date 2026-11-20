@@ -220,15 +220,20 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
 export function lightForDrawing(blocks: Uint16Array, light: Uint8Array): Uint8Array {
   let out: Uint8Array | null = null;
   const up = PS * PS;
-  for (let y = 1; y < PS - 1; y++)
-    for (let z = 1; z < PS - 1; z++)
-      for (let x = 1; x < PS - 1; x++) {
+  // Every cell of the padded chunk, its one-block border too: a slab just across a chunk's edge is read by the
+  // faces beside it on this side, and left dark it put a dark fringe on them (docs/REVIEW.md, N5j). A border
+  // cell is lit from those of its neighbours that the padded chunk holds.
+  for (let y = 0; y < PS; y++)
+    for (let z = 0; z < PS; z++)
+      for (let x = 0; x < PS; x++) {
         const i = paddedIndex(x, y, z);
         const id = blocks[i];
         if (B_OPAQUE[id] || B_FILTER[id] < 15) continue;
         out ??= light.slice();
         let sky = 0, blk = 0;
+        const edge = x === 0 || y === 0 || z === 0 || x === PS - 1 || y === PS - 1 || z === PS - 1;
         for (const d of [up, -up, 1, -1, PS, -PS]) {
+          if (edge && ((d === up && y === PS - 1) || (d === -up && y === 0) || (d === 1 && x === PS - 1) || (d === -1 && x === 0) || (d === PS && z === PS - 1) || (d === -PS && z === 0))) continue;
           const n = i + d;
           if (B_OPAQUE[blocks[n]] || B_FILTER[blocks[n]] >= 15) continue;
           const lv = light[n];

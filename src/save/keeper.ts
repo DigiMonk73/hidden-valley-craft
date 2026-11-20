@@ -24,15 +24,18 @@ export const WRITE_WAIT_MS = 30_000;
 export const BAD_KEY = 'save:bad';
 /** A save from an earlier layout of the world (before the home was rebuilt): not opened, and kept here rather than written over. */
 export const EARLIER_KEY = 'save:earlier';
+/** A second valley from an earlier layout found later: the first one kept is never written over (docs/PHASE9B.md, 3). */
+export const EARLIER_KEY_2 = 'save:earlier:2';
 export const HEAD_KEY = 'save:head';
 
 /** What a load found. `data` null: nothing usable, start a new valley. `note`: a plain line the player must see. */
 export interface Loaded {
   data: SaveData | null;
   from: 'store' | 'closing-copy' | 'previous' | 'backup' | 'nothing';
-  /** The valley the store itself holds and the number of its last write (null: none that can be read). */
+  /** The valley the store itself holds, the number of its last write and when it was saved (null: none that can be read). */
   storedId: string | null;
   storedSeq: number;
+  storedAt?: string;
   /** The copy opened is not what save:1 holds: it must be written there. */
   unsaved: boolean;
   note: string | null;
@@ -51,6 +54,7 @@ export const NOTES = {
   newer: 'This valley was saved by a newer build of the game than this page. Reload the page to get the new build. Your save is untouched, and this page will not save over it.',
   storeError: 'The browser could not read your saved valley just now. Nothing has been lost: reload the page to try again. This page will not save, so it cannot write over it.',
   earlier: 'This valley was made by an earlier build. A fresh one has been started.',
+  earlierLost: 'This valley was made by an earlier build. A fresh one has been started. The earlier one could not be kept aside (this browser’s storage may be full), so the first save here will take its place.',
   otherTab: 'This valley has been saved more recently from another tab or window. This one has stopped saving so it cannot write over that. Close this tab, or reload it to pick up the newer save.',
 } as const;
 
@@ -128,7 +132,7 @@ export class Keeper {
     const none = { storedId: null, storedSeq: 0 };
 
     if (stored.ok) {
-      const mine = { storedId: stored.data.id ?? null, storedSeq: stored.data.seq ?? 0 };
+      const mine = { storedId: stored.data.id ?? null, storedSeq: stored.data.seq ?? 0, storedAt: stored.data.savedAt };
       // The close-time copy wins only as a later write of this same valley. A copy of some other valley (a fresh one
       // started while the real save could not be reached, say) is never put over it.
       const later = closing.ok && closing.data.id === stored.data.id && closing.data.seq! > stored.data.seq!;
@@ -146,17 +150,17 @@ export class Keeper {
       if (closing.ok) return { data: closing.data, from: 'closing-copy', unsaved: true, note: null, ...none };
       // Only a close-time copy, and from the earlier layout (a page that could not reach its store): kept, not opened.
       const earlier = closing.why === 'earlier';
-      if (earlier && closingBytes) await this.put(EARLIER_KEY, closingBytes);
+      const kept = !earlier || !closingBytes || (await this.keepEarlier(closingBytes));
       this.pending.clear();
-      return { data: null, from: 'nothing', unsaved: earlier, note: earlier ? NOTES.earlier : null, ...none };
+      return { data: null, from: 'nothing', unsaved: earlier, note: earlier ? (kept ? NOTES.earlier : NOTES.earlierLost) : null, ...none };
     }
     if (why === 'earlier') {
       // A valley from before the home was rebuilt. It is kept under its own key, so the fresh valley's first write
       // destroys nothing; the only copy that may be opened in its place is a close-time one from this layout.
-      if (storedBytes) await this.put(EARLIER_KEY, storedBytes);
-      if (closing.ok) return { data: closing.data, from: 'closing-copy', unsaved: true, note: null, ...none };
+      const kept = !storedBytes || (await this.keepEarlier(storedBytes));
+      if (closing.ok) return { data: closing.data, from: 'closing-copy', unsaved: true, note: kept ? null : NOTES.earlierLost, ...none };
       this.pending.clear();
-      return { data: null, from: 'nothing', unsaved: true, note: NOTES.earlier, ...none };
+      return { data: null, from: 'nothing', unsaved: true, note: kept ? NOTES.earlier : NOTES.earlierLost, ...none };
     }
     // Something is stored and cannot be read: keep it aside, then fall back.
     await this.setAside(storedBytes);
@@ -166,6 +170,18 @@ export class Keeper {
     if (previous.ok) return { data: previous.data, from: 'previous', unsaved: true, note: NOTES.backup(when(previous.data.savedAt)), ...none };
     if (backup.ok) return { data: backup.data, from: 'backup', unsaved: true, note: NOTES.backup(when(backup.data.savedAt)), ...none };
     return { data: null, from: 'nothing', unsaved: true, note: NOTES.fresh, ...none };
+  }
+
+  /**
+   * Keeps a valley from an earlier layout aside, so the fresh valley's first write destroys nothing. The first one
+   * kept is never written over: a second (an old page still open in another tab wrote again, say) goes under a
+   * second key, which only a third replaces. False if it could not be written: the caller says so.
+   */
+  private async keepEarlier(bytes: Uint8Array): Promise<boolean> {
+    const have = await this.store.get(EARLIER_KEY).catch(() => null);
+    const same = !!have && have.length === bytes.length && have.every((v, i) => v === bytes[i]);
+    if (same) return true;
+    return this.put(have && have.length ? EARLIER_KEY_2 : EARLIER_KEY, bytes);
   }
 
   /** Keeps unreadable bytes under a second key, so the next write to save:1 destroys nothing. */

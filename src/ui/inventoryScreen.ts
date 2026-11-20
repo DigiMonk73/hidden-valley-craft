@@ -60,6 +60,10 @@ export class InventoryScreen {
   known: ReadonlySet<string> = new Set();
   /** Called when something can't be made because the pack has no room for it. */
   onFull: () => void = () => {};
+  /** Called when a stack held on the cursor is let go outside the window: true if it was set down (the cursor is then empty). */
+  onDrop: (s: Stack) => boolean = () => false;
+  /** Called on a click outside the window with nothing held: the game closes the screen. */
+  onOutside: () => void = () => {};
 
   constructor(root: HTMLElement) {
     const style = document.createElement('style');
@@ -85,6 +89,13 @@ export class InventoryScreen {
       this.tip.style.top = `${e.clientY + 14}px`;
     });
     this.wrap.addEventListener('contextmenu', (e) => e.preventDefault());
+    // A click on the dim ground outside the window: what is held is set down there (a palette block is simply let
+    // go); with nothing held the screen closes.
+    this.wrap.addEventListener('mousedown', (e) => {
+      if (e.target !== this.wrap || e.button !== 0) return;
+      if (!this.cursor) { this.onOutside(); return; }
+      if (this.fromPalette || this.onDrop(this.cursor)) { this.cursor = null; this.fromPalette = false; this.onChange(); this.render(); }
+    });
   }
 
   get isOpen(): boolean { return !this.wrap.hidden; }
@@ -144,7 +155,7 @@ export class InventoryScreen {
     try { this.renderSlots(inv); } finally { this.panel = panel; }
     const help = document.createElement('div');
     help.className = 'iv-help';
-    help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · E or Esc: close';
+    help.textContent = 'Click: pick up / put down · Right click: take half or place one · Shift-click: move across · Click outside this window: set what you hold down at your feet · E or Esc: close';
     this.panel.appendChild(help);
     this.renderCursor();
   }

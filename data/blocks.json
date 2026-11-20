@@ -566,6 +566,7 @@
     {"name": "sonic_lure_on", "label": "Sonic lure (wailing)", "tex": {"top": "lure_top_on", "side": "lure", "bottom": "steel"}, "render": "model", "boxes": [[4, 0, 4, 12, 6, 12], [7, 6, 7, 9, 12, 9]], "layer": "cutout", "solid": true, "opaque": false, "emit": 6, "hardness": -1, "drop": "none"},
     {"name": "smoke_pot", "label": "Smoke pot (set down; right-click to light it)", "tex": {"top": "pot_top", "side": "pot", "bottom": "pot"}, "render": "model", "boxes": [[4, 0, 4, 12, 9, 12]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3},
     {"name": "smoke_pot_lit", "label": "Smoke pot (burning)", "tex": {"top": "pot_top_lit", "side": "pot", "bottom": "pot"}, "render": "model", "boxes": [[4, 0, 4, 12, 9, 12]], "layer": "cutout", "solid": true, "opaque": false, "emit": 5, "hardness": -1, "drop": "none"},
-    {"name": "scope_tube", "label": "The telescope’s tube", "tex": {"top": "scope_top", "side": "scope_side", "bottom": "scope_side"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.8}
+    {"name": "scope_tube", "label": "The telescope’s tube", "tex": {"top": "scope_top", "side": "scope_side", "bottom": "scope_side"}, "render": "cube", "layer": "opaque", "solid": true, "opaque": true, "hardness": 0.8},
+    {"name": "sack", "label": "A sack of things you set down", "tex": "lost_pack", "render": "model", "boxes": [[3, 0, 3, 13, 8, 13], [5, 8, 5, 11, 10, 11]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.4, "drop": "none", "container": 9}
   ]
 }

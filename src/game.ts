@@ -47,6 +47,7 @@ import { packPos, skyOf } from './world/light.ts';
 import { Wild, armourFactor, type WildEvents } from './entity/wild.ts';
 import { makeCreature, hurt as hurtCreature, rayHitCreature, type Creature, type Kind } from './entity/creatures.ts';
 import { leaveLostPack, losesPack } from './sim/death.ts';
+import { setDown, clearEmptySack, SACK } from './sim/drop.ts';
 import { emptySnare, breedHutches, newDay, SNARE_CAUGHT } from './sim/rabbits.ts';
 import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH, RIFLE_COOLDOWN, RIFLE_DAMAGE, RIFLE_RANGE, BOW_MIN_DRAW } from './sim/hunting.ts';
 import { groundAt, FLOCK_SIZE } from './entity/spawner.ts';
@@ -92,7 +93,7 @@ import { askRayToMeet, meetRay } from './game/people.ts';
 import { ScopeView } from './ui/scopeView.ts';
 import { antennaBlocks, antennaSpot } from './gen/antenna.ts';
 import { HUT_LOG, DOME_PAGE, RELAY_PAGE } from './gen/zone4.ts';
-import { ZONE4, ridgeRoadAt, ridgeRoadLength, ridgeRoadMark, inFallout } from './gen/layout.ts';
+import { ZONE4, ridgeRoadAt, ridgeRoadLength, ridgeRoadMark, inFallout, inRimMend } from './gen/layout.ts';
 import { NESTS } from './entity/ashen.ts';
 import { isPerson } from './entity/creatures.ts';
 
@@ -301,6 +302,12 @@ export class Game {
   private downloads: Downloads | null = null;
   /** The player's settings (docs/PHASE9B.md, 2): applied at boot, shown in the menu, saved when one changes. */
   settings: Settings = { ...DEFAULT_SETTINGS };
+  /** When play was last paused (the frames' clock): Esc resumes only a moment later. */
+  private pausedAt = -Infinity;
+  /** Health the body lost by itself this tick (hunger, thirst, no air): not "danger", so it does not stop hold H. */
+  private bodyLoss = 0;
+  /** Where the sack that is open on screen stands, if a sack is (an emptied one is taken away when the screen closes). */
+  private openSack: [number, number, number] | null = null;
   /** Said once, when play begins, where the land is built on the page's own thread and the view was shortened for it. */
   private fallbackLine: string | null = null;
   /** Watches the frame rate while playing, to make the picture lighter on a computer that can't keep up. */
@@ -339,6 +346,18 @@ export class Game {
     };
     this.screen.known = this.flags;
     this.screen.onFull = () => this.hud.toast('No room in your pack for that');
+    // Something picked up in the pack and let go outside the window is set down in a sack at your feet.
+    this.screen.onDrop = (s) => {
+      const p = this.player;
+      const at = setDown(this.world, s, p.x, p.y + 0.2, p.z);
+      if (!at) { this.hud.toast('No room to set that down here'); return false; }
+      this.streamer.markUrgentAround(at[0], at[1], at[2]);
+      this.sound.place('wood');
+      this.hud.toast('Set down in a sack at your feet.');
+      this.edited();
+      return true;
+    };
+    this.screen.onOutside = () => this.closeScreen();
     this.hud = new Hud(ui, {
       play: () => this.resume(),
       saveNow: () => void this.save(true),
@@ -441,13 +460,13 @@ export class Game {
    */
   private async openValley(): Promise<void> {
     let opened: SaveData | null = null, unsaved = false;
-    const stored: { id: string | null; seq: number } = { id: null, seq: 0 };
+    const stored: { id: string | null; seq: number; at?: string } = { id: null, seq: 0 };
     this.notice = null;
     if (!this.opts.test) {
       try {
         const r = await this.keeper.load();
         opened = r.data; unsaved = r.unsaved; this.notice = r.note;
-        stored.id = r.storedId; stored.seq = r.storedSeq;
+        stored.id = r.storedId; stored.seq = r.storedSeq; stored.at = r.storedAt;
       } catch (e) {
         console.error('the stored save could not be opened', e);
         this.notice = NOTES.fresh;
@@ -459,7 +478,13 @@ export class Game {
     if (handed && fromEarlierLayout(handed)) { handed = null; if (!opened && !this.notice) this.notice = EARLIER_BUILD; }
     // A hand-over takes the stored save's place only as the same valley, written no earlier than the store's copy
     // (or when the store holds nothing that can be read). Anything else is some other page's valley, or a stale one.
-    const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq));
+    // One more case (docs/PHASE9B.md, 3): a page from before valleys had names hands on a save whose name is made
+    // from its own contents, so it never matches the store's copy of the same valley, and the play since the last
+    // autosave was dropped. Two such copies are taken for the same valley, and the later-saved one is used.
+    const unnamed = (id: string | null | undefined) => !!id && id.startsWith('v-old-');
+    const later = (a: string | undefined, b: string | undefined) => { const ta = Date.parse(a ?? ''), tb = Date.parse(b ?? ''); return Number.isFinite(ta) && Number.isFinite(tb) && ta >= tb; };
+    const sameOld = !!handed && unnamed(handed.id) && unnamed(stored.id) && later(handed.savedAt, stored.at);
+    const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq) || sameOld);
     if (handed && theirs && !this.keeper.stopped && !this.store.degraded) { opened = handed; unsaved = true; this.fromHandover = true; }
     try {
       this.applySave(opened ?? newSave(), !opened);
@@ -532,7 +557,8 @@ export class Game {
         // overhead, so the cave is the safe place, and it is the fallback anywhere the lift finds no room.
         if (this.checkBuried && !p.flying && !inHome && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
         // And one from when the ridge stood higher hangs in the air: it is set down, unhurt (docs/PHASE8.md, 9).
-        else if (this.checkBuried && !p.flying && !inHome && inFallout(p.x, p.z) && p.setDown((x, y, z) => this.world.blockAt(x, y, z))) this.hud.toast('The land here has changed since this save: you have been set down on the ground.', 7000);
+        // So does one saved on a ledge of the valley's cliff that a mend took away (docs/PHASE9B.md, 3).
+        else if (this.checkBuried && !p.flying && !inHome && (inFallout(p.x, p.z) || inRimMend(p.x, p.y, p.z)) && p.setDown((x, y, z) => this.world.blockAt(x, y, z))) this.hud.toast('The land here has changed since this save: you have been set down on the ground.', 7000);
         this.checkBuried = false;
         this.dropSpill();
         if (!this.opts.cam) this.settleIn();
@@ -654,8 +680,11 @@ export class Game {
     this.tickSurvival(dt, input);
     this.tickRadiation(world);
     this.tickGate(world);
-    // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
-    const hurt = this.vitals.hp < this.hpBefore - 0.01;
+    // A loss of health from outside is "hurt" (a blow, a shot, a fall, the ridge's dose): it cancels heading home,
+    // and keeps H from starting for a while. What the body loses by itself (hunger, thirst, no air) is not danger
+    // close by: a starving or drowning player holding H used to be told "Not with danger this close", and died.
+    const hurt = this.vitals.hp < this.hpBefore - this.bodyLoss - 0.01;
+    this.bodyLoss = 0;
     if (hurt) { this.lastHurt = this.playTime; this.endScope(); }
     this.hpBefore = this.vitals.hp;
     const h = this.home.update(dt, this.keys.has('KeyH'), hurt || (this.home.held !== null && this.ashenOnYou()));
@@ -988,6 +1017,7 @@ export class Game {
     const exertion = p.inWater ? 1.5 : input.sprint && moving ? 1.8 : 1;
     const before = v.hp;
     tickVitals(v, dt, exertion, p.headInWater && p.breath <= 0);
+    this.bodyLoss = Math.max(0, before - v.hp);
     const hurt = fallDamage(fall);
     if (hurt) { v.hp = Math.max(0, v.hp - hurt); this.sound.footstep('stone'); }
     if (v.hp < before - 0.5 || hurt) this.hud.flashHurt();
@@ -1241,6 +1271,7 @@ export class Game {
       const title = homeChestAt(t.x, t.y, t.z)?.title;
       if (title === 'Armory' && !this.flags.has('armory_found')) { this.flags.add('armory_found'); this.edited(); }
       this.openScreen({ title: title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest });
+      this.openSack = t.id === SACK ? [t.x, t.y, t.z] : null;
       return;
     }
     if (this.useFurniture(t.x, t.y, t.z, t.id)) return;
@@ -1543,7 +1574,7 @@ export class Game {
       this.once('outpost_seen', 'The raiders’ outpost. A lookout on the roof watches the road. Leave the road and go round through the brush to the south to come at them unseen: a blade from behind is silent. Or fight from cover.', 12000);
     if ((zone === 'mid' || zone === 'deep') && isWeapon(this.hotbar.current?.id))
       this.once('focus_hint', 'Focus: press Q with a gun or bow in hand to slow the world for a careful shot. It lasts four seconds, then needs time to come back.', 9000);
-    if (near(F.mine.x, F.mine.z, 9)) this.once('mine_seen', 'An old mine, lit all the way down. Iron and coal lie thick in the walls of the chamber below. Underground, the danger is one higher.', 9000);
+    if (near(F.mine.x, F.mine.z, 9)) this.once('mine_seen', 'An old mine, lit all the way down. Iron and coal lie thick in the walls of the chamber below.', 9000);
     if (near(CAMP_MARKER[0], CAMP_MARKER[2], 9)) this.once('camp_marker', 'COTO DE CAZA: a hunting reserve. A lit trail runs north to the hunters’ camp.', 7000);
     // The jaguar crosses the clearing once, the first time you come to it.
     if (atCampClearing(p.x, p.z) && !f.has('jaguar_seen') && this.world.column(Math.floor(F.camp.x0 / CS), Math.floor(F.camp.z0 / CS))) {
@@ -1697,6 +1728,12 @@ export class Game {
 
   private closeScreen(): void {
     if (!this.screen.close()) { this.hud.toast('No room to put that down: make space first'); return; }
+    // A sack emptied is taken away with the last thing out of it.
+    if (this.openSack) {
+      const [x, y, z] = this.openSack;
+      this.openSack = null;
+      if (clearEmptySack(this.world, x, y, z)) this.streamer.markUrgentAround(x, y, z);
+    }
     this.hud.showWorldHud(true);
     this.edited();
     if (this.playing) this.look.engage();
@@ -1725,6 +1762,10 @@ export class Game {
         return;
       }
       if (e.code === 'Escape' && this.playing) this.pause();
+      // Esc on the pause menu goes back to the game (docs/PHASE9B.md, 3). Not on a key's repeats, and not in the
+      // moment after the pause: where the browser hands the page the same Esc that took the mouse away, that press
+      // must not undo its own pause. If the browser will not give the mouse back yet, play goes on and it says "Click to look around".
+      else if (e.code === 'Escape' && !e.repeat && !this.playing && this.ready && this.flags.has(BEGUN) && !this.hud.introOpen && this.time - this.pausedAt > 0.4) this.resume();
       if (e.code === 'KeyE' && this.playing) { this.openScreen(null); return; }
       if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
       if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
@@ -1825,6 +1866,7 @@ export class Game {
   }
 
   private pause(): void {
+    this.pausedAt = this.time;
     this.endFocus();
     this.home.cancel();
     this.playing = false;
@@ -2106,10 +2148,16 @@ export class Game {
     else if (k.stopped === 'store-error') say(NOTES.storeError);
     else if (k.stopped === 'other-tab') say(NOTES.otherTab);
     else if (this.secondTab) say(SECOND_TAB);
-    else if (this.notice) say(this.notice);
-    else if (this.store.kind === 'memory') say('This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe.');
-    else if (this.lastWriteFailed) say('The last save did not go through: this browser’s storage may be full or blocked. Use “Copy save code” and keep the code somewhere safe.');
-    else say('Saves in this browser every minute while you play, when you pause and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer.', false);
+    else {
+      // What the player can still do something about comes with any line about how this valley was opened, never
+      // behind it: "made by an earlier build" used to hide "can't keep saves" and "the last save failed" all session.
+      const cant = this.store.kind === 'memory' ? 'This page isn’t allowed to keep saves. Before you close it, use “Copy save code” and keep the code somewhere safe.'
+        : this.lastWriteFailed ? 'The last save did not go through: this browser’s storage may be full or blocked. Use “Copy save code” and keep the code somewhere safe.' : null;
+      // (The line about storage that did not open already says what is and is not kept: nothing is added to it.)
+      if (this.notice === DEGRADED) say(DEGRADED);
+      else if (this.notice || cant) say([this.notice, cant].filter(Boolean).join(' '));
+      else say('Saves in this browser every minute while you play, when you pause and when you leave. A save code is a backup you keep yourself, and it moves your valley to another computer.', false);
+    }
   }
 
   private async downloadSave(): Promise<void> {

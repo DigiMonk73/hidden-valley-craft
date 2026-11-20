@@ -19,7 +19,7 @@ import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
 import { buildZone3, zone3Place } from './zone3.ts';
 import { buildZone4, zone4Place } from './zone4.ts';
-import { PATH, inSanctuary } from './layout.ts';
+import { PATH, inSanctuary, rimMendHeight } from './layout.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -75,8 +75,13 @@ function wallRadius(x: number, y: number, z: number, floorH: number, topH: numbe
   let r = VALLEY.radius;
   // Large bays and buttresses around the rim, then ledges and overhangs that vary with height.
   r += 5 * wallNoise.noise2(ux * 2.2, uz * 2.2);
-  r += 2.6 * wallNoise.noise3(x / 11, y / 7, z / 11);
-  r += 1.2 * wallNoise.noise3(x / 4, y / 3, z / 4);
+  let rough = 2.6 * wallNoise.noise3(x / 11, y / 7, z / 11) + 1.2 * wallNoise.noise3(x / 4, y / 3, z / 4);
+  // In a mended band (layout.ts, RIM_MENDS) the face never comes forward on the way down: at each height it stands
+  // at least as far back as everywhere above it in the band. The rock keeps its roughness as roofs and hollows,
+  // an overhang; what it loses is every ledge, so there is nowhere in the band to stand.
+  const top = rimMendHeight(x, y, z);
+  for (let yy = y + 1; yy <= top; yy++) rough = Math.max(rough, 2.6 * wallNoise.noise3(x / 11, yy / 7, z / 11) + 1.2 * wallNoise.noise3(x / 4, yy / 3, z / 4));
+  r += rough;
   // Scree at the foot: the cliff meets the floor in a short slope.
   if (y < floorH + 5) r -= (floorH + 5 - y) * 1.1;
   // The rim's edge is worn back.

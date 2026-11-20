@@ -66,6 +66,7 @@ export class FakeHud {
   /** The settings as the menu was last told to show them. */
   shownSettings: Record<string, unknown> | null = null;
   showSettings(s: Record<string, unknown>) { this.shownSettings = { ...s }; }
+  introOpen = false;
   notices: string[] = [];
   notice(text: string | null) { if (text) this.notices.push(text); }
 }
@@ -78,6 +79,8 @@ export class FakeScreen {
   onChange: () => void = () => {};
   onMake: (r: unknown) => void = () => {};
   onFull: () => void = () => {};
+  onDrop: (s: Stack) => boolean = () => false;
+  onOutside: () => void = () => {};
   opened: unknown[] = [];
   constructor() { return blank(this); }
   open(...a: unknown[]) { this.isOpen = true; this.opened.push(a); }
