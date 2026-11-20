@@ -2,6 +2,17 @@
 
 _Track A of [PHASE9.md](PHASE9.md), built on branch `phase9a` (2026-11-20). The plan, each call with its reason, and what is done. The owner's critiques, as the lead forwards them, outrank this list._
 
+## Resume here
+
+_Kept current, in case the session that built this is cut off. Last written 2026-11-20 15:25 UTC._
+
+- **Branch `phase9a` is pushed and whole** (draft pull request #11; GitHub's checks pass on 98b2652). Nothing is half-done in the working tree.
+- **Built, pictured and pushed:** items 1 to 6, rain (7), and from item 8 sitting, the jerky rack's legs and the sump. Not built: water edges, the gun rack, Ray's face; the thermal optic and the dish were not photographed.
+- **The fresh review:** started 14:40 UTC, a read-only agent; **it had not reported when this was written.** Its findings, and what was done about each, go in "The fresh review" at the end of this page. If that section is missing, the review must be run again: the brief for it is to find faults in `git diff origin/main...phase9a`, to compare `out/9a/before-*.png` with the later pictures and say which changes are not improvements, and to verify this page's claims by running things.
+- **Still to do, in order:** (1) fix or answer the review's findings, each fix with a test, pushing after each; (2) `git merge origin/main` (it had not moved from 7e0d74d at 14:45); (3) `npm test` once (last full run: 890 passed, 2 skipped, before the bunch, the settings test and the CI fix; the files touched since pass on their own); (4) the play-through's six parts, once: `npm run build`, `npx vite preview --port 4173 --strictPort`, `node tests/e2e/play.mjs` (**not yet run on this branch at all**; sitting and the new trees are what could surprise it); (5) the message to the lead (what the brief's "Ending" asks: what was built, test counts, draw calls and triangles before and after, eight camera lines, weak spots).
+- **Numbers for the report:** the balcony sunset at 256 m, version 13 against this branch: 314 → 317 draw calls, 1,569k → 1,583k triangles (`tools/shots9a.mjs` prints them). A column near the valley builds in about 16 ms, as version 13's does.
+- **Pictures** are in `out/9a/` on the machine that made them (not in git): `before-*` is version 13; the newest of each view is the highest of `a2`…`a7`. To take them again: `node tools/shots9a.mjs <tag> valley water road far life rain sump sit hand` against a served build.
+
 ## The rule
 
 Every item is judged by eye. Before anything was changed, one set of pictures was taken of every view this track touches (`node tools/shots9a.mjs before valley water road far`, the build of version 13); the same cameras are taken again after each step (`out/9a/<tag>-<name>.png`) and both are looked at. A passing check never means it looks right.
