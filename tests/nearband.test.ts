@@ -203,7 +203,7 @@ describe('trading with Marco', () => {
   });
 
   it('shows the wallet in BTC', () => {
-    expect(btc(START_WALLET)).toBe('0.05000000 BTC');
+    expect(btc(START_WALLET)).toBe('0.01000000 BTC'); // 40 units: a small starter balance (docs/FIXES.md, 6)
   });
 });
 
@@ -256,7 +256,7 @@ describe('M1: the first outside run', () => {
     expect(f.has('gate_both')).toBe(false);
     trackM1(f, ...home, false); // and back
     expect(f.has('gate_both')).toBe(true);
-    trackM1(f, 1100, 1028, true); // Zone-1, with the pistol
+    trackM1(f, 1100, 1028, true); // Zone-1, the scout's pistol taken from his pockets
     expect(f.has('pistol_taken')).toBe(true);
     expect(f.has('extracted')).toBe(false);
     f.add('marco_trust1');

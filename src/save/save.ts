@@ -52,6 +52,8 @@ export interface SaveData {
   explored?: number[];
   /** The hot wallet, in satoshis (Phase 4). */
   wallet?: number;
+  /** What Marco has paid out since dawn, in satoshis (absent: nothing yet). */
+  marcoPaid?: number;
   /** How many of the farmhouse den's dogs are alive (Phase 4). */
   den?: number;
   /** How many hens are left in the farm's feral flock (Phase 4). */

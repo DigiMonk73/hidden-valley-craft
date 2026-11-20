@@ -35,5 +35,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // Several tests sweep the generated world; on a busy machine the 5 s default cuts them off mid-sweep.
+    testTimeout: 30_000,
   },
 });

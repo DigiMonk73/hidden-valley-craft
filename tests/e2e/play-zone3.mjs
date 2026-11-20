@@ -15,7 +15,8 @@ const ashen = () => g(() => window.__hv.game.wild.creatures.filter((c) => c.kind
 // The scene the earlier parts leave behind: home from Las Cruces with the armband, Marco and Doc known.
 await g(() => {
   const gm = window.__hv.game, h = gm.hotbar, id = window.__hv.itemId;
-  for (const f of ['shelter_found', 'marco_met', 'marco_trust1', 'home_hint', 'zone2_seen', 'ruins_seen', 'highway_seen', 'compound_seen', 'zone2_home', 'doc_known', 'focus_hint', 'mid_seen', 'deep_seen']) gm.flags.add(f);
+  // (M1 to M3 are done: the parts before check them, and M4's recipes need M3.)
+  for (const f of ['m1_done', 'm2_done', 'm3_done', 'shelter_found', 'marco_met', 'marco_trust1', 'home_hint', 'zone2_seen', 'ruins_seen', 'highway_seen', 'compound_seen', 'zone2_home', 'doc_known', 'focus_hint', 'mid_seen', 'deep_seen']) gm.flags.add(f);
   h.slots.fill(null);
   for (const [n, k] of [['steel_pickaxe', 1], ['armband', 1], ['machete', 1]]) h.add(id(n), k);
   gm.wild.faction.down = 31; // the faction's men stay in for the walk (their fight is part 4's)

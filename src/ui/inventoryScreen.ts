@@ -5,7 +5,7 @@ import { iconFor } from './icons.ts';
 import { itemLabel, toolOf } from '../world/items.ts';
 import { BLOCK_DEFS, B_RENDER, RENDER } from '../world/blocks.ts';
 import { clickSlot, quickMove, HOTBAR, type Inventory, type Stack } from '../sim/inventory.ts';
-import { recipesAt, canMake, make, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
+import { recipesAt, waitingAt, canMake, make, AFTER_LABEL, STATION_LABEL, type Station, type Recipe } from '../sim/crafting.ts';
 import { putAway, pickFromPalette } from '../sim/cursor.ts';
 
 const CSS = `
@@ -183,7 +183,7 @@ export class InventoryScreen {
     const list = document.createElement('div');
     list.className = 'iv-recipes';
     const recipes = recipesAt(this.station, this.known);
-    if (!recipes.length) {
+    if (!recipes.length && !waitingAt(this.station, this.known).length) {
       const p = document.createElement('div');
       p.className = 'iv-help';
       p.textContent = this.station === 'tannery' ? 'Hides come from hunting outside the valley.' : 'Nothing to make here yet.';
@@ -223,6 +223,23 @@ export class InventoryScreen {
         this.render();
       };
       row.append(img, mid, btn);
+      list.append(row);
+    }
+    // What comes with a later milestone is shown, greyed, with what it waits for: the next step is never a secret.
+    for (const r of waitingAt(this.station, this.known)) {
+      const row = document.createElement('div');
+      row.className = 'iv-recipe off';
+      const img = document.createElement('img');
+      img.src = iconFor(r.out[0]);
+      const mid = document.createElement('div');
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = itemLabel(r.out[0]);
+      const needs = document.createElement('div');
+      needs.className = 'needs';
+      needs.textContent = r.after ? AFTER_LABEL[r.after] ?? 'later' : 'later';
+      mid.append(name, needs);
+      row.append(img, mid);
       list.append(row);
     }
     return list;

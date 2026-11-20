@@ -13,29 +13,43 @@ export const M1_STEPS: Step[] = [
 ];
 
 /**
- * Notes where the player is and what they carry (once a second), and sets the flags it earns.
- * Returns the flags newly set, in order, ending with 'm1_done' when the last step ticks.
+ * Notes where the player is (once a second), and sets the flags it earns. Returns the flags newly set, in order,
+ * ending with 'm1_done' when the last step ticks.
+ *
+ * Each step ticks only for the real thing (docs/FIXES.md, 6). "Out" is the canyon side of the gate; "back" is
+ * home, inside the sanctuary (it used to be anywhere east of the gate's line). The pistol is the dead scout's,
+ * taken from his pockets (`scoutPistolTaken`), not any pistol carried. And the way home has to be travelled:
+ * `notWalkedHome` below undoes a run that ended with hold H or a death.
  */
-export function trackM1(flags: Set<string>, x: number, z: number, carriesPistol: boolean): string[] {
+export function trackM1(flags: Set<string>, x: number, z: number, scoutPistolTaken: boolean): string[] {
   const added: string[] = [];
   const set = (f: string) => { if (!flags.has(f)) { flags.add(f); added.push(f); } };
   const home = inSanctuary(x, z);
   // Out means through the gate to its canyon side: turning back in the tunnel doesn't count.
   if (!home && x < GATE.x0) set('been_out');
-  else if (flags.has('been_out')) set('gate_both');
+  else if (home && flags.has('been_out')) set('gate_both');
   const zone = zoneAt(x, z);
   if (zone === 'near' || zone === 'mid' || zone === 'deep') set('reached_near');
   if (home && flags.has('reached_near')) set('extracted');
-  if (carriesPistol) set('pistol_taken');
+  if (scoutPistolTaken) set('pistol_taken');
   if (M1_STEPS.every((s) => flags.has(s.flag))) set('m1_done');
   return added;
 }
 
-/** A death outside is not a safe way home: the run to Zone-1 has to be walked back. */
-export function diedOutside(flags: Set<string>): void {
+/**
+ * The first run's way home has to be swum and walked: waking at the bed after a death, or holding H, is not
+ * coming home through the gate. Undoes the half-made steps of M1 (a step already ticked stays ticked).
+ */
+export function notWalkedHome(flags: Set<string>): void {
   if (!flags.has('extracted')) flags.delete('reached_near');
-  if (!flags.has('gate_both')) flags.delete('been_out'); // waking at the bed is not swimming home
+  if (!flags.has('gate_both')) flags.delete('been_out');
 }
+
+/** A death outside is not a safe way home: the run to Zone-1 has to be walked back. */
+export function diedOutside(flags: Set<string>): void { notWalkedHome(flags); }
+
+/** The milestones in order, each with the flag set when it is done. A milestone is done only after the one before. */
+export const MILESTONES = ['m1_done', 'm2_done', 'm3_done', 'm4_done'] as const;
 
 // ---- M2, the homestead expansion (docs/PHASE5.md, step 7) -------------------------------------------
 // DESIGN.md's M2 bundles seven unlocks; here each is a thing the player has done, ticked on the computer.
@@ -61,7 +75,7 @@ export function trackM2(flags: Set<string>, count: (item: string) => number): st
   const set = (f: string) => { if (!flags.has(f)) { flags.add(f); added.push(f); } };
   if (count('hunting_bow') > 0) set('bow_made');
   if (count('jerky') + count('smoked_meat') > 0) set('preserved');
-  if (M2_STEPS.every((s) => flags.has(s.flag))) set('m2_done');
+  if (flags.has('m1_done') && M2_STEPS.every((s) => flags.has(s.flag))) set('m2_done');
   return added;
 }
 
@@ -100,7 +114,7 @@ export function trackM3(flags: Set<string>, x: number, z: number, home: { arrays
   if (home.banks > 0 && flags.has('array_built')) set('bank_built');
   if (home.rigSats > 0) set('rig_earned');
   if (home.fridges > 0 && home.pumps > 0) set('fridge_pump');
-  if (M3_STEPS.every((s) => flags.has(s.flag))) set('m3_done');
+  if (flags.has('m2_done') && M3_STEPS.every((s) => flags.has(s.flag))) set('m3_done');
   return added;
 }
 
@@ -142,7 +156,7 @@ export function trackM4(flags: Set<string>, x: number, z: number, home: { hydro:
   if (inSanctuary(x, z) && flags.has('works_reached')) set('zone3_home');
   if (home.hydro > 0) set('hydro_built');
   if (home.rigs >= 3) set('farm_running');
-  if (M4_STEPS.every((s) => flags.has(s.flag))) set('m4_done');
+  if (flags.has('m3_done') && M4_STEPS.every((s) => flags.has(s.flag))) set('m4_done');
   return added;
 }
 

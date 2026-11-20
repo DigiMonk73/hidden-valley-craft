@@ -35,7 +35,7 @@ export function newSave(mode: Mode = 'survival'): SaveData {
     player: { x: START.x, y: START.y, z: START.z, yaw: START.yaw, pitch: START.pitch, flying: false },
     hotbar: Inventory.starter().toSave(), spill: [], selected: 0, palette: [], edits: [], containers: [],
     vitals: { hp: 100, hunger: 100, thirst: 100 }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
-    flags: [], explored: [], wallet: START_WALLET, den: 3, flock: FLOCK_SIZE, outpost: ALL_RAIDERS,
+    flags: [], explored: [], wallet: START_WALLET, marcoPaid: 0, den: 3, flock: FLOCK_SIZE, outpost: ALL_RAIDERS,
     dose: 0, factionDown: 0, ashenDown: 0, live: { solar: [], hydro: [] },
   };
 }
@@ -151,6 +151,7 @@ export function normaliseSave(raw: unknown): SaveData | null {
     flags: Array.isArray(d.flags) ? [...new Set(d.flags.filter((f): f is string => typeof f === 'string' && f.length < 64))].slice(0, 4000) : [],
     explored: Array.isArray(d.explored) ? d.explored.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < 64 * 64) : [],
     wallet: Math.floor(clamp(num(d.wallet, START_WALLET), 0, Number.MAX_SAFE_INTEGER)),
+    marcoPaid: Math.floor(clamp(num(d.marcoPaid, 0), 0, Number.MAX_SAFE_INTEGER)),
     den: int(d.den, 0, 3, 3), flock: int(d.flock, 0, FLOCK_SIZE, FLOCK_SIZE), outpost: int(d.outpost, 0, ALL_RAIDERS, ALL_RAIDERS),
     ...(power ? { power: { charge: Math.max(0, num(power.charge, 0)), satsTotal: Math.max(0, num(power.satsTotal, 0)), satsToday: Math.max(0, num(power.satsToday, 0)), frac: clamp(num(power.frac, 0), 0, 1) } } : {}),
     dose: clamp(num(d.dose, 0), 0, 100),

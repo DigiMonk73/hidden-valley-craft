@@ -44,8 +44,8 @@ import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH,
 import { groundAt, FLOCK_SIZE } from './entity/spawner.ts';
 import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
-import { CATALOG, START_WALLET, buy, sell, sellPrice, sellable, btc } from './sim/trade.ts';
-import { M1_STEPS, trackM1, diedOutside } from './sim/milestones.ts';
+import { CATALOG, START_WALLET, PURSE, buy, sell, sellPrice, sellable, keptFor, btc } from './sim/trade.ts';
+import { M1_STEPS, trackM1, diedOutside, notWalkedHome } from './sim/milestones.ts';
 import { catchChicken, layEggs, hatchEggs, syncTameHens, takeHen, COOP, CATCH_REACH } from './sim/livestock.ts';
 import { itemLabel } from './world/items.ts';
 import { iconFor } from './ui/icons.ts';
@@ -107,6 +107,8 @@ const DOC = people.doc;
 const RAY = people.ray;
 /** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
 const MARCO_HOURS: [number, number] = [7, 18];
+/** The least hunger and thirst you wake with after a death in the valley. */
+export const WAKE_FLOOR = 15;
 const SETTINGS_KEY = 'settings';
 const REACH = 5;
 const STEP = 1 / 60;
@@ -145,6 +147,8 @@ export class Game {
   flags = new Set<string>();
   /** The hot wallet, in satoshis: what Marco is paid from and pays into (docs/PHASE4.md). */
   wallet = START_WALLET;
+  /** What Marco has paid out since dawn: he carries only so much (docs/FIXES.md, 6). */
+  marcoPaid = 0;
   /** Once a second: the places' toasts, M1, Marco's comings and goings. */
   private lastPlaces = -1;
   private lastExplore = -1;
@@ -452,6 +456,8 @@ export class Game {
       if (hatchEggs(this.world)) { this.hud.toast('A chick has hatched in the coop: one more hen.', 5000); this.edited(); }
       if (layEggs(this.world)) { this.flags.add('coop_laid'); this.edited(); }
       if (cureJerky(this.world)) this.edited();
+      // Marco's purse is whole again.
+      this.marcoPaid = 0;
       // Las Cruces sends out new men for any killed.
       factionDawn(this.wild.faction);
       // And others of the Ashen drift in for those put down.
@@ -872,7 +878,7 @@ export class Game {
     this.drawing = null;
     this.fishing = null;
     this.mining.active = false;
-    if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you.'); return; }
+    if (!losesPack(p.x, p.z)) { this.wakeAgain('You wake, aching, back at the cave. The valley keeps you, but it does not feed you: eat and drink.', true); return; }
     diedOutside(this.flags);
     diedOutsideM3(this.flags);
     diedOutsideM4(this.flags);
@@ -881,14 +887,18 @@ export class Game {
     this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
   }
 
-  /** You wake where you last slept (or on the balcony). */
-  private wakeAgain(line: string): void {
+  /**
+   * You wake where you last slept (or on the balcony). After a death in the valley (`asYouWere`) you wake as hungry
+   * and thirsty as you were, never below 15: dying at home used to be a free meal.
+   */
+  private wakeAgain(line: string, asYouWere = false): void {
     const s = this.spawn;
     this.player.setPosition(s.x, s.y, s.z);
     this.player.yaw = s.yaw;
     this.player.pitch = 0;
     this.player.breath = 20;
-    this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, 50), thirst: Math.max(this.vitals.thirst, 50) };
+    const least = asYouWere ? WAKE_FLOOR : 50;
+    this.vitals = { hp: 100, hunger: Math.max(this.vitals.hunger, least), thirst: Math.max(this.vitals.thirst, least) };
     this.hud.toast(line, 6000);
     this.edited();
   }
@@ -1136,11 +1146,11 @@ export class Game {
         ['Satellite uplink', this.flags.has('uplink_plans') ? 'Ray’s plans in hand · no antenna' : 'no antenna', 'dim'],
         ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
         ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}`, this.flags.has('m2_done') ? 'btc' : ''],
+        ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}${m1 ? '' : ' · after M1'}`, this.flags.has('m2_done') ? 'btc' : ''],
         ...M2_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M3 · power up', this.flags.has('m3_done') ? 'done ✓' : `${M3_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M3_STEPS.length}`, this.flags.has('m3_done') ? 'btc' : ''],
+        ['M3 · power up', this.flags.has('m3_done') ? 'done ✓' : `${M3_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M3_STEPS.length}${this.flags.has('m2_done') ? '' : ' · after M2'}`, this.flags.has('m3_done') ? 'btc' : ''],
         ...M3_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M4 · hydro', this.flags.has('m4_done') ? 'done ✓' : `${M4_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M4_STEPS.length}`, this.flags.has('m4_done') ? 'btc' : ''],
+        ['M4 · hydro', this.flags.has('m4_done') ? 'done ✓' : `${M4_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M4_STEPS.length}${this.flags.has('m3_done') ? '' : ' · after M3'}`, this.flags.has('m4_done') ? 'btc' : ''],
         ...M4_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
         ['Last note', '“Back before the rains.”'],
       ], 'R.’s terminal'));
@@ -1203,33 +1213,49 @@ export class Game {
       if (!this.flags.has('marco_trust1')) { this.flags.add('marco_trust1'); return MARCO.trust; }
       return '';
     };
-    const why = { funds: 'Not enough in your wallet.', room: 'No room in your pack.', none: 'You have none of that.' };
-    this.openPaper(() => this.paper.trade(() => ({
-      title: `${MARCO.name} · ${this.flags.has('marco_trust2') ? 'trust 2' : this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
-      say,
-      wallet: btc(this.wallet),
-      buy: [...CATALOG, ...(this.flags.has('marco_trust2') ? CATALOG_M3 : [])].map((lot) => ({
-        icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy',
-        can: this.wallet >= lot.sats,
-        act: () => {
-          const r = buy(this.hotbar, this.wallet, lot);
-          if (!r.ok) return why[r.why];
-          this.wallet = r.wallet;
-          if (CATALOG_M3.includes(lot)) this.flags.add('marco_guns');
-          return dealt() || `Bought ${itemLabel(lot.id)} ×${lot.lot}.`;
-        },
-      })),
-      sell: sellable(this.hotbar).map((id) => ({
-        icon: iconFor(id), label: `${itemLabel(id)} (you have ${this.hotbar.count(id)})`, price: btc(sellPrice(id)), button: 'Sell 1',
-        can: true,
-        act: () => {
-          const r = sell(this.hotbar, this.wallet, id);
-          if (!r.ok) return why[r.why];
-          this.wallet = r.wallet;
-          return dealt() || `Sold one ${itemLabel(id)}.`;
-        },
-      })),
-    })));
+    const why = { funds: 'Not enough in your wallet.', room: 'No room in your pack.', none: 'You have none of that.', purse: MARCO.purse };
+    // What he is offered is fixed while the screen is open: a row that sells out stays where it is, greyed, so a
+    // quick second click never lands on the next thing down (docs/FIXES.md, 6).
+    const offered = sellable(this.hotbar);
+    const stepLabel = (flag: string) => [...M1_STEPS, ...M2_STEPS, ...M3_STEPS, ...M4_STEPS].find((st) => st.flag === flag)?.label ?? 'a later step';
+    this.openPaper(() => this.paper.trade(() => {
+      const left = Math.max(0, PURSE - this.marcoPaid);
+      return {
+        title: `${MARCO.name} · ${this.flags.has('marco_trust2') ? 'trust 2' : this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
+        say,
+        wallet: btc(this.wallet),
+        sellHead: `Sell to him (half price) · he can pay ${btc(left)} more today`,
+        buy: [...CATALOG, ...(this.flags.has('marco_trust2') ? CATALOG_M3 : [])].map((lot) => ({
+          icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy',
+          can: this.wallet >= lot.sats,
+          act: () => {
+            const r = buy(this.hotbar, this.wallet, lot);
+            if (!r.ok) return why[r.why];
+            this.wallet = r.wallet;
+            if (CATALOG_M3.includes(lot) && lot.id !== itemId('primer')) this.flags.add('marco_guns');
+            return dealt() || `Bought ${itemLabel(lot.id)} ×${lot.lot}.`;
+          },
+        })),
+        sell: offered.map((id) => {
+          const have = this.hotbar.count(id), kept = keptFor(id, this.flags), price = sellPrice(id);
+          return {
+            icon: iconFor(id),
+            label: kept ? `${itemLabel(id)} · keep it: ${stepLabel(kept)}` : have ? `${itemLabel(id)} (you have ${have})` : `${itemLabel(id)} (none left)`,
+            price: btc(price), button: 'Sell 1',
+            can: have > 0 && !kept && price <= left,
+            act: () => {
+              // A part a milestone step still needs is not his to take: one sale must never end your progress.
+              if (keptFor(id, this.flags)) return MARCO.keep;
+              const r = sell(this.hotbar, this.wallet, id, Math.max(0, PURSE - this.marcoPaid));
+              if (!r.ok) return why[r.why];
+              this.marcoPaid += r.wallet - this.wallet;
+              this.wallet = r.wallet;
+              return dealt() || `Sold one ${itemLabel(id)}.`;
+            },
+          };
+        }),
+      };
+    }));
   }
 
   /** Focus ends (run out, put away, a screen opened, a death). */
@@ -1258,7 +1284,10 @@ export class Game {
     this.player.yaw = s.yaw;
     this.player.pitch = 0;
     this.player.breath = 20;
-    this.hud.toast('Home.', 2500);
+    // The first run's way home has to be swum and walked: H brings you home, but M1's steps wait for the real thing.
+    const f = this.flags, waiting = (f.has('been_out') && !f.has('gate_both')) || (f.has('reached_near') && !f.has('extracted'));
+    notWalkedHome(f);
+    this.hud.toast(waiting ? 'Home. (M1 counts the way home when you swim and walk it yourself.)' : 'Home.', waiting ? 6000 : 2500);
     this.edited();
   }
 
@@ -1293,9 +1322,9 @@ export class Game {
     // The coops' hens walk round them, as many as each holds.
     this.wild.creatures = syncTameHens(this.world, this.wild.creatures, p.x, p.z);
     // M1.
-    const gained = trackM1(f, p.x, p.z, this.hotbar.count(itemId('pistol')) > 0);
+    const gained = trackM1(f, p.x, p.z, this.scoutPistolTaken());
     if (gained.length) this.edited();
-    if (gained.includes('m1_done')) this.hud.toast('M1 · the first outside run. You went out, and came home. (The road home is on the map table now.)', 9000);
+    if (gained.includes('m1_done')) this.hud.toast('M1 · the first outside run. You went out, and came home. New things can be made at the workbench now: a coop, a bow, a smoker, the forge.', 10000);
     else if (gained.includes('extracted')) this.hud.toast('Home, from Zone 1, alive. The way back is on the builder’s map now.', 6000);
     // Marco: at the shelter by day once a meeting is arranged; gone again once you have dealt and left.
     const marco = this.wild.creatures.find((c) => c.kind === 'marco');
@@ -1319,6 +1348,13 @@ export class Game {
     if (dist > 30) this.marcoGreeted = false;
   }
   private marcoGreeted = false;
+
+  /** Has the dead scout's pistol been taken from his pockets? (Any other pistol does not tick M1's step.) */
+  private scoutPistolTaken(): boolean {
+    if (!this.flags.has('scout_searched')) return false;
+    const pockets = this.world.containers.get(packPos(SCOUT_AT[0], SCOUT_AT[1], SCOUT_AT[2]));
+    return !!pockets && !pockets.some((s) => s && s.id === itemId('pistol'));
+  }
 
   /** Once a second: Zone-1's mid and deep places (docs/PHASE5.md): their toasts, the jaguar's crossing, the stinger, M2. */
   private tickFarPlaces(): void {
@@ -1360,7 +1396,7 @@ export class Game {
     // M2.
     const m2 = trackM2(f, (name) => this.hotbar.count(itemId(name)));
     if (m2.length) this.edited();
-    if (m2.includes('m2_done')) this.hud.toast('M2 · the homestead expansion. The valley is bigger for what you brought home.', 9000);
+    if (m2.includes('m2_done')) this.hud.toast('M2 · the homestead expansion. The valley is bigger for what you brought home. Power is next: solar arrays can be made at the workbench now.', 10000);
   }
 
   private openPaper(show: () => void): void {
@@ -1430,9 +1466,15 @@ export class Game {
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
     if (food || heal) {
+      // A jug of water, cold or not, leaves its jug: it must have somewhere to go, or the drink waits.
+      const jug = held.id === itemId('water_jug') || held.id === itemId('cold_water');
+      if (jug && !this.hotbar.creative && held.count > 1 && this.hotbar.room(itemId('empty_jug')) < 1 && (this.vitals.thirst < 99 || this.vitals.hp < 99)) {
+        this.hud.toast('No room in your pack for the empty jug: make space first');
+        return true;
+      }
       if (!consume(this.vitals, food ?? {}, heal)) { this.hud.toast(heal ? 'You are not hurt' : 'You are full'); return true; }
       this.hotbar.take();
-      if (held.id === itemId('water_jug')) this.hotbar.add(itemId('empty_jug'));
+      if (jug && !this.hotbar.creative) this.hotbar.add(itemId('empty_jug'));
       if (held.id === itemId('coffee')) { this.coffeeUntil = this.playTime + 90; this.hud.toast('Coffee on the balcony: a spring in your step'); }
       this.edited();
       return true;
@@ -1622,7 +1664,7 @@ export class Game {
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },
       flags: [...this.flags], explored: [...this.explored.keys()].filter((i) => this.explored[i]),
-      wallet: this.wallet, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
+      wallet: this.wallet, marcoPaid: this.marcoPaid, den: this.wild.denLeft, flock: this.wild.flockLeft, outpost: this.wild.outpost.left,
       power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
       factionDown: this.wild.faction.down, ashenDown: this.wild.ashen.down,
       live: { solar: this.devices.solar_array, hydro: this.devices.hydro_generator },
@@ -1687,6 +1729,7 @@ export class Game {
     this.flags = new Set(d.flags ?? []);
     this.screen.known = this.flags;
     this.wallet = d.wallet ?? START_WALLET;
+    this.marcoPaid = d.marcoPaid ?? 0;
     this.wild.denLeft = d.den ?? 3;
     this.wild.flockLeft = d.flock ?? FLOCK_SIZE;
     this.wild.outpost = outpostFromSave(d.outpost);
@@ -1969,7 +2012,7 @@ export class Game {
     if (m3.includes('bank_built')) this.hud.toast('A battery bank: power day and night. The rig, the fridge and the pump can be made now.', 8000);
     if (m3.includes('rig_earned')) this.hud.toast('The rig has mined its first sats. The computer shows what it earns.', 7000);
     if (m3.includes('zone2_home')) this.hud.toast('Home from Las Cruces, alive. Marco may have heard: call him.', 7000);
-    if (m3.includes('m3_done')) this.hud.toast('M3 · power up. The valley hums now, day and night.', 9000);
+    if (m3.includes('m3_done')) this.hud.toast('M3 · power up. The valley hums now, day and night. Steel is next: a crucible furnace and a lathe can be made now.', 10000);
   }
 
   /** Right-click on Phase 6's things. True if handled. */
@@ -2146,7 +2189,7 @@ export class Game {
       else { this.flags.add('uplink_plans'); say = RAY.uplink; }
     } else if (!first && this.flags.has('hydro_plans') && !this.flags.has('hydro_built')) say = RAY.notYet;
     this.edited();
-    const why = { funds: RAY.funds, room: 'No room in your pack.', none: '' };
+    const why = { funds: RAY.funds, room: 'No room in your pack.', none: '', purse: '' };
     this.openPaper(() => this.paper.trade(() => ({
       title: `${RAY.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can send', sellHead: null, sell: [],
       buy: [

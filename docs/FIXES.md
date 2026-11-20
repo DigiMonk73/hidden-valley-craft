@@ -164,3 +164,79 @@ said "Phase 0".
 New game, an older save; the four keys in each mode; a rig paid nothing over 100 presses of `[` (and the old
 behaviour shown paying, for contrast); no new day from `[` before six; the forge's parts with endless blocks on,
 and with a full pack.
+
+---
+
+## 6. Money and milestones have weight (N4)
+
+**What was wrong.** The wallet started at 5,000,000 sats, more than everything Marco sells. A rig earned less in
+a day than two iron ingots sold for, and the home's own rock held over a thousand iron ore. Marco would buy the
+one pump in the world, after which M3 could never be finished. Milestone steps ticked without the real step
+(any pistol; "home" was anywhere east of the gate, or a press of H), and M3 could be completed with M1 and M2
+undone. Dying at home filled your stomach. A jug of cold water took its jug with it.
+
+**What was done.**
+
+- **Marco's purse.** He can pay out 250,000 sats (10 units) in a day; it is whole again each dawn, and it is saved
+  with the valley. The trade screen says how much he can still pay today, and he says why when it runs out.
+  This is what brings Phase 7's loot into line: the gallery's iron and coal and the yard's rails are worth about
+  310 units at his prices, which is now a month of trips to the shelter, not one afternoon.
+- **Parts he will not take.** A part that a milestone step still needs (`keep` in `data/trade.json`: the pump
+  and fridge units, battery cells, roof panels, rig boards, GPUs and PSUs, bowstrings, primers, casings,
+  saltpeter, sulfur, gunpowder) shows in his list greyed, with the step it is for, and he says to keep it. Once
+  the step is done, what is left over is his to buy.
+- **Rows stay put.** What he is offered is fixed while the screen is open. A row that sells out stays in its
+  place, greyed ("none left"), so quick clicks never sell the next thing down.
+- **Real steps.**
+  - M1's "back home" is inside the valley, after having been out through the gate.
+  - The pistol step is the dead scout's pistol, taken from his pockets; a bought or looted one does not count.
+  - Hold H still brings you home from anywhere, but M1's two "come home" steps wait for a run you swim and walk
+    yourself. The toast says so.
+  - A milestone is done only after the one before it.
+- **Each milestone's recipes need the one before** (`after` in `data/recipes.json`). M2's (coop, bow, smoker,
+  jerky rack, forge, leghold trap, raised bed) need M1; M3's (solar array to water pump, powder mill, bullets,
+  rounds, the rain awning) need M2; M4's (crucible furnace, steel, lathe, hydro generator, gun mods, plate
+  armour, the planter box) need M3. What waits is listed at its station, greyed, with what it waits for, and each
+  milestone's toast says what can be made now. The computer shows "after M1" beside a milestone not yet open.
+- **Numbers** (`data/trade.json`, in the script's units of one wound care = 4):
+
+  | | Was | Now | Why |
+  |---|---|---|---|
+  | Starting wallet | 5,000,000 (200 units) | 1,000,000 (40) | The script: "a small starter balance". The review's number. |
+  | Marco's purse, a day | no limit | 250,000 (10) | The review's number. |
+  | One rig, a day | 50,000 (2) | 100,000 (4) | One wound care a day. A farm of three (12) now out-earns any day of selling. |
+  | Ray's plans | 12 | 24 | The script: Ray is "premium". With a third rig's board (7 → 14), M4 costs about the whole starting wallet, so it has to be earned. |
+  | Ray's steel, GPU, PSU, wiring | 6, 10, 4, 8 | 10, 16, 8, 12 | The same premium. |
+  | Marco pays for a pistol, a raider's rifle | 600,000, 1,000,000 | 100,000, 150,000 | He sells guns dear and buys them cheap; they were the best loot in the game. |
+  | Primers | 40 ever | Marco sells 10 for 3 units at trust 2 | The review's number: rounds of your own no longer run out for good. |
+  | Pantry | 32 tins, 16 rice, 16 beans | 8, 6, 6 | About ten days of food, as `docs/PLAN.md` always said; it was forty. |
+
+- **Waking after a death at home** keeps the hunger and thirst you had, never below 15. (Outside, where you lose
+  your pack, you still wake at 50.)
+- **The jug comes back** from cold water as from a jug of water; with no room for the empty jug the drink waits
+  and says so, where the jug used to be destroyed.
+
+**Calls made.**
+
+- *Marco refuses milestone parts rather than selling them back.* A refusal with the reason on the row is one
+  rule the player can see; a buy-back list would be a second catalogue to keep in step with the first.
+- *Hold H does not tick M1, but still ticks "come home alive" for Zone 2 and Zone 3.* The review asked for M1
+  only. The first run is the lesson in the way home; after that H is the owner's own request ("lost? hold H"),
+  and voiding a long run for using it would punish getting lost.
+- *The hutch stays makeable from the start.* It has been since Phase 3, rabbits come from the buffer, and
+  "animals can be caught and raised" is one of the owner's standing notes.
+- *The rig at 100,000 a day, not the review's unchanged 50,000.* The review named the problem ("the rig is the
+  worst earner in the game") but only cut the wallet and capped Marco. At 50,000 a rig would still be a fifth of
+  a day's selling. At 100,000 one rig is steady pay worth having and a farm is the best income there is, which
+  is the script's M3 and M4.
+- *Hunger's pace, raiders' health and the armory's rounds are unchanged.* The review would halve the time
+  hunger takes, raise raiders to two rifle shots and halve the starting rounds. Those change how every fight
+  and every day feels, and the play-through is built round the present numbers; food is made to matter here by
+  the smaller pantry and by death at home no longer feeding you. They are listed under "Left undone" for the
+  owner's play to decide.
+
+**Tests.** `tests/money.test.ts` (19): the numbers; the purse over a day and across dawn, on the real `Game`;
+kept parts (and that every one is a real item waiting on a real step); rows that stay put under four quick
+clicks; M1's real steps, with H; milestones in order; every gated recipe before and after its milestone; waking
+after a death at home and outside; the jug. Older tests that pinned the old numbers or made M2–M4's things with no
+milestone done were brought in line (`tests/phase5`, `phase6`, `phase7`, `nearband`, `chests`).

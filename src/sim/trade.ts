@@ -34,10 +34,23 @@ export function sellPrice(id: number): number {
 }
 
 /** Every name in the trade data is a real item (checked by a test, so a typo fails the build's checks). */
-export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...data.catalogRay.map((c) => c.item), ...Object.keys(data.value)]; }
+export function tradeNames(): string[] { return [...data.catalog.map((c) => c.item), ...data.catalogM3.map((c) => c.item), ...data.catalogRay.map((c) => c.item), ...Object.keys(data.value), ...Object.keys(data.keep)]; }
 export const tradeNamesValid = (): boolean => tradeNames().every(hasItem);
 
-export type TradeResult = { ok: true; wallet: number } | { ok: false; why: 'funds' | 'room' | 'none' };
+/** The most Marco can pay out in one day, in satoshis: he carries what a man and a mule can. It is whole again each dawn. */
+export const PURSE: number = Math.round(data.purse * UNIT);
+
+/** Parts a milestone step needs, each with that step's flag: until the step is done Marco will not take one. */
+const KEEP = new Map<number, string>(Object.entries(data.keep).map(([name, flag]) => [itemId(name), flag]));
+
+/** The milestone step this part is still needed for (its flag), or null if Marco may have it. */
+export function keptFor(id: number, flags: ReadonlySet<string>): string | null {
+  const flag = KEEP.get(id);
+  return flag && !flags.has(flag) ? flag : null;
+}
+export const keepNames = (): [string, string][] => Object.entries(data.keep);
+
+export type TradeResult = { ok: true; wallet: number } | { ok: false; why: 'funds' | 'room' | 'none' | 'purse' };
 
 /** Buys one lot: the price comes out of the wallet and the lot goes into the pack. */
 export function buy(inv: Inventory, wallet: number, lot: Lot): TradeResult {
@@ -47,10 +60,11 @@ export function buy(inv: Inventory, wallet: number, lot: Lot): TradeResult {
   return { ok: true, wallet: wallet - lot.sats };
 }
 
-/** Sells one of an item from the pack, at half its value. */
-export function sell(inv: Inventory, wallet: number, id: number): TradeResult {
+/** Sells one of an item from the pack, at half its value, if Marco still has that much to pay today (`purseLeft`). */
+export function sell(inv: Inventory, wallet: number, id: number, purseLeft = Infinity): TradeResult {
   const price = sellPrice(id);
   if (!price || inv.count(id) <= 0) return { ok: false, why: 'none' };
+  if (price > purseLeft) return { ok: false, why: 'purse' };
   inv.remove(id, 1);
   return { ok: true, wallet: wallet + price };
 }

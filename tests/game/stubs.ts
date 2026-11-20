@@ -23,7 +23,7 @@ export class FakeRenderer {
 export const rendererModule = { Renderer: FakeRenderer };
 
 export interface Trade {
-  title: string; say: string; wallet: string;
+  title: string; say: string; wallet: string; sellHead?: string | null; buyHead?: string;
   buy: { label: string; price: string; can: boolean; act: () => string }[];
   sell: { label: string; price: string; can: boolean; act: () => string }[];
 }
