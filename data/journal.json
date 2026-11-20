@@ -109,6 +109,46 @@
       "flag": "m4_done",
       "title": "M4",
       "text": "Steel from my own furnace. A lathe. A wheel turning in the creek, and the rigs humming day and night off it. Ray's drawings are on the table: an uplink, and something up there that still answers. The ridge tower is next."
+    },
+    {
+      "flag": "ridge_gate",
+      "title": "The gate",
+      "text": "A board over the road north of the dam: ZONA CALIENTE, suit only. Past it nothing is green. Grey ground, bare trunks, a line of yellow signs along the edge of it as far as I can see. The lamps go on up the hill all the same. The meter says how long I would last in there: not long."
+    },
+    {
+      "flag": "hut_log",
+      "title": "The wardens’ log",
+      "text": "Refugio del Paso, the wardens’ log. The last pages: the night of the flashes to the south. The army washing the tower road with tankers and tipping the wash into the hollow. The trees going grey from the top down in one season. Then a last line in another hand, years later: “Scrubbed again. Still clean. The stove works. — R.Q.”"
+    },
+    {
+      "flag": "dome_page",
+      "title": "The observers’ last page",
+      "text": "A page on the observatory’s desk. “Seeing excellent. Too excellent: no lights anywhere below. Counted the constellation again tonight. Every one of them still on station, still being kept. By whom? Nobody answers on any band. Something does the keeping.”"
+    },
+    {
+      "flag": "relay_page",
+      "title": "The operator’s page",
+      "text": "The relay station’s desk: a printed traffic log, eight years of it, every line the same. Carrier up, no calls. One line near the top in pen: “Left the beacon on. If the dam holds, it will burn for someone.”"
+    },
+    {
+      "flag": "pharma_learned",
+      "title": "The field pharmacy manual",
+      "text": "A field pharmacy manual on the station’s shelf: a bench, a still, and what can be made from spirit, iron and herbs. Tablets that bind a dose. Antibiotics. Adrenaline. On the first page, in capitals: none of this touches what the Ashen have. Nothing does."
+    },
+    {
+      "flag": "ray_met",
+      "title": "Ray",
+      "text": "Ray was at the refuge, as he said: an old man in an orange suit, a hard hat from his dam. He gave me the dam’s modem and its keys, and went back down before dark. He has never seen what his drawings were for. Nor have I."
+    },
+    {
+      "flag": "ending_seen",
+      "title": "It answered",
+      "text": "It answered. Rows of numbers: every handset the satellites have heard. Marco, Doc and Ray. The builder’s people, silent for eight years; his own second handset at the same place as Lucía’s on the coast road, two days after hers. And one I do not know, far to the north, still calling: MIRA-7."
+    },
+    {
+      "flag": "m5_done",
+      "title": "The uplink",
+      "text": "A dish on the cliff, a telescope on the balcony, a wheel in the creek, and something up there that answers when I ask. Everything the builder began is running. What comes next is not in his drawings."
     }
   ]
 }

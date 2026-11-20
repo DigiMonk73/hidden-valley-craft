@@ -1236,3 +1236,86 @@ describe('the relay’s Ashen and a careful player, on the generated land', () =
     expect(ev.filter((e) => e.kind === 'notice')).toEqual([]);
   });
 });
+
+// ---- The ridge's places, Ray, the notes and the card (docs/PHASE8.md, 3 and 7) ----------------------------
+import { ridgePlaceAt, ridgeToast, rayWaiting, rayCall, canAskMeeting, RAY_SPOT, RAY_FROM, RAY_UNTIL } from '../src/sim/ridge.ts';
+import people from '../data/people.json' with { type: 'json' };
+import journal from '../data/journal.json' with { type: 'json' };
+import ending from '../data/ending.json' with { type: 'json' };
+
+describe('the ridge’s places and Ray', () => {
+  it('knows each place of the road, in the order walked, and says something the first time at each', () => {
+    const seen: string[] = [];
+    for (let s = 2; s <= ridgeRoadLength(); s++) { const p = ridgePlaceAt(...ridgeRoadPoint(s)); if (p && seen[seen.length - 1] !== p) seen.push(p); }
+    expect(seen).toEqual(['bend', 'gate', 'edge', 'pass', 'edge', 'sump', 'edge', 'dome', 'edge', 'yard']);
+    expect(ridgePlaceAt(Z.hut.x0 + 3, Z.hut.z0 + 3)).toBe('pass');
+    expect(ridgePlaceAt(Z.relay.door, Z.relay.z0 + 4)).toBe('yard');
+    expect(ridgePlaceAt(Z.sump.x, Z.sump.z)).toBe('sump');
+    expect(ridgePlaceAt(300, 300)).toBe('edge');
+    expect(ridgePlaceAt(ZONE3.avenue.x, ZONE3.dam.z + 30)).toBe(null); // the avenue is not the ridge road
+    expect(ridgePlaceAt(1700, 1024)).toBe(null);
+    for (const p of ['bend', 'gate', 'edge', 'pass', 'sump', 'dome', 'yard'] as const) for (const suited of [true, false]) expect(ridgeToast(p, suited).length).toBeGreaterThan(40);
+    // Without a suit the gate sends you to Ray; with one it tells you how to walk it.
+    expect(ridgeToast('gate', false)).toContain('Ray');
+    expect(ridgeToast('gate', true)).toContain('road');
+    expect(ridgeToast('edge', false)).toContain('go back');
+  });
+
+  it('has Ray give his word first, then agree to meet only someone who carries a suit, and wait by day until met', () => {
+    const flags = new Set<string>();
+    expect(rayCall(flags, true, false)).toEqual({ line: null, sets: [] }); // before the uplink plans: M4's business
+    flags.add('uplink_plans');
+    expect(canAskMeeting(flags)).toBe(false);
+    expect(rayCall(flags, false, false)).toEqual({ line: 'ridge', sets: ['suit_word'] });
+    flags.add('suit_word');
+    expect(canAskMeeting(flags)).toBe(true);
+    expect(rayCall(flags, false, false).line).toBe(null);
+    expect(rayCall(flags, false, true)).toEqual({ line: 'meetNoSuit', sets: [] });
+    expect(rayWaiting(flags, 12)).toBe(false);
+    expect(rayCall(flags, true, true)).toEqual({ line: 'meetDay', sets: ['ray_coming'] });
+    flags.add('ray_coming');
+    expect(rayCall(flags, true, true).line).toBe('meetWaiting');
+    for (const [hour, there] of [[RAY_FROM - 0.5, false], [RAY_FROM, true], [12, true], [RAY_UNTIL - 0.1, true], [RAY_UNTIL, false], [23, false]] as [number, boolean][]) expect(rayWaiting(flags, hour), `at ${hour}`).toBe(there);
+    flags.add('ray_met');
+    expect(rayWaiting(flags, 12)).toBe(false); // once
+    expect(canAskMeeting(flags)).toBe(false);
+    expect(rayCall(flags, true, true).line).toBe(null);
+    // When the link has answered he says his piece, once.
+    flags.add('uplink_live');
+    expect(rayCall(flags, true, false)).toEqual({ line: 'afterLink', sets: ['ray_told'] });
+    flags.add('ray_told');
+    expect(rayCall(flags, true, false).line).toBe(null);
+  });
+
+  it('stands Ray on the pass’s clean ground, by the hut’s door, where nothing hunts and no dose is taken', () => {
+    expect(falloutAt(RAY_SPOT.x, RAY_SPOT.z)).toBe(0);
+    expect(ashenGround(RAY_SPOT.x, RAY_SPOT.z)).toBe(false);
+    expect(Math.hypot(RAY_SPOT.x - Z.hut.x0, RAY_SPOT.z - (Z.hut.door + 0.5))).toBeLessThan(4);
+    expect(inSanctuary(RAY_SPOT.x, RAY_SPOT.z)).toBe(false);
+  });
+
+  it('has every line Ray needs, and a page in the notes for each beat', () => {
+    const ray = people.ray as Record<string, unknown>;
+    for (const k of ['ridge', 'meetButton', 'meetNoSuit', 'meetDay', 'meetWaiting', 'met', 'metFull', 'afterLink', 'look']) expect(typeof ray[k], k).toBe('string');
+    expect(ray.ridge as string).toContain('suit');
+    expect(ray.met as string).toContain('modem');
+    const notes = (journal.notes as { flag: string; title: string; text: string }[]);
+    for (const f of ['ridge_gate', 'hut_log', 'dome_page', 'relay_page', 'pharma_learned', 'ray_met', 'ending_seen', 'm5_done']) expect(notes.filter((n) => n.flag === f).length, f).toBe(1);
+    expect(new Set(notes.map((n) => n.flag)).size).toBe(notes.length);
+    // The manual says it: no medicine here is a cure for the Ashen.
+    expect(notes.find((n) => n.flag === 'pharma_learned')!.text).toMatch(/none of this touches what the Ashen have/i);
+  });
+
+  it('closes on a short card: what was done, who is still out there (Mira, the people on the phone), and back to the valley', () => {
+    const lines = (ending.card as string[][]).flat();
+    expect(ending.card.length).toBe(5);
+    expect(lines.length).toBeLessThanOrEqual(14);
+    const text = lines.join(' ');
+    for (const name of ['Marco', 'Doc', 'Ray', 'Mira']) expect(text).toContain(name);
+    expect(text).toContain('valley');
+    expect(text.length).toBeLessThan(700);
+    expect(ending.button).toBe('Back to the valley');
+    // It does not name the thing that answered, and gives it no voice.
+    for (const w of ['AGI', 'AI', 'machine said', 'it said', '“']) expect(text.includes(w), w).toBe(false);
+  });
+});

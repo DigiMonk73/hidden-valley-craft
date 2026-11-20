@@ -1,5 +1,5 @@
 {
-  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2). Doc (docs/PHASE6.md, 4): a doctor somewhere up the highway, by sat-phone only; he sells services, flat per kind, and stays a character. Marco's trust 2 comes with your first run to Las Cruces. Ray (docs/PHASE7.md, 3): the dam's engineer, by sat-phone; he sells plans and parts at a premium, buys nothing, and gives the uplink plans once your hydro generator turns.",
+  "_comment": "What people say (docs/PHASE4.md, step 4). Marco: a farmer-trader working the old road, friendly and careful. Trust level 1 after the first trade (DESIGN.md M1 row 2). Doc (docs/PHASE6.md, 4): a doctor somewhere up the highway, by sat-phone only; he sells services, flat per kind, and stays a character. Marco's trust 2 comes with your first run to Las Cruces. Ray (docs/PHASE7.md, 3): the dam's engineer, by sat-phone; he sells plans and parts at a premium, buys nothing, and gives the uplink plans once your hydro generator turns. Phase 8 (docs/PHASE8.md, 3): Ray's word on the ridge and the suit, the meeting at the refuge on the pass (once, by day, once you carry a suit), and what he says when the link has answered.",
   "marco": {
     "name": "Marco",
     "contact": "Marco (trader)",
@@ -51,6 +51,15 @@
     "notYet": "“Is it turning yet? Water through the runner, current on the meter. Then call me.”",
     "uplink": "“It turns? Then you can build what I never could. I’m sending you drawings: a satellite uplink. There is something up there that still answers, if you ask it the right way. You’ll need an antenna, and the only one left standing is on the ridge tower, north-west, past everything. Not yet. But now you have the drawings.” (Ray’s uplink plans are in your pack.)",
     "uplinkFull": "“I have drawings for you. Make room in your pack and call again.”",
-    "funds": "“Coin first. Engineers eat too.”"
+    "funds": "“Coin first. Engineers eat too.”",
+    "ridge": "“The ridge. Listen first. The exchange dropped its dirt on that mountain and the rain never washed it off. The forest holds it. The road sheds it: my line still feeds the relay up there, so follow my lamps and stay on the asphalt. Not in your shirt, though. Canvas, lead sheet from old batteries, a glass visor, charcoal in the mask. I’m sending the pattern. Build it, carry it, and call me again.” (Ray’s pattern for a hazard suit is at the workbench.)",
+    "meetButton": "Ask Ray to meet you at the refuge on the pass",
+    "meetNoSuit": "“Not before you carry a suit. I won’t walk up there to meet a dead man.”",
+    "meetDay": "“You have the suit. Good. There’s a refuge on the pass, past the gate: clean ground, I scrub it myself every dry season. I’ll be there by daylight. I have something for you that no drawing can give.”",
+    "meetWaiting": "“The refuge, on the pass, by day. I’m not climbing that hill twice.”",
+    "met": "An old man by the refuge’s door: a grey beard, an orange suit with the hood down, a white hard hat with PRESA stencilled on it. “So you’re the one who reads logbooks. Here.” A grey box with a stub of aerial, heavier than it looks. “The dam’s telemetry modem. It still has its keys: that is what lets the thing up there hear you. The dish lies in the yard under the tower: three panels will do. The observatory has the glass. The racks in the station have the rest. Walk the road. Go round the sump, never across it. And take these.” Two boxes of blue tablets. “I’m going down before dark. Call me when it answers.” (The satellite modem is in your pack.)",
+    "metFull": "“Make room in your pack first. This doesn’t go on the ground.”",
+    "afterLink": "“It answered? …What did it say? No. Of course it said nothing. Rows of numbers. Thirty years I built things for people, and the last thing still running doesn’t care that we’re here. Keep asking it anyway.”",
+    "look": "Ray Quispe, the dam’s engineer"
   }
 }
