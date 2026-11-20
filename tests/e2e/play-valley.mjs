@@ -355,7 +355,7 @@ await g(async () => {
 });
 await page.reload();
 await idle();
-const fresh = await g(() => { const gm = window.__hv.game, p = gm.player; return { old: gm.flags.has('old_valley'), x: p.x, z: p.z, said: document.querySelector('.hv-status')?.textContent ?? '', edits: gm.world.edits.size, hour: gm.hour }; });
+const fresh = await g(() => { const gm = window.__hv.game, p = gm.player; return { old: gm.flags.has('old_valley'), x: p.x, z: p.z, said: [...document.querySelectorAll('.hv-status')].map((e) => e.textContent).join(' ').trim(), edits: gm.world.edits.size, hour: gm.hour }; });
 check('a valley from before the home was rebuilt starts fresh, and says so', !fresh.old && Math.abs(fresh.x - 1796.5) < 0.5 && Math.abs(fresh.z - 1024.5) < 0.5 && /earlier build/.test(fresh.said) && fresh.edits === 0,
   `at ${fresh.x.toFixed(1)}, ${fresh.z.toFixed(1)}; menu: “${fresh.said.slice(0, 60)}”`);
 
