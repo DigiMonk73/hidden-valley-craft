@@ -7,15 +7,19 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { SKY_COLOR_GLSL, type SkyState } from './sky.ts';
 import { PLACES, outsideHeight } from '../gen/layout.ts';
 import { towerBeams } from '../gen/towerFrame.ts';
+import { TOWER_BEACONS } from '../gen/zone4.ts';
 
 /** Nearer the tower than this the blocks are loaded and drawn, so the far drawing is left out. */
 export const TOWER_NEAR = 150;
 
 const VERT = /* glsl */ `
+in float glow;
 out vec3 vWorld;
 out float vDist;
 out float vShade;
+out float vGlow;
 void main() {
+  vGlow = glow;
   vec4 world = modelMatrix * vec4(position, 1.0);
   vWorld = world.xyz;
   vec4 view = viewMatrix * world;
@@ -30,6 +34,7 @@ precision highp float;
 in vec3 vWorld;
 in float vDist;
 in float vShade;
+in float vGlow;
 uniform float uDaylight;
 uniform vec3 uSkyLight;
 uniform float uFogNear, uFogFar;
@@ -39,9 +44,11 @@ ${SKY_COLOR_GLSL}
 void main() {
   if (distance(cameraPosition.xz, uFoot.xz) < uFoot.y) discard;
   vec3 col = vec3(0.30, 0.27, 0.25) * vShade * uSkyLight * uDaylight;
-  // The same haze as the distant land, held back a little so the thin frame still reads as a shape.
-  float fog = pow(smoothstep(uFogNear, uFogFar, vDist), 0.8) * 0.8;
+  // The same haze as the distant land, held to about half so the frame still reads as a shape from the dam and the old road.
+  float fog = pow(smoothstep(uFogNear, uFogFar, vDist), 0.8) * 0.55;
   col = mix(col, skyColor(normalize(vWorld - cameraPosition)), fog);
+  // The beacons burn through the haze: the red light on the ridge, seen from the dam and the old road at night.
+  if (vGlow > 0.5) col = mix(vec3(1.0, 0.16, 0.10), col, fog * 0.35 * uDaylight);
   outColor = vec4(col, 1.0);
 }`;
 
@@ -55,10 +62,17 @@ function beam(a: THREE.Vector3, b: THREE.Vector3, t: number): THREE.BufferGeomet
   return g;
 }
 
-/** The tower's frame, standing at the origin: the same beams the ridge's block tower is built along (src/gen/towerFrame.ts). */
-export function towerGeometry(height: number): THREE.BufferGeometry {
-  const parts = towerBeams(height).map(({ a, b, t }) => beam(new THREE.Vector3(...a), new THREE.Vector3(...b), t * 1.6));
-  return mergeGeometries(parts.map((g) => g.toNonIndexed()));
+/**
+ * The tower's frame, standing at the origin: the same beams the ridge's block tower is built along
+ * (src/gen/towerFrame.ts), drawn three times as thick as steel so that it still reads from half a kilometre
+ * (a block is a metre: the blocks' frame is as heavy). `beacons`: where its two red lights are, from its foot.
+ */
+export function towerGeometry(height: number, beacons: [number, number, number][] = []): THREE.BufferGeometry {
+  const parts = towerBeams(height).map(({ a, b, t }) => beam(new THREE.Vector3(...a), new THREE.Vector3(...b), t * 3)).map((g) => g.toNonIndexed());
+  const lights = beacons.map(([x, y, z]) => { const g = new THREE.BoxGeometry(2.4, 2.4, 2.4); g.translate(x, y, z); return g.toNonIndexed(); });
+  for (const g of parts) g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count), 1));
+  for (const g of lights) g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count).fill(1), 1));
+  return mergeGeometries([...parts, ...lights]);
 }
 
 export class RidgeTower {
@@ -76,8 +90,9 @@ export class RidgeTower {
         uFoot: { value: new THREE.Vector3(t.x + 0.5, TOWER_NEAR, t.z + 0.5) },
       },
     });
-    this.mesh = new THREE.Mesh(towerGeometry(t.height), mat);
-    this.mesh.position.set(t.x + 0.5, outsideHeight(t.x, t.z), t.z + 0.5);
+    const foot = outsideHeight(t.x, t.z);
+    this.mesh = new THREE.Mesh(towerGeometry(t.height, TOWER_BEACONS.map(([x, y, z]) => [x - t.x, y - foot + 0.5, z - t.z])), mat);
+    this.mesh.position.set(t.x + 0.5, foot, t.z + 0.5);
     this.mesh.renderOrder = -9;
   }
 

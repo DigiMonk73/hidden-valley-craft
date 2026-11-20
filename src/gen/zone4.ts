@@ -240,7 +240,7 @@ export function buildZone4(col: Uint16Array, x0: number, z0: number): void {
     put(...HUT_LOG, 'note_desk');
     put(HUT_LOG[0] + 1, PF, HUT_LOG[2], 'bench');
     put(H.x0 + 2, PF, H.z0 + 1, 'bedroll@east');
-    put(H.x0 + 3, PF + 2, H.z0 + 3, 'lantern');
+    put(H.x0 + 3, PF + 2, H.z0 + 3, 'lantern'); put(H.x1 - 3, PF + 2, H.z1 - 3, 'lantern');
     put(H.x0 - 1, PF + 2, H.door, 'refugio_sign@west');
     put(H.x0 - 1, PF + 2, H.door - 2, 'lantern'); put(H.x0 - 1, PF + 2, H.door + 2, 'lantern');
     // The tree: the one green thing on the mountain.
