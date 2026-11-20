@@ -81,7 +81,7 @@ for (const kind of ['gunman', 'rusher']) {
   }
 }
 await waitFlag('outpost_cleared');
-const cleared = await g(() => ({ left: window.__hv.game.wild.outpost.left, f: window.__hv.game.flags.has('outpost_cleared'), pistols: window.__hv.game.hotbar.count(window.__hv.itemId('pistol')) }));
+const cleared = await g(() => { const gm = window.__hv.game, p = gm.player; return { left: gm.wild.outpost.left, f: gm.flags.has('outpost_cleared'), pistols: gm.hotbar.count(window.__hv.itemId('pistol')), rounds: gm.hotbar.count(window.__hv.itemId('rifle_rounds')), still: gm.wild.creatures.filter((c) => c.post).map((c) => `${c.kind}:${c.mind} hp${Math.round(c.hp)} ${Math.round(Math.hypot(c.x - p.x, c.z - p.z))}m`) }; });
 check('the other two fall to the rifle: the outpost is cleared', cleared.left === 0 && cleared.f, JSON.stringify(cleared));
 await g(() => window.__hv.game.wild.clear());
 await page.waitForFunction(() => window.__hv.game.time > (window.__t0 = window.__t0 ?? window.__hv.game.time) + 3, null, { timeout: LONG, polling: 200 }).catch(() => {});

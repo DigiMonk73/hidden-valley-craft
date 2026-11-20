@@ -292,3 +292,15 @@ The computer lists M4's steps with ticks under M3:
   - Run on the build from before the death fix, that last check failed as the review said: health 0.006, alive.
 - A fresh reviewer checked `git diff main...phase7` by running things; its twelve findings are fixed above.
 
+## After the merge: the mid part's browser tab died in the lead's container (2026-11-20)
+
+- **What happened.** With Phase 7 merged, the play-through's mid part crashed the tab at the outpost fight, three times running, in the lead's container; here it passed every time. The lead's samples: the browser's memory jumping by a gigabyte during stalls of 30–40 s, up to 5.9 GB, none of it JavaScript.
+- **Two causes, found separately.** One was in the game (the lead, commit 7a72c55): item icons and the map were drawn on canvases the browser kept on the graphics card, and reading them back cost seconds and a gigabyte in a headless browser; they are now drawn in memory (`src/platform/canvas.ts`). The other is the play-through's browser. Headless Chromium answers a mouse capture (pointer lock) with an endless stream of mouse moves that move nothing. All that arrive between two frames are folded into one event: 60,000 to 85,000 a frame here.
+  - Measured here: nothing at the menu; about 30 MB a second of the browser's own memory from the moment Play captures the mouse, with the game loop stopped, sound off and the workers ended; nothing again the moment the capture is released.
+  - When a frame stalls, the next event carries millions of moves. That is the gigabyte jump, and it makes the next stall longer. Phase 7 did not add the fault; its heavier scenes brought the lead's runs to the tipping point.
+  - It has also been halving the play-through's frame rate since Phase 0, and is why every wait had to re-set the heading.
+- **The fix** is in the play-through's set-up (`tests/e2e/lib.mjs`): the page is told capture is not allowed, so the game uses its free-look fallback, as in a sandboxed frame. A new check at the start of every part fails if the page hears from a mouse nobody touched; with capture on (`LOCK=1`) it fails: 4 events in 3 s, 90,037 moves folded into one.
+  - The mid part here, before and after: 14–18 minutes and about 950 MB at its peak; 9.5 minutes and 534 MB.
+- **For a player** nothing changes: a real mouse sends moves only when it moves. Not checked in a real browser window (there is none here).
+- **Tools kept for the next memory question** (README): `MEM=1` on the play-through, and `tests/e2e/probe-roof.mjs`.
+

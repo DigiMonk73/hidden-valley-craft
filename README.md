@@ -99,6 +99,12 @@ main thread's heap and buffers, each worker's heap and buffers, and the counts o
 (creatures, arrows, loaded columns, the streamer's queues, meshes, page elements). Every thirty seconds it names the
 functions that allocated most since, on the main thread and in the workers. Build with `npx vite build --minify false`
 first so the names can be read, and rebuild normally afterwards. A tab that crashes is reported as a failed check.
+**The play-through does not capture the mouse.** Headless Chromium answers a pointer lock with an endless stream of
+mouse moves that move nothing, 60,000 to 85,000 folded into each frame's event: about 30 MB a second of the
+browser's own memory, half the frame rate, and when a frame stalls, a dead tab. So `tests/e2e/lib.mjs` tells the page
+capture is not allowed and the game uses its free-look fallback; a check at the start of every part fails if the
+page hears from a mouse nobody touched. `LOCK=1` captures the mouse as before, to see it.
+
 `HC=8` makes the page believe the machine has eight cores (the game starts up to six workers by it), and `DSF=0.2`
 draws a twenty-fifth of the pixels, to try what happens on a different machine.
 
