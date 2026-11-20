@@ -32,6 +32,19 @@ for (const [name, spec] of Object.entries(shots)) {
   const t0 = Date.now();
   await page.goto(url);
   await page.waitForFunction(() => window.__hv && window.__hv.idle(), null, { timeout: 600_000, polling: 500 });
+  // "Idle" means the land near the player is drawn (three chunks: enough to play). A picture wants the whole
+  // view: wait until no more columns have been drawn for four seconds, or a far cliff is photographed as the
+  // coarse distant land (the valley's far wall from the balcony was, as a flat slab with no waterfall).
+  await page.evaluate(() => new Promise((done) => {
+    const s = window.__hv.game.streamer;
+    const count = () => s.drawn.reduce((n, v) => n + v, 0) * 1000 + s.meshing.size + s.uploads.length;
+    let last = count(), since = performance.now();
+    const t = setInterval(() => {
+      const now = count();
+      if (now !== last) { last = now; since = performance.now(); }
+      else if (performance.now() - since > 4000) { clearInterval(t); done(); }
+    }, 250);
+  }));
   // EVAL: script run in the page once the world is loaded, to set the scene (creatures via window.__hv).
   if (process.env.EVAL) { await page.evaluate(process.env.EVAL); await page.waitForTimeout(600); }
   await page.waitForTimeout(400);
