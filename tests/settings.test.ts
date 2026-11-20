@@ -64,10 +64,10 @@ describe('settings kept across sessions (docs/PHASE9B.md, 2)', () => {
     const s = parseSettings(saved);
     expect(s.rd).toBe(10);
     expect(s.fx).toBe(false);
-    expect(s.others).toEqual({ later: 'x', count: 3 }); // plain values only
+    expect(s.others).toEqual({ later: 'x', count: 3, junk: { a: 1 } }); // values, small objects too; not null
     s.vol = 0.9; // a setting changed in the menu
     const back = JSON.parse(new TextDecoder().decode(encodeSettings(s)));
-    expect(back).toMatchObject({ rd: 10, vol: 0.9, fx: false, later: 'x', count: 3, scale: 1, aa: true, auto: true });
+    expect(back).toMatchObject({ rd: 10, vol: 0.9, fx: false, later: 'x', count: 3, junk: { a: 1 }, scale: 1, aa: true, auto: true });
     expect(back.others).toBeUndefined();
     // And through a second load and save.
     expect(JSON.parse(new TextDecoder().decode(encodeSettings(parseSettings(encodeSettings(s)))))).toEqual(back);

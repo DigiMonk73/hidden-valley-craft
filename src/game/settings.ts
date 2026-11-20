@@ -31,7 +31,7 @@ export interface Settings {
    * Settings this build does not know, kept as they were read and written back unchanged: another branch's
    * setting (Track A's `fx`), or a later build's, survives a load and a save here.
    */
-  others?: Record<string, boolean | number | string>;
+  others?: Record<string, boolean | number | string | object>;
 }
 
 export const DEFAULT_SETTINGS: Settings = { rd: 8, rdOwn: false, sens: 1, inv: false, vol: 0.8, scale: 1, aa: true, auto: true, fx: true };
@@ -68,10 +68,13 @@ export function readSettings(raw: unknown): Settings {
   if (typeof r.aa === 'boolean') s.aa = r.aa;
   if (typeof r.auto === 'boolean') s.auto = r.auto;
   if (typeof r.fx === 'boolean') s.fx = r.fx;
-  const others: Record<string, boolean | number | string> = {};
+  const others: Record<string, boolean | number | string | object> = {};
   for (const [k, v] of Object.entries(r)) {
     if (k in DEFAULT_SETTINGS || k === 'others' || k.length > 40) continue;
-    if (typeof v === 'boolean' || typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v))) others[k] = typeof v === 'string' ? v.slice(0, 200) : v;
+    if (typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v))) others[k] = v;
+    else if (typeof v === 'string') others[k] = v.slice(0, 200);
+    // (A later build's setting may be more than one value: kept whole while it is small; Track A's test asks this.)
+    else if (v && typeof v === 'object' && JSON.stringify(v).length <= 2000) others[k] = v as object;
   }
   if (Object.keys(others).length) s.others = others;
   return s;
