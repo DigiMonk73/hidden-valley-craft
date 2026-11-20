@@ -34,6 +34,9 @@ import { collectContainers, restoreContainers, collectEdits, restoreEdits, encod
 import { newSave, normaliseSave, START, BEGUN } from './save/state.ts';
 import { Keeper, NOTES, SAVE_KEY } from './save/keeper.ts';
 import { OPENING, HINTS, nextGoal } from './sim/guide.ts';
+import { isBow, isBlade, isWeapon, gunOf } from './sim/weapons.ts';
+import { MARCO, DOC, RAY, MARCO_HOURS, greetMarco, marcoTrade, greetDoc, docServices, greetRay, rayCatalog } from './game/people.ts';
+import { computerRows } from './game/computer.ts';
 import { HOME, WATERFALL, CANYON_FALLS, SPRINGS, VALLEY, POOL, GATE, PLACES, riverCurrent, fallsLoudness, rescueFromOldTunnel, zoneAt, inValleyBowl, ZONE_DANGER, inSanctuary, valleyFloorHeight, outsideHeight, creekDistance } from './gen/layout.ts';
 import { CS, WORLD_Y } from './world/constants.ts';
 import { packPos, skyOf } from './world/light.ts';
@@ -45,13 +48,10 @@ import { meleeDamage, takeDrops, drawOf, clearShot, MELEE_COOLDOWN, MELEE_REACH,
 import { groundAt, FLOCK_SIZE } from './entity/spawner.ts';
 import { ZONE1, SADDLE } from './gen/layout.ts';
 import { SCOUT_AT, MARCO_SPOT, YARD, DEN } from './gen/zone1.ts';
-import { CATALOG, START_WALLET, PURSE, buy, sell, sellPrice, sellable, keptFor, btc } from './sim/trade.ts';
-import { M1_STEPS, trackM1, diedOutside, notWalkedHome } from './sim/milestones.ts';
+import { START_WALLET, btc } from './sim/trade.ts';
+import { trackM1, diedOutside, notWalkedHome } from './sim/milestones.ts';
 import { catchChicken, layEggs, hatchEggs, syncTameHens, takeHen, COOP, CATCH_REACH } from './sim/livestock.ts';
-import { itemLabel } from './world/items.ts';
-import { iconFor } from './ui/icons.ts';
 import { drawMapScrap } from './ui/mapView.ts';
-import people from '../data/people.json' with { type: 'json' };
 import { RAIDER_KINDS, FACTION_KINDS, isMan } from './entity/creatures.ts';
 import { factionDawn } from './entity/faction.ts';
 import { alertOutpost, silentTakedown, RAIDER_BIT, ALL_RAIDERS, outpostFromSave } from './entity/outpost.ts';
@@ -60,19 +60,17 @@ import { Focus } from './sim/focus.ts';
 import { HomeKey } from './sim/home.ts';
 import { ZONE1FAR, ZONES } from './gen/layout.ts';
 import { OUTPOST_AT, CAMP_MARKER, DECK_END, RUSTED_TRAP } from './gen/zone1far.ts';
-import { M2_STEPS, trackM2 } from './sim/milestones.ts';
+import { trackM2 } from './sim/milestones.ts';
 import { smokeMeat, cureJerky, newWatch, learnLeghold, LEGHOLD_LESSON, LEGHOLD } from './sim/preserve.ts';
 import { pickApple, isFarmland, sows, NEW_CROPS } from './sim/farming.ts';
 import { itemName } from './world/items.ts';
 import { blockId } from './world/blocks.ts';
 import { ZONE2 } from './gen/layout.ts';
-import { M3_STEPS, trackM3, diedOutsideM3 } from './sim/milestones.ts';
-import { CATALOG_M3, DOC_PRICE } from './sim/trade.ts';
-import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
+import { trackM3, diedOutsideM3 } from './sim/milestones.ts';
+import { sunlit, findDevices, newPower, stepPower, powerFromSave, RIG_THS, BANK_KWH, type Devices, type PowerState } from './sim/power.ts';
 import { stepDose, healthCap, clickRate, nearHotspot } from './sim/radiation.ts';
 import { ZONE3, onDamCrest, onDamRoad, ravineX, highwayX } from './gen/layout.ts';
-import { M4_STEPS, trackM4, diedOutsideM4 } from './sim/milestones.ts';
-import { CATALOG_RAY, RAY_PLANS_PRICE } from './sim/trade.ts';
+import { trackM4, diedOutsideM4 } from './sim/milestones.ts';
 import { turning, liveFromSave, HYDRO_KW } from './sim/power.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
@@ -86,28 +84,10 @@ const KILL_LINE: Record<Creature['kind'], string> = {
   guard: 'The guard is down: his rounds are yours. The tower will be manned again at dawn.',
   ashen: 'It is down. It carries nothing, and you don’t touch it. Others drift in by dawn.',
 };
-/** Firearms: found, never crafted (ADR-019). Damage, seconds between shots, range, and what each fires. */
-const GUNS: Record<string, { damage: number; cooldown: number; range: number; ammo: string; sound: 'rifle' | 'pistol'; quiet?: boolean }> = {
-  hunting_rifle: { damage: 45, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
-  raider_rifle: { damage: 40, cooldown: 1.6, range: 120, ammo: 'rifle_rounds', sound: 'rifle' },
-  pistol: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol' },
-  // M4's mods, made at the lathe from found guns (docs/PHASE7.md): the suppressed pistol is heard only close by.
-  pistol_suppressed: { damage: 30, cooldown: 0.5, range: 60, ammo: 'pistol_rounds', sound: 'pistol', quiet: true },
-  rifle_rebuilt: { damage: 48, cooldown: 1.4, range: 150, ammo: 'rifle_rounds', sound: 'rifle' },
-};
 /** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
 const ASHEN_HOLDS_H = 30;
 /** What a running Ashen kicks up. */
 const ASH_DUST = blockId('pale_stain');
-const BOWS = new Set(['compound_bow', 'hunting_bow']);
-const BLADES = new Set(['hunting_knife', 'machete', 'spear']);
-const isBow = (id: number | undefined) => id !== undefined && BOWS.has(itemName(id));
-const isWeapon = (id: number | undefined) => id !== undefined && (BOWS.has(itemName(id)) || itemName(id) in GUNS);
-const MARCO = people.marco;
-const DOC = people.doc;
-const RAY = people.ray;
-/** Marco keeps a meeting by day: from seven in the morning until six in the evening. */
-const MARCO_HOURS: [number, number] = [7, 18];
 /** The least hunger and thirst you wake with after a death in the valley. */
 export const WAKE_FLOOR = 15;
 const SETTINGS_KEY = 'settings';
@@ -175,7 +155,8 @@ export class Game {
   /** Holding H to head home (the lead, 2026-11-18), and when the player was last hurt (play time). */
   home = new HomeKey();
   private lastHurt = -Infinity;
-  private hpBefore = 100;
+  /** (Read and set by Doc's cure, in src/game/people.ts.) */
+  hpBefore = 100;
   /** Is the player sprinting this tick (a hen runs only from that)? */
   private sprinting = false;
   /** The deep band's stinger plays once a visit, when the body across the ravine comes into view. */
@@ -189,7 +170,7 @@ export class Game {
   private drawing: number | null = null;
   /** Power at home (docs/PHASE6.md): the banks' charge and the rig's earnings, and the devices found placed. */
   power: PowerState = newPower();
-  private devices: Devices = findDevices(new Map());
+  devices: Devices = findDevices(new Map());
   /** The game hour power was last run to (null: not yet, so nothing is back-dated). */
   private powerHour: number | null = null;
   /** The radiation dose, 0–100 (docs/PHASE6.md, 3). */
@@ -758,7 +739,7 @@ export class Game {
     this.lastBlow = this.playTime;
     // A blade on a raider who hasn't seen you: a silent takedown (docs/PHASE5.md).
     const held = this.hotbar.current?.id;
-    if (silentTakedown(hit.c, FACTION_KINDS.has(hit.c.kind) ? this.wild.faction : this.wild.outpost, held !== undefined && BLADES.has(itemName(held)))) {
+    if (silentTakedown(hit.c, FACTION_KINDS.has(hit.c.kind) ? this.wild.faction : this.wild.outpost, isBlade(held))) {
       this.sound.hit(hit.c.x, hit.c.y + 1, hit.c.z);
       hit.c.hp = 0;
       this.wild.remove(hit.c);
@@ -795,7 +776,7 @@ export class Game {
       this.sound.bowDraw();
       return true;
     }
-    const gun = GUNS[itemName(held)];
+    const gun = gunOf(held);
     if (gun) {
       if (this.playTime - this.lastShot < gun.cooldown) return true;
       if (!this.hotbar.remove(itemId(gun.ammo), 1)) { this.hud.toast(gun.ammo === 'pistol_rounds' ? 'No pistol rounds' : 'No rifle rounds'); return true; }
@@ -1148,23 +1129,7 @@ export class Game {
     if (this.usePhase6(name, x, y, z)) return true;
     if (this.usePhase7(name)) return true;
     if (name === 'computer') {
-      const cold = this.hotbar.count(itemId('hardware_wallet')) > 0;
-      const m1 = this.flags.has('m1_done');
-      this.openPaper(() => this.paper.computer([
-        ['Hot wallet (phone)', btc(this.wallet), 'btc'],
-        ['Cold wallet', cold ? '2.50000000 BTC (connected, kept cold)' : 'not connected', cold ? 'btc' : 'dim'],
-        ...this.powerRows(),
-        ['Satellite uplink', this.flags.has('uplink_plans') ? 'Ray’s plans in hand · no antenna' : 'no antenna', 'dim'],
-        ['M1 · the first outside run', m1 ? 'done ✓' : `${M1_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M1_STEPS.length}`, m1 ? 'btc' : ''],
-        ...M1_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M2 · the homestead expansion', this.flags.has('m2_done') ? 'done ✓' : `${M2_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M2_STEPS.length}${m1 ? '' : ' · after M1'}`, this.flags.has('m2_done') ? 'btc' : ''],
-        ...M2_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M3 · power up', this.flags.has('m3_done') ? 'done ✓' : `${M3_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M3_STEPS.length}${this.flags.has('m2_done') ? '' : ' · after M2'}`, this.flags.has('m3_done') ? 'btc' : ''],
-        ...M3_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['M4 · hydro', this.flags.has('m4_done') ? 'done ✓' : `${M4_STEPS.filter((st) => this.flags.has(st.flag)).length} of ${M4_STEPS.length}${this.flags.has('m3_done') ? '' : ' · after M3'}`, this.flags.has('m4_done') ? 'btc' : ''],
-        ...M4_STEPS.map((st) => [`   ${this.flags.has(st.flag) ? '✓' : '·'} ${st.label}`, '', this.flags.has(st.flag) ? '' : 'dim'] as [string, string, string]),
-        ['Last note', '“Back before the rains.”'],
-      ], 'R.’s terminal'));
+      this.openPaper(() => this.paper.computer(computerRows(this), 'R.’s terminal'));
       return true;
     }
     if (name === 'phone') { this.openPhone(); return true; }
@@ -1215,59 +1180,10 @@ export class Game {
     this.openPaper(() => this.paper.phone('Satellite phone · the builder’s contacts', rows));
   }
 
-  /** Talking to Marco: a line, then his trade. The first deal earns trust 1 (DESIGN.md M1). */
+  /** Talking to Marco: a line, then his trade (src/game/people.ts). */
   private talkToMarco(): void {
-    const first = !this.flags.has('marco_met');
-    this.flags.add('marco_met');
-    const say = first ? MARCO.first : MARCO.again[Math.floor(Math.random() * MARCO.again.length)];
-    const dealt = () => {
-      this.edited();
-      if (!this.flags.has('marco_trust1')) { this.flags.add('marco_trust1'); return MARCO.trust; }
-      return '';
-    };
-    const why = { funds: 'Not enough in your wallet.', room: 'No room in your pack.', none: 'You have none of that.', purse: MARCO.purse };
-    // What he is offered is fixed while the screen is open: a row that sells out stays where it is, greyed, so a
-    // quick second click never lands on the next thing down (docs/FIXES.md, 6).
-    const offered = sellable(this.hotbar);
-    const stepLabel = (flag: string) => [...M1_STEPS, ...M2_STEPS, ...M3_STEPS, ...M4_STEPS].find((st) => st.flag === flag)?.label ?? 'a later step';
-    this.openPaper(() => this.paper.trade(() => {
-      const left = Math.max(0, PURSE - this.marcoPaid);
-      return {
-        title: `${MARCO.name} · ${this.flags.has('marco_trust2') ? 'trust 2' : this.flags.has('marco_trust1') ? 'trust 1' : 'a stranger still'}`,
-        say,
-        wallet: btc(this.wallet),
-        sellHead: `Sell to him (half price) · he can pay ${btc(left)} more today`,
-        buy: [...CATALOG, ...(this.flags.has('marco_trust2') ? CATALOG_M3 : [])].map((lot) => ({
-          icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy',
-          can: this.wallet >= lot.sats,
-          act: () => {
-            const r = buy(this.hotbar, this.wallet, lot);
-            if (!r.ok) return why[r.why];
-            this.wallet = r.wallet;
-            if (CATALOG_M3.includes(lot) && lot.id !== itemId('primer')) this.flags.add('marco_guns');
-            return dealt() || `Bought ${itemLabel(lot.id)} ×${lot.lot}.`;
-          },
-        })),
-        sell: offered.map((id) => {
-          const have = this.hotbar.count(id), kept = keptFor(id, this.flags), price = sellPrice(id);
-          return {
-            icon: iconFor(id),
-            label: kept ? `${itemLabel(id)} · keep it: ${stepLabel(kept)}` : have ? `${itemLabel(id)} (you have ${have})` : `${itemLabel(id)} (none left)`,
-            price: btc(price), button: 'Sell 1',
-            can: have > 0 && !kept && price <= left,
-            act: () => {
-              // A part a milestone step still needs is not his to take: one sale must never end your progress.
-              if (keptFor(id, this.flags)) return MARCO.keep;
-              const r = sell(this.hotbar, this.wallet, id, Math.max(0, PURSE - this.marcoPaid));
-              if (!r.ok) return why[r.why];
-              this.marcoPaid += r.wallet - this.wallet;
-              this.wallet = r.wallet;
-              return dealt() || `Sold one ${itemLabel(id)}.`;
-            },
-          };
-        }),
-      };
-    }));
+    const say = greetMarco(this);
+    this.openPaper(() => this.paper.trade(marcoTrade(this, say)));
   }
 
   /** Focus ends (run out, put away, a screen opened, a death). */
@@ -1791,7 +1707,8 @@ export class Game {
 
   private get unsaved(): boolean { return this.editCount !== this.savedCount; }
 
-  private edited(): void { this.editCount++; this.lastEdit = this.time; }
+  /** Something changed that a save should hold. (Also called by the modules split out of this file.) */
+  edited(): void { this.editCount++; this.lastEdit = this.time; }
 
   private lastWriteFailed = false;
 
@@ -2091,51 +2008,10 @@ export class Game {
     return false;
   }
 
-  /** The computer's power lines (docs/PHASE6.md, 6). */
-  private powerRows(): [string, string, string][] {
-    const P = this.power, d = this.devices, n = d.mining_rig.length;
-    if (!d.solar_array.length && !n && !d.hydro_generator.length) return [['Mining', 'no rig: needs a solar array and a battery bank', 'dim']];
-    const hydro = d.hydro_generator.length;
-    return [
-      ...(hydro ? [['Hydro', `${hydro} generator${hydro === 1 ? '' : 's'} in the creek · ${(hydro * HYDRO_KW).toFixed(2)} kW, day and night`, 'btc'] as [string, string, string]] : []),
-      ['Solar', `${d.solar_array.length} array${d.solar_array.length === 1 ? '' : 's'} · ${P.solar.toFixed(2)} kW now`, d.solar_array.length ? '' : 'dim'],
-      ['Battery bank', d.battery_bank.length ? `${P.charge.toFixed(1)} of ${d.battery_bank.length * BANK_KWH} kWh` : 'none', d.battery_bank.length ? '' : 'dim'],
-      n > 1
-        ? ['Mining farm', P.rigs ? `${P.rigs} of ${n} rigs running · ${(RIG_THS * P.rigs).toFixed(2)} TH/s${P.rigs < n ? (hydro ? ' · short of power' : ' · more than one rig needs hydro') : ''}` : 'stopped: no power', P.rigs ? 'btc' : 'dim']
-        : ['Mining rig', n ? (P.on.mining_rig ? `${(RIG_THS * n).toFixed(2)} TH/s · running` : 'stopped: no power') : 'none', n && P.on.mining_rig ? 'btc' : 'dim'],
-      ['Mined today', btc(P.satsToday), 'btc'],
-      ['Mined in all', `${btc(P.satsTotal)} (about ${btc(RIG_SATS_PER_DAY * Math.max(1, hydro ? n : Math.min(n, 1)))} a day, powered)`, 'btc'],
-      ['Fridge', d.fridge.length ? (P.on.fridge ? 'cold' : 'off: no power') : 'none', d.fridge.length ? '' : 'dim'],
-      ['Water pump', d.water_pump.length ? (P.on.water_pump ? 'ready' : 'off: no power') : 'none', d.water_pump.length ? '' : 'dim'],
-    ];
-  }
-
-  /** Calling Doc: a line, then his services, priced flat per kind (DESIGN.md A3). */
+  /** Calling Doc: a line, then his services (src/game/people.ts). */
   private callDoc(): string {
-    const first = !this.flags.has('doc_called');
-    this.flags.add('doc_called');
-    this.edited();
-    const say = first ? DOC.first : DOC.again[Math.floor(Math.random() * DOC.again.length)];
-    const svc = (label: string, price: number, act: () => string) => ({
-      icon: iconFor(itemId('first_aid_kit')), label, price: btc(price), button: 'Ask', can: this.wallet >= price,
-      act: () => { if (this.wallet < price) return DOC.funds; const r = act(); this.edited(); return r; },
-    });
-    this.openPaper(() => this.paper.trade(() => ({
-      title: `${DOC.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can talk you through', sellHead: null, sell: [],
-      buy: [
-        svc(`Wound care (health back to ${healthCap(this.dose)})`, DOC_PRICE.wound, () => {
-          const cap = healthCap(this.dose);
-          if (this.vitals.hp >= cap - 0.5) return DOC.notHurt;
-          this.wallet -= DOC_PRICE.wound; this.vitals.hp = cap; this.hpBefore = cap;
-          return DOC.wound;
-        }),
-        svc(`Rad treatment (your dose: ${Math.round(this.dose)})`, DOC_PRICE.rad, () => {
-          if (this.dose < 0.5) return DOC.noDose;
-          this.wallet -= DOC_PRICE.rad; this.dose = 0;
-          return DOC.rad;
-        }),
-      ],
-    })));
+    const say = greetDoc(this);
+    this.openPaper(() => this.paper.trade(docServices(this, say)));
     return say;
   }
 
@@ -2222,40 +2098,10 @@ export class Game {
     return false;
   }
 
-  /** Calling Ray: a line, the uplink plans once the generator turns, then what he sells (DESIGN.md A3: premium, buy-only). */
+  /** Calling Ray: a line (and the uplink plans once the generator turns), then what he sells (src/game/people.ts). */
   private callRay(): string {
-    const first = !this.flags.has('ray_called');
-    this.flags.add('ray_called');
-    let say = first ? RAY.first : RAY.again[Math.floor(Math.random() * RAY.again.length)];
-    // The contact-taught schematic: the uplink plans, the first call after the generator turns.
-    if (!first && this.flags.has('hydro_built') && !this.flags.has('uplink_plans')) {
-      if (this.hotbar.add(itemId('uplink_plans'), 1) > 0) say = RAY.uplinkFull;
-      else { this.flags.add('uplink_plans'); say = RAY.uplink; }
-    } else if (!first && this.flags.has('hydro_plans') && !this.flags.has('hydro_built')) say = RAY.notYet;
-    this.edited();
-    const why = { funds: RAY.funds, room: 'No room in your pack.', none: '', purse: '' };
-    this.openPaper(() => this.paper.trade(() => ({
-      title: `${RAY.name} · by phone`, say, wallet: btc(this.wallet), buyHead: 'He can send', sellHead: null, sell: [],
-      buy: [
-        ...(this.flags.has('hydro_plans') ? [] : [{
-          icon: iconFor(itemId('uplink_plans')), label: 'Micro-hydro plans (teaches the hydro generator)', price: btc(RAY_PLANS_PRICE), button: 'Buy', can: this.wallet >= RAY_PLANS_PRICE,
-          act: () => {
-            if (this.wallet < RAY_PLANS_PRICE) return RAY.funds;
-            this.wallet -= RAY_PLANS_PRICE; this.flags.add('hydro_plans'); this.edited();
-            return RAY.plansBought;
-          },
-        }]),
-        ...CATALOG_RAY.map((lot) => ({
-          icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy', can: this.wallet >= lot.sats,
-          act: () => {
-            const r = buy(this.hotbar, this.wallet, lot);
-            if (!r.ok) return why[r.why];
-            this.wallet = r.wallet; this.edited();
-            return `Ray sends ${itemLabel(lot.id)} ×${lot.lot}.`;
-          },
-        })),
-      ],
-    })));
+    const say = greetRay(this);
+    this.openPaper(() => this.paper.trade(rayCatalog(this, say)));
     return say;
   }
 
