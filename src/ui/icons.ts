@@ -5,14 +5,13 @@ import { B_FACE_TEX, B_RENDER, RENDER, TEXTURE_NAMES } from '../world/blocks.ts'
 import { drawTexture, TEX } from '../render/textures.ts';
 import { drawItemIcon } from '../render/itemIcons.ts';
 import { itemDef } from '../world/items.ts';
+import { cpuCanvas } from '../platform/canvas.ts';
 import { modelIconPixels } from './modelIcon.ts';
 
 const cache = new Map<number, string>();
 
 function pixelCanvas(px: Uint8ClampedArray): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = c.height = TEX;
-  const ctx = c.getContext('2d')!;
+  const { canvas: c, ctx } = cpuCanvas(TEX, TEX);
   const img = ctx.createImageData(TEX, TEX);
   img.data.set(px);
   ctx.putImageData(img, 0, 0);
@@ -25,9 +24,7 @@ export function iconFor(id: number): string {
   const hit = cache.get(id);
   if (hit) return hit;
   const S = 48;
-  const c = document.createElement('canvas');
-  c.width = c.height = S;
-  const ctx = c.getContext('2d')!;
+  const { canvas: c, ctx } = cpuCanvas(S, S);
   ctx.imageSmoothingEnabled = false;
   const k = 1 / TEX;
   const item = itemDef(id);
