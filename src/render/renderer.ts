@@ -17,6 +17,8 @@ import { STEAM_AT } from '../gen/zone2.ts';
 import { outsideHeight } from '../gen/layout.ts';
 import { CreatureRenderer } from './creatures.ts';
 import type { FarMesh } from '../gen/farland.ts';
+import { disposeChunkGeometry } from './chunkGeometry.ts';
+import { watchContext, type ContextWatch } from '../platform/context.ts';
 
 /** One atmosphere for everything: blocks, distant land and particles fade into the sky alike. */
 const FOG_NEAR = 150;
@@ -193,8 +195,24 @@ export class Renderer {
     return t;
   })();
 
+  /** Told when the browser takes the picture away (the WebGL context is lost): nothing can be drawn until it is back. */
+  onContextLost: () => void = () => {};
+  /** Told when the picture is back and drawing again. */
+  onContextRestored: () => void = () => {};
+  /** Told when the picture has stayed away so long that it may not come back without a reload. */
+  onContextStuck: () => void = () => {};
+  private context: ContextWatch;
+  private clearColor = new THREE.Color();
+
   constructor(canvas: HTMLCanvasElement) {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    // Listened for after three.js's own listeners (made with the renderer above), so on a restore
+    // three has already set its new context up by the time restore() runs.
+    this.context = watchContext(canvas, {
+      onLost: () => this.onContextLost(),
+      onRestored: () => { this.restore(); this.onContextRestored(); },
+      onStuck: () => this.onContextStuck(),
+    });
     this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.gl.outputColorSpace = THREE.LinearSRGBColorSpace; // colours are authored for the screen as-is
     this.camera = new THREE.PerspectiveCamera(72, 1, 0.08, 2000);
@@ -277,6 +295,21 @@ export class Renderer {
     this.scene.add(this.flue.mesh);
   }
 
+  /** True while the browser has taken the picture away. */
+  get contextLost(): boolean { return this.context.lost; }
+
+  /**
+   * After the context comes back. three.js r187 (WebGLRenderer.onContextRestore → initGLContext)
+   * starts again with empty caches, so every geometry buffer, texture and shader is sent again from
+   * the data still held here the next time it is drawn: nothing of ours needs rebuilding. Two things
+   * it does not carry over are put back here: the clear colour (its new WebGLBackground starts at
+   * black) and the viewport (only ever applied by setViewport or setRenderTarget).
+   */
+  private restore(): void {
+    this.gl.setClearColor(this.clearColor);
+    this.gl.setViewport(this.gl.getViewport(new THREE.Vector4()));
+  }
+
   resize(w: number, h: number): void {
     this.gl.setSize(w, h, false);
     this.camera.aspect = w / Math.max(1, h);
@@ -319,7 +352,7 @@ export class Renderer {
       u.uMist.value = s.mist;
       u.uMistColor.value.copy(s.mistColor);
     }
-    this.gl.setClearColor(s.fog);
+    this.gl.setClearColor(this.clearColor.copy(s.fog));
     this.particles.sync(this.gl.domElement.height, this.camera.fov, FOG_NEAR, FOG_FAR, s);
     this.farland?.sync(s, FOG_NEAR, FOG_FAR);
     this.tower.sync(s, FOG_NEAR, FOG_FAR);
@@ -364,7 +397,7 @@ export class Renderer {
     for (const m of [old.solid, old.water]) {
       if (!m) continue;
       this.scene.remove(m);
-      m.geometry.dispose();
+      disposeChunkGeometry(m.geometry); // a plain dispose would delete the index every chunk shares
     }
     this.meshes.delete(key);
   }

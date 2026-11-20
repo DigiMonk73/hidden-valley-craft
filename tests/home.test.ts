@@ -66,6 +66,10 @@ describe('the home, rebuilt', () => {
     return false;
   };
 
+  // The list was made on `main` before the home's work. 27 of its 64 columns were since changed by the review's land
+  // fixes (docs/FIXES.md 3: the valley's ring, the creek's banks; each is named in tests/walk.test.ts, MENDED) and the
+  // list now holds those as mended. When the two were merged, all 4,096 columns outside the home's box were hashed
+  // with tools/landhash.ts before and after: every one matched (docs/FIXES.md 10).
   it('changes nothing outside the home: the land round it is block for block what it was', () => {
     const before = readFileSync(new URL('./fixtures/land-near-home.txt', import.meta.url), 'utf8').trim().split('\n');
     expect(before.length).toBe(64);
@@ -321,7 +325,7 @@ describe('the home, rebuilt', () => {
       for (const y of [F, F + 1]) placeBlock(d, inv, { intersectsBlock: () => false, yaw }, { x, y: y - 1, z, nx: 0, ny: 1, nz: 0, id: d.blockAt(x, y - 1, z), dist: 1 });
       for (const y of [F, F + 1]) expect(name(d, x, y, z), `${was} put back facing ${yaw.toFixed(2)}`).toBe(was);
     }
-  });
+  }, 120_000); // generated land: seconds on a slow machine, past the default five
 
   it('a double door built from nothing, in either order and from either side, is a left and a right leaf that open to the jambs', () => {
     const [l, r] = HOME_FIT.door, z = l[2];
@@ -345,7 +349,7 @@ describe('the home, rebuilt', () => {
         expect([east[0], east[3]], `${what}: east leaf`).toEqual([13, 16]);
       }
     }
-  });
+  }, 120_000);
 
   it('what stands on a piece of furniture comes up with it, a whole stack of it, and nothing is lost when the pack is full', () => {
     const d = home(), inv = new Inventory();

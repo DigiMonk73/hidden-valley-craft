@@ -4,6 +4,7 @@
 // so nothing new is saved for them; only the banks' charge and the rig's earnings are. Pure.
 
 import { BLOCK_DEFS, blockName } from '../world/blocks.ts';
+import type { Stack } from './inventory.ts';
 import { CHUNKS_Y, COLS_X, CS } from '../world/constants.ts';
 import { inSanctuary } from '../gen/layout.ts';
 import trade from '../../data/trade.json' with { type: 'json' };
@@ -144,4 +145,29 @@ export function powerFromSave(v: unknown): PowerState {
   if (Number.isFinite(o.satsToday)) p.satsToday = o.satsToday!;
   if (Number.isFinite(o.frac)) p.frac = o.frac!;
   return p;
+}
+
+/**
+ * A powered fridge: each whole hour, one jug of water in it becomes cold water (stacked to eight a slot). Works on
+ * the fridge's own slots; a full fridge keeps the jug as it is. Returns how many were chilled.
+ * (Split out of src/game.ts: docs/FIXES.md, 8.)
+ */
+export function chillJugs(slots: (Stack | null)[], hours: number, jug: number, cold: number): number {
+  let done = 0;
+  for (let h = 0; h < hours; h++) {
+    const k = slots.findIndex((st) => st && st.id === jug);
+    if (k < 0) break;
+    const st = slots[k]!;
+    st.count--;
+    if (st.count <= 0) slots[k] = null;
+    const to = slots.findIndex((o) => o && o.id === cold && o.count < 8);
+    if (to >= 0) slots[to]!.count++;
+    else {
+      const free = slots.findIndex((o) => !o);
+      if (free >= 0) slots[free] = { id: cold, count: 1 };
+      else { if (slots[k]) st.count++; else slots[k] = { ...st, count: 1 }; break; }
+    }
+    done++;
+  }
+  return done;
 }

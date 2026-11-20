@@ -114,8 +114,8 @@ Each step is committed with its tests and marked DONE under "Progress".
 
 **Fixtures** (`tools/worldhash.ts`):
 - East of the gorge: `tests/fixtures/east-of-ravine.json` and `east-rim.json`, as before. Nothing new may differ.
-- Zone-3's built places: `tests/fixtures/zone3-places.json` (66 columns, x 480–671, z 704–1055, hashed on `main` before this phase). Only the columns the ridge road's first stretch crosses may differ.
-- West of the gorge, outside the massif: `tests/fixtures/west-outside-massif.json` (hashed on `main` before this phase). Only the shore road's columns may differ.
+- Zone-3's built places: `tests/fixtures/zone3-places.json` (66 columns, x 480–671, z 704–1055, hashed on `main` at bf3efa6, with the fixes in). Only the columns the ridge road's first stretch crosses may differ.
+- West of the gorge, outside the massif: `tests/fixtures/west-outside-massif.json` (hashed on `main` at bf3efa6, with the fixes in). Only the shore road's columns may differ.
 
 ## 2. Radiation, the suit and medicine (`src/sim/radiation.ts`, pure)
 

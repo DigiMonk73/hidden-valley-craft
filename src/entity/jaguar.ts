@@ -1,10 +1,12 @@
 // The hunting camp's jaguar (docs/PHASE5.md, step 5): it crosses the far side of the clearing once, stops
 // and looks at you, then is gone into the trees with a sawing call. Its tracks stay; it does not come back.
-// Provoke it (a shot, a blow, or walking right up to it) and the fight is real: it charges like the puma,
-// but harder. The sanctuary rule holds as for every creature (fits() in creatures.ts).
+// Provoke it (a shot, a blow, or walking right up to it before it turns to go) and the fight is real: it
+// charges like the puma, but harder. The sanctuary rule holds as for every creature (fits() in creatures.ts).
+// It leaves along its path, past the shed and over the bank into the trees, and is gone only where the
+// player cannot see it (the review, N5e: it used to cut the corner into the shed's post and blink out there).
 
 import { ZONE1FAR } from '../gen/layout.ts';
-import { makeCreature, moveBody, think, KINDS, type Creature, type Hit, type Senses } from './creatures.ts';
+import { makeCreature, moveBody, think, settle, inPlayersView, KINDS, type Creature, type Hit, type Senses } from './creatures.ts';
 
 type BlockAt = (x: number, y: number, z: number) => number;
 
@@ -12,15 +14,21 @@ type BlockAt = (x: number, y: number, z: number) => number;
 export const STARE = 2.2;
 /** While it crosses and looks it turns on you only this close: walking into the camp doesn't start a fight (review). */
 export const PROVOKE_RANGE = 5;
+/** The first point of its path that is its way out: the ones before it are the crossing and the look. */
+export const LEAVE_FROM = 2;
+/** Out of the clearing it is gone once the player has not seen it for this long, or it is this far off. */
+export const GONE_UNSEEN = 0.6;
+export const GONE_FAR = 60;
 
 export type JaguarEvent = 'gone' | 'provoked';
 
-/** The jaguar at the start of its crossing, on the clearing's far side. */
-export function makeJaguar(groundY: (x: number, z: number) => number | null): Creature | null {
+/** The jaguar at the start of its crossing, on the clearing's far side: clear of every block, or not at all. */
+export function makeJaguar(groundY: (x: number, z: number) => number | null, blockAt: BlockAt = () => 0): Creature | null {
   const [x, z] = ZONE1FAR.jaguarPath[0];
   const y = groundY(x, z);
   if (y === null) return null;
   const c = makeCreature('jaguar', x, y, z);
+  if (!settle(c, blockAt)) return null;
   c.mind = 'cross';
   c.pack = 1; // the next point of its path
   return c;
@@ -38,8 +46,9 @@ export function thinkJaguar(c: Creature, dt: number, s: Senses, blockAt: BlockAt
   c.hurt += dt;
   c.timer -= dt;
   const dist = Math.hypot(s.px - c.x, s.pz - c.z);
-  // Provoked: hurt (angry), shot at, or come up on.
-  if (!s.playerInSanctuary && (c.angry > 0 || s.shot || dist < PROVOKE_RANGE)) {
+  // Provoked: hurt (angry), shot at, or come up on. Once it has turned to go, only harm turns it back: its
+  // way out passes the shed and the rusted trap, and whoever stands there has not picked a fight.
+  if (!s.playerInSanctuary && (c.angry > 0 || s.shot || (dist < PROVOKE_RANGE && c.mind !== 'leave'))) {
     c.mind = 'charge'; c.timer = 10; c.angry = Math.max(c.angry, 60);
     return { hit: null, event: 'provoked' };
   }
@@ -50,17 +59,24 @@ export function thinkJaguar(c: Creature, dt: number, s: Senses, blockAt: BlockAt
     toX = gx - c.x; toZ = gz - c.z; speed = d.walk;
     if (Math.hypot(toX, toZ) < 0.8) {
       // Halfway across, it stops and looks at you.
-      if (c.pack === 1) { c.mind = 'stare'; c.timer = STARE; }
+      if (c.pack === LEAVE_FROM - 1) { c.mind = 'stare'; c.timer = STARE; }
       c.pack++;
     }
   } else if (c.mind === 'stare') {
     c.yaw = Math.atan2(-(s.px - c.x), -(s.pz - c.z));
-    if (c.timer <= 0) { c.mind = 'leave'; c.timer = 8; }
+    if (c.timer <= 0) { c.mind = 'leave'; c.timer = GONE_UNSEEN; }
   } else {
-    // Into the trees beyond the clearing's far corner, at a lope, and gone.
-    const [gx, gz] = path[path.length - 1];
-    toX = gx + 6 - c.x; toZ = gz - 10 - c.z; speed = d.run * 0.6;
-    if (Math.hypot(toX, toZ) < 1.2 || c.timer <= 0) event = 'gone';
+    // Along the rest of its path: at a lope to the clearing's edge, then at a run up the bank and into the
+    // trees. Past the path's end it keeps on the way it was going.
+    const end = c.pack >= path.length, out = c.pack > LEAVE_FROM;
+    const [gx, gz] = path[Math.min(c.pack, path.length - 1)];
+    if (end) { const [fx, fz] = path[path.length - 2]; toX = gx - fx; toZ = gz - fz; }
+    else { toX = gx - c.x; toZ = gz - c.z; if (Math.hypot(toX, toZ) < 0.8) c.pack++; }
+    speed = out ? d.run : d.run * 0.6;
+    // Gone: never in the clearing, never in plain view. Hidden by the land or the trees for more than a
+    // moment (a lamp post or a trunk it passes behind is not enough), or far off.
+    if (!out || inPlayersView(c, s.px, s.py, s.pz, blockAt)) c.timer = GONE_UNSEEN;
+    if (out && (dist > GONE_FAR || c.timer <= 0)) event = 'gone';
   }
   const len = Math.hypot(toX, toZ);
   if (len > 0.01) c.yaw = Math.atan2(-toX, -toZ);

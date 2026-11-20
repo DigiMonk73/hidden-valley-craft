@@ -15,7 +15,8 @@ const ashen = () => g(() => window.__hv.game.wild.creatures.filter((c) => c.kind
 // The scene the earlier parts leave behind: home from Las Cruces with the armband, Marco and Doc known.
 await g(() => {
   const gm = window.__hv.game, h = gm.hotbar, id = window.__hv.itemId;
-  for (const f of ['shelter_found', 'marco_met', 'marco_trust1', 'home_hint', 'zone2_seen', 'ruins_seen', 'highway_seen', 'compound_seen', 'zone2_home', 'doc_known', 'focus_hint', 'mid_seen', 'deep_seen']) gm.flags.add(f);
+  // (M1 to M3 are done: the parts before check them, and M4's recipes need M3.)
+  for (const f of ['m1_done', 'm2_done', 'm3_done', 'shelter_found', 'marco_met', 'marco_trust1', 'home_hint', 'zone2_seen', 'ruins_seen', 'highway_seen', 'compound_seen', 'zone2_home', 'doc_known', 'focus_hint', 'mid_seen', 'deep_seen']) gm.flags.add(f);
   h.slots.fill(null);
   for (const [n, k] of [['steel_pickaxe', 1], ['armband', 1], ['machete', 1]]) h.add(id(n), k);
   gm.wild.faction.down = 31; // the faction's men stay in for the walk (their fight is part 4's)
@@ -229,7 +230,8 @@ const walletA = await g(() => window.__hv.game.wallet);
 await g(() => { const gm = window.__hv.game; gm.hour = (gm.hour + 2) % 24; }); // two hours on
 await gameSeconds(2.5);
 const earned = (await g(() => window.__hv.game.wallet)) - walletA;
-check('the farm earns three rigs’ worth: about 12,500 sats in two hours', earned > 10000 && earned < 15000, `${earned} sats`);
+// (A rig earns 100,000 sats a day since docs/FIXES.md, 6: three of them for two hours is 25,000.)
+check('the farm earns three rigs’ worth: about 25,000 sats in two hours', earned > 20000 && earned < 30000, `${earned} sats`);
 await useAt(() => { const gm = window.__hv.game; gm.player.setPosition(1811.5, 82, 1028.5); gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; },
   (gm) => { gm.player.yaw = -Math.PI / 2; gm.player.pitch = -0.25; const t = gm.target; return t && t.x === 1813 && t.y === 83 && t.z === 1028; });
 const screen = await page.locator('.pp-panel').textContent().catch(() => '');

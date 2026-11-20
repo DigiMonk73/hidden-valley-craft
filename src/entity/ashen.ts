@@ -12,7 +12,7 @@
 
 import { ZONE3, ZONE4, ravineX, zoneAt, inSanctuary, zone3Floor, zone4Floor } from '../gen/layout.ts';
 import { B_SOLID } from '../world/blocks.ts';
-import { makeCreature, moveBody, canSee, KINDS, STRIKE_HEIGHT, type Creature, type Mind, type Senses } from './creatures.ts';
+import { makeCreature, moveBody, canSee, settle, KINDS, STRIKE_HEIGHT, type Creature, type Mind, type Senses } from './creatures.ts';
 
 type BlockAt = (x: number, y: number, z: number) => number;
 
@@ -362,7 +362,7 @@ export function ashenHear(creatures: Creature[], x: number, z: number, range: nu
 }
 
 /** The Ashen who should be about and aren't: each in its nest (or, the first time by day, one out in the road). */
-export function manAshen(creatures: Creature[], st: AshenState, px: number, pz: number, night: boolean, loaded: (x: number, z: number) => boolean, floorAt: (x: number, y: number, z: number) => number | null): Creature[] {
+export function manAshen(creatures: Creature[], st: AshenState, px: number, pz: number, night: boolean, loaded: (x: number, z: number) => boolean, floorAt: (x: number, y: number, z: number) => number | null, blockAt: BlockAt = () => 0): Creature[] {
   const made: Creature[] = [];
   for (const q of SLOTS) {
     if (st.down & q.bit || creatures.some((c) => c.kind === 'ashen' && c.squad === q.bit)) continue;
@@ -376,13 +376,14 @@ export function manAshen(creatures: Creature[], st: AshenState, px: number, pz: 
     const y = floorAt(x, first ? zone3Floor.powerhouse : nestFloor(q.nest), z);
     if (y === null) continue;
     const c = makeCreature('ashen', x, y, z);
+    if (!settle(c, blockAt)) continue; // its whole body clear of every block
     c.squad = q.bit;
     c.nest = q.nest;
     c.leg = first ? n.path.length : 0;
     c.goalX = 0; c.goalZ = 0;
     c.home = [n.x + (q.k ? 0.9 : -0.2), n.z + (q.k ? -1.1 : 0.4)];
     c.yaw = q.k ? 1.9 : 4.4;
-    if (first) { c.post = { x, y, z, yaw: Math.PI }; c.yaw = Math.PI; }
+    if (first) { c.post = { x, y: c.y, z, yaw: Math.PI }; c.yaw = Math.PI; }
     made.push(c);
   }
   return made;

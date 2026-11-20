@@ -17,6 +17,8 @@
     "trust": "Marco nods slowly. He trusts you a little now (trust 1).",
     "strike": "Marco steps back, hands up. “Easy, friend. Easy.”",
     "bye": "Marco tips his hat and goes back to the road.",
+    "purse": "“That is all the coin I carry today. Come back tomorrow: I am one man and a mule, not a bank.”",
+    "keep": "“Not that. You will want it yourself before long: keep it.”",
     "trust2": "“You’ve been up to Las Cruces and come back. Not many do. Now I can sell you real things: guns, rounds. Don’t tell anyone where you got them.” (Marco trusts you more now: trust 2.)"
   },
   "doc": {
@@ -53,6 +55,7 @@
     "uplinkFull": "“I have drawings for you. Make room in your pack and call again.”",
     "funds": "“Coin first. Engineers eat too.”",
     "ridge": "“The ridge. Listen first. The exchange dropped its dirt on that mountain and the rain never washed it off. The forest holds it. The road sheds it: my line still feeds the relay up there, so follow my lamps and stay on the asphalt. Not in your shirt, though. Canvas, lead sheet from old batteries, a glass visor, charcoal in the mask. I’m sending the pattern. Build it, carry it, and call me again.” (Ray’s pattern for a hazard suit is at the workbench.)",
+    "ridgeNotYet": "“The ridge can wait. Finish your workshop first: steel, the lathe, the farm, all of it. You will need every bit of it up there.”",
     "meetButton": "Ask Ray to meet you at the refuge on the pass",
     "meetNoSuit": "“Not before you carry a suit. I won’t walk up there to meet a dead man.”",
     "meetDay": "“You have the suit. Good. There’s a refuge on the pass, past the gate: clean ground, I scrub it myself every dry season. I’ll be there by daylight. I have something for you that no drawing can give.”",

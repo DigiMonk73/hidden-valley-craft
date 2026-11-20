@@ -665,7 +665,7 @@ describe('M5’s data', () => {
 
   it('shows the suit only on Ray’s word, and makes it from what Zones 1–3 and the kiln give', () => {
     expect(recipe('workbench', 'hazard_suit')).toBeUndefined();
-    const r = recipe('workbench', 'hazard_suit', ['suit_word'])!;
+    const r = recipe('workbench', 'hazard_suit', ['suit_word'])!; // (his word itself waits for M4: src/sim/ridge.ts)
     expect(r.in.map(([id]) => id).sort()).toEqual(['canvas', 'scrap_lead', 'glass', 'charcoal'].map(itemId).sort());
     const inv = bag(['canvas', 4], ['scrap_lead', 4], ['glass', 1], ['charcoal', 2]);
     expect(make(inv, r)).toBe('made');
@@ -677,7 +677,8 @@ describe('M5’s data', () => {
     const ant = bag(['antenna_section', 3], ['steel_ingot', 4], ['wiring', 2], ['pipe_fittings', 2]);
     expect(make(ant, recipe('workbench', 'sat_antenna', ['uplink_plans'])!)).toBe('made');
     const tel = bag(['telescope_optics', 1], ['steel_ingot', 2], ['glass', 1], ['planks', 2]);
-    expect(make(tel, recipe('lathe', 'telescope')!)).toBe('made');
+    expect(recipe('lathe', 'telescope')).toBeUndefined(); // each milestone's recipes wait for the one before
+    expect(make(tel, recipe('lathe', 'telescope', ['m4_done'])!)).toBe('made');
     expect(tel.count(blockId('telescope'))).toBe(1);
     const term = bag(['sat_modem', 1], ['rare_components', 2], ['wiring', 4], ['uplink_plans', 1]);
     expect(make(term, recipe('workbench', 'uplink_terminal', ['uplink_plans'])!)).toBe('made');
@@ -695,13 +696,15 @@ describe('M5’s data', () => {
     expect(recipe('workbench', 'med_bench', ['pharma_learned'])).toBeDefined();
     expect(recipe('workbench', 'distiller', ['pharma_learned'])).toBeDefined();
     const still = bag(['corn', 4], ['water_jug', 1], ['charcoal', 1]);
-    expect(make(still, recipesAt('distiller')[0])).toBe('made');
+    expect(recipesAt('distiller')).toEqual([]);
+    const M4 = new Set(['m4_done']);
+    expect(make(still, recipesAt('distiller', M4)[0])).toBe('made');
     expect(still.count(itemId('spirit'))).toBe(2);
     expect(still.count(itemId('empty_jug'))).toBe(1);
-    expect(recipesAt('distiller').length).toBe(2);
-    expect(recipesAt('med_bench').map((r) => itemLabel(r.out[0]).split(' ')[0]).sort()).toEqual(['Adrenaline', 'Antibiotics', 'Blue']);
+    expect(recipesAt('distiller', M4).length).toBe(2);
+    expect(recipesAt('med_bench', M4).map((r) => itemLabel(r.out[0]).split(' ')[0]).sort()).toEqual(['Adrenaline', 'Antibiotics', 'Blue']);
     const meds = bag(['spirit', 1], ['iron_ingot', 1], ['herbs', 2], ['charcoal', 1]);
-    expect(make(meds, recipe('med_bench', 'rad_tablets')!)).toBe('made');
+    expect(make(meds, recipe('med_bench', 'rad_tablets', ['m4_done'])!)).toBe('made');
     expect(meds.count(itemId('rad_tablets'))).toBe(2);
   });
 
@@ -1266,6 +1269,9 @@ describe('the ridge’s places and Ray', () => {
     expect(rayCall(flags, true, false)).toEqual({ line: null, sets: [] }); // before the uplink plans: M4's business
     flags.add('uplink_plans');
     expect(canAskMeeting(flags)).toBe(false);
+    // Each milestone waits for the one before: until the turbine turns he only says "not yet", and gives no word.
+    expect(rayCall(flags, false, false)).toEqual({ line: 'ridgeNotYet', sets: [] });
+    flags.add('m4_done');
     expect(rayCall(flags, false, false)).toEqual({ line: 'ridge', sets: ['suit_word'] });
     flags.add('suit_word');
     expect(canAskMeeting(flags)).toBe(true);

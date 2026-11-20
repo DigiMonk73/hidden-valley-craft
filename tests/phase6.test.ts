@@ -185,8 +185,10 @@ import { hasIcon } from '../src/render/itemIcons.ts';
 import items from '../data/items.json' with { type: 'json' };
 
 describe('M3’s recipes and trade', () => {
-  const names = (station: Parameters<typeof recipesAt>[0], known: string[]) => recipesAt(station, new Set(known)).map((r) => r.out[0]);
+  // M3's recipes need M2 done (docs/FIXES.md, 6): `names` asks as a player who has.
+  const names = (station: Parameters<typeof recipesAt>[0], known: string[]) => recipesAt(station, new Set([...known, 'm2_done'])).map((r) => r.out[0]);
   it('gates the power chain in the script’s order: array, then bank, then rig, fridge and pump', () => {
+    expect(recipesAt('workbench', new Set(['m1_done'])).map((r) => r.out[0])).not.toContain(blockId('solar_array'));
     expect(names('workbench', [])).toContain(blockId('solar_array'));
     expect(names('workbench', [])).not.toContain(blockId('battery_bank'));
     expect(names('workbench', ['array_built'])).toContain(blockId('battery_bank'));
@@ -236,7 +238,7 @@ describe('M3 · power up', () => {
     expect(f.has('zone2_home')).toBe(true);
   });
   it('ticks the array, the bank (only after an array), the rig’s first sats, fridge-and-pump, then M3 done', () => {
-    const f = new Set<string>(['zone2_home', 'doc_called', 'ammo_made', 'marco_guns']);
+    const f = new Set<string>(['zone2_home', 'doc_called', 'ammo_made', 'marco_guns', 'm2_done']);
     trackM3(f, 1700, 1024, { ...home, banks: 1 });
     expect(f.has('bank_built')).toBe(false);
     trackM3(f, 1700, 1024, { ...home, arrays: 1, banks: 1, fridges: 1 });

@@ -2,7 +2,7 @@
 // the same column always comes out the same, so the world is rebuilt from the layout and only
 // the player's edits are saved. Runs in workers, in Node (tests, map tool) and on the main thread.
 
-import { CS, WORLD_Y } from '../world/constants.ts';
+import { CS, WORLD_Y, WORLD_Z } from '../world/constants.ts';
 import { blockId, AIR, BEDROCK, WATER, FALLING_WATER as FALLING } from '../world/blocks.ts';
 import { Simplex, hash3, rand3 } from '../core/noise.ts';
 import {
@@ -19,6 +19,7 @@ import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
 import { buildZone3, zone3Place } from './zone3.ts';
 import { buildZone4, zone4Place } from './zone4.ts';
+import { PATH, inSanctuary } from './layout.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
 const ci = (x: number, y: number, z: number) => (y << 10) | (z << 5) | x;
@@ -153,6 +154,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
           const solid = y < floorH || (y < outH && d > wallRadius(x, y, z, floorH, outH));
           if (solid) { col[ci(lx, y, lz)] = LIMESTONE; top = y + 1; }
         }
+        top = tidyCliff(col, lx, lz, x, z, floorH, outH, top);
       }
       tops[lz * CS + lx] = top;
       // Basalt bedrock at the bottom.
@@ -195,6 +197,52 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   return col;
 }
 
+/** Is the valley's rock solid at (x, y, z), as step 1 shapes it (before caves)? */
+function cliffRock(x: number, y: number, z: number): boolean {
+  const floorH = valleyFloorHeight(x, z);
+  if (y < floorH) return true;
+  const d = distToValley(x, z);
+  if (d < R_IN) return false;
+  const outH = outsideHeight(x, z);
+  return y < outH && (d > R_OUT || d > wallRadius(x, y, z, floorH, outH));
+}
+
+/** The lowest open place in a column of the valley's rock: the walking height at the foot of whatever stands there. */
+function cliffFoot(x: number, z: number): number {
+  const d = distToValley(x, z), floorH = valleyFloorHeight(x, z);
+  if (d < R_IN) return floorH;
+  const outH = outsideHeight(x, z);
+  if (d > R_OUT) return outH;
+  let y = floorH;
+  while (y < outH && d > wallRadius(x, y, z, floorH, outH)) y++;
+  return y;
+}
+
+const SIDES: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * Tidies one column of the valley's cliff once it is shaped (docs/REVIEW.md, N3c and N3g). A single rock left
+ * hanging in the air is taken away. A one-block pit at the cliff's foot, walled two deep or more on all four
+ * sides, is filled until there is a way out of it. Only inside the sinkhole: the plateau above is left alone.
+ * Returns the column's top.
+ */
+function tidyCliff(col: Uint16Array, lx: number, lz: number, x: number, z: number, floorH: number, outH: number, top: number): number {
+  const at = (y: number) => col[ci(lx, y, lz)];
+  for (let y = floorH + 1; y < top; y++) {
+    if (at(y) !== LIMESTONE || at(y - 1) !== AIR || at(y + 1) !== AIR) continue;
+    if (!SIDES.some(([dx, dz]) => cliffRock(x + dx, y, z + dz))) col[ci(lx, y, lz)] = AIR;
+  }
+  while (top > floorH && at(top - 1) === AIR) top--;
+  let foot = floorH;
+  while (foot < top && at(foot) !== AIR) foot++;
+  while (foot < outH && at(foot) === AIR && SIDES.every(([dx, dz]) => cliffRock(x + dx, foot, z + dz) && cliffRock(x + dx, foot + 1, z + dz))) {
+    col[ci(lx, foot, lz)] = LIMESTONE;
+    foot++;
+    top = Math.max(top, foot);
+  }
+  return top;
+}
+
 function carveCaves(col: Uint16Array, x0: number, z0: number, tops: Int16Array): void {
   // Sample the two noise fields on a coarse 4-block grid and interpolate: same shapes, 1/64 the cost.
   const G = 4, NX = CS / G + 1, NY = WORLD_Y / G + 1;
@@ -218,12 +266,40 @@ function carveCaves(col: Uint16Array, x0: number, z0: number, tops: Int16Array):
     const c11 = at(0, 1, 1) * (1 - tx) + at(1, 1, 1) * tx;
     return (c00 * (1 - tz) + c10 * tz) * (1 - ty) + (c01 * (1 - tz) + c11 * tz) * ty;
   };
+  // The cliff's foot in each column, and two columns beyond this one's edges, where the valley's cliff is near:
+  // read off the rock before any cave is cut (worked out afresh only for the columns beyond the edges).
+  const FW = CS + 4, feet = new Int16Array(FW * FW);
+  const centre = distToValley(x0 + CS / 2, z0 + CS / 2);
+  if (centre > R_IN - 26 && centre < R_OUT + 26) {
+    for (let lz = -2; lz < CS + 2; lz++)
+      for (let lx = -2; lx < CS + 2; lx++) {
+        let f: number;
+        if (lx < 0 || lz < 0 || lx >= CS || lz >= CS) f = cliffFoot(x0 + lx, z0 + lz);
+        else {
+          const d = distToValley(x0 + lx, z0 + lz), top = tops[lz * CS + lx];
+          f = top;
+          if (d >= R_IN && d <= R_OUT) { f = valleyFloorHeight(x0 + lx, z0 + lz); while (f < top && col[ci(lx, f, lz)] !== AIR) f++; }
+        }
+        feet[(lz + 2) * FW + lx + 2] = f;
+      }
+  }
+  const foot = (lx: number, lz: number) => feet[(lz + 2) * FW + lx + 2];
   for (let lz = 0; lz < CS; lz++)
     for (let lx = 0; lx < CS; lx++) {
       const x = x0 + lx, z = z0 + lz;
       const top = tops[lz * CS + lx];
       const roofKeep = inValleyBowl(x, z) ? 9 : 6; // caves under the valley floor stay well below it
-      for (let y = 8; y < top - roofKeep; y++) {
+      // No cave runs through the gorge's west wall, at any depth: one that opened in the wall and came up on
+      // the far bank would be a way round the dam (docs/REVIEW.md, N3b).
+      if (Math.abs(x - (ravineX(z) - RAVINE_HALF)) < 4) continue;
+      // In the valley's cliff the roof is kept under the lowest open place in the column and in those round
+      // it, not under the column's highest rock. Under an overhang that rock is the rim, forty blocks above
+      // the floor: a cave was cut right up to the floor at the cliff's foot, a shaft to fall into that ran on
+      // under the rock past the sanctuary's line (docs/REVIEW.md, N3c and N3d).
+      let roof = top;
+      const d = distToValley(x, z);
+      if (d >= R_IN && d <= R_OUT) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) roof = Math.min(roof, foot(lx + dx, lz + dz));
+      for (let y = 8; y < roof - roofKeep; y++) {
         const va = sample(a, lx, y, lz), vb = sample(b, lx, y, lz);
         if (va * va + vb * vb < 0.0065 && !caveExcluded(x, y, z)) col[ci(lx, y, lz)] = AIR;
       }
@@ -250,7 +326,9 @@ function placeOre(col: Uint16Array, x0: number, z0: number, tops: Int16Array): v
         const h = hash3(gx, gy, gz, SEED + 5);
         const roll = (h & 1023) / 1024;
         let ore = 0;
-        if (valley) {
+        // The whole sanctuary, the home's rock as well as the bowl, holds the valley's ores only: "coal and better
+        // ores are outside" (it was the bowl alone, and the home's own rock held 1,309 coal and 396 copper ore).
+        if (valley || inSanctuary(x, z)) {
           if (roll < 0.035) ore = IRON;
           else if (roll < 0.06) ore = FLINT;
           else if (roll < 0.075 && y < 66) ore = CLAY;
@@ -533,6 +611,10 @@ function buildHome(col: Uint16Array, x0: number, z0: number): void {
         const ground = valleyFloorHeight(x, z);
         for (let y = ground - 1; y < h; y++) col[ci(lx, y, lz)] = y === h - 1 ? (h > 76 ? BRICKS : DIRT) : COBBLE;
         for (let y = h; y < h + 4; y++) col[ci(lx, y, lz)] = AIR;
+      } else if (x > PATH[0][0] && z >= PATH[1][1] && z <= PATH[0][1] && p.dist < PATH_HALF_WIDTH + 2.5) {
+        // Between the first leg and the cliff the rock comes up level with the paving. A slot was left there,
+        // one block wide and seven deep: a step off the path's top, and no way out (docs/REVIEW.md, N3a).
+        for (let y = valleyFloorHeight(x, z) - 1; y < Math.round(p.height); y++) if (col[ci(lx, y, lz)] === AIR) col[ci(lx, y, lz)] = LIMESTONE;
       }
 
       // The balcony: a ledge of rock, thicker where it meets the cliff, paved on top.
@@ -659,6 +741,9 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (zone3Place(x, z)) return null;
   // Zone-4's road and places; and the pass's clean ground has its one tree, set by hand.
   if (zone4Place(x, z)) return null;
+  // Where the gorge runs shallow through the mountains at the world's ends, its west wall and the ground either
+  // side of it stand bare: a crown is something to walk on, and that wall is not to be crossed (docs/REVIEW.md, N3b).
+  if (Math.min(z, WORLD_Z - 1 - z) < 290 && x - ravineX(z) > -28 && x - ravineX(z) < -8) return null;
   if (onCampTrail(x, z) || onCampTrail(x - 3, z) || onCampTrail(x + 3, z)) return null;
   if (Math.abs(x - ravineX(z)) < RAVINE_HALF + 2 && Math.abs(z - F.bridge.z) < 70) return null;
   // A break in the canopy over the body, so it lies in daylight (DESIGN.md: the one high-contrast thing).

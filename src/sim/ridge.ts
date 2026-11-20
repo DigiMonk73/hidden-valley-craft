@@ -52,9 +52,10 @@ export const RAY_SPOT = { x: ZONE4.ray.x, z: ZONE4.ray.z, yaw: Math.PI / 2 };
  * What a call to Ray does next, after M4's part is over: his word on the ridge (once), then the meeting.
  * Returns which of his lines to say, and the flags to set.
  */
-export function rayCall(flags: ReadonlySet<string>, hasSuit: boolean, wantMeeting: boolean): { line: 'ridge' | 'meetNoSuit' | 'meetDay' | 'meetWaiting' | 'afterLink' | null; sets: string[] } {
+export function rayCall(flags: ReadonlySet<string>, hasSuit: boolean, wantMeeting: boolean): { line: 'ridge' | 'ridgeNotYet' | 'meetNoSuit' | 'meetDay' | 'meetWaiting' | 'afterLink' | null; sets: string[] } {
   if (!flags.has('uplink_plans')) return { line: null, sets: [] };
-  if (!flags.has('suit_word')) return { line: 'ridge', sets: ['suit_word'] };
+  // Each milestone waits for the one before (docs/FIXES.md, 6): his word on the ridge waits for M4.
+  if (!flags.has('suit_word')) return flags.has('m4_done') ? { line: 'ridge', sets: ['suit_word'] } : { line: 'ridgeNotYet', sets: [] };
   if (wantMeeting && !flags.has('ray_met')) {
     if (flags.has('ray_coming')) return { line: 'meetWaiting', sets: [] };
     return hasSuit ? { line: 'meetDay', sets: ['ray_coming'] } : { line: 'meetNoSuit', sets: [] };

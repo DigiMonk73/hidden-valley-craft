@@ -5,7 +5,7 @@
 
 import { B_SOLID } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
-import { think, hurt, KINDS, PACK_KINDS, RAIDER_KINDS, FACTION_KINDS, TRAPPABLE, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
+import { think, hurt, settle, inPlayersView, KINDS, PACK_KINDS, RAIDER_KINDS, FACTION_KINDS, TRAPPABLE, type Creature, type Hit, type Kind, type Mind } from './creatures.ts';
 import { manFaction, standDown, newFaction, PASS, type FactionState } from './faction.ts';
 import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, SHOT_HEARD, type OutpostState, type RaiderEvent } from './outpost.ts';
 import { thinkJaguar } from './jaguar.ts';
@@ -29,6 +29,8 @@ export interface Arrow {
   stuck: boolean;
   /** Seconds since it was loosed or stuck. */
   age: number;
+  /** Loosed from inside the sanctuary: it flies there freely. One loosed outside is stopped at the line. */
+  home?: boolean;
 }
 
 export interface WildSenses {
@@ -104,12 +106,15 @@ export class Wild {
   /** Zone-3's Ashen: who is down until dawn (saved), and whether the first one still stands out in the road. */
   ashen: AshenState = newAshen();
   private quietHeard = false;
+  /** The blocks as the last update saw them: what a creature added by hand is fitted against. */
+  private blocks: BlockAt | null = null;
 
   /** Runs as many 20 Hz steps as `dt` holds. */
   update(dt: number, s: WildSenses): WildEvents {
     const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [], raiders: [], jaguar: [], silent: 0, ashen: [] };
     if (s.shot) this.shotHeard = true;
     if (s.quietShot) this.quietHeard = true;
+    this.blocks = s.blockAt;
     this.acc += dt;
     while (this.acc >= STEP) {
       this.acc -= STEP;
@@ -123,14 +128,14 @@ export class Wild {
     this.spawnIn -= STEP;
     if (this.spawnIn <= 0 && this.spawning) {
       this.spawnIn = 1;
-      this.creatures = despawnFar(this.creatures, s.px, s.pz, s.night);
+      this.creatures = despawnFar(this.creatures, s.px, s.pz, s.night, (c) => inPlayersView(c, s.px, s.py, s.pz, s.blockAt));
       this.creatures.push(...trySpawn(this.creatures, s.px, s.pz, s.night, s.rand, s.blockAt, s.loaded, { chicken: this.flockLeft }));
       this.creatures.push(...denPack(this.creatures, s.px, s.pz, this.denLeft, s.rand, s.blockAt, s.loaded));
-      this.creatures.push(...manOutpost(this.creatures, this.outpost, s.px, s.pz, s.loaded));
+      this.creatures.push(...manOutpost(this.creatures, this.outpost, s.px, s.pz, s.loaded, s.blockAt));
       this.creatures = standDown(this.creatures, this.faction, s.px, s.pz);
-      this.creatures.push(...manFaction(this.creatures, this.faction, s.px, s.pz, s.loaded, (x, z) => groundAt(x, z, s.blockAt)));
+      this.creatures.push(...manFaction(this.creatures, this.faction, s.px, s.pz, s.loaded, (x, z) => groundAt(x, z, s.blockAt), s.blockAt));
       this.creatures = standDownAshen(this.creatures, s.px, s.pz);
-      this.creatures.push(...manAshen(this.creatures, this.ashen, s.px, s.pz, s.night, s.loaded, (x, y, z) => floorNear(x, y, z, s.blockAt)));
+      this.creatures.push(...manAshen(this.creatures, this.ashen, s.px, s.pz, s.night, s.loaded, (x, y, z) => floorNear(x, y, z, s.blockAt), s.blockAt));
       // Once the player has gone well away and the raiders are no longer about, the outpost stands down.
       if (!this.creatures.some((c) => RAIDER_KINDS.has(c.kind)) && Math.hypot(s.px - OUTPOST_AT[0], s.pz - OUTPOST_AT[1]) > 130) this.outpost.alert = false;
     }
@@ -233,7 +238,7 @@ export class Wild {
   shoot(x: number, y: number, z: number, dx: number, dy: number, dz: number, draw: number): Arrow {
     const d = Math.max(0, Math.min(1, draw));
     const speed = 18 + 30 * d;
-    const a: Arrow = { x, y, z, vx: dx * speed, vy: dy * speed, vz: dz * speed, damage: Math.round(12 + 10 * d), stuck: false, age: 0 };
+    const a: Arrow = { x, y, z, vx: dx * speed, vy: dy * speed, vz: dz * speed, damage: Math.round(12 + 10 * d), stuck: false, age: 0, home: inSanctuary(x, z) };
     this.arrows.push(a);
     return a;
   }
@@ -291,9 +296,14 @@ export class Wild {
 
   remove(c: Creature): void { this.creatures = this.creatures.filter((o) => o !== c); }
 
-  /** Puts a creature in the world (for tests and the play-through). Refused inside the sanctuary. */
-  add(c: Creature): boolean {
-    if (inSanctuary(c.x, c.z) && !c.tame) return false; // only a tame hen lives in the valley
+  /**
+   * Puts a creature in the world (Marco, the jaguar, a test's or the play-through's creature). Refused
+   * inside the sanctuary (only a tame hen lives in the valley), and refused unless its whole body is clear
+   * of the sanctuary's line and of every block: `blockAt`, or the blocks the last update saw.
+   */
+  add(c: Creature, blockAt: BlockAt | null = this.blocks): boolean {
+    if (inSanctuary(c.x, c.z) && !c.tame) return false;
+    if (!settle(c, blockAt ?? (() => 0))) return false;
     this.creatures.push(c);
     return true;
   }
@@ -305,8 +315,9 @@ export class Wild {
 
 /**
  * Moves an arrow one step under gravity, in small sub-steps so it can't pass through a block.
- * Returns true when it strikes a block and sticks there. Arrows never fly into the sanctuary:
- * one that would is stopped at its edge.
+ * Returns true when it strikes a block and sticks there. No arrow loosed outside flies into the
+ * sanctuary: one that would is stopped at its edge. One loosed inside it (`home`) flies freely, in the
+ * valley and out of it: the bow could not be loosed at home at all (the review, N5h).
  */
 export function stepArrow(a: Arrow, dt: number, blockAt: BlockAt): boolean {
   a.vy -= GRAVITY * dt;
@@ -318,7 +329,7 @@ export function stepArrow(a: Arrow, dt: number, blockAt: BlockAt): boolean {
       a.stuck = true;
       return true;
     }
-    if (inSanctuary(nx, nz)) {
+    if (!a.home && inSanctuary(nx, nz)) {
       // Stopped at the valley's edge: it drops to the ground there, where it can be picked up.
       while (a.y > 1 && !B_SOLID[blockAt(Math.floor(a.x), Math.floor(a.y) - 1, Math.floor(a.z))]) a.y -= 1;
       a.y = Math.floor(a.y) + 0.1;

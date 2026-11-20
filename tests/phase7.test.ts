@@ -102,6 +102,8 @@ describe('Zone-3’s layout', () => {
 });
 
 // ---- The land east of the gorge is as it was (docs/PHASE7.md, "Design calls") ------------------------------
+// (The baseline also holds what the N3 fixes then changed on purpose east of the gorge: 38 columns of the valley's
+// ring and 4 of the brush by the outpost, listed in tests/walk.test.ts, which pins the rest of the world.)
 import baseline from './fixtures/east-of-ravine.json' with { type: 'json' };
 import { hashColumn } from '../tools/worldhash.ts';
 
@@ -242,7 +244,9 @@ import { isFarmland, PLANTER_BOX } from '../src/sim/farming.ts';
 
 describe('M4’s recipes and trade', () => {
   const bag = (...things: [string, number][]) => { const inv = new Inventory(36); for (const [n, c] of things) inv.add(itemId(n), c); return inv; };
-  const recipe = (station: string, out: string, known: string[] = []) => recipesAt(station as never, new Set(known)).find((r) => r.out[0] === itemId(out));
+  // M4's recipes need M3 done (docs/FIXES.md, 6): these ask as a player who has.
+  const M3 = new Set(['m3_done']);
+  const recipe = (station: string, out: string, known: string[] = []) => recipesAt(station as never, new Set([...known, 'm3_done'])).find((r) => r.out[0] === itemId(out));
 
   it('chains steel → lathe → mods and armour, each from Zone-3’s salvage', () => {
     const furnace = recipe('workbench', 'crucible_furnace')!;
@@ -251,11 +255,11 @@ describe('M4’s recipes and trade', () => {
     expect(stationOf(blockId('lathe'))).toBe('lathe');
     expect(stationOf(blockId('old_lathe'))).toBe(null); // the seized ones in the shop are salvage, not stations
     const inv = bag(['steel_stock', 2], ['coal', 1]);
-    expect(make(inv, recipesAt('crucible_furnace').find((r) => r.in.some(([id]) => id === itemId('steel_stock')))!)).toBe('made');
+    expect(make(inv, recipesAt('crucible_furnace', M3).find((r) => r.in.some(([id]) => id === itemId('steel_stock')))!)).toBe('made');
     expect(inv.count(itemId('steel_ingot'))).toBe(2);
     // Steel never runs out: your own iron makes it too.
     const own = bag(['iron_ingot', 2], ['coal', 2]);
-    expect(make(own, recipesAt('crucible_furnace').find((r) => r.in.some(([id]) => id === itemId('iron_ingot')))!)).toBe('made');
+    expect(make(own, recipesAt('crucible_furnace', M3).find((r) => r.in.some(([id]) => id === itemId('iron_ingot')))!)).toBe('made');
     expect(own.count(itemId('steel_ingot'))).toBe(1);
     expect(recipe('workbench', 'lathe')!.in.map(([id]) => id)).toEqual(expect.arrayContaining([itemId('lathe_parts'), itemId('steel_ingot')]));
   });
@@ -300,8 +304,9 @@ describe('M4’s recipes and trade', () => {
     expect(tradeNamesValid()).toBe(true);
   });
 
-  it('prices Ray at a premium over what Marco pays, buy-only, and his plans at three wound cares', () => {
-    expect(RAY_PLANS_PRICE).toBe(3 * DOC_PRICE.wound);
+  it('prices Ray at a premium over what Marco pays, buy-only, and his plans at six wound cares', () => {
+    expect(RAY_PLANS_PRICE).toBe(6 * DOC_PRICE.wound);
+    expect(recipesAt('workbench', new Set(['m2_done', 'hydro_plans'])).some((r) => r.out[0] === blockId('hydro_generator'))).toBe(false); // not before M3
     expect(hasItem('hydro_plans')).toBe(false); // the plans are knowledge, not a thing to carry
     for (const lot of CATALOG_RAY) expect(sellPrice(lot.id) * lot.lot, 'no money from buying off Ray and selling to Marco').toBeLessThan(lot.sats);
     // What M4 hangs on can't be sold by mistake.
@@ -336,7 +341,7 @@ describe('M4 · hydro', () => {
   });
 
   it('ticks hydro when a generator turns, the farm at three rigs running, and M4 when all eight are done', () => {
-    const f = new Set<string>(['zone3_home']);
+    const f = new Set<string>(['zone3_home', 'm3_done']);
     expect(trackM4(f, 1700, 1024, { hydro: 0, rigs: 2 })).toEqual([]);
     expect(trackM4(f, 1700, 1024, { hydro: 1, rigs: 2 })).toEqual(['hydro_built']);
     expect(trackM4(f, 1700, 1024, { hydro: 1, rigs: 3 })).toEqual(['farm_running']);

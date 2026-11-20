@@ -7,7 +7,7 @@
 
 import { ZONE2, highwayX, inSanctuary } from '../gen/layout.ts';
 import { TOWER_POSTS } from '../gen/zone2.ts';
-import { makeCreature, FACTION_KINDS, type Creature, type Kind } from './creatures.ts';
+import { makeCreature, settle, FACTION_KINDS, type Creature, type Kind } from './creatures.ts';
 import type { OutpostState } from './outpost.ts';
 
 /** With the armband, a man takes you for one of his own beyond this distance (m). */
@@ -34,8 +34,17 @@ const hx = (z: number) => highwayX(z);
 const highwayBeat: [number, number][] = [];
 for (let z = Z.border.z - 6; z >= Z.highway.z1 + 14; z -= 12) highwayBeat.push([hx(z) + 1.5, z]);
 for (let k = highwayBeat.length - 2; k > 0; k--) highwayBeat.push([highwayBeat[k][0] - 3, highwayBeat[k][1]]);
-/** The sentry's beat: round the parking lot and the exchange's front. */
-const ruinsBeat: [number, number][] = [[Z.lot.x1 - 2, Z.lot.z1 - 2], [Z.lot.x1 - 2, Z.lot.z0 + 11], [Z.exchange.x1 + 3, Z.lot.z0 + 8], [Z.exchange.x1 + 3, Z.lot.z1 - 2]]; // clear of the van's ring
+/**
+ * The sentry's beat: up the parking lot's open lane, across the highway to the exchange's front, down past
+ * its south corner, back across and down the lane again. Every leg is clear on the generated land:
+ * - of the van's ring and the two wrecked trucks parked against the shops (x 810–812: his old lane at
+ *   x 812 ran into the southern one, and he marched on the spot there; the review, N5f);
+ * - of the street lights at (805, 702), (807, 740) and (795, 704);
+ * - of the highway's bank south of z 729, two blocks high on its west side: his old way back, at z 744,
+ *   could not climb it. Both crossings are now where the road lies level with the ground, or one step up.
+ */
+const lane = Z.lot.x0 + 5.5, front = Z.exchange.x1 + 3;
+const ruinsBeat: [number, number][] = [[lane, Z.lot.z1 - 2], [lane, Z.lot.z0 + 11], [front, Z.lot.z0 + 11], [front, Z.exchange.z1 + 4], [lane, Z.exchange.z1 + 4]];
 
 export const SQUADS: Squad[] = [
   { bit: 1, kind: 'patrol', anchor: [hx(680), 680], route: highwayBeat, start: 0 },
@@ -47,7 +56,7 @@ export const SQUADS: Squad[] = [
 export const ALL_SQUADS = SQUADS.reduce((n, s) => n | s.bit, 0);
 
 /** The men who should be about and aren't: each on his beat or post, if the land there is loaded. */
-export function manFaction(creatures: Creature[], st: FactionState, px: number, pz: number, loaded: (x: number, z: number) => boolean, ground: (x: number, z: number) => number | null): Creature[] {
+export function manFaction(creatures: Creature[], st: FactionState, px: number, pz: number, loaded: (x: number, z: number) => boolean, ground: (x: number, z: number) => number | null, blockAt: (x: number, y: number, z: number) => number = () => 0): Creature[] {
   const made: Creature[] = [];
   for (const q of SQUADS) {
     if (st.down & q.bit || creatures.some((c) => c.squad === q.bit)) continue;
@@ -68,11 +77,12 @@ export function manFaction(creatures: Creature[], st: FactionState, px: number, 
     }
     if (inSanctuary(at.x, at.z)) continue;
     const c = makeCreature(q.kind, at.x, at.y, at.z);
+    if (!settle(c, blockAt)) continue; // his whole body clear of every block, and of the sanctuary's line
     c.squad = q.bit;
     c.yaw = at.yaw;
     c.mind = st.alert ? 'alerted' : 'watch';
     if (q.route) { c.route = q.route; c.leg = (q.route.findIndex(([x, z]) => x === at.x && z === at.z) + 1) % q.route.length; }
-    else c.post = { ...q.post! };
+    else c.post = { ...q.post!, y: c.y };
     made.push(c);
   }
   return made;

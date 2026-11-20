@@ -12,6 +12,14 @@ _The page to resume from. Keep it short; history lives in git._
   - **Engine changes others will meet:** the ray looks out of the cell the eye is in; a railing's collision is 2.5 blocks; a block flagged `rests` comes up with what it stands on; a pot or kettle is a stove only on a stove (`stationAt`).
   - **Not built:** sitting in chairs.
 
+- **The review's fixes are built on branch `fixes`** (2026-11-20), waiting for the lead's review and merge: saves
+  (N1), creatures on the real land (N5), traps and a test that walks every route (N3), failures (N8), Survival
+  and Builder's mode (N2), money and milestones (N4), the first ten minutes (N6) and a first part of the split of
+  `src/game.ts` (N10). What was done, each call made and why, the tests, and what was left are in
+  [FIXES.md](FIXES.md). The home makeover (`main` at 71d9e3d) is merged into it: the home's rule that a valley
+  from before the rebuild is not opened is kept, and is now held by the save keeper for every copy of a save
+  (FIXES.md, 10). The land outside the home is the same, column for column, before and after that merge.
+
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).
   2. The home makeover: merged into `main` and **published as version 11** (2026-11-20). What was built, what changed from the plan and what was left undone: docs/HOME.md.

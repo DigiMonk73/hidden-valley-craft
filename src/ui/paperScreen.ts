@@ -57,7 +57,16 @@ export class PaperScreen {
 
   get isOpen(): boolean { return !this.wrap.hidden; }
 
-  close(): void { this.wrap.hidden = true; this.panel.innerHTML = ''; }
+  close(): void { this.wrap.hidden = true; this.panel.innerHTML = ''; this.onKey = null; }
+
+  /** What the open screen does with a typed key, if anything (the keypad takes digits). */
+  private onKey: ((code: string) => void) | null = null;
+  /** A key pressed while a screen is open (the game passes them on): true if the screen used it. */
+  key(code: string): boolean {
+    if (!this.onKey || !this.isOpen) return false;
+    this.onKey(code);
+    return true;
+  }
 
   private open(kind: 'pp-paper' | 'pp-screen'): HTMLDivElement {
     this.panel.className = `pp-panel ${kind}`;
@@ -173,18 +182,26 @@ export class PaperScreen {
     p.append(code);
     let entered = '';
     const pad = this.el('div', '', 'pp-keypad');
+    const press = (k: string) => {
+      if (k === 'C') entered = '';
+      else if (k === '✓') { if (!check(entered)) { code.textContent = 'WRONG'; entered = ''; return; } }
+      else if (entered.length < 4) entered += k;
+      code.textContent = entered.replace(/./g, '•');
+    };
     for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '✓']) {
       const b = this.el('button', k, 'pp-btn');
-      b.onclick = () => {
-        if (k === 'C') entered = '';
-        else if (k === '✓') { if (!check(entered)) { code.textContent = 'WRONG'; entered = ''; return; } }
-        else if (entered.length < 4) entered += k;
-        code.textContent = entered.replace(/./g, '•');
-      };
+      b.onclick = () => press(k);
       pad.append(b);
     }
     p.append(pad);
     this.footer(p);
+    // Typed digits work too (they used to do nothing): Enter checks, Backspace clears.
+    this.onKey = (c) => {
+      const digit = /^(?:Digit|Numpad)(\d)$/.exec(c);
+      if (digit) press(digit[1]);
+      else if (c === 'Enter' || c === 'NumpadEnter') press('✓');
+      else if (c === 'Backspace' || c === 'Delete') press('C');
+    };
   }
 
   map(canvas: HTMLCanvasElement, caption: string): void {
