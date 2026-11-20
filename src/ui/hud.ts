@@ -40,7 +40,11 @@ const CSS = `
 @keyframes hv-pulse { 50% { opacity: .45; } }
 .hv-vital u { position: relative; }
 .hv-vital u i { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(135deg, rgba(240,200,40,.75) 0 3px, rgba(20,20,20,.75) 3px 6px); }
-.hv-dose span { color: #f2c81c; }
+.hv-dose span { color: #f2c81c; white-space: nowrap; }
+.hv-notes { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); text-align: center; pointer-events: none; }
+.hv-doseline { display: inline-block; font-size: 13px; color: #f2c81c; background: rgba(0,0,0,.45); border-radius: 6px; padding: 2px 10px; white-space: nowrap; }
+.hv-doseline.alarm { color: #ff6a4c; font-weight: 700; background: rgba(60,0,0,.6); }
+.hv-chip { font-size: 12px; color: #d8e6dc; text-shadow: 0 1px 2px #000; margin-bottom: 3px; white-space: nowrap; }
 .hv-hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(160, 20, 10, .55)); }
 .hv-toast { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
@@ -144,6 +148,10 @@ export class Hud {
   private doseWrap!: HTMLElement;
   private doseBar!: HTMLElement;
   private capEl!: HTMLElement;
+  private doseHead!: HTMLElement;
+  private doseLine!: HTMLElement;
+  /** A small line under the bars: the time to dusk, a nest near by (docs/PHASE8.md, 6). */
+  private chip!: HTMLElement;
   private homeEl!: HTMLDivElement;
   private toastEl: HTMLDivElement;
   private vitalBars: { wrap: HTMLDivElement; bar: HTMLElement }[] = [];
@@ -198,10 +206,17 @@ export class Hud {
     this.capEl = el('i', '', this.vitalBars[0].bar.parentElement as HTMLElement);
     this.capEl.style.width = '0';
     this.doseWrap = el('div', 'hv-vital hv-dose', vit);
-    el('span', '', this.doseWrap).textContent = '☢ Dose';
+    this.doseHead = el('span', '', this.doseWrap);
+    this.doseHead.textContent = '☢ Dose';
     this.doseBar = el('b', '', el('u', '', this.doseWrap));
     this.doseBar.style.background = '#f2a81c';
     this.doseWrap.style.display = 'none';
+    // Over the bars, centred: the uplink's chips, and the meter's line (docs/PHASE8.md, 2 and 6).
+    const notes = el('div', 'hv-notes', root);
+    this.chip = el('div', 'hv-chip', notes);
+    this.doseLine = el('div', 'hv-doseline', notes);
+    this.doseLine.style.display = 'none';
+    this.chip.style.display = 'none';
     this.hurt = el('div', 'hv-hurt', root);
     this.label = el('div', 'hv-label', root);
     this.breath = el('div', 'hv-breath', root);
@@ -514,10 +529,22 @@ export class Hud {
   }
 
   /** The radiation dose (0–100) and the health it leaves (the cap); shown in Zone-2 or while there is a dose. */
-  setDose(dose: number, cap: number, show: boolean): void {
+  setDose(dose: number, cap: number, show: boolean, line = '', alarm = false): void {
     this.doseWrap.style.display = show ? '' : 'none';
     this.doseBar.style.width = `${Math.round(dose)}%`;
     this.capEl.style.width = `${Math.max(0, 100 - cap)}%`;
+    // Zone-4 (docs/PHASE8.md, 2): the dose as a number, and under it the rate, the suit and the time to the limit.
+    const head = line || dose >= 0.5 ? `☢ Dose ${Math.round(dose)}` : '☢ Dose';
+    if (this.doseHead.textContent !== head) this.doseHead.textContent = head;
+    if (this.doseLine.textContent !== line) this.doseLine.textContent = line;
+    this.doseLine.style.display = show && line ? '' : 'none';
+    this.doseLine.classList.toggle('alarm', alarm);
+  }
+
+  /** The small line under the bars (empty: hidden). */
+  setChip(text: string): void {
+    if (this.chip.textContent !== text) this.chip.textContent = text;
+    this.chip.style.display = text ? '' : 'none';
   }
 
   /** Focus mode: a dark vignette while it runs, and a small bar for what is left (or how far it has come back). */

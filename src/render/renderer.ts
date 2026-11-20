@@ -151,6 +151,11 @@ void main() {
   outColor = vec4(col, alpha);
 }`;
 
+/** The view's angle, top to bottom, with nothing held to the eye. */
+const BASE_FOV = 72;
+/** The train of satellites: how many, and how far off they are drawn (inside the far plane). */
+const SAT_COUNT = 4, SAT_FAR = 1700;
+
 export class Renderer {
   readonly gl: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
@@ -215,7 +220,7 @@ export class Renderer {
     });
     this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.gl.outputColorSpace = THREE.LinearSRGBColorSpace; // colours are authored for the screen as-is
-    this.camera = new THREE.PerspectiveCamera(72, 1, 0.08, 2000);
+    this.camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.08, 2000);
     this.scene.add(this.sky);
 
     const tex = new THREE.DataArrayTexture(buildTextureStack(TEXTURE_NAMES), TEX, TEX, TEXTURE_NAMES.length);
@@ -309,6 +314,38 @@ export class Renderer {
     this.gl.setClearColor(this.clearColor);
     this.gl.setViewport(this.gl.getViewport(new THREE.Vector4()));
   }
+
+  /** Looking through a telescope (docs/PHASE8.md, 5): the view narrowed `zoom` times, nothing nearer than `near` drawn. 1 puts it back. */
+  setZoom(zoom: number, near = 0.08): void {
+    const fov = (2 * Math.atan(Math.tan((BASE_FOV * Math.PI) / 360) / zoom) * 180) / Math.PI;
+    if (Math.abs(this.camera.fov - fov) < 1e-6 && this.camera.near === near) return;
+    this.camera.fov = fov;
+    this.camera.near = near;
+    // Through the glass the satellites are discs, not specks.
+    if (this.sats) (this.sats.material as THREE.PointsMaterial).size = zoom > 1 ? 7 : 2.5;
+    this.zoomed = zoom > 1;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** The satellites crossing the night sky, as directions from the eye (none: nothing drawn). */
+  setSats(dirs: [number, number, number][]): void {
+    if (!this.sats) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SAT_COUNT * 3), 3));
+      this.sats = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xfff6dc, size: this.zoomed ? 7 : 2.5, sizeAttenuation: false, fog: false, transparent: true, depthWrite: false }));
+      this.sats.frustumCulled = false;
+      // After the clouds (drawn at 5), or the night's cloud would paint them out; the land still hides them.
+      this.sats.renderOrder = 6;
+      this.scene.add(this.sats);
+    }
+    this.sats.visible = dirs.length > 0;
+    if (!dirs.length) return;
+    const a = this.sats.geometry.getAttribute('position') as THREE.BufferAttribute, c = this.camera.position;
+    for (let i = 0; i < SAT_COUNT; i++) { const d = dirs[Math.min(i, dirs.length - 1)]; a.setXYZ(i, c.x + d[0] * SAT_FAR, c.y + d[1] * SAT_FAR, c.z + d[2] * SAT_FAR); }
+    a.needsUpdate = true;
+  }
+  private sats: THREE.Points | null = null;
+  private zoomed = false;
 
   resize(w: number, h: number): void {
     this.gl.setSize(w, h, false);

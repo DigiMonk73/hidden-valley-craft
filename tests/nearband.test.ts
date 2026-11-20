@@ -281,7 +281,9 @@ describe('M1: the first outside run', () => {
       // Phase 5 (docs/PHASE5.md).
       'outpost_seen', 'outpost_cleared', 'jaguar_seen', 'body_seen', 'm2_done',
       // Phase 7 (docs/PHASE7.md).
-      'ashen_seen', 'body_reached', 'm4_done'];
+      'ashen_seen', 'body_reached', 'm4_done',
+      // Phase 8 (docs/PHASE8.md): the gate, the three pages and the manual on the ridge, Ray, the first answer, M5.
+      'ridge_gate', 'hut_log', 'dome_page', 'relay_page', 'pharma_learned', 'ray_met', 'ending_seen', 'm5_done'];
     for (const n of journal.notes) expect(settable).toContain(n.flag);
   });
 });

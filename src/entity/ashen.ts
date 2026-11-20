@@ -7,8 +7,10 @@
 // step back or aside and it misses and stumbles. Never more than three hunt at once.
 // The rules that hold: nothing here spawns, walks, sees or lunges into the sanctuary; Ashen ground is Zone-3
 // west of the gorge, so they never step onto the dam, a bridge the player builds, or the other zones.
+// Zone-4 (docs/PHASE8.md) has one nest more, in the relay station's battery hall, and the yard round it is
+// theirs too. A burning smoke pot is ground they will not step into, and walk out of.
 
-import { ZONE3, ravineX, zoneAt, inSanctuary, zone3Floor } from '../gen/layout.ts';
+import { ZONE3, ZONE4, ravineX, zoneAt, inSanctuary, zone3Floor, zone4Floor } from '../gen/layout.ts';
 import { B_SOLID } from '../world/blocks.ts';
 import { makeCreature, moveBody, canSee, settle, KINDS, STRIKE_HEIGHT, type Creature, type Mind, type Senses } from './creatures.ts';
 
@@ -57,7 +59,15 @@ export interface AshenSenses extends Senses {
   lightAt: (x: number, y: number, z: number) => number;
   /** Is the player mining (a pick on rock carries, where nothing solid is between)? */
   mining?: boolean;
+  /** Smoke pots burning now: ground no Ashen steps into, and walks out of (docs/PHASE8.md, 4). */
+  smoke?: Smoke[];
 }
+export interface Smoke { x: number; z: number; r: number }
+
+/** Every nest: Zone-3's five, then the relay station's on the ridge (appended, so the bits saved for Zone-3's stay theirs). */
+export const NESTS = [...ZONE3.nests, ZONE4.nest];
+/** How far from the relay's nest the ridge is theirs: the yard and the slope round it. */
+export const RELAY_GROUND = 50;
 
 export interface AshenState {
   /** Which Ashen are down until dawn (a bit each); saved. */
@@ -72,22 +82,27 @@ export type AshenEvent = { kind: 'notice' | 'shriek' | 'lunge' | 'miss' | 'breat
 /** One Ashen's place: its nest, which of the nest's it is, and its bit in `down`. */
 export interface Slot { bit: number; nest: number; k: number }
 export const SLOTS: Slot[] = [];
-ZONE3.nests.forEach((n, i) => { for (let k = 0; k < n.n; k++) SLOTS.push({ bit: 1 << SLOTS.length, nest: i, k }); });
+NESTS.forEach((n, i) => { for (let k = 0; k < n.n; k++) SLOTS.push({ bit: 1 << SLOTS.length, nest: i, k }); });
 export const ALL_ASHEN = SLOTS.reduce((m, s) => m | s.bit, 0);
 
 /** The floor's height at a nest: the building's floor, or the mine's drift. */
 export function nestFloor(i: number): number {
-  const n = ZONE3.nests[i];
+  const n = NESTS[i];
+  if (n === ZONE4.nest) return zone4Floor.tower;
   if (n.under) return zone3Floor.yard - ZONE3.mine.depth;
   return n.name === 'powerhouse' ? zone3Floor.powerhouse : n.name === 'shop' ? zone3Floor.shop : n.name === 'foundry' ? zone3Floor.foundry : zone3Floor.yard;
 }
 
 /**
- * Ashen ground: Zone-3, west of the river's gorge. Never the sanctuary, never over the gorge (so not the dam,
- * nor a bridge the player builds), never the dam's own west end.
+ * Ashen ground: Zone-3, west of the river's gorge, and on the ridge the ground round the relay station. Never
+ * the sanctuary, never over the gorge (so not the dam, nor a bridge the player builds), never the dam's own west end.
  */
 export function ashenGround(x: number, z: number): boolean {
-  if (inSanctuary(x, z) || zoneAt(x, z) !== 'zone3') return false;
+  if (inSanctuary(x, z)) return false;
+  // On the ridge: round the relay station only, and never the pass's clean ground.
+  const r = ZONE4.nest;
+  if (zoneAt(x, z) === 'zone4') return Math.hypot(x - r.x, z - r.z) < RELAY_GROUND && Math.hypot(x - ZONE4.clean.x, z - ZONE4.clean.z) > ZONE4.clean.r + 2;
+  if (zoneAt(x, z) !== 'zone3') return false;
   if (x >= ravineX(z) - 26) return false;
   const d = ZONE3.dam;
   return !(x >= d.x0 - 1 && Math.abs(z - d.z) < 6);
@@ -149,7 +164,7 @@ function lineClear(c: Creature, x: number, z: number, blockAt: BlockAt): boolean
 
 /** Where on its way out of its dark room this Ashen is: the first point it can walk straight to (0: the nest itself). */
 function findLeg(c: Creature, blockAt: BlockAt): number {
-  const n = ZONE3.nests[c.nest ?? 0];
+  const n = NESTS[c.nest ?? 0];
   if (lineClear(c, n.x, n.z, blockAt) && Math.hypot(c.x - n.x, c.z - n.z) < 30) return 0;
   for (let i = 0; i < n.path.length; i++) if (lineClear(c, n.path[i][0], n.path[i][1], blockAt)) return i + 1;
   return n.path.length;
@@ -162,7 +177,7 @@ function findLeg(c: Creature, blockAt: BlockAt): number {
 export function thinkAshen(c: Creature, dt: number, s: AshenSenses, others: number, blockAt: BlockAt, rand: () => number): AshenEvent[] {
   if (c.kind !== 'ashen') return [];
   const ev: AshenEvent[] = [];
-  const nest = ZONE3.nests[c.nest ?? 0], path = nest.path;
+  const nest = NESTS[c.nest ?? 0], path = nest.path;
   c.hurt += dt;
   c.timer -= dt;
   const keen = keenAt(c, s), t = keen ? KEEN : DULL;
@@ -221,7 +236,7 @@ export function thinkAshen(c: Creature, dt: number, s: AshenSenses, others: numb
       if (c.timer <= 0) {
         const a = rand() * Math.PI * 2, r = 2 + rand() * (ROAM - 2);
         c.goalX = ox + Math.cos(a) * r; c.goalZ = oz + Math.sin(a) * r;
-        if (!ashenGround(c.goalX, c.goalZ) || rand() < 0.35) { c.goalX = c.x; c.goalZ = c.z; }
+        if (!ashenGround(c.goalX, c.goalZ) || inSmoke(s, c.goalX, c.goalZ) || rand() < 0.35) { c.goalX = c.x; c.goalZ = c.z; }
         c.timer = 4 + rand() * 7;
       }
       if (!walkTo(c.goalX, c.goalZ, 1.2)) break;
@@ -285,11 +300,22 @@ export function thinkAshen(c: Creature, dt: number, s: AshenSenses, others: numb
       c.mind = 'wander'; c.timer = 0;
   }
 
-  // The body: never a step off Ashen ground (the dam, a bridge, the other zones), never into the sanctuary.
+  // Smoke: one standing in a burning pot's smoke leaves off whatever it was at and walks straight out of it.
+  const pot = (s.smoke ?? []).find((p) => Math.hypot(c.x - p.x, c.z - p.z) < p.r);
+  if (pot && c.mind !== 'lunge' && c.mind !== 'windup') {
+    if (HUNTING.has(c.mind) || c.mind === 'notice' || c.mind === 'seek') { c.mind = 'wander'; c.timer = 3; c.lost = 0; c.post = undefined; }
+    const ax = c.x - pot.x, az = c.z - pot.z, al = Math.hypot(ax, az);
+    toX = al > 0.05 ? ax / al : 1; toZ = al > 0.05 ? az / al : 0; speed = DULL.speed;
+    c.goalX = c.x + toX * 3; c.goalZ = c.z + toZ * 3;
+  }
+  // The body: never a step off Ashen ground (the dam, a bridge, the other zones), never into the sanctuary,
+  // never deeper into smoke.
   const len = Math.hypot(toX, toZ);
   if (len > 0.01 && speed > 0) {
-    const ux = toX / len, uz = toZ / len;
-    if (!ashenGround(c.x + ux * 0.7, c.z + uz * 0.7)) speed = 0;
+    const ux = toX / len, uz = toZ / len, nx = c.x + ux * 0.7, nz = c.z + uz * 0.7;
+    const deeper = (s.smoke ?? []).some((p) => { const d = Math.hypot(nx - p.x, nz - p.z); return d < p.r && d < Math.hypot(c.x - p.x, c.z - p.z); });
+    if (deeper && c.mind === 'lunge') { c.mind = 'recover'; c.timer = STUMBLE; }
+    if (!ashenGround(nx, nz) || deeper) speed = 0;
     else if (c.mind !== 'lunge' && c.mind !== 'windup') c.yaw = Math.atan2(-ux, -uz);
   }
   const want = len > 0.01 ? speed / len : 0;
@@ -307,6 +333,11 @@ export function thinkAshen(c: Creature, dt: number, s: AshenSenses, others: numb
   // A dry breath now and then while it stands unaware: the warning that one is near.
   if ((c.mind === 'wander' || c.mind === 'seek') && rand() < dt / 5) ev.push({ kind: 'breath', c });
   return ev;
+}
+
+/** Is (x, z) in the smoke of a burning pot? */
+export function inSmoke(s: { smoke?: Smoke[] }, x: number, z: number): boolean {
+  return (s.smoke ?? []).some((p) => Math.hypot(x - p.x, z - p.z) < p.r);
 }
 
 /** Is an Ashen hunting within `r` m of (x, z)? Then hold H does nothing: it is no escape from them (docs/PHASE7.md). */
@@ -335,7 +366,7 @@ export function manAshen(creatures: Creature[], st: AshenState, px: number, pz: 
   const made: Creature[] = [];
   for (const q of SLOTS) {
     if (st.down & q.bit || creatures.some((c) => c.kind === 'ashen' && c.squad === q.bit)) continue;
-    const n = ZONE3.nests[q.nest];
+    const n = NESTS[q.nest];
     if (Math.hypot(px - n.x, pz - n.z) > ASHEN_NEAR || !loaded(n.x, n.z)) continue;
     const first = q.bit === 1 && st.firstOut && !night;
     const f = ZONE3.firstAshen;
@@ -362,7 +393,7 @@ export function manAshen(creatures: Creature[], st: AshenState, px: number, pz: 
 export function standDownAshen(creatures: Creature[], px: number, pz: number): Creature[] {
   return creatures.filter((c) => {
     if (c.kind !== 'ashen') return true;
-    const n = ZONE3.nests[c.nest ?? 0];
+    const n = NESTS[c.nest ?? 0];
     return Math.min(Math.hypot(px - n.x, pz - n.z), Math.hypot(px - c.x, pz - c.z)) < ASHEN_FAR;
   });
 }

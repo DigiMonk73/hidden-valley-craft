@@ -7,8 +7,10 @@ import people from '../../data/people.json' with { type: 'json' };
 import type { Inventory } from '../sim/inventory.ts';
 import type { Vitals } from '../sim/survival.ts';
 import type { TradeView, TradeRow } from '../ui/paperScreen.ts';
-import { CATALOG, CATALOG_M3, CATALOG_RAY, RAY_PLANS_PRICE, DOC_PRICE, PURSE, buy, sell, sellPrice, sellable, keptFor, btc } from '../sim/trade.ts';
+import { CATALOG, CATALOG_M3, CATALOG_RAY, CATALOG_RAY_M5, RAY_SUIT, RAY_PLANS_PRICE, DOC_PRICE, PURSE, buy, sell, sellPrice, sellable, keptFor, btc } from '../sim/trade.ts';
 import { M1_STEPS, M2_STEPS, M3_STEPS, M4_STEPS } from '../sim/milestones.ts';
+import { M5_STEPS } from '../sim/m5.ts';
+import { rayCall } from '../sim/ridge.ts';
 import { healthCap } from '../sim/radiation.ts';
 import { itemId, itemLabel } from '../world/items.ts';
 import { iconFor } from '../ui/icons.ts';
@@ -34,7 +36,7 @@ export interface Dealer {
   edited(): void;
 }
 
-const stepLabel = (flag: string) => [...M1_STEPS, ...M2_STEPS, ...M3_STEPS, ...M4_STEPS].find((st) => st.flag === flag)?.label ?? 'a later step';
+const stepLabel = (flag: string) => [...M1_STEPS, ...M2_STEPS, ...M3_STEPS, ...M4_STEPS, ...M5_STEPS].find((st) => st.flag === flag)?.label ?? 'a later step';
 
 /** Meeting Marco: his first line or one of his usual ones. Notes that you have met. */
 export function greetMarco(g: Dealer, rand: () => number = Math.random): string {
@@ -140,8 +142,39 @@ export function greetRay(g: Dealer, rand: () => number = Math.random): string {
     if (g.hotbar.add(itemId('uplink_plans'), 1) > 0) say = RAY.uplinkFull;
     else { g.flags.add('uplink_plans'); say = RAY.uplink; }
   } else if (!first && g.flags.has('hydro_plans') && !g.flags.has('hydro_built')) say = RAY.notYet;
+  else if (!first) {
+    // The ridge (docs/PHASE8.md, 3): his word and the suit's pattern, once M4 is done; his piece when the link has answered.
+    const r = rayCall(g.flags, hasSuit(g), false);
+    if (r.line) { say = RAY[r.line]; for (const f of r.sets) g.flags.add(f); }
+  }
   g.edited();
   return say;
+}
+
+const hasSuit = (g: Dealer): boolean => g.hotbar.count(itemId('hazard_suit')) > 0;
+
+/** The phone's second button under Ray: asking him to meet you at the refuge. He comes only for someone who carries a suit. */
+export function askRayToMeet(g: Dealer): string {
+  const r = rayCall(g.flags, hasSuit(g), true);
+  for (const f of r.sets) g.flags.add(f);
+  g.edited();
+  return r.line ? RAY[r.line] : RAY.meetWaiting;
+}
+
+/**
+ * Meeting Ray at the refuge: he hands over the dam's modem and two boxes of tablets, once. With no room in the
+ * pack he waits (the modem never goes on the ground).
+ */
+export function meetRay(g: Dealer): string {
+  if (g.flags.has('ray_met')) return RAY.look;
+  const modem = itemId('sat_modem'), tablets = itemId('rad_tablets');
+  // Both or neither: if the tablets find no room once the modem is in, he takes the modem back and waits.
+  if (g.hotbar.add(modem, 1) > 0) return RAY.metFull;
+  const left = g.hotbar.add(tablets, 2);
+  if (left > 0) { g.hotbar.remove(tablets, 2 - left); g.hotbar.remove(modem, 1); return RAY.metFull; }
+  g.flags.add('ray_met');
+  g.edited();
+  return RAY.met;
 }
 
 /** What Ray sells (DESIGN.md A3: premium, buy-only): his micro-hydro plans once, then parts. */
@@ -158,7 +191,9 @@ export function rayCatalog(g: Dealer, say: string): () => TradeView {
           return RAY.plansBought;
         },
       }]),
-      ...CATALOG_RAY.map((lot): TradeRow => ({
+      // After the meeting he sells what the ridge gives, so nothing in M5 can be lost for good.
+      // A suit of his own make once he has given his word (lead is finite, and a suit can lie in a lost pack on the ridge).
+      ...[...CATALOG_RAY, ...(g.flags.has('suit_word') ? [RAY_SUIT] : []), ...(g.flags.has('ray_met') ? CATALOG_RAY_M5 : [])].map((lot): TradeRow => ({
         icon: iconFor(lot.id), label: `${itemLabel(lot.id)} ×${lot.lot}`, price: btc(lot.sats), button: 'Buy', can: g.wallet >= lot.sats,
         act: () => {
           const r = buy(g.hotbar, g.wallet, lot);

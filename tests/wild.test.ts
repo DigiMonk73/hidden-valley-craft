@@ -135,7 +135,8 @@ describe('the wild', () => {
   it('armour takes the edge off a blow: the vest more than leather, and the best one counts', () => {
     expect(armourFactor(() => 0)).toBe(1);
     expect(armourFactor((n) => (n === 'leather_armor' ? 1 : 0))).toBe(0.85);
-    expect(armourFactor((n) => (n === 'plate_armor' ? 0 : 1))).toBe(0.7);
-    expect(armourFactor(() => 1)).toBe(0.5); // M4's plate armour (docs/PHASE7.md) is the best of all
+    expect(armourFactor((n) => (n === 'plate_armor' || n === 'engineer_armor' ? 0 : 1))).toBe(0.7);
+    expect(armourFactor((n) => (n === 'engineer_armor' ? 0 : 1))).toBe(0.5); // M4's plate armour (docs/PHASE7.md)
+    expect(armourFactor(() => 1)).toBe(0.35); // M5's engineer's armour (docs/PHASE8.md) is the best of all
   });
 });

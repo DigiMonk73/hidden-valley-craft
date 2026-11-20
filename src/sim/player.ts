@@ -160,6 +160,24 @@ export class Player {
     return false;
   }
 
+  /**
+   * The other way round (docs/PHASE8.md, 9: the ridge was lowered): a save made on land that has since dropped
+   * loads in the air. Called once when a loaded save's land has come in: with more than `gap` blocks of nothing
+   * under the feet (and not in water), sets the player down on what is below. Returns whether it moved them.
+   */
+  setDown(blockAt: BlockAt, gap = 3): boolean {
+    if (this.collides(this.x, this.y, this.z, blockAt) || isWaterId(blockAt(Math.floor(this.x), Math.floor(this.y + 0.4), Math.floor(this.z)))) return false;
+    for (let y = Math.floor(this.y); y >= 1; y--) {
+      const id = blockAt(Math.floor(this.x), y - 1, Math.floor(this.z));
+      if (id === 0) continue;
+      // Water below is a soft landing of its own; anything else is ground (the body's own width may catch an edge sooner).
+      if (this.y - y <= gap || this.collides(this.x, y, this.z, blockAt)) return false;
+      this.y = y; this.vy = 0; this.landedFall = 0; this.fallTop = y;
+      return true;
+    }
+    return false;
+  }
+
   /** True if a block at (bx, by, bz) would overlap the player's body. */
   intersectsBlock(bx: number, by: number, bz: number): boolean {
     return bx + 1 > this.x - WIDTH / 2 && bx < this.x + WIDTH / 2 && by + 1 > this.y && by < this.y + HEIGHT && bz + 1 > this.z - WIDTH / 2 && bz < this.z + WIDTH / 2;

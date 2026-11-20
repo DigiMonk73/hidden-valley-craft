@@ -1550,6 +1550,93 @@ DRAW.arc_lamp_lens = (c) => { c.noise(hex('#3a3f44'), 4); for (let y = 3; y < 13
 /** A planter box's side: new planks, two bands. */
 DRAW.planter_side = (c) => { c.noise(hex('#a8804e'), 7, [hex('#96703f'), hex('#b8905e')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#6e4b31')); c.shade(x, 5, 0.75); c.shade(x, 11, 0.75); } };
 
+// ---- Zone-4, the radiation edge, and M5 (docs/PHASE8.md) -------------------------------------------
+const HAZ = hex('#f2c81c'), INK = hex('#141414'), DEAD = hex('#8d8a82');
+/** The road sign at the bend: a white tower and an arrow right on highway green, a small trefoil under it. */
+DRAW.ridge_sign = (c) => {
+  c.noise(hex('#1f6b3a'), 4);
+  frame(c, hex('#e8efe8'));
+  for (let y = 2; y < 10; y++) { const w = y < 4 ? 0 : (y - 2) >> 2; for (let x = 4 - w; x <= 4 + w; x++) c.set(x, y, W_PAINT); } // the tower, a narrow A
+  c.set(4, 2, hex('#ff3b2e'));
+  for (let x = 8; x < 14; x++) c.set(x, 6, W_PAINT); // the arrow
+  c.set(12, 5, W_PAINT); c.set(12, 7, W_PAINT); c.set(11, 4, W_PAINT); c.set(11, 8, W_PAINT);
+  for (let x = 2; x < 14; x++) if (x % 4 !== 1) c.set(x, 12, W_PAINT);
+  for (const [x, y] of [[13, 11], [12, 13], [14, 13]]) c.set(x, y, HAZ);
+};
+/** The gate's board: black on yellow, the trefoil and two heavy lines of letters, a black band top and bottom. */
+DRAW.hot_board = (c) => {
+  c.noise(HAZ, 6);
+  for (let x = 0; x < TEX; x++) for (const y of [0, 1, 14, 15]) c.set(x, y, ((x + y) >> 1) % 2 ? INK : HAZ);
+  for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) {
+    const d = Math.hypot(x - 4, y - 7.5), a = (Math.atan2(y - 7.5, x - 4) + Math.PI * 2) % ((Math.PI * 2) / 3);
+    if (d < 1.1 || (d > 1.7 && d < 3.8 && a > 0.35 && a < 1.75)) c.set(x, y, INK);
+  }
+  for (const row of [4, 8, 11]) for (let x = 9; x < 15; x++) if (x !== 12 || row === 8) c.set(x, row, INK), row !== 11 && c.set(x, row + 1, INK);
+};
+/** Clean ground: white on green, a tick. */
+DRAW.clean_sign = (c) => {
+  c.noise(hex('#2e9a4e'), 5);
+  frame(c, hex('#f2f5f2'));
+  for (const [x, y] of [[4, 8], [5, 9], [6, 10], [7, 9], [8, 8], [9, 7], [10, 6], [11, 5]]) { c.set(x, y, W_PAINT); c.set(x, y + 1, W_PAINT); }
+};
+DRAW.refugio_sign = (c) => boardText(c, hex('#6e5a3c'), hex('#f0e8d0'));
+DRAW.relay_sign = (c) => { c.noise(hex('#2c4a6e'), 4); frame(c, hex('#dfe6ec')); for (const row of [4, 9]) for (let x = 2; x < 14; x++) if (x % 5 !== 0) { c.set(x, row, W_PAINT); c.set(x, row + 1, W_PAINT); } };
+DRAW.observatorio_sign = (c) => { c.noise(hex('#30343c'), 4); frame(c, hex('#dfe6ec')); for (let x = 2; x < 14; x++) if (x % 4 !== 1) { c.set(x, 10, W_PAINT); c.set(x, 11, W_PAINT); } for (const [x, y] of [[4, 4], [8, 3], [11, 6], [6, 6]]) c.set(x, y, hex('#fff6c8')); };
+/** The tower's steel: an open frame with one brace, the sky showing through. */
+DRAW.tower_steel = (c) => {
+  c.clearAlpha();
+  const S = hex('#8f969c'), D = hex('#6a7178'), R = hex('#8a4a2a');
+  for (let k = 0; k < TEX; k++) for (const e of [0, 1, 14, 15]) { c.set(k, e, c.rng() < 0.12 ? R : S); c.set(e, k, c.rng() < 0.12 ? R : S); }
+  for (let k = 0; k < TEX; k++) { c.set(k, k, D); c.set(Math.min(15, k + 1), k, D); c.set(15 - k, k, D); c.set(Math.max(0, 14 - k), k, D); }
+};
+/** A dish panel: white-painted mesh, ribbed. */
+DRAW.dish_panel = (c) => { c.noise(hex('#e4e6e2'), 5, [hex('#c9ccc8'), hex('#f4f5f2')], 0.2); for (let k = 0; k < TEX; k += 4) for (let j = 0; j < TEX; j++) { c.shade(k, j, 0.82); c.shade(j, k, 0.88); } for (let k = 0; k < 5; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#a35a30')); };
+// The home's own dish: clean white panels, so it reads against the limestone from the garden (the fallen one is weathered).
+DRAW.sat_dish = (c) => { c.noise(hex('#fbfbf7'), 2, [hex('#f1f2ee'), hex('#ffffff')], 0.15); for (let k = 0; k < TEX; k += 8) for (let j = 0; j < TEX; j++) { c.shade(k, j, 0.9); c.shade(j, k, 0.93); } };
+DRAW.dish_edge = (c) => { c.noise(hex('#b9bcb8'), 5, RUST, 0.1); for (let x = 0; x < TEX; x++) { c.shade(x, 0, 1.15); c.shade(x, 15, 0.7); } };
+/** The station's racks: grey steel, rows of small lights still green and amber. */
+DRAW.relay_rack = (c) => {
+  c.noise(hex('#3a4048'), 4);
+  frame(c, hex('#23272c'));
+  for (let y = 2; y < 14; y += 3) { for (let x = 2; x < 14; x++) c.set(x, y, hex('#2a2e34')); for (let x = 3; x < 13; x += 2) c.set(x, y + 1, c.rng() < 0.6 ? hex('#3ee05a') : c.rng() < 0.5 ? hex('#f2b01c') : hex('#1c2024')); }
+};
+DRAW.scope_side = (c) => { c.noise(hex('#e8e8e2'), 4); for (let y = 0; y < TEX; y++) { c.shade(0, y, 0.7); c.shade(15, y, 0.7); c.shade(4, y, 0.92); } for (let x = 0; x < TEX; x++) { c.set(x, 10, hex('#3a3f44')); c.set(x, 13, hex('#3a3f44')); } };
+DRAW.scope_top = (c) => { c.noise(hex('#d8d8d2'), 4); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 5.5) c.set(x, y, d < 4.2 ? hex('#1c2a3c') : hex('#3a3f44')); } c.set(6, 6, hex('#9fc4e8')); c.set(7, 5, hex('#c8e0f4')); };
+DRAW.dome_shell = (c) => { c.noise(hex('#eceee9'), 4, [hex('#d9dcd6'), hex('#f8f9f6')], 0.15); for (let k = 0; k < TEX; k++) { c.shade(k, 15, 0.86); c.shade(15, k, 0.9); } for (let k = 0; k < 3; k++) c.set(Math.floor(c.rng() * 16), Math.floor(c.rng() * 16), hex('#b98a5a')); };
+DRAW.waste_drum = (c) => {
+  c.noise(HAZ, 7, RUST, 0.12);
+  for (const y of [3, 12]) for (let x = 0; x < TEX; x++) c.shade(x, y, 0.7);
+  for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) { const d = Math.hypot(x - 7.5, y - 7.5), a = (Math.atan2(y - 7.5, x - 7.5) + Math.PI * 2) % ((Math.PI * 2) / 3); if (d < 0.9 || (d > 1.4 && d < 3 && a > 0.35 && a < 1.75)) c.set(x, y, INK); }
+};
+DRAW.waste_drum_top = (c) => { c.noise(hex('#c9a418'), 6, RUST, 0.2); for (let k = 0; k < TEX; k++) { c.set(k, 0, INK); c.set(k, 15, INK); c.set(0, k, INK); c.set(15, k, INK); } c.set(11, 4, INK); };
+/** The sump's surface: black, oily, a sick green sheen here and there. */
+DRAW.sludge = (c) => { c.noise(hex('#15181a'), 5, [hex('#1d2a22'), hex('#0e0f10'), hex('#26321e')], 0.25); for (let k = 0; k < 5; k++) { const x = Math.floor(c.rng() * 14), y = Math.floor(c.rng() * 16); c.set(x, y, hex('#5a7a3a')); c.set(x + 1, y, hex('#3e5a4a')); } };
+/** Dead wood: bark gone grey, split, no moss. */
+DRAW.dead_trunk = (c) => { c.noise(DEAD, 8, [hex('#77746c'), hex('#a09c92'), hex('#6a665e')], 0.3); for (let x = 1; x < TEX; x += 3) for (let y = 0; y < TEX; y++) if (c.rng() < 0.75) c.shade(x + (c.rng() < 0.2 ? 1 : 0), y, 0.72); };
+DRAW.dead_trunk_top = (c) => { c.noise(hex('#a39f94'), 6); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (Math.abs(d - 3) < 0.6 || Math.abs(d - 6) < 0.6) c.shade(x, y, 0.75); if (d > 7.2) c.set(x, y, hex('#77746c')); } };
+DRAW.note_desk_top = (c) => { c.noise(hex('#8a6a42'), 6, [hex('#7a5c38')], 0.2); for (let y = 3; y < 13; y++) for (let x = 4; x < 12; x++) c.set(x, y, hex('#efe9d8')); for (let y = 5; y < 12; y += 2) for (let x = 5; x < 11; x++) if (c.rng() < 0.85) c.set(x, y, hex('#5a6072')); };
+DRAW.manual_shelf = (c) => {
+  c.noise(hex('#7a5c38'), 6);
+  for (const y of [0, 7, 15]) for (let x = 0; x < TEX; x++) c.set(x, y, hex('#4f3b29'));
+  for (let x = 1; x < 15; x += 2) { const col = [hex('#6a2f2a'), hex('#2f4a6a'), hex('#3a5a3a'), hex('#8a7a4a')][Math.floor(c.rng() * 4)]; for (let y = 9; y < 15; y++) c.set(x, y, col); }
+  for (let y = 1; y < 7; y++) for (let x = 5; x < 11; x++) c.set(x, y, hex('#f2f5f2')); // the manual, face out: a white cover, a red cross
+  for (let k = 2; k < 6; k++) { c.set(7, k, hex('#c0281c')); c.set(8, k, hex('#c0281c')); } for (let x = 6; x < 10; x++) { c.set(x, 3, hex('#c0281c')); c.set(x, 4, hex('#c0281c')); }
+};
+/** The hoist: a winch painted works-yellow so it is seen in its corner, a grey drum of cable, a black-striped foot. */
+DRAW.hoist = (c) => { c.noise(hex('#e0a81c'), 6, RUST, 0.06); for (let y = 3; y < 9; y++) for (let x = 3; x < 13; x++) c.set(x, y, (y % 2) ? hex('#9aa0a6') : hex('#6a7178')); for (let x = 0; x < TEX; x++) for (const y of [13, 14, 15]) c.set(x, y, ((x + y) >> 1) % 2 ? hex('#141414') : hex('#e0a81c')); c.set(13, 5, hex('#c0281c')); c.set(14, 5, hex('#c0281c')); };
+DRAW.hoist_top = (c) => { c.noise(hex('#e0a81c'), 6, RUST, 0.06); for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) c.set(x, y, hex('#9aa0a6')); c.set(7, 7, hex('#3a3f44')); c.set(8, 8, hex('#3a3f44')); };
+DRAW.telescope = (c) => { c.noise(hex('#e4e4de'), 4); for (let x = 0; x < TEX; x++) { c.shade(x, 0, 1.1); c.shade(x, 15, 0.7); } for (const x of [3, 12]) for (let y = 0; y < TEX; y++) c.set(x, y, hex('#b08d3a')); };
+DRAW.med_bench = (c) => { c.noise(hex('#dfe4e6'), 4); for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#9aa4a8')); c.set(x, 8, hex('#b4bcc0')); } for (let k = 3; k < 7; k++) { c.set(7, k, hex('#c0281c')); c.set(8, k, hex('#c0281c')); } for (let x = 5; x < 11; x++) { c.set(x, 4, hex('#c0281c')); c.set(x, 5, hex('#c0281c')); } c.set(12, 11, hex('#6a7178')); c.set(3, 11, hex('#6a7178')); };
+DRAW.med_bench_top = (c) => { c.noise(hex('#eef1f2'), 3); frame(c, hex('#9aa4a8')); for (const [x, y, col] of [[4, 4, '#6fb6e0'], [7, 5, '#3ee05a'], [10, 4, '#e8d23a'], [5, 10, '#c0281c']] as [number, number, string][]) { c.set(x, y, hex(col)); c.set(x, y + 1, hex(col)); c.set(x, y - 1, hex('#c9d0d6')); } for (let x = 8; x < 13; x++) c.set(x, 11, hex('#7d8790')); };
+DRAW.distiller = (c) => { c.noise(hex('#b86a3a'), 7, [hex('#d08a4e'), hex('#9a5228')], 0.25); for (let x = 0; x < TEX; x++) { c.shade(x, 3, 0.8); c.shade(x, 12, 0.8); } c.set(4, 6, hex('#f0c090')); c.set(5, 7, hex('#f0c090')); };
+DRAW.distiller_top = (c) => { c.noise(hex('#c47a44'), 6); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (Math.abs(d - 5) < 0.7) c.shade(x, y, 0.7); if (d < 1.6) c.set(x, y, hex('#5e3a22')); } };
+DRAW.lure = (c) => { c.noise(hex('#3a3f44'), 4); for (let y = 4; y < 12; y += 2) for (let x = 3; x < 13; x++) c.set(x, y, hex('#1c2024')); c.set(12, 13, hex('#c0281c')); };
+DRAW.lure_top = (c) => { c.noise(hex('#3a3f44'), 4); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 4 && (Math.floor(d) % 2 === 0)) c.set(x, y, hex('#1c2024')); } };
+DRAW.lure_top_on = (c) => { DRAW.lure_top(c); for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) c.set(x, y, hex('#ff5a3a')); };
+DRAW.pot = (c) => { c.noise(hex('#8a5a3e'), 7, [hex('#74492f'), hex('#9c6a4a')], 0.25); for (let x = 0; x < TEX; x++) c.shade(x, 4, 0.75); for (const [x, y] of [[5, 8], [10, 9], [7, 11]]) c.set(x, y, hex('#e8d23a')); };
+DRAW.pot_top = (c) => { c.noise(hex('#74492f'), 6); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 7.5, y - 7.5) < 3) c.set(x, y, hex('#d8c84a')); };
+DRAW.pot_top_lit = (c) => { DRAW.pot_top(c); for (let y = 0; y < TEX; y++) for (let x = 0; x < TEX; x++) if (Math.hypot(x - 7.5, y - 7.5) < 3) c.set(x, y, c.rng() < 0.5 ? hex('#ff9a3a') : hex('#e8e4d8')); };
+
 // ---- The workshop and pantry, dressed (docs/HOME.md) -------------------------------------------------------
 /** A smoker's chamber: upright boards, a door on strap hinges with a latch, a draught slot glowing at its foot. */
 DRAW.smoker_body = (c) => {

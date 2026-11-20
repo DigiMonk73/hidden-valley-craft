@@ -9,7 +9,7 @@ import { think, hurt, settle, inPlayersView, KINDS, PACK_KINDS, RAIDER_KINDS, FA
 import { manFaction, standDown, newFaction, PASS, type FactionState } from './faction.ts';
 import { thinkRaider, manOutpost, alertOutpost, ALL_RAIDERS, SHOT_HEARD, type OutpostState, type RaiderEvent } from './outpost.ts';
 import { thinkJaguar } from './jaguar.ts';
-import { thinkAshen, manAshen, standDownAshen, ashenHear, provokeAshen, isHunting, newAshen, SHOT_HEARD as ASHEN_SHOT_HEARD, QUIET_SHOT_HEARD, type AshenEvent, type AshenState } from './ashen.ts';
+import { thinkAshen, manAshen, standDownAshen, ashenHear, provokeAshen, isHunting, newAshen, SHOT_HEARD as ASHEN_SHOT_HEARD, QUIET_SHOT_HEARD, type AshenEvent, type AshenState, type Smoke } from './ashen.ts';
 import { LEGHOLD, HOLD_SECONDS } from '../sim/preserve.ts';
 import { OUTPOST_AT } from '../gen/zone1far.ts';
 import { trySpawn, despawnFar, denPack, groundAt, DEN_SIZE, FLOCK_SIZE } from './spawner.ts';
@@ -55,6 +55,10 @@ export interface WildSenses {
   lightAt?: (x: number, y: number, z: number) => number;
   /** Is the player mining? */
   mining?: boolean;
+  /** The smoke of pots burning now: no Ashen steps into it (docs/PHASE8.md, 4). */
+  smoke?: Smoke[];
+  /** Sonic lures calling this update: every Ashen in earshot that is not hunting goes to one, as to a shot. */
+  calls?: { x: number; z: number; r: number }[];
 }
 
 export type WildSound = { kind: 'rustle' | 'grunt' | 'growl' | 'hit' | 'bark' | 'snarl' | 'yip' | 'cluck'; x: number; y: number; z: number };
@@ -81,6 +85,7 @@ export interface WildEvents {
 
 /** How much of a blow gets through what the player carries: the best of the vest and leather armour. */
 export function armourFactor(count: (name: string) => number): number {
+  if (count('engineer_armor') > 0) return 0.35; // M5's (docs/PHASE8.md, 4)
   if (count('plate_armor') > 0) return 0.5; // M4's tier 2 (docs/PHASE7.md)
   if (count('armor_vest') > 0) return 0.7;
   if (count('leather_armor') > 0) return 0.85;
@@ -106,6 +111,7 @@ export class Wild {
   /** Zone-3's Ashen: who is down until dawn (saved), and whether the first one still stands out in the road. */
   ashen: AshenState = newAshen();
   private quietHeard = false;
+  private callsHeard: { x: number; z: number; r: number }[] = [];
   /** The blocks as the last update saw them: what a creature added by hand is fitted against. */
   private blocks: BlockAt | null = null;
 
@@ -114,6 +120,8 @@ export class Wild {
     const ev: WildEvents = { hits: [], sounds: [], kills: [], picked: 0, snared: [], raiders: [], jaguar: [], silent: 0, ashen: [] };
     if (s.shot) this.shotHeard = true;
     if (s.quietShot) this.quietHeard = true;
+    // A lure's call is kept, like a shot, until the next step hears it (steps run at 20 Hz, the game faster).
+    if (s.calls?.length) this.callsHeard.push(...s.calls);
     this.blocks = s.blockAt;
     this.acc += dt;
     while (this.acc >= STEP) {
@@ -152,9 +160,11 @@ export class Wild {
       if (this.outpost.left && this.creatures.some((c) => RAIDER_KINDS.has(c.kind) && near(c))) alertOutpost(this.creatures, this.outpost);
       if (this.creatures.some((c) => FACTION_KINDS.has(c.kind) && near(c))) this.alertFaction();
     }
+    for (const call of this.callsHeard) ashenHear(this.creatures, call.x, call.z, call.r);
+    this.callsHeard = [];
     this.shotHeard = false;
     this.quietHeard = false;
-    const ashenSenses = { ...senses, lightAt: s.lightAt ?? (() => 15), mining: s.mining };
+    const ashenSenses = { ...senses, lightAt: s.lightAt ?? (() => 15), mining: s.mining, smoke: s.smoke };
     for (const c of [...this.creatures]) {
       if (!s.loaded(c.x, c.z)) continue; // its ground isn't there: it waits
       const before: Mind = c.mind;

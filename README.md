@@ -56,7 +56,7 @@ node tests/e2e/play.mjs
 
 The play-through is in parts, each a standalone script that sets its own scene and runs in about 15–25
 minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `play-mid.mjs` (Zone-1), `play-zone2.mjs`
-(Zone-2 and power) and `play-zone3.mjs` (Zone-3, the Ashen and hydro). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
+(Zone-2 and power), `play-zone3.mjs` (Zone-3, the Ashen and hydro) and `play-zone4.mjs` (Zone-4, the ridge, the uplink and the ending). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
 tests/e2e/play.mjs` runs only some, and `node tests/e2e/play-zone2.mjs` runs one directly.
 
 The saves have their own short browser check (about two minutes): a walk with no edit surviving a reload, a second
@@ -91,10 +91,11 @@ node --experimental-strip-types tools/texsheet.ts
 `node --experimental-strip-types --no-warnings tools/homeslice.ts y=82` prints a level of the home as letters, and
 `tools/landhash.ts` hashes the land outside the home, to show a change to the home changed nothing else (docs/HOME.md).
 `node tools/showroom.mjs table chair@south` photographs pieces of furniture from where a player would stand.
+`node tools/shots-phase8.mjs` photographs Phase 8's screens as they are played: the dose meter, the telescope, the uplink's answers, the closing card, the map table (`out/p8h_*.png`).
 
 `npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
-tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, and `tools/zone3map.ts` Zone-3's into
-`docs/phase7-map.png`); the second command draws every block texture side by side.
+tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, `tools/zone3map.ts` Zone-3's into
+`docs/phase7-map.png`, and `tools/zone4map.ts` Zone-4's into `docs/phase8-map.png`); the second command draws every block texture side by side.
 
 `node --experimental-strip-types --no-warnings tools/worldhash.ts out/now.json 21 63 0 63` hashes every generated
 column east of the river's gorge, and `tools/worldhash.ts --diff tests/fixtures/east-of-ravine.json out/now.json` lists

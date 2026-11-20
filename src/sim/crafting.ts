@@ -7,7 +7,7 @@ import { itemId } from '../world/items.ts';
 import { blockName, BLOCK_DEFS } from '../world/blocks.ts';
 import type { Inventory, Stack } from './inventory.ts';
 
-export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge' | 'powder_mill' | 'crucible_furnace' | 'lathe';
+export type Station = 'hand' | 'workbench' | 'kiln' | 'smelter' | 'anvil' | 'stove' | 'tannery' | 'forge' | 'powder_mill' | 'crucible_furnace' | 'lathe' | 'med_bench' | 'distiller';
 
 /**
  * `learn`: a flag that must be earned before the recipe shows (the leghold, learned at the camp).
@@ -22,6 +22,7 @@ export const AFTER_LABEL: Record<string, string> = {
   m1_done: 'after M1 · the first outside run',
   m2_done: 'after M2 · the homestead expansion',
   m3_done: 'after M3 · power up',
+  m4_done: 'after M4 · hydro',
 };
 
 export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
@@ -34,7 +35,7 @@ export const RECIPES: Recipe[] = (data.recipes as RecipeSource[]).map((r) => ({
 }));
 
 export const STATION_LABEL: Record<Station, string> = {
-  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill', crucible_furnace: 'Crucible furnace', lathe: 'Lathe',
+  hand: 'By hand', workbench: 'Workbench', kiln: 'Kiln', smelter: 'Smelter', anvil: 'Anvil', stove: 'Stove', tannery: 'Tannery rack', forge: 'Forge', powder_mill: 'Powder mill', crucible_furnace: 'Crucible furnace', lathe: 'Lathe', med_bench: 'Medical bench', distiller: 'Distiller',
 };
 
 /** Which station a block is, if any. The hearth cooks like the range, and so does any part of either. */
@@ -53,6 +54,8 @@ export function stationOf(block: number): Station | null {
     case 'powder_mill': return 'powder_mill';
     case 'crucible_furnace': return 'crucible_furnace';
     case 'lathe': return 'lathe';
+    case 'med_bench': return 'med_bench';
+    case 'distiller': return 'distiller';
     default: return null;
   }
 }

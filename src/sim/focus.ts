@@ -36,6 +36,9 @@ export class Focus {
     return null;
   }
 
+  /** A shot of adrenaline (docs/PHASE8.md, 4): the meter is full again at once. */
+  refill(): void { this.left = FOCUS_SECONDS; }
+
   /** Put the gun away, open a screen, die: focus ends at once. */
   stop(): void { this.active = false; }
 }

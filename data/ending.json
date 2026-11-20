@@ -1,0 +1,12 @@
+{
+  "_comment": "The closing card (docs/PHASE8.md, 7): shown once, when the uplink's first answer has been read and put down. White on black, a paragraph at a time. It says what the player has done, names what is still out there, and returns them to the valley. Each paragraph is a list of lines.",
+  "card": [
+    ["It answered."],
+    ["Not a voice. Positions, times, a list.", "Whatever keeps the satellites alive does not care who asks.", "It answered you."],
+    ["You came up out of the water with nothing.", "Now a wheel turns in the creek, a dish stands on the cliff,", "and nobody has found the valley."],
+    ["Still out there: Marco on his road. Doc on a bad line.", "Ray, who left his dam and still listens for it.", "A handset called Mira, far to the north, calling and calling.", "Two that stopped at one place on the coast road,", "two days apart, eight years ago."],
+    ["The valley is yours. The rest is waiting."]
+  ],
+  "button": "Back to the valley",
+  "again": "The story so far"
+}

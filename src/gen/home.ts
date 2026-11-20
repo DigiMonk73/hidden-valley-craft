@@ -31,6 +31,10 @@ export const HOME_FIT = {
   /** The journal: any of the bookshelves in the living room's south-east corner. */
   bookshelf: [1814, F + 1, 1031] as [number, number, number],
   mapTable: [1812, F, 1020] as [number, number, number],
+  /** The builder's hoist on the balcony, in the north corner by the rock: where the satellite antenna is sent up from (docs/PHASE8.md). */
+  hoist: [1800, F, 1014] as [number, number, number],
+  /** Where the antenna's mast goes: the cliff's edge above the cave's mouth is searched along this row, from the valley side in. */
+  mast: { z: 1024, x0: 1797, x1: 1804, above: 104 },
   /** Left empty for what the milestones bring: the rain awning (M3), the planter boxes (M4), the telescope (M5). */
   reserved: {
     awning: { x0: 1796, x1: 1800, z0: 1030, z1: 1034 },
@@ -91,6 +95,10 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   // A bench against the rock, north of the mouth.
   put(1800, F, 1015, 'bench@west');
   put(1800, F, 1016, 'bench@west');
+  // The builder's hoist, in the corner by the rock: a winch he never got to use, for the satellite antenna
+  // (docs/PHASE8.md, 5). Not solid, like the storm lanterns: a solid one beside the bench was two steps onto the
+  // railing (the balcony's own flood test found it), and nothing may stand above the railing on this side.
+  put(...HOME_FIT.hoist, 'antenna_hoist');
 
   // The kitchen, at the south end with its back to the rock: a cast-iron range three wide (oven, firebox, warming
   // oven), a copper hood over it, and the flue up the cliff to a cap high overhead, where the smoke drifts out over the valley.

@@ -1,7 +1,9 @@
 // The map on the builder's table: the land from the layout, shown only where the player has been
 // (one cell per 32 m column), with the cave and the player marked.
 
-import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL, ZONE2, highwayX, ZONE3, inReservoir } from '../gen/layout.ts';
+import { surfaceHeight, zoneAt, distToValley, POOL, CANYON_POOL, inCanyonStream, VALLEY, HOME, creekDistance, ROAD, RAMP, ZONE1, ZONE1FAR, roadZ, TUNNEL, ZONE2, highwayX, ZONE3, inReservoir, ZONE4, PLACES, falloutAt, ridgeRoadLength, ridgeRoadPoint } from '../gen/layout.ts';
+import { NESTS } from '../entity/ashen.ts';
+import { MIRA } from '../sim/uplink.ts';
 import { cpuCanvas } from '../platform/canvas.ts';
 import { SCOUT_AT } from '../gen/zone1.ts';
 import { WORLD_X, WORLD_Z, COLS_X } from '../world/constants.ts';
@@ -32,7 +34,7 @@ function landColours(): Uint8ClampedArray {
 }
 
 /** What the map shows beyond the land: the road home once known, and the places found. */
-export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean; highway?: boolean; ruins?: boolean; cave?: boolean; compound?: boolean; dam?: boolean; works?: boolean }
+export interface MapMarks { route?: boolean; shelter?: boolean; scout?: boolean; farm?: boolean; outpost?: boolean; mine?: boolean; camp?: boolean; bridge?: boolean; highway?: boolean; ruins?: boolean; cave?: boolean; compound?: boolean; dam?: boolean; works?: boolean ; ridge?: boolean; fallout?: boolean; nests?: boolean; mira?: boolean }
 
 export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, marks: MapMarks = {}): HTMLCanvasElement {
   const { canvas, ctx } = cpuCanvas(N, N);
@@ -87,6 +89,44 @@ export function drawMap(explored: Uint8Array, playerX: number, playerZ: number, 
     ctx.fillRect(Z3.avenue.x * s - 0.5, D.z * s, 1, (Z3.avenue.z1 - D.z) * s);
     for (const b of [Z3.powerhouse, Z3.shop, Z3.foundry]) mark((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, '#2d5f8a');
     mark((Z3.yard.x0 + Z3.yard.x1) / 2, Z3.yard.z0 + 30, '#6e3a22');
+  }
+  // Zone-4 (docs/PHASE8.md). The ridge road, once its gate has been reached: the avenue's bend to the tower.
+  const ridgeRoad = () => { ctx.beginPath(); for (let d = 0; d <= ridgeRoadLength(); d += 6) { const [x, z] = ridgeRoadPoint(d); ctx.lineTo(x * s, z * s); } ctx.stroke(); };
+  // What the uplink's RAD answer adds: the poisoned ground, hatched in yellow, the sump in red, the road through it.
+  if (marks.fallout) {
+    const C = ZONE4.centre, R = ZONE4.reach;
+    const px = WORLD_X / N; // metres a pixel
+    for (let j = Math.max(0, Math.floor((C.z - R) / px)); j <= (C.z + R) / px; j++) for (let i = Math.max(0, Math.floor((C.x - R) / px)); i <= (C.x + R) / px; i++) {
+      const x = (i + 0.5) * px, z = (j + 0.5) * px, f = falloutAt(x, z);
+      if (f <= 0 || (i + j) & 1) continue;
+      ctx.fillStyle = f > ZONE4.rates.off ? 'rgba(190,40,20,.85)' : f >= ZONE4.rates.off * 0.9 ? 'rgba(214,170,20,.7)' : 'rgba(214,190,60,.4)';
+      ctx.fillRect(i, j, 1, 1);
+    }
+    ctx.strokeStyle = '#a3241c'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(ZONE4.sump.x * s, ZONE4.sump.z * s, ZONE4.sump.r * s, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (marks.ridge || marks.fallout) {
+    ctx.strokeStyle = marks.fallout ? '#1b130a' : '#5a5a5a'; ctx.lineWidth = 1;
+    ridgeRoad();
+    mark(ZONE4.gate.x, ZONE4.gate.z, '#d6a614');
+    if (marks.fallout) { mark(ZONE4.clean.x, ZONE4.clean.z, '#2e8a4a'); mark(PLACES.ridgeTower.x, PLACES.ridgeTower.z, '#1b130a'); }
+  }
+  // BIO: every nest, ringed.
+  if (marks.nests) {
+    ctx.strokeStyle = '#6a1a6a'; ctx.lineWidth = 1;
+    for (const n of NESTS) { ctx.beginPath(); ctx.arc(n.x * s, n.z * s, 2.5, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = '#6a1a6a'; ctx.fillRect(n.x * s - 0.5, n.z * s - 0.5, 1, 1); }
+  }
+  // END: the beacon far to the north, as a bearing on the map's edge.
+  if (marks.mira) {
+    const a = (MIRA.brg * Math.PI) / 180, x0 = HOME.wallX * s, z0 = VALLEY.cz * s;
+    // From the cave along the bearing to the top edge.
+    const t = z0 / Math.cos(a), ex = Math.max(8, Math.min(N - 8, x0 + Math.sin(a) * t));
+    ctx.strokeStyle = '#2c5a8c'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(x0, z0); ctx.lineTo(ex, 4); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#2c5a8c';
+    ctx.beginPath(); ctx.moveTo(ex, 1); ctx.lineTo(ex - 4, 9); ctx.lineTo(ex + 4, 9); ctx.closePath(); ctx.fill();
+    ctx.font = '9px Georgia, serif';
+    ctx.fillText(`${MIRA.id} · ${String(MIRA.brg).padStart(3, '0')}° · ${Math.round(MIRA.km)} km`, Math.min(N - 110, ex + 7), 10);
   }
   // The cave, and where the player stands.
   ctx.fillStyle = '#7a1f12';

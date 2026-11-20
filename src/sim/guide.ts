@@ -3,13 +3,14 @@
 
 import data from '../../data/guide.json' with { type: 'json' };
 import { M1_STEPS, M2_STEPS, M3_STEPS, M4_STEPS, type Step } from './milestones.ts';
+import { M5_STEPS } from './m5.ts';
 
 export const OPENING: string[] = data.opening;
 export const FIRST_GOALS: Step[] = data.goals.map((g) => ({ flag: g.flag, label: g.text }));
 export const HINTS: Record<string, string> = data.hints;
 
 const MILESTONE_STEPS: [string, string, Step[]][] = [
-  ['m1_done', 'M1', M1_STEPS], ['m2_done', 'M2', M2_STEPS], ['m3_done', 'M3', M3_STEPS], ['m4_done', 'M4', M4_STEPS],
+  ['m1_done', 'M1', M1_STEPS], ['m2_done', 'M2', M2_STEPS], ['m3_done', 'M3', M3_STEPS], ['m4_done', 'M4', M4_STEPS], ['m5_done', 'M5', M5_STEPS],
 ];
 
 /**

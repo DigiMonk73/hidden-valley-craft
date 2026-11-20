@@ -15,6 +15,10 @@ import { ZONE2 } from './gen/layout.ts';
 import * as Z2 from './gen/zone2.ts';
 import { ZONE3 } from './gen/layout.ts';
 import * as Z3 from './gen/zone3.ts';
+import { ZONE4, PLACES, ridgeRoadPoint, ridgeRoadMark, ridgeRoadLength, ridgeRoadHeight } from './gen/layout.ts';
+import * as Z4 from './gen/zone4.ts';
+import { RAY_SPOT } from './sim/ridge.ts';
+import { scopeTargets } from './sim/telescope.ts';
 import { manAshen } from './entity/ashen.ts';
 import { floorNear } from './entity/wild.ts';
 import { makeJaguar } from './entity/jaguar.ts';
@@ -78,7 +82,15 @@ function start(data: unknown): void {
       places: { ZONE1, SADDLE, SCOUT_AT, MARCO_SPOT, YARD, DEN, BARN_CRATES, ZONE1FAR, POSTS, OUTPOST_AT, DECK_END, CAMP_MARKER, CAMP_AT, RAIDER_CRATE, RAIDER_FORGE, RUSTED_TRAP, LODGE_CHEST, APPLE_TREE,
         ZONE2, Z2: { GATE_X: Z2.GATE_X, TOWER_POSTS: Z2.TOWER_POSTS, PHARMACY_COUNTER: Z2.PHARMACY_COUNTER, HARDWARE_CRATE: Z2.HARDWARE_CRATE, SERVER_RACKS: Z2.SERVER_RACKS, UPS_CABINETS: Z2.UPS_CABINETS, DISPLAY_FRIDGES: Z2.DISPLAY_FRIDGES, HOT_POOL: Z2.HOT_POOL, CAVE_FLOOR: Z2.CAVE_FLOOR, COMPOUND_FLOOR: Z2.COMPOUND_FLOOR },
         ZONE3, Z3: { LOGBOOK_DESK: Z3.LOGBOOK_DESK, PARTS_CRATE: Z3.PARTS_CRATE, TOOL_LOCKER: Z3.TOOL_LOCKER, CONTROL_CABINETS: Z3.CONTROL_CABINETS, OLD_LATHES: Z3.OLD_LATHES, STEEL_RACKS: Z3.STEEL_RACKS, SHOP_CRATE: Z3.SHOP_CRATE,
-          FOUNDRY_CRUCIBLE: Z3.FOUNDRY_CRUCIBLE, BOXCAR_CRATE: Z3.BOXCAR_CRATE, GALLERY_FLOOR: Z3.GALLERY_FLOOR, CROSSING_LIGHTS: Z3.CROSSING_LIGHTS } },
+          FOUNDRY_CRUCIBLE: Z3.FOUNDRY_CRUCIBLE, BOXCAR_CRATE: Z3.BOXCAR_CRATE, GALLERY_FLOOR: Z3.GALLERY_FLOOR, CROSSING_LIGHTS: Z3.CROSSING_LIGHTS },
+        // Zone-4 and M5 at home (docs/PHASE8.md).
+        ZONE4, RIDGE_TOWER: PLACES.ridgeTower, HOIST: HOME_FIT.hoist, MAST: HOME_FIT.mast, RAY_SPOT,
+        Z4: { BOOTH_SHELF: Z4.BOOTH_SHELF, HUT_CRATE: Z4.HUT_CRATE, HUT_STOVE: Z4.HUT_STOVE, HUT_LOG: Z4.HUT_LOG, DOME_SCOPE: Z4.DOME_SCOPE, DOME_PAGE: Z4.DOME_PAGE, DOME_CRATE: Z4.DOME_CRATE,
+          RELAY_RACKS: Z4.RELAY_RACKS, RELAY_CRATE: Z4.RELAY_CRATE, PHARMA_MANUAL: Z4.PHARMA_MANUAL, RELAY_PAGE: Z4.RELAY_PAGE, DISH_PANELS: Z4.DISH_PANELS } },
+      /** What a telescope at the player's eye can name now (docs/PHASE8.md, 5): for aiming it in checks. */
+      scopeTargets: () => scopeTargets([game.player.x, game.player.eyeY, game.player.z], game.hour, (game as unknown as { time: number }).time),
+      /** The ridge road by distance along it (m): a point, the distance at one of its corners, its length. */
+      ridge: { point: (s: number) => ridgeRoadPoint(s), mark: (i: number) => ridgeRoadMark(i), length: () => ridgeRoadLength(), height: (s: number) => ridgeRoadHeight(s) },
       /** Puts the outpost's living raiders at their posts now (screenshots and checks run with spawning off). */
       manOutpost: () => {
         const w = game.wild, p = game.player;

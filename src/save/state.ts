@@ -14,6 +14,7 @@ import { START_WALLET } from '../sim/trade.ts';
 import { FLOCK_SIZE } from '../entity/spawner.ts';
 import { ALL_RAIDERS } from '../entity/outpost.ts';
 import { ALL_ASHEN } from '../entity/ashen.ts';
+import { devicesFromSave } from '../sim/countermeasures.ts';
 
 /** Where a new game begins: on the balcony, looking west over the valley. */
 export const START = { x: HOME.wallX - 3.5, y: HOME.floor, z: 1024.5, yaw: Math.PI / 2, pitch: -0.06 };
@@ -47,7 +48,7 @@ export function newSave(mode: Mode = 'survival'): SaveData {
     hotbar: Inventory.starter().toSave(), spill: [], selected: 0, palette: [], edits: [], containers: [],
     vitals: { ...ARRIVAL }, spawn: { x: START.x, y: START.y, z: START.z, yaw: START.yaw },
     flags: [], explored: [], wallet: START_WALLET, marcoPaid: 0, den: 3, flock: FLOCK_SIZE, outpost: ALL_RAIDERS,
-    dose: 0, factionDown: 0, ashenDown: 0, live: { solar: [], hydro: [] },
+    dose: 0, factionDown: 0, ashenDown: 0, live: { solar: [], hydro: [] }, day: 0, lastPull: null, running: [],
   };
 }
 
@@ -61,6 +62,8 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   1: (d) => { d.id = oldValleyId(d); d.seq = 0; },
   // 2 → 3: a valley has a mode. One made before the choice existed is Survival, and already begun.
   2: (d) => { d.mode = 'survival'; d.flags = [...(Array.isArray(d.flags) ? d.flags : []), BEGUN]; },
+  // 3 → 4: the days are counted from here on; no drawing has been sent, and nothing is running.
+  3: (d) => { d.day = 0; d.lastPull = null; d.running = []; },
 };
 
 /** Brings an older save up to this build's version, in place. False if a step is missing (a version never made). */
@@ -172,5 +175,8 @@ export function normaliseSave(raw: unknown): SaveData | null {
     dose: clamp(num(d.dose, 0), 0, 100),
     factionDown: int(d.factionDown, 0, 31, 0), ashenDown: int(d.ashenDown, 0, ALL_ASHEN, 0) & ALL_ASHEN,
     live: { solar: spots(live.solar), hydro: spots(live.hydro) },
+    day: int(d.day, 0, 1e7, 0),
+    lastPull: fin(d.lastPull) && d.lastPull >= 0 ? d.lastPull : null,
+    running: devicesFromSave(d.running).filter((r) => r.x >= 0 && r.x < WORLD_X && r.y >= 0 && r.y < WORLD_Y && r.z >= 0 && r.z < WORLD_Z).slice(0, 64),
   };
 }

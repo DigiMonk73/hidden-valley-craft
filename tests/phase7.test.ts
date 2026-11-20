@@ -395,7 +395,8 @@ describe('the Ashen: the sanctuary and the dam', () => {
       if (!ashenGround(x, z)) continue;
       ground++;
       expect(inSanctuary(x, z)).toBe(false);
-      expect(zoneAt(x, z)).toBe('zone3');
+      // (Phase 8 gave them the ground round the relay station on the ridge, in Zone-4: tests/phase8.test.ts.)
+      expect(['zone3', 'zone4']).toContain(zoneAt(x, z));
       expect(x).toBeLessThan(ravineX(z) - 26);
     }
     expect(ground).toBeGreaterThan(1000);
@@ -653,8 +654,9 @@ describe('the Ashen: packs, noise, and coming back', () => {
   });
 
   it('keeps nine in five nests of one or two; the killed stay down until dawn', () => {
-    expect(SLOTS.length).toBe(9);
-    expect(ALL_ASHEN).toBe(511);
+    // (Phase 8 added the relay station's two on the ridge, after Zone-3's nine: bits 9 and 10.)
+    expect(SLOTS.filter((q) => q.nest < ZONE3.nests.length).length).toBe(9);
+    expect(ALL_ASHEN & 511).toBe(511);
     const n = ZONE3.nests[1];
     const st = newAshen();
     st.firstOut = false;

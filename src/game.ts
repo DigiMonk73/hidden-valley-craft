@@ -76,15 +76,60 @@ import { turning, liveFromSave, HYDRO_KW, chillJugs } from './sim/power.ts';
 import { wakeFrom, settleWake } from './sim/wake.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
+// Zone-4 and the uplink (docs/PHASE8.md).
+import { absorb, doseRate, meterLine, roadDose } from './sim/radiation.ts';
+import { isMedicine, useMedicine, medicineIdle, blowFelt, stepAdrenaline } from './sim/medicine.ts';
+import { ridgePlaceAt, ridgeToast, rayWaiting, canAskMeeting, gateRefuge, RAY_SPOT, RAY_FROM, RAY_UNTIL } from './sim/ridge.ts';
+import { trackM5, craftedFlag, diedOutsideM5 } from './sim/m5.ts';
+import { startDevice, stepDevices, smokeOf, devicesFromSave, LURE_HEARD, type Device } from './sim/countermeasures.ts';
+import { scopeTargets, aimedAt, scopeLabel, satTrain, SCOPE_ZOOM, SCOPE_NEAR } from './sim/telescope.ts';
+import { hoursToDusk, MIRA, type LinkNeeds } from './sim/uplink.ts';
+import { uplinkView, findPlaced } from './game/uplink.ts';
+import { askRayToMeet, meetRay } from './game/people.ts';
+import { ScopeView } from './ui/scopeView.ts';
+import { antennaBlocks, antennaSpot } from './gen/antenna.ts';
+import { HUT_LOG, DOME_PAGE, RELAY_PAGE } from './gen/zone4.ts';
+import { ZONE4, ridgeRoadAt, ridgeRoadLength, ridgeRoadMark, inFallout } from './gen/layout.ts';
+import { NESTS } from './entity/ashen.ts';
+import { isPerson } from './entity/creatures.ts';
 
 const KILL_LINE: Record<Creature['kind'], string> = {
   rabbit: 'A rabbit: meat and a small hide', deer: 'A deer: venison, a hide and bone', boar: 'A wild boar: pork, a hide and bone', puma: 'The puma is dead. Its pelt is yours',
-  dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '',
+  dog: 'The dog is dead: a hide and bone', coyote: 'A coyote: its hide', chicken: 'A chicken: meat and feathers', marco: '', ray: '',
   lookout: 'The lookout is down. His rifle and his rounds are yours.', gunman: 'The man with the pistol is down. His pistol and rounds are yours.',
   rusher: 'The man with the machete is down. His machete is yours.', jaguar: 'The jaguar is dead. Its pelt is yours.',
   patrol: 'The patrolman is down: a few rounds and casings. Las Cruces will send another at dawn.', sentry: 'The sentry is down. Another will walk his beat tomorrow.',
   guard: 'The guard is down: his rounds are yours. The tower will be manned again at dawn.',
   ashen: 'It is down. It carries nothing, and you don’t touch it. Others drift in by dawn.',
+};
+/** Right-click with one of M5's things in hand: what it is for (docs/PHASE8.md). */
+const HELD_HINT: Record<string, string> = {
+  hazard_suit: 'The hazard suit. It works from your pack: carry it and the ridge’s dose is cut to a fortieth.',
+  sat_antenna: 'The satellite antenna, assembled. Take it to the builder’s hoist, in the balcony’s north corner, and right-click the hoist.',
+  uplink_terminal: 'The uplink terminal. Right-click the builder’s computer with it to fit it.',
+  sat_modem: 'The dam’s telemetry modem, with its keys. The uplink terminal is built round it, at the workbench.',
+  antenna_section: 'A panel of the tower’s dish. Three, with steel and wiring, make the satellite antenna at the workbench.',
+  rare_components: 'Rare components: an amplifier, a waveguide, an oscillator. The terminal, the medical bench and the uplink’s drawings use them.',
+  telescope_optics: 'The observatory’s mirror, in its cell. The lathe makes a telescope round it.',
+  thermal_optic: 'The thermal optic. Carried, it shows every warm body within sixty metres while you hold focus (Q), in any dark.',
+  engineer_armor: 'Engineer’s armour. It works from your pack: about a third of a blow gets through.',
+  spirit: 'Spirit, from the distiller. The medical bench makes medicines with it. Not for drinking.',
+};
+/** Said the first time each of M5's things is made. */
+const MADE_LINE: Record<string, string> = {
+  hazard_suit: 'A hazard suit. It works from your pack. Call Ray: he will meet someone who carries one.',
+  sat_antenna: 'The satellite antenna, assembled. Take it to the builder’s hoist in the balcony’s north corner.',
+  telescope: 'A telescope. Set it down under open sky at home: the balcony will do. The uplink needs it to find the satellites.',
+  uplink_terminal: 'The uplink terminal. Right-click the builder’s computer with it in your hand.',
+  med_bench: 'A medical bench. It works while a hydro generator turns: blue tablets, antibiotics, adrenaline. It needs spirit from a distiller.',
+  distiller: 'A distiller. It works while a hydro generator turns: corn or potatoes, water and charcoal make spirit.',
+  rad_tablets: 'Blue tablets of your own. Each binds thirty of your dose.',
+  antibiotics: 'Antibiotics. One brings your health back to the most your dose allows, at once.',
+  adrenaline: 'Adrenaline. For a minute blows hurt half as much and your focus is full. None of these cures what the Ashen have.',
+  thermal_optic: 'The thermal optic. Carry it, and hold focus (Q) with a weapon in hand: they glow.',
+  sonic_lure: 'Sonic lures. Set one down, right-click it, and walk the other way.',
+  smoke_pot: 'Smoke pots. Set one down and right-click it: they will not come into its smoke.',
+  engineer_armor: 'Engineer’s armour: about a third of a blow gets through. Carry it in your pack.',
 };
 /** How near a hunting Ashen keeps hold H from working (docs/PHASE7.md). */
 const ASHEN_HOLDS_H = 30;
@@ -179,6 +224,23 @@ export class Game {
   private powerHour: number | null = null;
   /** The radiation dose, 0–100 (docs/PHASE6.md, 3). */
   dose = 0;
+  /** The meter's second line: the rate, the suit, the time to the limit (docs/PHASE8.md, 2). */
+  private doseLine = { text: '', alarm: false };
+  /** Days since this valley was begun, counted at each midnight: with the hour, the uplink's clock (docs/PHASE8.md, 6). */
+  day = 0;
+  /** When the uplink last sent a drawing, on its clock (hours); null: never. */
+  lastPull: number | null = null;
+  /** Sonic lures wailing and smoke pots burning now (docs/PHASE8.md, 4). */
+  running: Device[] = [];
+  /** Seconds of adrenaline still in the blood. */
+  adrenaline = 0;
+  /** Looking through a telescope: where it stands (docs/PHASE8.md, 5). */
+  private scoping: { x: number; y: number; z: number } | null = null;
+  private scope: ScopeView | null = null;
+  /** A telescope stands under the sky at home (as last seen: the home's land may not be loaded). */
+  private scopeOk = false;
+  private rayGreeted = false;
+  private ui: HTMLElement;
   private doseToasted = false;
   private wallToast = -Infinity;
   /** Where the player wakes after a death or a night's sleep. */
@@ -237,6 +299,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, opts: BootOptions) {
     this.opts = opts;
+    this.ui = ui;
     this.player.flow = riverCurrent;
     this.wild.spawning = !opts.test;
     this.renderer = new Renderer(canvas);
@@ -261,6 +324,7 @@ export class Game {
       }
       if (r.out[0] === itemId('plate_armor')) { this.flags.add('armor2_made'); this.hud.toast('Plate armour: it stops half of every blow. Carry it in your pack.', 7000); }
       if (r.out[0] === blockId('hydro_generator')) this.once('hydro_toast', 'The hydro generator. Set it in the valley’s creek, at the water: it makes power day and night.', 9000);
+      this.madePhase8(itemName(r.out[0]));
       if (r.out[0] === blockId('powder_mill')) this.once('mill_toast', 'A powder mill. Set it down and right-click it: saltpeter, charcoal and sulfur make gunpowder.', 7000);
     };
     this.screen.known = this.flags;
@@ -281,8 +345,10 @@ export class Game {
       setVolume: (v) => { this.sound.volume = v; void this.saveSettings(); },
     });
     this.look.onDelta = (dx, dy) => {
-      this.player.yaw -= dx;
-      this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch - dy));
+      // Through the telescope the hand is as much finer as the view is narrower.
+      const fine = this.scoping ? 1 / SCOPE_ZOOM : 1;
+      this.player.yaw -= dx * fine;
+      this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch - dy * fine));
     };
     this.look.onNotice = (t) => this.hud.toast(t);
     this.look.onModeChange = (m) => {
@@ -430,6 +496,8 @@ export class Game {
         // Out in the land the lift comes first (straight up to the surface); in the home there is a hill of rock
         // overhead, so the cave is the safe place, and it is the fallback anywhere the lift finds no room.
         if (this.checkBuried && !p.flying && !inHome && p.liftOut((x, y, z) => this.world.blockAt(x, y, z), WORLD_Y - 3)) this.hud.toast('The land here has changed since this save: you have been set down on the surface.', 7000);
+        // And one from when the ridge stood higher hangs in the air: it is set down, unhurt (docs/PHASE8.md, 9).
+        else if (this.checkBuried && !p.flying && !inHome && inFallout(p.x, p.z) && p.setDown((x, y, z) => this.world.blockAt(x, y, z))) this.hud.toast('The land here has changed since this save: you have been set down on the ground.', 7000);
         this.checkBuried = false;
         this.dropSpill();
         if (!this.opts.cam) this.settleIn();
@@ -452,7 +520,11 @@ export class Game {
       }
       // The day stands still while a screen is open, as the body does: a day spent in the pack used to cost no
       // food, pay the rig in full and bring Marco a new purse while his trade stayed open.
-      if (!this.opts.test && !this.screen.isOpen && !this.paper.isOpen) this.hour = (this.hour + (dt / DAY_SECONDS) * 24) % 24;
+      if (!this.opts.test && !this.screen.isOpen && !this.paper.isOpen) {
+        const h = this.hour + (dt / DAY_SECONDS) * 24;
+        if (h >= 24) this.day++; // midnight: the uplink's clock counts the days
+        this.hour = h % 24;
+      }
     }
     // Each morning (or on waking), the hutches breed.
     if (newWatch(this.dayClock, this.hour) && smokeMeat(this.world)) this.edited();
@@ -483,6 +555,9 @@ export class Game {
     this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
     if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
+    // The thermal optic (docs/PHASE8.md, 4): carried, it shows warm bodies while focus runs.
+    this.renderer.creatures.thermal = this.focus.active && this.hotbar.count(itemId('thermal_optic')) > 0;
+    this.tickScope();
     this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
     this.updateSound();
@@ -491,7 +566,7 @@ export class Game {
     // HUD.
     this.hud.updateHotbar(this.hotbar);
     this.hud.setVitals(this.vitals.hp, this.vitals.hunger, this.vitals.thirst, !this.hotbar.creative);
-    this.hud.setDose(this.dose, healthCap(this.dose), !this.hotbar.creative && (this.dose > 0.05 || zoneAt(p.x, p.z) === 'zone2'));
+    this.hud.setDose(this.dose, healthCap(this.dose), !this.hotbar.creative && (this.dose > 0.05 || zoneAt(p.x, p.z) === 'zone2' || zoneAt(p.x, p.z) === 'zone4' || !!this.doseLine.text), this.doseLine.text, this.doseLine.alarm);
     // The bow's draw shows on the same bar as mining; switching away from the bow lets the string down.
     if (this.drawing !== null && !isBow(this.hotbar.current?.id)) this.drawing = null;
     this.hud.setMining(this.drawing !== null ? drawOf(this.playTime - this.drawing) : this.mining.active ? this.mining.progress : 0);
@@ -539,13 +614,14 @@ export class Game {
     }
     if (p.inWater && !this.wasInWater && vy < -3) this.sound.splash();
     this.wasInWater = p.inWater;
+    this.tickDevices(world);
     this.tickWild(world);
     this.tickSurvival(dt, input);
     this.tickRadiation(world);
     this.tickGate(world);
     // Any loss of health is "hurt": it cancels heading home, and keeps H from starting for a while.
     const hurt = this.vitals.hp < this.hpBefore - 0.01;
-    if (hurt) this.lastHurt = this.playTime;
+    if (hurt) { this.lastHurt = this.playTime; this.endScope(); }
     this.hpBefore = this.vitals.hp;
     const h = this.home.update(dt, this.keys.has('KeyH'), hurt || (this.home.held !== null && this.ashenOnYou()));
     if (h === 'go') this.goHome();
@@ -566,13 +642,14 @@ export class Game {
     // Arrow keys turn too (useful where the mouse can't be captured).
     const turn = (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0);
     const tilt = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0);
-    this.player.yaw += turn * dt * 2.2;
-    this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch + tilt * dt * 1.6));
+    const fine = this.scoping ? 1 / SCOPE_ZOOM : 1; // through the telescope the keys are as fine as the mouse
+    this.player.yaw += turn * dt * 2.2 * fine;
+    this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch + tilt * dt * 1.6 * fine));
     this.tickMining(dt);
   }
 
   private readInput(): Input {
-    if (this.screen.isOpen || this.paper.isOpen) return { forward: 0, strafe: 0, jump: false, sprint: false, descend: false };
+    if (this.screen.isOpen || this.paper.isOpen || this.scoping) return { forward: 0, strafe: 0, jump: false, sprint: false, descend: false };
     const k = this.keys;
     return {
       forward: (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0),
@@ -624,7 +701,10 @@ export class Game {
       // The light the Ashen live by: daylight where it reaches, or lamplight.
       lightAt: (x, y, z) => { const l = this.world.lightAt(x, y, z); return Math.max((l >> 4) * this.sky.daylight, l & 15); },
       mining: this.mining.active && this.mining.progress > 0,
+      smoke: smokeOf(this.running),
+      calls: this.lureCalls,
     });
+    this.lureCalls = [];
     this.shotFired = false;
     this.quietShot = false;
     this.wildEvents(ev);
@@ -643,7 +723,8 @@ export class Game {
     }
     if (!this.hotbar.creative && !this.player.flying) {
       for (const h of ev.hits) {
-        const factor = armourFactor((name) => this.hotbar.count(itemId(name)));
+        // Armour first, then adrenaline: for a minute a blow is felt half as much (docs/PHASE8.md, 4).
+        const factor = armourFactor((name) => this.hotbar.count(itemId(name))) * blowFelt(this.adrenaline);
         this.vitals.hp = Math.max(0, this.vitals.hp - h.damage * factor);
         this.sound.hurt();
         this.hud.flashHurt();
@@ -758,6 +839,7 @@ export class Game {
     const hit = this.creatureInSight(MELEE_REACH);
     if (!hit) return false;
     if (hit.c.kind === 'marco') { this.hud.toast(MARCO.strike); return true; }
+    if (hit.c.kind === 'ray') { this.hud.toast('Ray looks at you. “Put that down.”'); return true; }
     if (this.playTime - this.lastBlow < MELEE_COOLDOWN) return true;
     this.lastBlow = this.playTime;
     // A blade on a raider who hasn't seen you: a silent takedown (docs/PHASE5.md).
@@ -809,7 +891,7 @@ export class Game {
       if (gun.quiet) this.sound.bowRelease(); else if (gun.sound === 'rifle') this.sound.rifle(); else this.sound.pistol();
       this.shake = Math.max(this.shake, gun.sound === 'rifle' ? 0.25 : 0.15);
       const hit = this.creatureInSight(gun.range);
-      if (hit && hit.c.kind !== 'marco') this.damageCreature(hit.c, gun.damage);
+      if (hit && !isPerson(hit.c.kind)) this.damageCreature(hit.c, gun.damage);
       this.edited();
       return true;
     }
@@ -821,6 +903,7 @@ export class Game {
     const hit = this.creatureInSight(4);
     if (!hit) return false;
     if (hit.c.kind === 'marco') { this.talkToMarco(); return true; }
+    if (hit.c.kind === 'ray') { this.meetRay(); return true; }
     if (hit.c.kind === 'chicken' && hit.dist > CATCH_REACH && !hit.c.tame) {
       // A grab that falls short: she scuttles off for a moment.
       hit.c.mind = 'flee'; hit.c.timer = 3;
@@ -883,6 +966,8 @@ export class Game {
   private die(): void {
     const p = this.player;
     this.endFocus();
+    this.endScope();
+    this.adrenaline = 0;
     this.drawing = null;
     this.fishing = null;
     this.mining.active = false;
@@ -890,6 +975,7 @@ export class Game {
     diedOutside(this.flags);
     diedOutsideM3(this.flags);
     diedOutsideM4(this.flags);
+    diedOutsideM5(this.flags);
     const at = leaveLostPack(this.world, this.hotbar, p.x, p.y + 0.2, p.z);
     if (at) this.streamer.markUrgentAround(at[0], at[1], at[2]);
     this.wakeAgain(at ? 'You wake at the cave with nothing. Your pack lies where you fell: go back for it.' : 'You wake, aching, back at the cave.');
@@ -1140,6 +1226,11 @@ export class Game {
     if (door === 'blocked') { this.hud.toast('Step out of the doorway first'); return; }
     if (door) { this.sound.place('stone'); this.edited(); return; }
     const station = stationAt((x, y, z) => this.world.blockAt(x, y, z), t.x, t.y, t.z);
+    // The medical bench and the distiller work only while a hydro generator turns (docs/PHASE8.md, 4).
+    if ((station === 'med_bench' || station === 'distiller') && !this.devices.hydro_generator.length) {
+      this.hud.toast(`The ${station === 'med_bench' ? 'medical bench' : 'distiller'} is cold: it needs steady power, day and night. Set a hydro generator turning in the creek.`, 7000);
+      return;
+    }
     if (station) { this.openScreen(null, station); return; }
     // The garden: pick ripe coffee, till with a hoe, sow seeds on farmland.
     const picked = pickCoffee(this.world, this.hotbar, t.x, t.y, t.z);
@@ -1184,6 +1275,7 @@ export class Game {
       // A night's sleep (up to thirteen hours) moves the garden on as if those hours had passed.
       const hours = (6 - this.hour + 24) % 24;
       growWhileAway(this.world, this.player.x, this.player.z, hours, Math.random);
+      if (this.hour >= 17) this.day++; // slept through midnight
       this.hour = 6;
       // The builder's own bed: you wake at its foot, facing the window and the valley. Any other bed: where you stood.
       // (If something has been built at its foot, where you stand will do.)
@@ -1224,10 +1316,8 @@ export class Game {
     if (name === 'raider_forge') { this.hud.toast('The raiders’ hand-crank forge. Mine it with a pickaxe to take its parts home.', 6000); return true; }
     if (this.usePhase6(name, x, y, z)) return true;
     if (this.usePhase7(name)) return true;
-    if (name === 'computer') {
-      this.openPaper(() => this.paper.computer(computerRows(this), 'R.’s terminal'));
-      return true;
-    }
+    if (this.usePhase8(name, x, y, z)) return true;
+    if (name === 'computer') { this.useComputer(); return true; }
     if (name === 'phone') {
       // The builder's phone works from the cave: carried off and set down elsewhere it finds no signal (Doc is not a field medic).
       if (!inSanctuary(x + 0.5, z + 0.5)) { this.hud.toast('No signal out here. The phone works from the cave.', 5000); return true; }
@@ -1239,7 +1329,9 @@ export class Game {
       const marks = { route: f.has('extracted'), shelter: f.has('shelter_found'), scout: f.has('scout_searched'), farm: f.has('farm_seen'),
         outpost: f.has('outpost_seen'), mine: f.has('mine_seen'), camp: f.has('camp_marker'), bridge: f.has('bridge_seen'),
         highway: f.has('highway_seen'), ruins: f.has('ruins_seen'), cave: f.has('cave_seen'), compound: f.has('compound_seen'),
-        dam: f.has('dam_seen'), works: f.has('zone3_entered') };
+        dam: f.has('dam_seen'), works: f.has('zone3_entered'),
+        // Zone-4, and what the uplink's answers add (docs/PHASE8.md, 6).
+        ridge: f.has('ridge_gate'), fallout: f.has('agi_rad'), nests: f.has('agi_bio'), mira: f.has('agi_end') };
       this.openPaper(() => this.paper.map(drawMap(this.explored, this.player.x, this.player.z, marks), marks.route ? 'The builder’s map · the road home is marked' : 'The builder’s map · filled in where you have been'));
       return true;
     }
@@ -1275,6 +1367,10 @@ export class Game {
     }
     if (this.flags.has('doc_known')) rows.push({ name: DOC.contact, status: this.flags.has('doc_called') ? 'by phone' : 'new', cls: 'btc', call: () => { const line = this.callDoc(); return line; } });
     if (this.flags.has('ray_known')) rows.push({ name: RAY.contact, status: this.flags.has('uplink_plans') ? 'by phone · plans sent' : this.flags.has('ray_called') ? 'by phone' : 'new', cls: 'btc', call: () => this.callRay() });
+    // Once Ray has given his word: asking him to the refuge (docs/PHASE8.md, 3).
+    if (canAskMeeting(this.flags)) rows.push({ name: RAY.meetButton, status: this.flags.has('ray_coming') ? 'by day, at the refuge' : this.suited() ? 'you carry the suit: ask him' : 'needs a hazard suit', cls: 'btc', call: () => askRayToMeet(this) });
+    // The beacon the uplink's endpoints table found: a position, no voice.
+    if (this.flags.has('agi_end')) rows.push({ name: MIRA.id, status: `beacon · ${String(MIRA.brg).padStart(3, '0')}° · ${MIRA.km} km · no voice`, cls: 'dim' });
     rows.push({ name: 'Mamá', status: 'no answer', cls: 'dim' }, { name: 'Lucía', status: 'no answer', cls: 'dim' }, { name: 'Dr. Alvarez', status: 'no answer', cls: 'dim' }, { name: 'Raúl (pilot)', status: 'no answer', cls: 'dim' });
     rows.push({ name: 'Signal', status: 'satellite: weak' });
     if (this.flags.has('shelter_found')) rows.push({ name: 'Wallet', status: btc(this.wallet), cls: 'btc' });
@@ -1356,6 +1452,7 @@ export class Game {
     this.tickFarPlaces();
     this.tickZone2();
     this.tickZone3();
+    this.tickZone4();
     // The first ten minutes (docs/FIXES.md, 7): the goal on screen, and how to eat and drink the first time it is needed.
     if (!inSanctuary(p.x, p.z) && p.x < GATE.x0) this.learned('left_valley');
     if (!this.hotbar.creative && f.has('ate') && this.vitals.hunger < 35) this.once('hint_hungry', HINTS.hungry, 9000);
@@ -1444,6 +1541,7 @@ export class Game {
 
   private openPaper(show: () => void): void {
     this.endFocus();
+    this.endScope();
     this.home.cancel();
     this.mining.active = false;
     this.drawing = null;
@@ -1455,6 +1553,8 @@ export class Game {
 
   private closePaper(): void {
     this.paper.close();
+    // Putting one screen down can bring up another (the uplink's first answer, then the closing card).
+    if (this.paper.isOpen) return;
     this.hud.showWorldHud(true);
     if (this.playing) this.look.engage();
   }
@@ -1505,6 +1605,19 @@ export class Game {
       this.openPaper(() => this.paper.map(drawMapScrap(), 'The scout’s map scrap · a ridge, a bend in a road, an arrow, and “Las Cruces” in pencil'));
       return true;
     }
+    const heldName = itemName(held.id);
+    // The medicines (docs/PHASE8.md, 4): one that would do nothing is not used up.
+    if (isMedicine(heldName)) {
+      const r = useMedicine(heldName, { hp: this.vitals.hp, dose: this.dose, adrenaline: this.adrenaline });
+      if (!r) { this.hud.toast(medicineIdle(heldName)); return true; }
+      this.vitals.hp = r.hp; this.hpBefore = r.hp; this.dose = r.dose; this.adrenaline = r.adrenaline;
+      if (r.focus) this.focus.refill();
+      this.hotbar.take();
+      this.hud.toast(r.said, 6000);
+      this.edited();
+      return true;
+    }
+    if (HELD_HINT[heldName]) { this.hud.toast(HELD_HINT[heldName], 6000); return true; }
     if (held.id === itemId('armband')) { this.hud.toast('A red armband, a white broken circle stitched on it. Whoever sent him wears the same.', 5000); return true; }
     const food = foodOf(held.id);
     const heal = held.id === itemId('first_aid_kit') ? 60 : held.id === itemId('bandage') ? 15 : held.id === itemId('poultice') ? 25 : held.id === itemId('cold_water') ? 3 : 0;
@@ -1536,6 +1649,7 @@ export class Game {
 
   private openScreen(chest: { title: string; slots: (import('./sim/inventory.ts').Stack | null)[] } | null, station: Station = 'hand'): void {
     this.endFocus();
+    this.endScope();
     this.home.cancel();
     this.screen.known = this.flags;
     this.mining.active = false;
@@ -1565,8 +1679,14 @@ export class Game {
         return;
       }
       if (this.paper.isOpen) {
-        if (e.code === 'Escape' || e.code === 'KeyE') this.closePaper();
+        // (Not on a held key's repeats: the E that put the uplink's page down would close the card it brought up.)
+        if (e.code === 'Escape' || e.code === 'KeyE') { if (!e.repeat) this.closePaper(); }
         else this.paper.key(e.code);
+        return;
+      }
+      // At the telescope: E, Esc or a step away puts it down.
+      if (this.scoping) {
+        if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.endScope();
         return;
       }
       if (e.code === 'Escape' && this.playing) this.pause();
@@ -1595,6 +1715,7 @@ export class Game {
     canvas.addEventListener('mousedown', (e) => {
       if (!this.playing) return;
       if (this.look.mode === 'off') { this.look.engage(); return; }
+      if (this.scoping) { if (e.button === 2) this.endScope(); return; }
       if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
       if (e.button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
     });
@@ -1635,7 +1756,10 @@ export class Game {
    * (The key used to pay a rig nearly a day's sats a press, and to start a new dawn each time before six.)
    */
   private turnSky(hours: number): void {
-    this.hour = (((this.hour + hours) % 24) + 24) % 24;
+    // (The uplink's clock is the day and the hour: a turn across midnight moves the day with it.)
+    const to = this.hour + hours;
+    this.day = Math.max(0, this.day + Math.floor(to / 24));
+    this.hour = ((to % 24) + 24) % 24;
     this.dayClock = this.hour;
     if (this.powerHour !== null) this.powerHour = this.hour;
     this.edited();
@@ -1727,6 +1851,7 @@ export class Game {
       power: { charge: this.power.charge, satsTotal: this.power.satsTotal, satsToday: this.power.satsToday, frac: this.power.frac }, dose: this.dose,
       factionDown: this.wild.faction.down, ashenDown: this.wild.ashen.down,
       live: { solar: this.devices.solar_array, hydro: this.devices.hydro_generator },
+      day: this.day, lastPull: this.lastPull, running: this.running.map((d) => ({ ...d })),
     };
   }
 
@@ -1762,6 +1887,11 @@ export class Game {
     this.introShown = false;
     this.wakeHold = null;
     this.doseToasted = false;
+    this.endScope();
+    this.adrenaline = 0;
+    this.rayGreeted = false;
+    this.lureCalls = [];
+    this.doseLine = { text: '', alarm: false };
     this.shotFired = false;
     this.quietShot = false;
     this.shake = 0;
@@ -1801,6 +1931,20 @@ export class Game {
     this.wild.faction.down = Number.isFinite(d.factionDown) ? d.factionDown! & 31 : 0; // the men killed stay down until dawn, reload or not
     this.wild.ashen = { down: Number.isFinite(d.ashenDown) ? d.ashenDown! & ALL_ASHEN : 0, firstOut: !this.flags.has('ashen_seen') };
     this.dose = Number.isFinite(d.dose) ? Math.max(0, Math.min(100, d.dose!)) : 0;
+    this.day = Number.isFinite(d.day) ? Math.max(0, Math.floor(d.day!)) : 0;
+    this.lastPull = Number.isFinite(d.lastPull) ? d.lastPull! : null;
+    this.running = devicesFromSave(d.running);
+    // A telescope counted when saved counts until the home's land is looked at again.
+    this.scopeOk = this.flags.has('telescope_set');
+    this.scopesAt = null;
+    // A save made unsuited on the ridge's poisoned ground (any save from before the fallout was there) would load
+    // into certain death, the pack left where no one can fetch it: such a player wakes outside the gate instead.
+    if (!fresh && this.mode === 'survival' && !this.suited() && doseRate(this.player.x, this.player.z, false) > 0 && inFallout(this.player.x, this.player.z)) {
+      const at = gateRefuge();
+      this.player.setPosition(at.x, at.y, at.z);
+      this.player.yaw = at.yaw;
+      this.sayAtPlay = 'The ridge’s ground is poisoned now, and you carry no suit: you have been set down outside its gate.';
+    }
     this.powerHour = null;
     // Arrays and generators count as they did when saved (in the sun, at the water) until their land is seen again.
     this.devices = liveFromSave(findDevices(this.world.edits), d.live);
@@ -2029,16 +2173,37 @@ export class Game {
   /** Each tick: the dose climbs while standing in a hotspot's ring, and caps health (it fades on the game clock). */
   private tickRadiation(dt: number): void {
     const p = this.player;
-    if (this.hotbar.creative || p.flying) return;
-    const before = this.dose;
-    this.dose = stepDose(this.dose, p.x, p.z, dt, 0);
+    this.adrenaline = stepAdrenaline(this.adrenaline, dt);
+    if (this.hotbar.creative || p.flying) { this.doseLine = { text: '', alarm: false }; return; }
+    // Zone-2's hotspots and Zone-4's ground (docs/PHASE8.md, 2): the suit lets a fortieth through; past the
+    // limit the dose comes off health, one for one.
+    const suited = this.suited(), before = this.dose;
+    const r = absorb(this.dose, p.x, p.z, dt, suited);
+    this.dose = r.dose;
+    if (r.harm > 0) this.vitals.hp = Math.max(0, this.vitals.hp - r.harm);
     const cap = healthCap(this.dose);
-    if (this.vitals.hp > cap) this.vitals.hp = cap;
+    // The cap coming down a point is not being hurt (it kept hold H from ever working on the ridge road:
+    // a point every five seconds, and H waits ten after any hurt). Health past the limit is.
+    if (this.vitals.hp > cap) { this.vitals.hp = cap; this.hpBefore = Math.min(this.hpBefore, cap); }
+    const rate = doseRate(p.x, p.z, suited);
+    this.doseLine = meterLine(this.dose, rate, suited);
+    // What the uplink's RAD answer adds: the dose the rest of the road costs at a walk, each way.
+    if (rate > 0 && suited && this.flags.has('agi_rad')) {
+      const road = ridgeRoadAt(p.x, p.z);
+      if (road.dist < 6) this.doseLine.text += ` · road: tower +${Math.round(roadDose(road.s, ridgeRoadLength(), true))}, gate +${Math.round(roadDose(ridgeRoadMark(ZONE4.road.gate[0]), road.s, true))}`;
+    }
     if (this.dose > before && this.dose > 0.5 && !this.doseToasted) {
       this.doseToasted = true;
       this.once('dose_seen', 'Your dose is rising: see the meter. It caps your health until it fades, or Doc treats it. Step back outside the signs.', 9000);
     }
+    if (r.harm > 0) {
+      this.hud.flashHurt();
+      if (this.vitals.hp <= 0) this.die();
+    }
   }
+
+  /** Is the hazard suit carried? It works from the pack, like armour. */
+  private suited(): boolean { return this.hotbar.count(itemId('hazard_suit')) > 0; }
 
   /** Once a second: the home's power on the game clock (sleep included), the rig's pay, the fridge, the dose fading; Zone-2's toasts; M3. */
   private tickZone2(): void {
@@ -2223,6 +2388,242 @@ export class Game {
     const say = greetRay(this);
     this.openPaper(() => this.paper.trade(rayCatalog(this, say)));
     return say;
+  }
+
+  // ---- Zone-4 and the uplink (docs/PHASE8.md) ------------------------------------------------------
+
+  /** The telescopes set down at home, as last looked for (null: not yet since the valley was opened). */
+  private scopesAt: [number, number, number][] | null = null;
+
+  /** Lures that called this tick, for the Ashen to hear. */
+  private lureCalls: { x: number; z: number; r: number }[] = [];
+
+  /** Each tick: the lures wail and the pots burn their time; a spent one is gone. */
+  private tickDevices(dt: number): void {
+    if (!this.running.length) return;
+    const { calls, spent } = stepDevices(this.running, dt);
+    for (const d of calls) {
+      this.lureCalls.push({ x: d.x + 0.5, z: d.z + 0.5, r: LURE_HEARD });
+      this.sound.lure(d.x + 0.5, d.y + 0.5, d.z + 0.5);
+    }
+    for (const d of this.running) if (d.kind === 'pot' && Math.random() < dt * 16) this.renderer.particles.smoke(d.x + 0.5, d.y + 0.8, d.z + 0.5, 2);
+    for (const d of spent) {
+      // Only its own block goes: something built there since stays.
+      const name = blockName(this.world.blockAt(d.x, d.y, d.z));
+      if (name === 'sonic_lure_on' || name === 'smoke_pot_lit') { this.world.setBlock(d.x, d.y, d.z, 0); this.streamer.markUrgentAround(d.x, d.y, d.z); }
+      this.edited();
+    }
+  }
+
+  /** Once a second: the ridge's places, Ray at the refuge, the telescope at home, the uplink's chips, M5. */
+  private tickZone4(): void {
+    const p = this.player, f = this.flags;
+    const suited = this.suited();
+    const place = ridgePlaceAt(p.x, p.z);
+    if (place) this.once(`ridge_${place}`, ridgeToast(place, suited), place === 'gate' ? 13000 : 10000);
+    // Ray keeps the meeting by day, at the refuge's door, until he has been met (as Marco at his shelter).
+    const ray = this.wild.creatures.find((c) => c.kind === 'ray');
+    const dist = Math.hypot(p.x - RAY_SPOT.x, p.z - RAY_SPOT.z);
+    // (After the hand-over he stays while you are by him: he used to vanish under his own words.)
+    const here = rayWaiting(f, this.hour) || (!!ray && f.has('ray_met') && dist < 40 && this.hour >= RAY_FROM && this.hour < RAY_UNTIL);
+    if (here && !ray && dist < 120 && this.world.column(Math.floor(RAY_SPOT.x / CS), Math.floor(RAY_SPOT.z / CS))) {
+      const y = groundAt(RAY_SPOT.x, RAY_SPOT.z, (bx, by, bz) => this.world.blockAt(bx, by, bz));
+      if (y !== null) { const r = makeCreature('ray', RAY_SPOT.x, y, RAY_SPOT.z); r.yaw = RAY_SPOT.yaw; this.wild.add(r); }
+    } else if (!here && ray) this.wild.remove(ray);
+    if (here && ray && dist < 12 && !this.rayGreeted) {
+      this.rayGreeted = true;
+      this.sound.whistle(ray.x, ray.y + 1.6, ray.z);
+      this.hud.toast('Ray is here, by the refuge’s door: the man in the orange suit. Right-click him.', 7000);
+    }
+    if (dist > 30) this.rayGreeted = false;
+    // The tower's beacon ticks, near it.
+    const T = PLACES.ridgeTower;
+    if (Math.hypot(p.x - T.x, p.z - T.z) < 90) this.sound.beacon(T.x, p.y + 30, T.z);
+    // A telescope under open sky at home (the valley, or the home's grounds); away from home, as last seen.
+    // (Looked for only while you are at home, or after a load: away from home nothing there changes, and the
+    // search reads every edit. Keyed on where you are, not on a count of edits that some path might forget to move.)
+    if (this.scopesAt === null || inSanctuary(p.x, p.z)) this.scopesAt = findPlaced(this.world.edits, 'telescope').filter(([x, , z]) => inSanctuary(x + 0.5, z + 0.5));
+    const scopes = this.scopesAt;
+    if (!scopes.length) this.scopeOk = false;
+    else if (scopes.some(([x, , z]) => this.world.isLoaded(x, z))) this.scopeOk = scopes.some(([x, y, z]) => this.world.isLoaded(x, z) && skyOf(this.world.lightAt(x, y + 1, z)) >= 13);
+    // What the uplink's answers add to the screen: the time left to dusk outside (EPH), a nest close by (BIO).
+    const chips: string[] = [];
+    if (!this.hotbar.creative && !inSanctuary(p.x, p.z)) {
+      if (f.has('agi_eph')) { const h = hoursToDusk(this.hour); chips.push(h > 0 ? `dusk in ${Math.floor(h)}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}` : 'dark: they are out'); }
+      if (f.has('agi_bio')) {
+        const near = Math.min(...NESTS.map((n) => Math.hypot(p.x - n.x, p.z - n.z)));
+        if (near < 40) chips.push(`nest ${Math.round(near)} m`);
+      }
+    }
+    this.hud.setChip(chips.join(' · '));
+    // M5.
+    const m5 = trackM5(f, p.x, p.z, { telescope: this.scopeOk });
+    if (m5.length) this.edited();
+    if (m5.includes('yard_reached')) this.hud.setGoal(nextGoal(f));
+    if (m5.includes('ridge_home')) this.hud.toast('Home from the ridge, alive.', 6000);
+    if (m5.includes('telescope_set')) this.hud.toast('The telescope stands under the sky. Right-click it to look: the falls, the moon, and at night the satellites, still crossing.', 9000);
+    if (m5.includes('m5_done')) this.hud.toast('M5 · the uplink. Everything the builder began is running. What comes next is not in his drawings. (In your notes.)', 12000);
+  }
+
+  /** Meeting Ray at the refuge (src/game/people.ts): the modem, once. */
+  private meetRay(): void {
+    const first = !this.flags.has('ray_met');
+    const say = meetRay(this);
+    this.hud.toast(say, first && this.flags.has('ray_met') ? 22000 : 6000);
+    if (first && this.flags.has('ray_met')) this.hud.setGoal(nextGoal(this.flags));
+  }
+
+  /** Something made that M5 counts, or that needs a word the first time. */
+  private madePhase8(name: string): void {
+    const flag = craftedFlag(name);
+    if (flag && !this.flags.has(flag)) { this.flags.add(flag); this.edited(); }
+    const line = MADE_LINE[name];
+    if (line) this.once(`made_${name}`, line, 9000);
+  }
+
+  /** A page left on a desk, or the manual on its shelf: it is read, and kept in the notes. */
+  private readNote(flag: string, by: string): void {
+    const n = journalData.notes.find((q) => q.flag === flag);
+    if (!n) return;
+    if (!this.flags.has(flag)) { this.flags.add(flag); this.edited(); }
+    this.openPaper(() => this.paper.journal([{ title: n.title, text: n.text, by }]));
+  }
+
+  /** Right-click on Phase 8's things. True if handled. */
+  private usePhase8(name: string, x: number, y: number, z: number): boolean {
+    const at = (q: readonly number[]) => q[0] === x && q[1] === y && q[2] === z;
+    if (name === 'note_desk') {
+      this.readNote(at(HUT_LOG) ? 'hut_log' : at(DOME_PAGE) ? 'dome_page' : at(RELAY_PAGE) ? 'relay_page' : Math.hypot(x - ZONE4.observatory.x, z - ZONE4.observatory.z) < 12 ? 'dome_page' : x < ZONE4.yard.x1 ? 'relay_page' : 'hut_log', 'A page left here');
+      return true;
+    }
+    if (name === 'manual_shelf') {
+      const first = !this.flags.has('pharma_learned');
+      this.readNote('pharma_learned', 'The field pharmacy manual');
+      if (first) this.hud.toast('The manual is in your notes. A medical bench and a distiller can be made at the workbench now.', 8000);
+      return true;
+    }
+    if (name === 'antenna_hoist') { this.useHoist(); return true; }
+    if (name === 'telescope') { this.startScope(x, y, z); return true; }
+    if (name === 'sonic_lure' || name === 'smoke_pot') {
+      const lure = name === 'sonic_lure';
+      this.world.setBlock(x, y, z, blockId(lure ? 'sonic_lure_on' : 'smoke_pot_lit'));
+      this.streamer.markUrgentAround(x, y, z);
+      this.running.push(startDevice(lure ? 'lure' : 'pot', x, y, z));
+      if (lure) this.hud.toast('The lure wails. For forty seconds every one of them in earshot comes to it, not to you. Then it is spent.', 6000);
+      else { this.sound.hiss(x + 0.5, y + 0.5, z + 0.5); this.hud.toast('The pot catches. For a minute none of them will step within eight paces of it. Then it is spent.', 6000); }
+      this.edited();
+      return true;
+    }
+    if (name === 'sonic_lure_on' || name === 'smoke_pot_lit') {
+      // One left running by a save that lost its clock is simply spent.
+      if (!this.running.some((d) => d.x === x && d.y === y && d.z === z)) { this.world.setBlock(x, y, z, 0); this.streamer.markUrgentAround(x, y, z); this.edited(); this.hud.toast('Spent.'); }
+      else this.hud.toast(name === 'sonic_lure_on' ? 'It is wailing. Get clear of it.' : 'It is burning. Stay inside its smoke.');
+      return true;
+    }
+    return false;
+  }
+
+  /** The builder's hoist on the balcony: with the assembled antenna in hand, the mast and dish go up on the cliff. */
+  private useHoist(): void {
+    const f = this.flags;
+    if (f.has('antenna_up')) { this.hud.toast('The hoist. The antenna is up on the cliff above the cave’s mouth: look from the garden.', 6000); return; }
+    const held = this.hotbar.current;
+    if (!held || held.id !== itemId('sat_antenna')) {
+      this.hud.toast(f.has('uplink_plans')
+        ? 'The builder’s hoist: a winch, and a cable up the cliff. With the satellite antenna assembled (Ray’s plans, at the workbench) and in your hand, right-click it.'
+        : 'The builder’s hoist: a winch, and a cable up the cliff to a bracket with nothing on it. He meant to lift something heavy up there.', 8000);
+      return;
+    }
+    const spot = antennaSpot(HOME_FIT.mast, (bx, by, bz) => (this.world.isLoaded(bx, bz) ? (BLOCK_DEFS[this.world.blockAt(bx, by, bz)]?.solid ?? false) : null));
+    if (!spot) { this.hud.toast('The cable won’t run: the cliff above the cave’s mouth is not as he left it.', 6000); return; }
+    for (const [bx, by, bz, block] of antennaBlocks(...spot)) this.world.setBlock(bx, by, bz, blockId(block));
+    this.streamer.markUrgentAround(...spot);
+    this.streamer.markUrgentAround(spot[0], spot[1] + 6, spot[2]);
+    this.hotbar.take();
+    f.add('antenna_up');
+    this.sound.gate();
+    this.shake = 0.6;
+    this.hud.setGoal(nextGoal(f));
+    this.hud.toast('The winch takes it up. The dish stands on the cliff above the cave’s mouth, turned to the western sky: you can see it from the garden.', 10000);
+    this.edited();
+  }
+
+  /** The builder's computer: fitting the terminal to it; its pages. */
+  private useComputer(): void {
+    const f = this.flags, held = this.hotbar.current;
+    if (held && held.id === itemId('uplink_terminal') && !f.has('uplink_fitted')) {
+      this.hotbar.take();
+      f.add('uplink_fitted');
+      this.edited();
+      this.hud.toast('The terminal is fitted: Ray’s modem, on the builder’s machine. The computer has an Uplink page now.', 8000);
+    }
+    const actions: { label: string; act: () => void }[] = [];
+    if (f.has('uplink_fitted')) actions.push({ label: 'Uplink', act: () => this.paper.uplink(uplinkView(this)) });
+    if (f.has('ending_seen')) actions.push({ label: 'The story so far', act: () => this.paper.ending(() => this.closePaper()) });
+    this.openPaper(() => this.paper.computer(computerRows(this), 'R.’s terminal', actions));
+  }
+
+  /** What the uplink has of what it needs (docs/PHASE8.md, 5). */
+  linkNeeds(): LinkNeeds {
+    return { antenna: this.flags.has('antenna_up'), telescope: this.scopeOk, hydro: this.devices.hydro_generator.length > 0, terminal: this.flags.has('uplink_fitted') };
+  }
+
+  /** The link opens for the first time: the modem is heard. */
+  linkOpened(): void {
+    this.sound.modem();
+    this.hud.setGoal(nextGoal(this.flags));
+  }
+
+  /** The first answer has been read and the page put down: the closing card, once (docs/PHASE8.md, 7). */
+  firstRead(): void {
+    if (this.flags.has('ending_seen')) return;
+    this.flags.add('ending_seen');
+    this.edited();
+    this.openPaper(() => this.paper.ending(() => {
+      this.closePaper();
+      this.hud.toast('The valley is yours. The uplink’s queries are open, on the computer; “The story so far” is there too.', 9000);
+    }));
+    void this.save(false);
+  }
+
+  /** Right-click a telescope: the view narrows twelve times; the mouse aims; E, Esc or a step puts it down. */
+  private startScope(x: number, y: number, z: number): void {
+    if (this.scoping) { this.endScope(); return; }
+    this.endFocus();
+    this.home.cancel();
+    this.mining.active = false;
+    this.drawing = null;
+    this.scope ??= new ScopeView(this.ui);
+    this.scoping = { x, y, z };
+    this.scope.show();
+    this.hud.showWorldHud(false);
+    this.renderer.setZoom(SCOPE_ZOOM, SCOPE_NEAR);
+    this.once('scope_used', 'Through the telescope: move the mouse to aim. E or Esc to step back.', 5000);
+  }
+
+  private endScope(): void {
+    if (!this.scoping) return;
+    this.scoping = null;
+    this.scope?.hide();
+    this.hud.showWorldHud(true);
+    this.renderer.setZoom(1);
+  }
+
+  /** Each frame: the satellites' train in the night sky, and what the telescope is aimed at. */
+  private tickScope(): void {
+    const p = this.player;
+    this.renderer.setSats(satTrain(this.time, this.hour));
+    if (!this.scoping) return;
+    // Walked off, or the telescope mined: it is put down. (Being hurt puts it down too: `tick`.)
+    const s = this.scoping;
+    if (Math.hypot(p.x - s.x - 0.5, p.z - s.z - 0.5) > 4 || blockName(this.world.blockAt(s.x, s.y, s.z)).split('@')[0] !== 'telescope') { this.endScope(); return; }
+    // Nothing is named through a roof or a wall: the first 120 m of the line must be clear of blocks
+    // (the far land beyond that is the telescope's own reckoning: "behind the land from here").
+    const [dx, dy, dz] = p.lookDir();
+    // (From where the glass begins to draw: the telescope's own block, beside the eye, is not in the way.)
+    const open = clearShot((bx, by, bz) => this.world.blockAt(bx, by, bz), p.x + dx * SCOPE_NEAR, p.eyeY + dy * SCOPE_NEAR, p.z + dz * SCOPE_NEAR, dx, dy, dz, 120);
+    const aimed = open ? aimedAt(p.yaw, p.pitch, scopeTargets([p.x, p.eyeY, p.z], this.hour, this.time)) : null;
+    this.scope?.setLabel(scopeLabel(aimed));
   }
 
   // ---- Debug and test hooks --------------------------------------------------------------------

@@ -10,7 +10,7 @@ import {
   GATE, TUNNEL_LAMPS, MOUTH_LAMPS, ROAD, PLACES, RAMP_HALF_WIDTH,
   distToValley, valleyFloorHeight, outsideHeight, creekDistance, pathAt, inValleyBowl, landZoneAt, canyonCenterX,
   roadZ, rampAt, onRoad, canyonStreamAt, inCanyonStream, ZONE1, inFarmyard, onFarmTrack, basinFloor,
-  ZONE1FAR, onCampTrail, brushTrailDist, ravineX, RAVINE_HALF,
+  ZONE1FAR, onCampTrail, brushTrailDist, ravineX, RAVINE_HALF, ZONE4,
 } from './layout.ts';
 import { HOME_CHESTS } from './inheritance.ts';
 import { fitOutHome } from './home.ts';
@@ -18,6 +18,7 @@ import { buildZone1 } from './zone1.ts';
 import { buildZone1Far } from './zone1far.ts';
 import { buildZone2, zone2Place } from './zone2.ts';
 import { buildZone3, zone3Place } from './zone3.ts';
+import { buildZone4, zone4Place } from './zone4.ts';
 import { PATH, inSanctuary } from './layout.ts';
 
 export const COLUMN_VOLUME = CS * CS * WORLD_Y;
@@ -53,6 +54,8 @@ const CHEST = blockId('chest');
 const ROAD_BLOCK = blockId('road');
 const GATE_STONE = blockId('gate_stone');
 const SEALED_LAMP = blockId('sealed_lamp');
+const DEAD_SOIL = blockId('dead_soil');
+const DEAD_TRUNK = blockId('dead_trunk');
 
 const wallNoise = new Simplex(SEED + 7);
 const caveA = new Simplex(SEED + 21);
@@ -106,7 +109,14 @@ function caveExcluded(x: number, y: number, z: number): boolean {
   if (y > 55 && zone2Place(x, z)) return true;
   // Nor under Zone-3's places, into the reservoir or the river's bed (docs/PHASE7.md).
   if (y > 30 && zone3Place(x, z)) return true;
+  // Nor under Zone-4's road and places (docs/PHASE8.md).
+  if (y > 60 && zone4Place(x, z)) return true;
   return false;
+}
+
+/** The pass's clean ground: the one place in Zone-4 where things still grow. */
+function cleanGround(x: number, z: number): boolean {
+  return Math.hypot(x - ZONE4.clean.x, z - ZONE4.clean.z) < ZONE4.clean.r;
 }
 
 /** Round Zone-1's mid and deep places (with a margin), where caves don't cut and trees don't grow. */
@@ -174,6 +184,7 @@ export function generateColumn(cx: number, cz: number): Uint16Array {
   buildZone1Far(col, x0, z0);
   buildZone2(col, x0, z0);
   buildZone3(col, x0, z0);
+  buildZone4(col, x0, z0);
 
   // 6. The builder's home: balcony, path, rooms, lanterns, the iron vein.
   buildHome(col, x0, z0);
@@ -361,7 +372,9 @@ function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array
 
       // Every exposed rock face: moss where it is damp (more of it near the waterfall).
       const nearFall = SPRINGS.some((f) => Math.hypot(x - f.x, z - (f.z0 + f.z1) / 2) < 30);
-      for (let y = 3; y < top; y++) {
+      // Zone-4 is dead under the fallout (docs/PHASE8.md): no moss on its rock, grey ground, but for the pass's clean pocket.
+      const dead = landZoneAt(x, z) === 'zone4' && !cleanGround(x, z);
+      for (let y = dead ? top : 3; y < top; y++) {
         const i = ci(lx, y, lz);
         if (col[i] !== LIMESTONE) continue;
         const open = y + 1 >= WORLD_Y || col[ci(lx, y + 1, lz)] === AIR || (lx > 0 && col[ci(lx - 1, y, lz)] === AIR) ||
@@ -379,13 +392,15 @@ function dressSurface(col: Uint16Array, x0: number, z0: number, tops: Int16Array
       let topBlock = valley || landZoneAt(x, z) === 'near' ? GRASS : FOREST;
       let fill = DIRT;
       let depth = valley ? 4 : 3;
-      if (canyonFloor) { topBlock = rand3(x, top, z, SEED) < 0.5 ? GRAVEL : SAND; fill = GRAVEL; depth = 2; }
+      if (dead) topBlock = rand3(x, top, z, SEED + 4) < 0.14 ? GRAVEL : DEAD_SOIL;
+      else if (landZoneAt(x, z) === 'zone4') topBlock = GRASS;
+      else if (canyonFloor) { topBlock = rand3(x, top, z, SEED) < 0.5 ? GRAVEL : SAND; fill = GRAVEL; depth = 2; }
       else if (landZoneAt(x, z) === 'deep' || (x < ZONES_RAVINE_FAR && x > 560)) {
         // The deep band: the wettest ground, moss and mud under the dense canopy.
         const r = rand3(x, top, z, SEED + 3);
         topBlock = wet > 0.1 ? (r < 0.25 ? MUD : MOSS) : r < 0.12 ? MUD : FOREST;
       }
-      else if (!valley && slope >= 2 && wet > 0.2) topBlock = MOSS;
+      else if (!valley && !dead && slope >= 2 && wet > 0.2) topBlock = MOSS;
       col[ti] = topBlock;
       for (let k = 2; k <= depth; k++) {
         const j = ci(lx, top - k, lz);
@@ -689,7 +704,7 @@ function plantGarden(col: Uint16Array, x0: number, z0: number): void {
 
 const TREE_CELL = 9;
 
-interface TreeSpot { x: number; z: number; ground: number; kind: 'broadleaf' | 'fern' | 'bamboo'; seed: number }
+interface TreeSpot { x: number; z: number; ground: number; kind: 'broadleaf' | 'fern' | 'bamboo' | 'snag'; seed: number }
 
 function treeSpot(gx: number, gz: number): TreeSpot | null {
   const h = hash3(gx, 7, gz, SEED + 9);
@@ -724,6 +739,8 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
   if (zone2Place(x, z)) return null;
   // Zone-3's roads and places, and the avenue's verges: open ground by day.
   if (zone3Place(x, z)) return null;
+  // Zone-4's road and places; and the pass's clean ground has its one tree, set by hand.
+  if (zone4Place(x, z)) return null;
   // Where the gorge runs shallow through the mountains at the world's ends, its west wall and the ground either
   // side of it stand bare: a crown is something to walk on, and that wall is not to be crossed (docs/REVIEW.md, N3b).
   if (Math.min(z, WORLD_Z - 1 - z) < 290 && x - ravineX(z) > -28 && x - ravineX(z) < -8) return null;
@@ -751,6 +768,9 @@ function treeSpot(gx: number, gz: number): TreeSpot | null {
     // The deep band and the ravine's far bank: the densest, darkest forest (DESIGN.md).
     if (roll < 0.72) kind = 'broadleaf';
     else if (roll < 0.9) kind = 'fern';
+  } else if (zone === 'zone4') {
+    // Under the fallout nothing lives: bare grey trunks, far apart, so the tower shows between them.
+    if (roll < 0.24) kind = 'snag';
   } else if (zone === 'mid') {
     // Shadowed, asymmetrically cleared round the outpost.
     if (roll < 0.42) kind = 'broadleaf';
@@ -813,6 +833,16 @@ function placeTrees(col: Uint16Array, x0: number, z0: number): void {
                 // Bromeliads and orchids perched along the top of the crown.
                 if (dy >= 1 && rand3(x, y, z, SEED + 14) < 0.05) set(x, y + 1, z, rand3(x, y, z, SEED + 15) < 0.6 ? BROMELIAD : ORCHID, false);
               }
+        }
+      } else if (t.kind === 'snag') {
+        // A dead tree: a bare trunk, a broken top, a stub of a limb or two.
+        const height = 4 + Math.floor(r(8) * 7);
+        for (let y = g; y < g + height; y++) set(t.x, y, t.z, DEAD_TRUNK, true);
+        for (let k = 0; k < 2; k++) {
+          if (r(k * 7 + 3) < 0.45) continue;
+          const [dx, dz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(r(k * 5 + 12) * 4)];
+          const y = g + 2 + Math.floor(r(k * 3 + 16) * Math.max(1, height - 3));
+          set(t.x + dx, y, t.z + dz, blockId(dx ? 'dead_branch@east' : 'dead_branch'), false);
         }
       } else if (t.kind === 'fern') {
         // A tree fern: a fibrous trunk and a spray of fronds that droop at the tips.

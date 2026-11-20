@@ -33,6 +33,7 @@ in vec3 vWorld;
 in float vDist;
 uniform vec2 uLight; // sky and block light where the creature stands, 0–1
 uniform float uHurt; // 1 just hurt … 0
+uniform float uHeat; // 1: seen through the thermal optic (docs/PHASE8.md, 4): bright whatever the light, and through the fog
 uniform float uDaylight;
 uniform vec3 uSkyLight;
 uniform vec3 uBlockLight;
@@ -47,6 +48,8 @@ void main() {
   col = mix(col, vec3(0.85, 0.12, 0.08) * max(light, vec3(0.4)), uHurt * 0.6);
   float fog = smoothstep(uFogNear, uFogFar, vDist);
   col = mix(col, skyColor(normalize(vWorld - cameraPosition)), fog);
+  // A warm body in the optic: white-hot at the core, orange at the edges of each part.
+  if (uHeat > 0.0) col = mix(col, mix(vec3(1.0, 0.55, 0.12), vec3(1.0, 0.96, 0.82), vShade * 0.8), uHeat);
   outColor = vec4(col, 1.0);
 }`;
 
@@ -223,6 +226,29 @@ const MODELS: Record<Kind, Model> = {
     ],
     leg: { size: [0.17, 0.82, 0.19], color: '#33363c', hips: [[-0.1, 0.82, 0], [0.1, 0.82, 0]] },
   },
+  ray: { // the dam's engineer (docs/PHASE8.md, 3): an orange hazard suit, the hood down on his shoulders, a white hard hat, a grey beard
+    body: [
+      { size: [0.46, 0.62, 0.28], at: [0, 1.12, 0], color: '#d9701c' }, // the suit
+      { size: [0.47, 0.05, 0.29], at: [0, 1.0, 0], color: '#e8e3d2' }, // its reflective band
+      { size: [0.47, 0.05, 0.29], at: [0, 1.28, 0], color: '#e8e3d2' },
+      { size: [0.13, 0.5, 0.15], at: [-0.29, 1.1, 0], color: '#c96416' }, // arms
+      { size: [0.13, 0.5, 0.15], at: [0.29, 1.1, 0], color: '#c96416' },
+      { size: [0.13, 0.12, 0.15], at: [-0.29, 0.8, 0], color: '#3a3a36' }, // gloves
+      { size: [0.13, 0.12, 0.15], at: [0.29, 0.8, 0], color: '#3a3a36' },
+      { size: [0.4, 0.14, 0.2], at: [0, 1.42, 0.16], color: '#b85a12' }, // the hood, down
+      { size: [0.12, 0.08, 0.12], at: [0, 1.45, 0], color: '#9a6e4c' }, // neck
+      { size: [0.28, 0.3, 0.28], at: [0, 1.62, 0], color: '#a77a55' }, // head
+      { size: [0.26, 0.14, 0.05], at: [0, 1.52, -0.145], color: '#b9b9b2' }, // the beard
+      { size: [0.3, 0.1, 0.06], at: [0, 1.5, -0.12], color: '#a9a9a2' },
+      { size: [0.04, 0.04, 0.02], at: [-0.07, 1.66, -0.145], color: '#1d1d1d' },
+      { size: [0.04, 0.04, 0.02], at: [0.07, 1.66, -0.145], color: '#1d1d1d' },
+      { size: [0.34, 0.12, 0.34], at: [0, 1.83, 0], color: '#f2f0e8' }, // the hard hat
+      { size: [0.38, 0.03, 0.44], at: [0, 1.78, -0.03], color: '#e6e3d8' }, // its brim
+      { size: [0.06, 0.13, 0.3], at: [0, 1.84, 0], color: '#d8d5ca' }, // its ridge
+      { size: [0.18, 0.26, 0.1], at: [0, 1.1, 0.19], color: '#55584e' }, // a filter pack on his back
+    ],
+    leg: { size: [0.18, 0.82, 0.2], color: '#c96416', hips: [[-0.1, 0.82, 0], [0.1, 0.82, 0]] },
+  },
   // Zone-1's mid band (docs/PHASE5.md). Each raider's weapon shows its threat; the aim is a pose you can see.
   lookout: raider('#7a2a20', PARTS_LOOKOUT),
   gunman: raider('#2a2a2a', PARTS_GUNMAN),
@@ -316,7 +342,7 @@ export const BAR_SECONDS = 3;
 /** How full a creature's bar is (0–1), and whether to show it: only for a while after a hit, never for people who can't be hurt. */
 export function healthBar(c: Creature): { show: boolean; fill: number } {
   const max = KINDS[c.kind].hp;
-  return { show: c.kind !== 'marco' && c.hurt < BAR_SECONDS && c.hp > 0, fill: Math.max(0, Math.min(1, c.hp / max)) };
+  return { show: c.kind !== 'marco' && c.kind !== 'ray' && c.hurt < BAR_SECONDS && c.hp > 0, fill: Math.max(0, Math.min(1, c.hp / max)) };
 }
 for (const k of Object.keys(MODELS) as Kind[]) {
   BODY_GEOMS.set(k, MODELS[k].body.map(box));
@@ -334,6 +360,9 @@ export interface Shared { uniforms: Record<string, THREE.IUniform> }
 
 interface View { group: THREE.Group; legs: THREE.Mesh[]; mat: THREE.ShaderMaterial; posed: { mesh: THREE.Mesh; part: Part }[]; bar: THREE.Group; fill: THREE.Mesh }
 
+/** How far the thermal optic shows a warm body (m). */
+export const THERMAL_REACH = 60;
+
 export class CreatureRenderer {
   private views = new Map<number, View>();
   private arrows = new Map<Arrow, THREE.Mesh>();
@@ -349,7 +378,7 @@ export class CreatureRenderer {
     return new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: FRAG,
       uniforms: {
-        uLight: { value: new THREE.Vector2(1, 0) }, uHurt: { value: 0 },
+        uLight: { value: new THREE.Vector2(1, 0) }, uHurt: { value: 0 }, uHeat: { value: 0 },
         uDaylight: s.uDaylight, uSkyLight: s.uSkyLight, uBlockLight: s.uBlockLight, uFogNear: s.uFogNear, uFogFar: s.uFogFar,
         uZenith: s.uZenith, uHorizon: s.uHorizon, uSunGlow: s.uSunGlow, uSunDir: s.uSunDir,
       },
@@ -387,6 +416,9 @@ export class CreatureRenderer {
   }
 
   /** Brings the drawn creatures and arrows in step with the wild. `lightAt` gives a block's packed light. */
+  /** The thermal optic is being looked through: every body within THERMAL_REACH glows (docs/PHASE8.md, 4). */
+  thermal = false;
+
   sync(creatures: Creature[], arrows: Arrow[], lightAt: (x: number, y: number, z: number) => number, eye: THREE.Vector3): void {
     const alive = new Set<number>();
     for (const c of creatures) {
@@ -412,6 +444,7 @@ export class CreatureRenderer {
       const l = lightAt(Math.floor(c.x), Math.floor(c.y + 0.5), Math.floor(c.z));
       v.mat.uniforms.uLight.value.set((l >> 4) / 15, (l & 15) / 15);
       v.mat.uniforms.uHurt.value = Math.max(0, 1 - c.hurt / 0.35);
+      v.mat.uniforms.uHeat.value = this.thermal && Math.hypot(c.x - eye.x, c.y - eye.y, c.z - eye.z) < THERMAL_REACH ? 1 : 0;
       v.group.visible = Math.hypot(c.x - eye.x, c.z - eye.z) < 160;
       const hb = healthBar(c);
       v.bar.visible = hb.show;

@@ -401,12 +401,20 @@ describe('the land outside what N3 mended', () => {
     }
   const was = before as Record<string, number>;
   const hashOf = (k: string) => { const [cx, cz] = k.split(',').map(Number); return hashColumn(cx, cz); };
+  /**
+   * Phase 8 (docs/PHASE8.md) reshaped the north-west massif west of the gorge into Zone-4's ridge and laid the
+   * ridge road from the avenue's bend to it. Those columns are pinned by its own fixtures and tests
+   * (tests/phase8.test.ts, "the land of earlier phases, with Zone-4 in"), not by this one.
+   */
+  const RIDGE_ROAD = new Set(['18,18', '17,19', '18,19', '19,19', '18,20', '19,20', '18,21', '19,21', '17,22', '18,22', '19,22', '17,23', '18,23']);
+  const phase8 = (cx: number, cz: number) => RIDGE_ROAD.has(`${cx},${cz}`) ||
+    (cx <= 20 && [[0, 0], [32, 0], [0, 32], [32, 32]].some(([dx, dz]) => Math.hypot(cx * 32 + dx - 200, cz * 32 + dz - 200) <= 525));
 
   it('hashes as it did before, in every column next to a mended one and in a spread over the rest of the world', () => {
     expect(Object.keys(was).length).toBe(64 * 64);
     const sample: string[] = [];
     for (let cz = 0; cz < 64; cz++) for (let cx = 0; cx < 64; cx++) {
-      if (mended.has(`${cx},${cz}`)) continue;
+      if (mended.has(`${cx},${cz}`) || phase8(cx, cz)) continue;
       let touches = false;
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (mended.has(`${cx + dx},${cz + dz}`)) touches = true;
       if (touches || (cx % 6 === 3 && cz % 6 === 2)) sample.push(`${cx},${cz}`);

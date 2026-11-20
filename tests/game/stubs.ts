@@ -59,6 +59,8 @@ export class FakeHud {
   introCards: string[] = [];
   /** The opening is read at once here: the cards are kept for the test to look at, and play begins. */
   showIntro(cards: string[], done: () => void) { this.introCards = cards; done(); }
+  chipText = '';
+  setChip(text: string) { this.chipText = text; }
   notices: string[] = [];
   notice(text: string | null) { if (text) this.notices.push(text); }
 }
@@ -87,12 +89,21 @@ export class FakePaper {
   phoneRows: { name: string; status: string; call?: () => string }[] = [];
   constructor() { FakePaper.last = this; return blank(this); }
   trade(view: () => Trade) { this.isOpen = true; this.tradeView = view; }
-  computer(rows: [string, string, string?][]) { this.isOpen = true; this.computerRows = rows; }
+  computerActions: { label: string; act: () => void }[] = [];
+  computer(rows: [string, string, string?][], _title?: string, actions: { label: string; act: () => void }[] = []) { this.isOpen = true; this.computerRows = rows; this.computerActions = actions; }
+  /** The uplink page as last shown, and the closing card's button. */
+  uplinkView: import('../../src/ui/uplinkScreen.ts').UplinkView | null = null;
+  endingBack: (() => void) | null = null;
+  shown: string[] = [];
+  /** What putting the open screen down does (the uplink's first answer is read). */
+  putDown: (() => void) | null = null;
+  uplink(v: import('../../src/ui/uplinkScreen.ts').UplinkView) { this.isOpen = true; this.uplinkView = v; this.shown.push('uplink'); this.putDown = null; }
+  ending(back: () => void) { this.isOpen = true; this.endingBack = back; this.shown.push('ending'); this.putDown = null; }
   phone(_title: string, rows: { name: string; status: string; call?: () => string }[]) { this.isOpen = true; this.phoneRows = rows; }
   journal() { this.isOpen = true; }
   map() { this.isOpen = true; }
   keypad() { this.isOpen = true; }
-  close() { this.isOpen = false; }
+  close() { this.isOpen = false; const f = this.putDown; this.putDown = null; f?.(); }
 }
 export const paperModule = { PaperScreen: FakePaper };
 

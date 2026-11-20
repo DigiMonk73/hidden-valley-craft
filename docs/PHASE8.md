@@ -40,3 +40,313 @@ Simple, short, well lit, easy to find. Nothing hidden that looks like everything
 4. Radiation, the suit and medicine; the places' salvage; Ray's meeting.
 5. M5 at home; the AGI's query screen; the ending card.
 6. The play-through part (`tests/e2e/play-zone4.mjs`), the fresh review, the report to the lead.
+
+---
+
+# The plan (the phase session, 2026-11-20)
+
+Each step is committed with its tests and marked DONE under "Progress".
+
+## The map
+
+![Zone-4's layout](phase8-map.png)
+
+`docs/phase8-map.png`, drawn from the layout itself by `tools/zone4map.ts`. North is up. Every number below is in `ZONE4` (`src/gen/layout.ts`).
+
+**One road, the ridge road.** It is 494 m long, four wide, and lit the whole way: its lamp posts are the dam's own power line to the tower, which is why the tower's beacon still burns. Every place of the phase stands on it, in the order walked.
+
+| From the dam's west end | Distance | Height |
+|---|---|---|
+| The sign at the avenue's bend | 26 m | 83 |
+| The reservoir's shore (the water in sight for 50 m, a parapet on its side, a landing with steps to the water) | 85–134 m | 83–87 |
+| The gate | 260 m | 87 |
+| The hut on the pass | 366 m | 109 |
+| The observatory | 467 m | 120 |
+| The tower's yard and the relay station | 520 m | 127 |
+
+*The brief asked for "near 450 m". It is 520.* Straight from the bend to the tower is 432 m; the rest buys the run along the water's edge the brief asks for and the arc round the sump. The way home is hold H.
+
+**How a first-time player finds each place:**
+1. **The sign.** Walking off the dam, dead ahead at the bend where the avenue turns south: a lit board, "TORRE · OBSERVATORIO →", a radiation trefoil under it. A lit road runs north. The player has stood at this bend before: it is where the first Ashen was seen. The first time: a toast names the ridge road.
+2. **The shore.** The road swings to the reservoir's rim: water on the right, the dam behind. No Ashen come here (their nests are 60 m and more south of the dam, and they roam 14 m).
+3. **The gate** (260 m). Barriers to walk round, a booth, and a board over the road as wide as the road: "ZONA CALIENTE · SOLO CON TRAJE" (hot zone, suit only). Beyond it the forest is dead: grey ground, bare trunks, no leaf. A line of warning signs runs along the edge of the dead ground both ways as far as you can see, as round Zone-2's rings. The first time: a toast says what the ground does, and how long you would last. Without the suit the dose meter says so in red.
+4. **The climb.** 100 m up the dead slope under the lamps. The tower stands on the skyline ahead the whole way.
+5. **The hut on the pass** (366 m). The road tops out between two rocky knolls. On the right a stone hut, "REFUGIO", a lantern over its door, smoke from its stove pipe. Round it the ground is green: grass and one living tree inside a ring of green boards, "ZONA LIMPIA". The dose meter stops. **Ray is met here.**
+6. **The sump** (on the left after the pass). The ridge opens: a hollow with a black pond in it, yellow drums round the pond, a ring of signs and tape. The tower is straight across it, 130 m off. The road bends right, round the hollow's rim.
+7. **The observatory** (467 m). A white dome on a knoll on the road's right, its telescope's tube out through the slit, a lamp over its door, red light inside.
+8. **The tower's yard** (520 m). The road ends at the tower's feet: four steel legs 11 m apart, 60 m of lattice, a red beacon. A fallen dish lies in the yard. On the yard's south side the relay station, "ESTACIÓN DE ENLACE", a lit door.
+
+## Design calls (the phase session's; each with its reason)
+
+- **Zone-4 is the massif, not a square.** The zone is the ground under the fallout: within 484 m of the corner's mountain centre (200, 200), and no nearer the gorge than 60 m. It was the box x < 450, z < 450. *Why:* the gate has to stand where the zone begins, and a climb plus a ridge needs 250 m of road inside it. The old dome of mountains already reached this far.
+- **The ridge is lower than the old dome, and it is a ridge.** The dome was a smooth cap 172 high with the tower's foot at 166. The world is 192 high, so a 60 m tower built of blocks could not stand there. Now the land climbs from the reservoir (86) to a crest at 128 with the tower on it, falls to a high dead valley behind (107), and rises to the far peaks (150 and more) toward the corner. From the dam the upper three quarters of the tower stand against the sky.
+- **The tower is built of blocks, 60 m high** (it was a 64 m drawing in the sky). From far off the same frame is still drawn as a thin shape; within 150 m only the blocks are.
+- **The land east of the gorge, the reservoir and its shores, the dam and everything on the avenue are unchanged.** West of the gorge only the massif and the ridge road's corridor change. Pinned by fixtures (below).
+- **Dose past 100 comes off your health, one for one.** Until now the dose stopped at 100 and never killed. *Why:* the brief's danger 7 "kills a careless player in minutes", and one rule is easier to read than two. It holds in Zone-2's rings too: stand 35 s in the van's heart and it starts to hurt; one step out and it stops. The cap on health (100 − 0.6 × dose, never under 40) stays.
+- **The suit is carried, like armour.** A hazard suit in the pack is worn. It lets a fortieth of the dose through, in Zone-2 as well.
+- **No new enemy; two Ashen.** They keep the relay station's battery hall, walled off from the lit half, by Phase 7's rules. Nothing needed is in there.
+- **Ray's meeting is the suit's reward, not its gate.** Ray tells you how to make the suit by phone. Once you carry one he will meet you at the hut, once, by day. He gives the satellite modem: the dam's old telemetry link and its keys, which no drawing can give.
+- **The telescope is true.** Looking through it is a real 12× look from where it stands, with a label when a known thing is in the cross-hairs. From the balcony the valley's rim hides the tower and the dam (the rim stands 10° up; the tower's top 4°). So from the balcony it shows the falls, the moon and the satellites' train; carried up onto the plateau round the valley's north and east rim it shows the tower, 1.4 km off (a unit test finds the sight lines). The dam lies in its gorge and shows only from near it. *Why not a fixed picture of the tower:* a view that could not be true from where you stand is the one thing a block game should not fake.
+- **The antenna is mounted, not placed.** The builder left a hoist on the balcony. Right-click it with the assembled antenna and the dish stands on the cliff's edge above the cave's mouth: a mast and a white dish seven across, seen from the garden and the pool. *Why:* a one-block dish would not be seen from the valley floor, and there is no way to climb up there.
+- **The link's first answer comes unasked**: the list of handsets it has heard. That is what a link does first, and it is what the ending needs (Mira is on it). Then the queries.
+- **The sonic and chemical means are things you set down**, not ammunition: a sonic lure that draws the Ashen to it, and a smoke pot they will not come near. *Why:* both reuse rules the Ashen already have (a shot draws them to where it was fired; ground they never step on), and both fit a zone where the right answer is not to fight.
+- **Infection stays out. The compound stays closed.** (The brief.)
+
+## 1. The land (`src/gen/layout.ts`, `ZONE4`; blocks: `src/gen/zone4.ts`)
+
+| Place | Where | What is there |
+|---|---|---|
+| **The sign** | x 576, z 750–751, facing east | A two-wide board on posts, two lanterns: "TORRE · OBSERVATORIO →" and the trefoil. |
+| **The ridge road** | (580, 750) → (584, 730) → (612, 704) → (618, 655) → (537, 574) → (537, 556) → (462, 490) → (456, 440) → (430, 397) → (396, 378) → (385, 386) | Cracked asphalt four wide, never more than one block up in two metres, a level landing at each bend. A lamp every 8 m, either side in turn, so their pools meet (Phase 7's lesson). No trees within 6 m; none between the road and the water. |
+| **The shore** | along (612, 704) → (618, 655) | A concrete parapet on the water's side. Halfway, **the landing**: ten steps down the bank northward from z 691, the last two under the water. *Why:* the reservoir's banks are three blocks sheer; someone who falls in beside the road needs a way out. |
+| **The gate** | (537, 563), on a straight run north | The board on a gantry over the road, concrete barriers to walk round, a booth (a shelf: one box of tablets), lanterns. The fallout begins 13 m past it. |
+| **The edge** | 484 m from (200, 200); x = gorge − 60 on the east | A warning sign every 16 m along the whole line, facing out. Inside it: dead ground, bare trunks, no plants. |
+| **The pass** | (462, 490), height 109 | Two knolls 14 m high either side. Clean ground: a circle of 13 m round (464, 480), marked with green boards, grass, one living tree. |
+| **The refuge hut** | x 466–472, z 474–480 | Stone and timber, one room, a door on the road. A stove (it cooks), a table and bench, a bedroll, a crate (food, water, tablets, bandages), the wardens' log (a note). A lantern inside and out. |
+| **The sump** | (418, 430), ring 22 m | A hollow 9 m deep that falls evenly from the road's edge, so the pond is seen from the road: black sludge 14 m across, yellow waste drums, a ring of signs and tape posts. The hottest ground: 120 a second at its heart without a suit. |
+| **The observatory** | (440, 388), a drum 11 m across | A concrete drum and a white dome with a slit toward the road, the telescope's tube out through it. Inside, lit: the telescope on its pier (mine it for the optics), a desk with the observers' last page (a note), a crate (glass, wiring). The door faces the road. |
+| **The tower's yard** | x 348–385, z 368–403, height 127 | Gravel, lamps. The tower at (360, 380): four legs, braced, 60 m, a red beacon at the top and one halfway. The fallen dish: three panels (mine each for an antenna section). |
+| **The relay station** | x 352–373, z 392–401 | Lit half (east, the door on the yard): six equipment racks (mine each for rare components), the spares crate (wiring, fittings, cells, tablets, one more antenna section), the field pharmacy manual on its shelf (read it: the medical bench and the distiller), solar panels on the roof. Dark half (west, its own open bay in the west wall, a baffle wall inside so no daylight reaches the far end): the battery hall, two Ashen. |
+
+**Rock:** no cave opens under the road or the places. Ore under Zone-4 is as elsewhere.
+
+**Far off:** Zone-4 is drawn as grey dead slopes, so the ridge reads as poisoned from the dam and the highway.
+
+**Fixtures** (`tools/worldhash.ts`):
+- East of the gorge: `tests/fixtures/east-of-ravine.json` and `east-rim.json`, as before. Nothing new may differ.
+- Zone-3's built places: `tests/fixtures/zone3-places.json` (66 columns, x 480–671, z 704–1055, hashed on `main` at bf3efa6, with the fixes in). Only the columns the ridge road's first stretch crosses may differ.
+- West of the gorge, outside the massif: `tests/fixtures/west-outside-massif.json` (hashed on `main` at bf3efa6, with the fixes in). Only the shore road's columns may differ.
+
+## 2. Radiation, the suit and medicine (`src/sim/radiation.ts`, pure)
+
+**The dose a second** (`falloutAt` in the layout):
+
+| Where | Without a suit | In the suit |
+|---|---|---|
+| The pass's clean ground; everywhere outside the line of signs | 0 | 0 |
+| Indoors (the station, the observatory) | 4 | 0.1 |
+| On the road, the yard, the observatory's step | 12 | 0.3 |
+| Off the road (it climbs from the road's edge over 8 m) | 40 | 1 |
+| The sump: its ring to its heart | 40–120 | 1–3 |
+| The first 20 m inside the line of signs | 30% of the above, climbing | |
+
+- **The limit is 100.** Dose past it comes off health, one for one. Health is capped at 100 − 0.6 × dose (never under 40), as before. The dose fades by 4 a game day, as before.
+- **Without a suit** the road gives 12 a second: the limit ten seconds past the signs, death three seconds after. The hut's clean ground is 80 m in: 20 s at a walk, 14 at a run. Nobody reaches it; a unit test walks and runs it. So the gate is a wall, and the meter says so in red ("NO SUIT · limit in 0:08"). The first 20 m inside the signs are weaker, so a few steps in and back out cost a third of the limit, not a life. *Changed from the first draft:* at half this strength (and a suit that let a twentieth through) a runner reached the hut alive with a dose of 100 and 30 health, stranded.
+- **In the suit**, walking the road: gate to hut 8, hut to tower 11. A careful trip there and back with the work indoors: about 45. Crossing the sump instead of going round: about 35 more, to save six seconds.
+- **The meter** shows the whole time you are in Zone-4 or have a dose: the dose, its rate ("+0.3/s"), "suit" or "no suit", and the time to the limit at this rate. The Geiger counter clicks by the rate, as in Zone-2.
+- **The hazard suit** (`hazard_suit`): workbench, canvas 4, scrap lead 4, glass 1, charcoal 2. The recipe shows once Ray has given his word (`suit_word`). Everything in it comes from Zones 1–3 and the kiln.
+- **Blue tablets** (`rad_tablets`): use one, the dose drops by 30. Found: the gate's booth (1), the hut's crate (2), the station's spares (2); Ray gives 2 at the meeting and sells more; made at the medical bench.
+- **Doc's rad treatment** stays: the whole dose, for his fee.
+- **Flying in Builder's mode** takes no dose, as before.
+
+## 3. Ray (`data/people.json`; the phone; the hut)
+
+1. **His word.** The first call after he has given the uplink plans: he tells you what the ridge is, to follow his lamps, and how to make the suit. The recipe shows. If you reach the gate first, its toast tells you to call him.
+2. **The meeting.** Once you carry a suit, his contact has a second button: "Ask Ray to meet you at the refuge". He says he will be there by day. From then he stands by the hut's door, 06:00–18:00, until you have met. He wears his own suit: orange, the hood down, a white hard hat, grey beard.
+3. **Right-click him:** he hands over the **satellite modem** and two boxes of tablets, tells you the dish is in the yard, the optics in the dome and the racks in the station, and that he is going back down before dark. A page goes into your notes. He is not there again.
+4. **His catalogue** gains, after the meeting: blue tablets, rare components, an antenna section (so nothing in M5 can be lost for good).
+- He is never there at night, never anywhere but the hut's clean ground, and nothing hunts there (the Ashen's ground is the yard's west end, 150 m away).
+
+## 4. Items, blocks and recipes (`data/*.json`, appended)
+
+**Found on the ridge**
+
+| Item | From |
+|---|---|
+| `antenna_section` | the fallen dish's three panels; one more in the spares crate |
+| `rare_components` (amplifier, waveguide, oscillator) | the station's six racks |
+| `telescope_optics` (the mirror and its cell) | the observatory's telescope |
+| `sat_modem` | Ray |
+| `rad_tablets` | the booth, the hut, the spares crate, Ray |
+
+**M5's recipes**
+
+| Station | Makes | From | Shows when |
+|---|---|---|---|
+| workbench | hazard suit | canvas 4, scrap lead 4, glass 1, charcoal 2 | Ray's word |
+| workbench | satellite antenna | antenna section 3, steel ingot 4, wiring 2, pipe fittings 2 | Ray's uplink plans |
+| lathe | telescope | telescope optics 1, steel ingot 2, glass 1, planks 2 | always |
+| workbench | uplink terminal | satellite modem 1, rare components 2, wiring 4 (the plans kept) | Ray's uplink plans |
+| workbench | medical bench | steel ingot 4, glass 4, rare components 1, wiring 2 | the pharmacy manual |
+| workbench | distiller | copper 6, glass 2, pipe fittings 2, steel ingot 1 | the pharmacy manual |
+| distiller | spirit ×2 | corn 4, water jug 1, charcoal 1 (the jug back) | |
+| distiller | spirit ×2 | potato 4, water jug 1, charcoal 1 (the jug back) | |
+| medical bench | blue tablets ×2 | spirit 1, iron ingot 1, herbs 2, charcoal 1 | |
+| medical bench | antibiotics ×2 | spirit 1, herbs 3, honey 1 | |
+| medical bench | adrenaline ×1 | spirit 1, coffee beans 4, salt 1 | |
+| lathe | thermal optic | glass 2, rare components 1, battery cell 1, steel ingot 1 | its schematic |
+| workbench | sonic lure ×2 | rare components 1, battery cell 1, wiring 2, scrap metal 2 | its schematic |
+| powder mill | smoke pot ×2 | sulfur 2, saltpeter 1, charcoal 1, clay 1 | its schematic |
+| lathe | engineer's armour | plate armour 1, steel ingot 4, rare components 1, canvas 2 | its schematic |
+
+- **The medical bench and the distiller are stations, and work only while a hydro generator turns** (the script: hydro-gated). Without one they say why.
+- **The medicines** (the script: rare drugs from before; never an Ashen cure, and the manual says so): blue tablets (dose −30); antibiotics (health back to the most the dose allows, at once); adrenaline (for 60 s blows hurt half as much and the focus meter is full).
+- **Rare components:** six from the racks; M5 needs six if everything is built once (terminal 2, bench 1, optic 1, a pair of lures 1, armour 1). Ray sells more.
+- **The thermal optic** (carried): in focus mode (Q) every warm body within 60 m is drawn bright through the dark, Ashen included, and never through rock.
+- **The sonic lure** (set down, then right-click): it wails for 40 s. Every Ashen within 40 m that is not already hunting goes to it, as to a shot. Then it is spent.
+- **The smoke pot** (set down, then right-click): for 60 s no Ashen steps within 8 m of it; one that is inside walks out. Then it is spent.
+- **Engineer's armour** lets 35% of a blow through (plate 50%).
+
+## 5. M5 at home
+
+- **The antenna.** A hoist (`antenna_hoist`: a winch and a cable up the cliff) stands on the balcony from the start of the game; until M5 it says what it is for. With the assembled antenna in hand, right-click it: the mast and the dish are set on the cliff's edge above the cave's mouth (blocks, saved with the world). Its place is fixed by the layout once the home makeover is merged.
+- **The telescope.** A block, set down anywhere. Right-click to look: 12×, drag to aim, Esc to leave. Labels in the cross-hairs: the falls, the moon, the satellites (a train of four crossing every few minutes at night), the ridge tower, the dam. It counts for the uplink when it stands under open sky in the home's grounds.
+- **The uplink terminal.** With it in hand, right-click the builder's computer: it is fitted. The computer gains an "Uplink" page listing what the link needs, each with a tick: the antenna on the cliff; the telescope under the sky; a hydro generator turning; the terminal fitted. When all four hold: "Open the link".
+- **The medical bench and the distiller**, by the workshop like any station.
+
+## 6. The uplink (`src/sim/uplink.ts`, pure; the screen in `src/ui/`)
+
+**It never speaks.** Every answer is rows of numbers, coordinates, times, and diagrams drawn in characters. No sentence, no name, no greeting, no "I". The page's own labels are the builder's software, in capitals, terse: `LINK`, `QUERY`, `ROWS`, `NEXT WINDOW`.
+
+**Opening the link**, the first time: the screen counts the handshake (`CARRIER … LOCK … KEY ACCEPTED`), then prints, unasked, the first answer:
+
+`ENDPOINTS HEARD · LAST 3000 d` — one row for each handset the satellites have heard: an id, a position (bearing and distance from here), the last fix (days ago), a state.
+- Three that answer: the trader's, the doctor's, the engineer's (the ids on the builder's phone).
+- This one: `HERE`.
+- Five that stopped within a week of each other, some 2,920 days ago: the builder's contacts, and his own second handset (`HV-02`). That one and Lucía's last answered from the same position on the coast road, his two days after hers. Nothing is said about it.
+- One nobody has on the phone: `MIRA-7`, 212 km north, a fix 0 days old, state `BEACON · REPEATING`.
+
+**That is the ending** (below). After it, the queries:
+
+| Query | It returns | What it changes |
+|---|---|---|
+| `RAD` | a grid of the dose over the ridge, cell by cell, and the least-dose line as coordinates | The map table draws the fallout, the sump and the road through it. The dose meter adds the dose the rest of the road will cost at this pace. |
+| `BIO` | a table: each nest's position, count, and the hours they are out tonight | The map table marks the nests. A chip on the screen warns within 40 m of one ("nest 32 m"). |
+| `EPH` | three days of sunrise, sunset, moon, the valley's mist hours | Outside the valley the clock shows the time left to dusk. |
+| `SCH` | an index of four drawings; each request returns one: a diagram in characters and a parts table | That recipe shows at its station: the thermal optic, the sonic lure, the smoke pot, the engineer's armour. One drawing a link window (six game hours: `NEXT WINDOW 14:20`). |
+| `END` | the endpoints table again, with today's fixes | Mira's beacon is on the phone (no voice: a position) and on the map table's edge as a bearing. |
+
+- Every query but `SCH` answers at once, as often as asked.
+- With the hydro stopped, the antenna gone or the telescope moved indoors, the page says which is missing and the queries are greyed.
+
+## 7. The ending
+
+The first answer is the closing beat. When the endpoints table has been read and closed, the screen goes dark and a card comes up, white on black, one line at a time:
+
+> It answered.
+>
+> Not a voice. Positions, times, a list. Whatever keeps the satellites alive does not care who asks. It answered you.
+>
+> You came up out of the water with nothing. Now a wheel turns in the creek, a dish stands on the cliff, and nobody has found the valley.
+>
+> Still out there: Marco on his road. Doc on a bad line. Ray, who left his dam and still listens for it.
+> A handset called Mira, far to the north, calling and calling.
+> Two that stopped at one place on the coast road, two days apart, eight years ago.
+>
+> The valley is yours. The rest is waiting.
+
+One button: "Back to the valley". The game goes on; the queries are open; a page goes into the notes. The card shows once (`ending_seen`); "The story so far" on the computer shows it again. Phase 9 polishes it.
+
+## 8. M5 on the computer (`src/sim/m5.ts`)
+
+| DESIGN.md's row | Here: done when |
+|---|---|
+| (the run) | you reach the tower's yard and come home alive |
+| the Ray meetup | you have met Ray at the refuge |
+| 1. Satellite antenna | the antenna stands on the cliff |
+| 7. Telescope | a telescope stands under the sky at home |
+| 2. Uplink terminal | the link has been opened (the terminal fitted, hydro turning) |
+| 3 and 6. The query interface and what it gives | you have asked it something beyond the first answer |
+| 4 and 5. Medical bench, distiller, rare medicines | you have made a medicine |
+| 8. The weapons package | you have built from one of its drawings (optic, lure or pot) |
+| 9. Engineer's armour | you have made it |
+
+When all are done: *"M5 · the uplink. Everything the builder began is running. What comes next is not in his drawings."* and a page in the notes. Dying outside before reaching home from the yard means walking the run again, as in M3 and M4.
+
+## 9. Small things that go with it
+
+- **Old saves.** New flags default. A save made on the old dome, which stood up to 45 m higher, loads in the air: once the land is in, a player with nothing under them for more than three blocks is set on the surface, as a buried one already is.
+- **Zone-4's toast** fires at the gate, and for anyone who walks in over the signs elsewhere.
+- **The far tower** keeps its place on the skyline. By the land's lie it shows from the old road west of the saddle (nine tenths of it and more from x 1,050 to the bridge) and from the highway and the dam, as the taller drawing did; from the buffer's road the saddle's knolls hide it, as they hid the old one (a unit test checks both).
+- **Sound:** the wind on the ridge (it already rises with height); the Geiger; the beacon's slow tick near the tower; a short modem handshake when the link opens.
+
+## 10. The play-through
+
+`tests/e2e/play-zone4.mjs`, a sixth part run by `play.mjs`: the sign at the bend and its toast; the shore; the gate without a suit (the meter's warning, the dose climbing, turn back alive); Ray's word and the suit made; the gate in the suit; the pass, the meter still, the stove; Ray met, the modem in the pack; round the sump (and a step into its ring: the rate); the observatory's optics; the yard, a dish panel and a rack mined with the two Ashen behind their wall (none stirs); a tablet; home; the antenna hoisted and seen from the garden; the telescope looked through; the terminal fitted; the link opened; the first answer; the ending card and back to the valley; a query that changes the map table; a drawing and its recipe; M5's ticks.
+
+## Checks
+
+**Unit tests** (`tests/phase8.test.ts`)
+- The ridge road never steps more than a block; each place stands on level ground beside it; every place is built, lit and signed; the road's centre line is never darker than 7 of 15 at night; no cave under them; no tree on the road.
+- The tower is whole from its feet to its beacon and fits under the sky; the drawn frame and the blocks are the same frame.
+- Fixtures: east of the gorge as before; Zone-3's places but for the junction; west of the gorge outside the massif but for the shore road.
+- The fallout: nothing outside the signs, on the pass, or east of the gorge; the table above, cell by cell along the road; the road is the least-dose way from the pass to the yard; the sump's line costs more.
+- Dose: the suit's twentieth; past 100 it comes off health; without a suit a walker dies before the hut; in the suit a walker reaches the tower and home under 60; tablets; the cap; fading; Zone-2's rings by the same rule.
+- Zero hostile spawns in the sanctuary over 100,000 tries with Zone-4 in; the relay's two Ashen keep Phase 7's rules on the generated land (behind their wall by day with a player working in the lit half; out by their own bay; never on the pass).
+- The lure draws, the pot repels and both run out; the thermal optic lists what it would show.
+- Each M5 recipe resolves and gates; each M5 step ticks; the uplink's page lists what is missing; every query's answer is rows and never a sentence (no lower-case word runs, no "I", no name); the first answer holds Mira and the builder's contacts; each query sets its change.
+- The telescope's labels: what is in the cross-hairs from the balcony and from the rim.
+- Old saves load: the new state defaults; a player in the air is set down.
+
+**Screenshots** from a first-time player's eye: the sign at the bend; the shore road with the dam behind; the gate and the dead forest; the pass and the hut by day with Ray; the sump from the road; the observatory at dusk; the tower from the yard, looking up; the station's lit half; the dish above the cave from the garden; the uplink's first answer; the ending card.
+
+## Build order
+
+1. This plan, the map and the layout's numbers. DONE first.
+2. The land: `src/gen/zone4.ts`, the tower's frame, textures for the new blocks, the far land, fixtures and their tests.
+3. **Stop before `src/game.ts`.** Until the lead says the fixes and the home makeover are merged, only: the data (appended), icons and textures, and the pure logic with unit tests: radiation and the suit; the uplink's tables; M5's tracker; the lure and the pot; the telescope's aim; the relay's nest in the Ashen's list.
+4. Merge `origin/main`. Wire: the meter, the suit and tablets; the places' toasts and salvage; Ray's word, the meeting, his catalogue.
+5. M5 at home: the hoist and the antenna, the telescope, the terminal and the uplink page, the medical bench and the distiller, the drawings' things.
+6. The ending card.
+7. The play-through part, pictures, the fresh review and its fixes, the report to the lead.
+
+## Progress
+
+- **DONE: The plan, the map and the layout's numbers** (`ZONE4` in `src/gen/layout.ts`; `tools/zone4map.ts`). The ridge's shape, the road's line and heights, the fallout's field (`falloutAt`, folded into `radiationAt`) and Zone-4's new bounds are in. Baselines of the land as it was are in `tests/fixtures/zone3-places.json` and `tests/fixtures/west-outside-massif.json`. All 396 unit tests of the earlier phases pass with it.
+- **DONE: The land** (`src/gen/zone4.ts`, `src/gen/towerFrame.ts`), built to the map, with pictures looked at and faults in them fixed.
+  - The sign, the shore road with its parapet and landing, the gate, the line of warning signs (74 of them), the dead slope (grey ground, bare trunks, no moss), the pass with the hut and its green pocket, the sump, the observatory, the yard with the tower (about 900 blocks of lattice steel that cannot be mined, two beacons), the fallen dish and the relay station.
+  - *Changed from the first draft of the plan:* the road runs straight north for 18 m through the gate, so the board and barriers stand square to it. The sump moved 9 m toward the road and its hollow is a cone, not a bowl: from the road the pond was hidden behind the hollow's own lip. The battery hall has a baffle wall: without it daylight from the bay reached the far end. The road hugs the reservoir's rim (it stood 45 m back, from where the water cannot be seen), with a parapet and a landing.
+  - Far off, Zone-4 is drawn as grey ground with no canopy, and the pass's green pocket shows in it.
+  - The tower drawn in the sky is the same frame as the blocks (`towerBeams`), upright, and is left out within 150 m.
+  - The data for the whole phase is in (`data/*.json`, appended): 27 blocks, 13 items, 15 recipes, Ray's later catalogue; with textures and icons. The medical bench and the distiller are stations.
+  - Checks: `tests/phase8.test.ts`, 37 tests (layout, bounds, the fallout's table, the tower's frame, the three fixtures, every place built and lit). 424 columns of the world differ from `main`: none east of the gorge, none in the gorge's own column, 13 outside the massif (all on the road).
+- **DONE: The dose, the suit, the tablets** (`src/sim/radiation.ts`, pure, tested). *Changed from the first draft:* the fallout is twice as strong and the suit lets a fortieth through (the suited numbers are the same). At the first numbers a runner without a suit reached the hut alive, at the limit, with no way back.
+- **DONE, waiting to be wired: the pure logic** for everything after the merge, each with tests:
+  - the uplink (`src/sim/uplink.ts`): what the link needs; the first answer (the handsets); `RAD`, `BIO`, `EPH`, `SCH` and the four drawings, each row checked for speech (`spoken`): no lower case, no sentence, no word a speaker uses, no name;
+  - M5's nine steps (`src/sim/m5.ts`);
+  - the sonic lure and the smoke pot (`src/sim/countermeasures.ts`), and the Ashen's part of them (`src/entity/ashen.ts`: `smoke` in their senses; a lure is `ashenHear`);
+  - the relay station's nest: eleven Ashen in six nests (`NESTS`); the ridge is theirs only within 50 m of the nest, never the pass. Tested on the generated land: neither wakes for a walker in the yard or a pick in the lit half; a runner brings them out round the baffle and by their bay; at night they keep to the yard's west end;
+  - the telescope's aiming (`src/sim/telescope.ts`): bearings, sight lines over the land, the moon, the satellites' train, what the cross-hairs are on.
+  - Unit tests: 485 in all (89 in `tests/phase8.test.ts`).
+  - Also ready: Ray's lines and the eight notes (`data/people.json`, `data/journal.json`), the closing card's words (`data/ending.json`), the ridge's places and Ray's calls (`src/sim/ridge.ts`), the medicines (`src/sim/medicine.ts`), the antenna's blocks (`src/gen/antenna.ts`), and three screens as files of their own: the uplink page, the closing card, the telescope's field (`src/ui/uplinkScreen.ts`, `endingCard.ts`, `scopeView.ts`). 495 unit tests.
+  - The far tower is drawn three times as thick as steel, with half the haze and its two red beacons: from the dam its top and its light stand over the forest by day, and the light shows at night.
+- **DONE: merged with the home makeover and the fixes** (`main` at bf3efa6).
+  - The hoist stands in the balcony's north corner (`HOME_FIT.hoist`), not solid, so the balcony's own rules hold; the antenna's place is the cliff's edge above the cave's mouth (`HOME_FIT.mast`, `antennaSpot`).
+  - M5's recipes wait for M4 like every milestone's (`after: m4_done`), and Ray gives his word on the ridge only once the turbine turns (`ridgeNotYet` before).
+  - The land fixtures were taken again from `main` with the fixes in. 425 columns differ from `main`: the massif, 13 road columns outside it, and the home's one column with the hoist. The fixes' own land test leaves those columns to this phase's tests.
+- **DONE: wired into the game** (`src/game.ts`, and beside it `src/game/uplink.ts`, `src/game/people.ts`, `src/game/computer.ts`).
+  - **The dose:** `absorb` each tick; the suit works from the pack; past the limit it comes off health and can kill; the meter shows the dose as a number and, under it, the rate, the suit and the time to the limit, red without a suit. The Geiger clicks by the rate.
+  - **The medicines** are used from the hand; one that would do nothing is not used up. Adrenaline halves blows for a minute and fills the focus. Engineer's armour lets 35% through.
+  - **Ray:** his word, the meeting's own row on the phone, standing at the refuge 06:00–18:00 (a new figure: orange suit, white hard hat, grey beard), the hand-over (both things or neither if the pack is full), his later catalogue. He cannot be struck or shot.
+  - **The ridge's places** each say their piece once; the gate's differs with a suit.
+  - **The hoist** raises the antenna as blocks that cannot be mined, so it cannot be lost. *Changed after its first picture:* the dish is seven across and white with a red light on its feed (five across, in the fallen dish's grey, it was lost against the limestone from the garden). **The telescope** narrows the camera twelve times, the mouse slowed to match; E, Esc, a step or a right-click puts it down. It names nothing through a roof or a wall (the first 120 m of the line are checked against the blocks), and says "behind the land from here" for the moon or the satellites when the valley's rim or the cliff over the home is in their line: from the balcony the satellites are in the open for the first 25 seconds of each pass. Four points of light cross the night sky every four minutes, with or without it.
+  - **The computer** takes the terminal, and has buttons: "Uplink" and, after the ending, "The story so far". The uplink page and the closing card are screens of the builder's paper screen (`src/ui/paperScreen.ts`), so every rule about an open screen holds for them (the body waits, the day stands still).
+  - **What the answers change:** `RAD` the map table (the fallout hatched, the sump ringed, the road) and the meter (what the road costs to the tower and to the gate); `BIO` the nests on the map and a chip within 40 m of one; `EPH` a chip with the time to dusk outside the valley; `END` Mira on the phone and as a bearing on the map's edge; `SCH` the recipes.
+  - **The medical bench and the distiller** open only while a hydro generator turns, and say so.
+  - **Lures and pots** are set down as blocks and started with a right-click; they run on the game's clock, are saved, and their block goes when they are spent. A lure's call is kept until the creatures' next step (they think at 20 Hz).
+  - **The thermal optic:** carried, every body within 60 m glows while focus runs; the depth test is the usual one, so never through rock.
+  - **Saves are version 4:** the days are counted (at midnight and through a night's sleep), with the last drawing's hour and what is running; all three are checked on load and an older save gets them empty. A player saved in the air where the ridge was lowered is set down, unhurt (`Player.setDown`), only inside Zone-4.
+  - **M5** is on the computer and in the goal on screen; a death outside before home undoes the run.
+  - **Sound** (synthesized, like the rest): the modem's handshake, the lure's wail, the pot's hiss, the beacon's tick.
+  - *Calls made while wiring:* the antenna, once up, cannot be mined (a lost dish would strand M5). Ray's first-answer flags (`agi_end`) are set by the unasked answer too, so Mira is on the phone after the card; "asking it something" still needs a query of your own. Dying of the ground leaves the dose at the limit, as dying in a Zone-2 hotspot always has: Doc's treatment, the tablets and time bring it down. The telescope's set-down counts anywhere in the valley or the home's grounds, under open sky.
+  - Checks: `tests/phase8.game.test.ts` (33 tests on the real game in Node, seven of them the fresh review's) with `tests/phase8.test.ts` (103, the pure rules). 836 unit tests in all, with `main` at d06ec51 merged in.
+- **The play-through part** is `tests/e2e/play-zone4.mjs`, the sixth of `tests/e2e/play.mjs`: 53 checks, about 16 minutes here. All six parts: 220 checks (valley 42, near 25, mid 21, Zone-2 35, Zone-3 44, Zone-4 53).
+- **From its own pictures** (the phase session looked at each and fixed what was wrong): the home's dish was lost against the limestone (now seven across, white, a red light on its feed); the closing card's button fell below the fold in a small window (the card is sized by the window's height); the meter's line sat to one side of the bars (centred over them); the telescope named the moon through the cave's roof (it names nothing through blocks, and says when the land hides the moon or the satellites); the satellites were painted out by the night's cloud (drawn after it, and larger through the glass).
+
+## The fresh review
+
+A reviewer that did not write the code read the branch against this document and AGENTS.md and ran what it claimed (2026-11-20). Each finding, and what was done; the tests are in `tests/phase8.game.test.ts`, "the fresh review", unless said.
+
+1. **The hazard suit could become impossible to make, and a suit lost with a pack on the ridge could not be replaced** (lead is finite: bullets eat it and Marco buys it). *Fixed:* from his word on, Ray sells a hazard suit (`raySuit` in `data/trade.json`, 30 units: dear, a fallback). After the meeting he also sells pipe fittings, the other finite part M5 uses. Test: "gives his word…" (the suit is bought from him).
+2. **The closing card could be lost for good**: the link's flags were set at the click, but the card was only owed once the first answer had printed 2.7 s later; a page put down sooner, or a tab closed with the answer still up, never showed it. *Fixed:* the answer is owed from the click, and a link opened whose card has not been seen opens again from OPEN LINK (`live` needs `ending_seen`). Test 2 runs the real page on a stand-in for the browser's elements.
+3. **The pharmacy manual could be mined away before it was read** (one plank, and M5 never finishable). *Fixed:* the manual's shelf and the three pages' desks cannot be mined, like Phase 7's logbook. Also from the nits: a lure or pot cannot be mined while it runs (it gave nothing and kept running with no block); the dome's shell, the telescope's tube, dead trunks and sludge drop themselves, so a hole goes back matching. Test 3.
+4. **A save made on the old massif loaded into certain death** (that ground is now 40 a second), the pack left out of reach. *Fixed:* any save loaded with no suit on ground that gives a dose wakes on the road outside the gate, and says so (`gateRefuge`). With a suit, or on the pass's clean ground, it is left where it was. Test 4.
+5. **Hold H never worked on the ridge for a healthy player in the suit**: the dose's cap coming down a point counted as being hurt, every five seconds, and H waits ten after a hurt. *Fixed:* the cap is not a blow (in Zone-2's hotspots too); health taken past the limit still is. Test 5.
+6. **The phone told someone carrying a suit that he needed one.** *Fixed:* the row reads "you carry the suit: ask him". Test: "will not climb the hill…".
+7. **The gate was not a wall once the booth's own tablet was used**: a sprinter who took it at the limit reached the refuge alive with 12 health. *Fixed:* the booth has bandages and water; its tablet is in the refuge's stores (three there now). No tablet can be found or bought before a suit has been carried through the gate. Test 7, and "builds the gate" in `tests/phase8.test.ts`.
+8. **Weak tests.** The bed's day count is now exercised (test 8: from 17:12 and 23:30 a day is counted, from 00:30 and 05:30 not); what was running is checked after a load (test 8); the play-through's "M5 done" check no longer passes on the heading alone, and two of its checks say only what they check.
+9. **Smaller things.** Fixed: Ray stays while you stand with him after the hand-over (he vanished under his own words; a second right-click now gets "Ray Quispe, the dam's engineer"); every one of M5's fifteen recipes waits for M4 in the data, as this document said (nine did not); Builder's clock keys carry the day across midnight; being hurt puts the telescope down, and the arrow keys are as fine as the mouse through it; a held key's repeats no longer put down a screen the first press brought up; the telescopes at home are looked for only while you are at home (it was a second scan of every edit each second, everywhere). Test 9.
+   - *Answered, not changed:* adrenaline is not saved (a minute's effect; a reload ends it, which cheats nobody). Dying of the ground leaves the dose at the limit, as dying in a Zone-2 hotspot always has; Doc, the tablets and time bring it down.
+
+**Found sound by the reviewer:** the sanctuary rule (a lure at home or at the valley's edge draws nothing in: the Ashen's ground check refuses the step, and the nearest nest is a kilometre off); every string the uplink can print; the save's round trip of everything Phase 8 adds; the unique parts (the lost pack never goes away; none has a resale value; the antenna cannot be mined; Ray gives both things or neither); units of time throughout; the telescope's zoom is undone on death, on any screen, on a load and on walking off; no new canvas, storage or outside asset.
+

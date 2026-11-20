@@ -6,6 +6,8 @@ import { btc } from '../sim/trade.ts';
 import { M1_STEPS, M2_STEPS, M3_STEPS, M4_STEPS, type Step } from '../sim/milestones.ts';
 import { RIG_THS, RIG_SATS_PER_DAY, BANK_KWH, HYDRO_KW, type Devices, type PowerState } from '../sim/power.ts';
 import { itemId } from '../world/items.ts';
+import { M5_STEPS } from '../sim/m5.ts';
+import { linkReady, type LinkNeeds } from '../sim/uplink.ts';
 
 export type Row = [string, string, string];
 
@@ -16,6 +18,8 @@ export interface Desk {
   wallet: number;
   power: PowerState;
   devices: Devices;
+  /** What the uplink has of what it needs (docs/PHASE8.md, 5). */
+  linkNeeds?(): LinkNeeds;
 }
 
 /** The computer's power lines (docs/PHASE6.md, 6; docs/PHASE7.md, 5). */
@@ -42,6 +46,7 @@ const MILESTONES: [string, string, Step[], string | null][] = [
   ['m2_done', 'M2 · the homestead expansion', M2_STEPS, 'm1_done'],
   ['m3_done', 'M3 · power up', M3_STEPS, 'm2_done'],
   ['m4_done', 'M4 · hydro', M4_STEPS, 'm3_done'],
+  ['m5_done', 'M5 · the uplink', M5_STEPS, 'm4_done'],
 ];
 
 /** A milestone's heading (done, or how many steps, and which milestone it waits for) and its steps, ticked or not. */
@@ -56,6 +61,15 @@ export function milestoneRows(flags: ReadonlySet<string>): Row[] {
   });
 }
 
+/** The uplink's one line: what it still wants, or that the link is up. */
+export function uplinkRow(flags: ReadonlySet<string>, n: LinkNeeds): Row {
+  if (flags.has('uplink_live')) return ['Satellite uplink', linkReady(n) ? 'link up · press Uplink' : 'link down · press Uplink to see why', linkReady(n) ? 'btc' : ''];
+  if (n.terminal) return ['Satellite uplink', linkReady(n) ? 'terminal fitted · ready: press Uplink' : 'terminal fitted · press Uplink to see what it needs', ''];
+  if (!flags.has('uplink_plans')) return ['Satellite uplink', 'no antenna', 'dim'];
+  const missing = [n.antenna ? '' : 'no antenna', flags.has('ray_met') ? 'no terminal fitted' : 'no modem'].filter(Boolean).join(' · ');
+  return ['Satellite uplink', `Ray’s plans in hand · ${missing}`, 'dim'];
+}
+
 /** Everything on the builder's terminal, top to bottom. */
 export function computerRows(g: Desk): Row[] {
   const cold = g.hotbar.count(itemId('hardware_wallet')) > 0;
@@ -63,7 +77,7 @@ export function computerRows(g: Desk): Row[] {
     ['Hot wallet (phone)', btc(g.wallet), 'btc'],
     ['Cold wallet', cold ? '2.50000000 BTC (connected, kept cold)' : 'not connected', cold ? 'btc' : 'dim'],
     ...powerRows(g.power, g.devices),
-    ['Satellite uplink', g.flags.has('uplink_plans') ? 'Ray’s plans in hand · no antenna' : 'no antenna', 'dim'],
+    uplinkRow(g.flags, g.linkNeeds?.() ?? { antenna: false, telescope: false, hydro: false, terminal: false }),
     ...milestoneRows(g.flags),
     ['Last note', '“Back before the rains.”', ''],
   ];

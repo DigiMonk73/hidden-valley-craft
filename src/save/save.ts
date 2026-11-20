@@ -13,8 +13,9 @@ export const SAVE_FORMAT = 'hidden-valley-blocks-save';
  * brings an older save up, one step at a time); a save from a later build is refused, and kept untouched.
  * 2: each valley has an id and each write a counter (docs/FIXES.md, N1).
  * 3: each valley has a mode, Survival or Builder's, chosen when it is begun (docs/FIXES.md, N2).
+ * 4: the days are counted, and the uplink's last drawing and the lures and pots still running are kept (docs/PHASE8.md).
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** How a valley is played: Survival is the game; Builder's mode adds flying, endless blocks and the sky's clock. */
 export type Mode = 'survival' | 'builder';
@@ -72,6 +73,12 @@ export interface SaveData {
   power?: { charge: number; satsTotal: number; satsToday: number; frac: number };
   /** The radiation dose, 0–100 (Phase 6). Absent: none. */
   dose?: number;
+  /** Days since this valley was begun, counted at each midnight (Phase 8: the uplink's clock). Absent before version 4: 0. */
+  day?: number;
+  /** When the uplink last sent a drawing, in hours since the valley was begun (Phase 8); null: never. */
+  lastPull?: number | null;
+  /** Sonic lures and smoke pots still running (Phase 8): where, which, and the seconds left. */
+  running?: { kind: 'lure' | 'pot'; x: number; y: number; z: number; left: number; call: number }[];
   /** Zone-2's men killed since dawn, as bits (Phase 6): they stay down across a reload. Absent: none. */
   factionDown?: number;
   /** Zone-3's Ashen put down since dawn, as bits (Phase 7): they stay down across a reload. Absent: none. */

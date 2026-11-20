@@ -6,11 +6,13 @@
 import { B_SOLID, isWaterId } from '../world/blocks.ts';
 import { inSanctuary } from '../gen/layout.ts';
 
-export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco' | 'lookout' | 'gunman' | 'rusher' | 'jaguar'
+export type Kind = 'rabbit' | 'deer' | 'boar' | 'puma' | 'dog' | 'coyote' | 'chicken' | 'marco' | 'ray' | 'lookout' | 'gunman' | 'rusher' | 'jaguar'
   // Zone-2's faction (docs/PHASE6.md): patrols with pistols, a sentry with a machete, the gate towers' guards.
   | 'patrol' | 'sentry' | 'guard'
   // Zone-3's Ashen (docs/PHASE7.md): not a person any more, not an animal. Its mind is in src/entity/ashen.ts.
   | 'ashen';
+/** The people you meet face to face: never game, never hurt. */
+export const isPerson = (k: Kind): boolean => k === 'marco' || k === 'ray';
 
 export interface KindDef {
   hp: number;
@@ -35,6 +37,8 @@ export const KINDS: Record<Kind, KindDef> = {
   coyote: { hp: 16, width: 0.55, height: 0.7, walk: 2, run: 6.4, shy: 0, hostile: true, damage: 6, windup: 0.55, drops: [['hide', 1]] },
   chicken: { hp: 4, width: 0.35, height: 0.5, walk: 0.7, run: 3.2, shy: 4, hostile: false, damage: 0, windup: 0, drops: [['chicken_raw', 1], ['feather', 2]] },
   marco: { hp: 1e9, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: false, damage: 0, windup: 0, drops: [] },
+  // Ray, at the refuge on the pass (docs/PHASE8.md, 3): a person, like Marco.
+  ray: { hp: 1e9, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: false, damage: 0, windup: 0, drops: [] },
   // Zone-1's mid band (docs/PHASE5.md): the outpost's three raiders and the hunting camp's jaguar. A gun's
   // `windup` is its aim, the warning before the shot.
   lookout: { hp: 40, width: 0.6, height: 1.85, walk: 1.2, run: 1.2, shy: 0, hostile: true, damage: 18, windup: 1.5, drops: [['raider_rifle', 1], ['rifle_rounds', 10]] },
@@ -273,8 +277,8 @@ export function think(c: Creature, dt: number, s: Senses, blockAt: BlockAt, rand
   }
   if (c.held !== undefined && c.held < 0) c.held = Math.min(0, c.held + dt);
 
-  // Marco stands where he is and turns to whoever comes near.
-  if (c.kind === 'marco') {
+  // Marco (and Ray) stand where they are and turn to whoever comes near.
+  if (isPerson(c.kind)) {
     c.vx = c.vz = 0;
     if (dist < 14 && dist > 0.1) c.yaw = Math.atan2(-dx, -dz);
     moveBody(c, dt, blockAt);
@@ -396,7 +400,7 @@ function inReach(c: Creature, s: Senses, blockAt: BlockAt): boolean {
 
 /** Damages a creature; returns true if that killed it. A hurt animal flees, a hurt boar charges. */
 export function hurt(c: Creature, damage: number): boolean {
-  if (c.kind === 'marco') return false; // a person, not game
+  if (isPerson(c.kind)) return false; // a person, not game
   if (c.kind === 'jaguar') c.angry = 60; // provoked: the fight is real
   c.hp -= damage;
   c.hurt = 0;

@@ -1,12 +1,12 @@
 // The play-through: runs each part one after another, each in its own browser, and sums the checks
 // (docs/PHASE6.md, 11). Needs the build served: npx vite preview --port 4173. Run: node tests/e2e/play.mjs
-// One part alone: node tests/e2e/play-valley.mjs (or play-near, play-mid, play-zone2, play-zone3). PARTS=valley,zone3 picks some.
+// One part alone: node tests/e2e/play-valley.mjs (or play-near, play-mid, play-zone2, play-zone3, play-zone4). PARTS=valley,zone3 picks some.
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const all = ['valley', 'near', 'mid', 'zone2', 'zone3'];
+const all = ['valley', 'near', 'mid', 'zone2', 'zone3', 'zone4'];
 const parts = process.env.PARTS ? process.env.PARTS.split(',') : all;
 let passed = 0, total = 0;
 const failedParts = [];

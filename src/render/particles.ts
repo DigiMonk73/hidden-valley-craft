@@ -218,6 +218,15 @@ export class Particles {
     }
   }
 
+  /** A smoke pot's smoke (docs/PHASE8.md, 4): grey puffs that swell and drift out to the pot's eight metres. */
+  smoke(x: number, y: number, z: number, count: number): void {
+    for (let n = 0; n < count; n++) {
+      const a = Math.random() * Math.PI * 2, v = 0.4 + Math.random() * 1.1, g = 0.62 + Math.random() * 0.2;
+      this.normal.spawn(KIND.mist, x + Math.cos(a) * 0.3, y + Math.random() * 0.4, z + Math.sin(a) * 0.3,
+        Math.cos(a) * v, 0.25 + Math.random() * 0.5, Math.sin(a) * v, g, g, g * 0.98, 0.5, 2.4 + Math.random() * 1.6, 5 + Math.random() * 3);
+    }
+  }
+
   firefly(x: number, y: number, z: number): void {
     this.glow.spawn(KIND.firefly, x, y, z, 0, 0, 0, 0.75, 1, 0.35, 0.9, 0.22, 12 + Math.random() * 14);
   }
