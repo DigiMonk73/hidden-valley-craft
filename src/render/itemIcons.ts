@@ -164,6 +164,20 @@ const DRAW: Record<string, (i: Icon) => void> = {
   pistol_suppressed: (i) => { i.rect(2, 5, 7, 3, '#2f3133'); i.rect(9, 5, 6, 3, '#111111'); i.rect(9, 5, 6, 1, '#3a3a3a'); i.rect(3, 8, 3, 5, '#3b2a1c'); i.set(7, 9, '#2f3133'); },
   rifle_rebuilt: (i) => { i.rect(1, 9, 5, 3, '#4a3020'); i.rect(5, 8, 10, 2, '#c9d0d6'); i.rect(5, 9, 10, 1, '#7d8790'); i.rect(6, 5, 6, 2, '#1f1f1f'); i.set(6, 6, '#6fb6e0'); i.set(6, 10, '#3c3c3c'); },
   plate_armor: (i) => { i.rect(3, 4, 3, 10, '#4b5320'); i.rect(10, 4, 3, 10, '#4b5320'); i.rect(5, 6, 6, 8, '#8f9aa4'); i.rect(5, 6, 6, 1, '#d8dee4'); i.line(8, 7, 8, 13, '#4a525a'); },
+  // Zone-4 and M5 (docs/PHASE8.md).
+  hazard_suit: (i) => { i.rect(4, 5, 8, 9, '#e8a01c'); i.rect(2, 6, 2, 6, '#e8a01c'); i.rect(12, 6, 2, 6, '#e8a01c'); i.rect(5, 1, 6, 5, '#e8a01c'); i.rect(6, 2, 4, 3, '#2a3a4a'); i.set(7, 3, '#9fc4e8'); i.rect(7, 8, 2, 2, '#f2c81c'); i.line(8, 6, 8, 13, '#b87a10'); },
+  rad_tablets: (i) => { i.rect(3, 4, 10, 9, '#f2f5f2'); i.rect(3, 4, 10, 2, '#2c5a9c'); for (const [x, y] of [[5, 8], [8, 8], [11, 8], [5, 11], [8, 11], [11, 11]]) i.disc(x, y, 1, '#3a7ad0'); },
+  antenna_section: (i) => { i.line(2, 12, 8, 3, '#eceee9', 2); i.line(8, 3, 14, 12, '#eceee9', 2); i.line(3, 12, 13, 12, '#c9ccc8'); i.line(5, 9, 11, 9, '#c9ccc8'); i.line(8, 4, 8, 12, '#9aa0a6'); },
+  rare_components: (i) => { i.rect(2, 8, 12, 5, '#2e6a3e'); i.rect(4, 5, 4, 4, '#1c2024'); i.rect(10, 6, 3, 3, '#c9a227'); i.disc(5, 11, 1, '#c9d0d6'); for (let x = 3; x < 13; x += 2) i.set(x, 13, '#c9a227'); i.set(11, 7, '#fff6c8'); },
+  telescope_optics: (i) => { i.disc(8, 8, 6, '#7d8790'); i.disc(8, 8, 5, '#1c2a3c'); i.disc(7, 7, 2, '#5a8ac0'); i.set(6, 6, '#e8f4ff'); i.set(5, 7, '#9fc4e8'); },
+  sat_modem: (i) => { i.rect(2, 7, 12, 6, '#3a3f44'); i.rect(2, 7, 12, 1, '#6a7178'); i.line(11, 7, 13, 2, '#c9d0d6'); for (const x of [4, 6, 8]) i.set(x, 10, '#3ee05a'); i.rect(10, 10, 2, 1, '#c9a227'); },
+  sat_antenna: (i) => { i.disc(7, 7, 5, '#eceee9'); i.disc(8, 8, 4, '#c9ccc8'); i.line(8, 8, 12, 4, '#6a7178'); i.disc(12, 4, 1, '#3a3f44'); i.line(7, 12, 7, 15, '#7d8790', 2); },
+  uplink_terminal: (i) => { i.rect(2, 3, 12, 8, '#23272c'); i.rect(3, 4, 10, 6, '#0e2a1a'); for (const y of [5, 7]) i.line(4, y, 10, y, '#3ee05a'); i.set(4, 9, '#3ee05a'); i.rect(4, 12, 8, 2, '#3a3f44'); i.line(13, 3, 14, 1, '#c9d0d6'); },
+  spirit: (i) => { i.rect(5, 6, 6, 8, '#d8eef4'); i.rect(7, 2, 2, 4, '#d8eef4'); i.rect(7, 1, 2, 1, '#8a5a32'); i.rect(5, 9, 6, 5, '#f4f8fa'); i.set(6, 7, '#ffffff'); },
+  antibiotics: (i) => { i.rect(4, 3, 8, 11, '#e8a01c'); i.rect(4, 3, 8, 2, '#f2f5f2'); i.rect(5, 7, 6, 4, '#f2f5f2'); i.line(8, 8, 8, 9, '#c0281c'); i.line(7, 8, 9, 8, '#c0281c'); },
+  adrenaline: (i) => { i.line(3, 13, 11, 5, '#c9d0d6', 2); i.line(11, 5, 14, 2, '#7d8790'); i.rect(5, 9, 3, 3, '#e83a2e'); i.line(2, 14, 4, 12, '#3a3f44', 2); },
+  thermal_optic: (i) => { i.rect(2, 6, 10, 5, '#23272c'); i.disc(12, 8, 3, '#3a3f44'); i.disc(12, 8, 2, '#ff8a2e'); i.set(12, 8, '#ffe08a'); i.rect(4, 11, 3, 2, '#3a3f44'); i.set(3, 7, '#3ee05a'); },
+  engineer_armor: (i) => { i.rect(3, 4, 3, 10, '#3a4a5a'); i.rect(10, 4, 3, 10, '#3a4a5a'); i.rect(5, 5, 6, 9, '#6f7c88'); i.rect(5, 5, 6, 1, '#d8dee4'); i.rect(6, 8, 4, 3, '#e8a01c'); i.line(8, 6, 8, 13, '#2a3440'); },
 };
 
 export function hasIcon(name: string): boolean { return name in DRAW; }

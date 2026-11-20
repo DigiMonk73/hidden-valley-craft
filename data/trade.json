@@ -1,5 +1,5 @@
 {
-  "_comment": "Marco's trade (docs/PHASE4.md, step 4). Prices are in units of one bandage's worth (DESIGN.md anchors every price to wound care, and a bandage is this game's wound care before Doc); `unit` is that in satoshis. catalog: what he sells, a lot at a time, before M3 (no guns or ammunition). value: what he pays for one of an item is half its value (DESIGN.md A3: sell = 0.5x). Every catalogue item has its own (low) resale value, so nothing he sells can be made cheaply and sold back at a profit. Live animals are not bought: the farm flock is finite but regrows. Saves store item names. Phase 6 (docs/PHASE6.md): catalogM3 is what Marco adds once he trusts you (trust 2): guns and rounds, priced as multiples of P_wc (4 units). doc: Doc's flat fees per service, in units. rigSatsPerDay: what a powered mining rig earns in a game day. Rounds have their own low resale value (Marco sells them dear, buys them cheap), so Zone-2's men, who come back each dawn, are no fortune to farm.",
+  "_comment": "Marco's trade (docs/PHASE4.md, step 4). Prices are in units of one bandage's worth (DESIGN.md anchors every price to wound care, and a bandage is this game's wound care before Doc); `unit` is that in satoshis. catalog: what he sells, a lot at a time, before M3 (no guns or ammunition). value: what he pays for one of an item is half its value (DESIGN.md A3: sell = 0.5x). Every catalogue item has its own (low) resale value, so nothing he sells can be made cheaply and sold back at a profit. Live animals are not bought: the farm flock is finite but regrows. Saves store item names. Phase 6 (docs/PHASE6.md): catalogM3 is what Marco adds once he trusts you (trust 2): guns and rounds, priced as multiples of P_wc (4 units). doc: Doc's flat fees per service, in units. rigSatsPerDay: what a powered mining rig earns in a game day. Rounds have their own low resale value (Marco sells them dear, buys them cheap), so Zone-2's men, who come back each dawn, are no fortune to farm. Phase 8 (docs/PHASE8.md): catalogRayM5 is what Ray adds once you have met him at the refuge: tablets, and the parts M5 hangs on, so nothing in it can be lost for good. None of M5's parts has a resale value: Marco does not buy them.",
   "unit": 25000,
   "startWallet": 5000000,
   "sellRatio": 0.5,
@@ -185,5 +185,22 @@
   ],
   "ray": {
     "plans": 12
-  }
+  },
+  "catalogRayM5": [
+    {
+      "item": "rad_tablets",
+      "lot": 2,
+      "price": 6
+    },
+    {
+      "item": "rare_components",
+      "lot": 1,
+      "price": 14
+    },
+    {
+      "item": "antenna_section",
+      "lot": 1,
+      "price": 20
+    }
+  ]
 }

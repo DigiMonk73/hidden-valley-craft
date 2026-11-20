@@ -78,8 +78,8 @@ node --experimental-strip-types tools/texsheet.ts
 ```
 
 `npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
-tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, and `tools/zone3map.ts` Zone-3's into
-`docs/phase7-map.png`); the second command draws every block texture side by side.
+tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, `tools/zone3map.ts` Zone-3's into
+`docs/phase7-map.png`, and `tools/zone4map.ts` Zone-4's into `docs/phase8-map.png`); the second command draws every block texture side by side.
 
 `node --experimental-strip-types --no-warnings tools/worldhash.ts out/now.json 21 63 0 63` hashes every generated
 column east of the river's gorge, and `tools/worldhash.ts --diff tests/fixtures/east-of-ravine.json out/now.json` lists

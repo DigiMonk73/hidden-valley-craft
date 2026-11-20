@@ -3,7 +3,7 @@
 // Pure: built in a worker from the same layout the terrain comes from.
 
 import { WORLD_X, WORLD_Z } from '../world/constants.ts';
-import { VALLEY, POOL, CANYON_POOL, inCanyonStream, surfaceHeight, landZoneAt, distToValley, creekDistance, inReservoir, ZONE3, type ZoneId } from './layout.ts';
+import { VALLEY, POOL, CANYON_POOL, inCanyonStream, surfaceHeight, landZoneAt, distToValley, creekDistance, inReservoir, ZONE3, ZONE4, type ZoneId } from './layout.ts';
 import { blockId, B_FACE_TEX } from '../world/blocks.ts';
 
 const tex = (name: string, face: number) => B_FACE_TEX[blockId(name) * 6 + face];
@@ -11,6 +11,8 @@ const tex = (name: string, face: number) => B_FACE_TEX[blockId(name) * 6 + face]
 const LAYERS = {
   canopy: [tex('leaves', 2), tex('leaves', 0)], grass: [tex('grass', 2), tex('grass', 0)],
   rock: [tex('limestone', 2), tex('limestone', 0)], water: [tex('water', 2), tex('water', 0)],
+  // Zone-4 under the fallout (docs/PHASE8.md): grey dead ground, no canopy.
+  dead: [tex('dead_soil', 2), tex('dead_soil', 0)],
 };
 
 export const FAR_CELL = 8;
@@ -59,12 +61,13 @@ export function buildFarLand(): FarMesh {
       if (water) { kind = 'water'; top = VALLEY.water + 0.9; }
       else if (inReservoir(x, z)) { kind = 'water'; top = ZONE3.dam.water - 0.1; } // the reservoir behind Zone-3's dam
       else if (slope > 7 || g > 168) kind = 'rock';
+      else if (zone === 'zone4' && Math.hypot(x - ZONE4.clean.x, z - ZONE4.clean.z) > ZONE4.clean.r) { kind = 'dead'; c = [106, 108, 114]; } // bare and ashen, so the ridge reads as poisoned from afar
       else if (inValley) { kind = 'grass'; if (((i * 73856093) ^ (j * 19349663)) % 7 === 0) { kind = 'canopy'; top = g + 8; } }
       else { c = CANOPY[zone] ?? NEUTRAL; top = g + 7; } // forest canopy stands above the ground
       // Sit a little low so nearby real blocks always win where both are drawn.
       h[k] = top - 1.5;
       const v = ((i * 2654435761) ^ (j * 40503)) >>> 0;
-      const jit = kind === 'rock' ? 0.7 + ((v % 1000) / 1000) * 0.25 : 0.92 + ((v % 1000) / 1000) * 0.16; // bare rock reads darker far off
+      const jit = kind === 'rock' ? 0.7 + ((v % 1000) / 1000) * 0.25 : kind === 'dead' ? 0.78 + ((v % 1000) / 1000) * 0.3 : 0.92 + ((v % 1000) / 1000) * 0.16; // bare rock reads darker far off
       col[k] = [c[0] * jit, c[1] * jit, c[2] * jit];
       kinds[k] = kind;
     }

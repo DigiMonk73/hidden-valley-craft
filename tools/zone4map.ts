@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { encodePng } from './png.ts';
 import {
   surfaceHeight, zoneAt, ZONE3, ZONE4, PLACES, onDamCrest, onAvenue, onRidgeRoad, inReservoir, falloutAt, falloutDepth,
-  ridgeRoadLength, ridgeRoadMark, ridgeRoadPoint, type ZoneId,
+  ridgeRoadLength, ridgeRoadMark, ridgeRoadPoint, ridgeRoadAt, type ZoneId,
 } from '../src/gen/layout.ts';
 
 const X0 = 320, X1 = 690, Z0 = 340, Z1 = 790, S = 2;
@@ -45,6 +45,7 @@ const base = encodePng(W, H, px).toString('base64');
 
 const L = ridgeRoadLength(), dam = D.x0 - ZONE3.avenue.x; // the dam's west end to the bend
 const along = (k: number) => Math.round(dam + ridgeRoadMark(k));
+const gateS = ridgeRoadAt(Z.gate.x, Z.gate.z).s;
 let edgeS = 0;
 for (let s = 0; s <= L; s++) { const [x, z] = ridgeRoadPoint(s); if (falloutDepth(x, z) > 0) { edgeS = s; break; } }
 
@@ -58,10 +59,10 @@ const boxes: Box[] = [
   { x0: R.x0, x1: R.split, z0: R.z0, z1: R.z1, fill: 'rgba(40,40,50,0.95)', label: 'Its battery hall, walled off and dark: two Ashen. Nothing needed is in there', side: 'l' },
   { x0: T.x - 5, x1: T.x + 6, z0: T.z - 5, z1: T.z + 6, fill: 'rgba(200,60,60,0.9)', label: `7. The tower (${T.height} m, a red beacon): the fallen dish at its foot gives the antenna sections`, side: 'l' },
 ];
-const [gx, gz] = Z.road.pts[Z.road.gate];
+const gx = Z.gate.x, gz = Z.gate.z;
 const pins: { x: number; z: number; label: string; color: string; side: 'l' | 'r' }[] = [
   { x: Z.sign.x, z: Z.sign.z, label: '1. The sign at the avenue’s bend, lit: “TORRE · OBSERVATORIO →”. The road’s lamps are the dam’s own line to the tower', color: '#fff', side: 'l' },
-  { x: gx, z: gz, label: `2. The gate (${along(Z.road.gate)} m): a boom, a booth, the board “ZONA CALIENTE · SOLO CON TRAJE”. The fallout begins ${Math.round(edgeS - ridgeRoadMark(Z.road.gate))} m past it (the yellow line: warning signs all along it)`, color: '#fd3', side: 'r' },
+  { x: gx, z: gz, label: `2. The gate (${Math.round(dam + gateS)} m): barriers, a booth, the board “ZONA CALIENTE · SOLO CON TRAJE”. The fallout begins ${Math.round(edgeS - gateS)} m past it (the yellow line: warning signs all along it)`, color: '#fd3', side: 'r' },
   { x: Z.ray.x, z: Z.ray.z, label: '', color: '#6cf', side: 'r' },
   { x: Z.sump.x, z: Z.sump.z, label: '4. The sump: a black pond in a hollow, ringed with signs. The hottest ground. The straight line from the pass to the tower crosses it; the road goes round', color: '#f33', side: 'l' },
   { x: Z.nest.x, z: Z.nest.z, label: '', color: '#b9b', side: 'l' },
@@ -90,7 +91,7 @@ ${pins.map((p) => `<circle cx="${260 + sx(p.x)}" cy="${sz(p.z)}" r="${p.label ? 
 ${placed.map((t) => `<polyline points="${t.fx},${t.y} ${t.side === 'r' ? 260 + W + 2 : 258},${t.y} ${t.side === 'r' ? 260 + W + 8 : 252},${t.ty}" fill="none" stroke="#ddd"/>`).join('')}
 </svg>
 ${placed.map((t) => t.side === 'r' ? `<div style="position:absolute;left:${260 + W + 10}px;top:${t.ty - 8}px;width:250px">${t.label}</div>` : `<div style="position:absolute;left:4px;top:${t.ty - 8}px;width:244px;text-align:right">${t.label}</div>`).join('')}
-<div style="position:absolute;left:4px;top:8px;width:250px;font-size:15px"><b>Zone-4 (Phase 8)</b><br>North is up. 1 square = 1 m ×2.<br>Dark grey: the ridge road, lit all the way. Pale ground inside the yellow line: the fallout, dead forest. Green ring: clean ground. Red ring: the sump.<br><br>From the dam’s west end:<br>the gate ${along(Z.road.gate)} m<br>the hut on the pass ${along(Z.road.pass)} m<br>the observatory ${along(Z.road.dome)} m<br>the tower’s yard ${Math.round(dam + L)} m</div>
+<div style="position:absolute;left:4px;top:8px;width:250px;font-size:15px"><b>Zone-4 (Phase 8)</b><br>North is up. 1 square = 1 m ×2.<br>Dark grey: the ridge road, lit all the way. Pale ground inside the yellow line: the fallout, dead forest. Green ring: clean ground. Red ring: the sump.<br><br>From the dam’s west end:<br>the gate ${Math.round(dam + gateS)} m<br>the hut on the pass ${along(Z.road.pass)} m<br>the observatory ${along(Z.road.dome)} m<br>the tower’s yard ${Math.round(dam + L)} m</div>
 <div style="position:absolute;left:${260 + sx(336)}px;top:${sz(700)}px;font-size:13px;background:rgba(0,0,0,0.55);padding:6px 8px;border-radius:4px"><b>Dose a second, in the suit (without it ×${Math.round(1 / Z.suit)})</b><br>on the road ${suited(Z.rates.road)} · off it ${suited(Z.rates.off)} · the sump’s heart ${suited(Z.sump.rate)}<br>indoors ${suited(Z.rates.indoors)} · the pass 0<br>100 is the limit: past it, the dose comes off your health</div>
 <div style="position:absolute;left:${260 + sx(340)}px;top:${sz(352)}px;color:#fe8;font-weight:bold;font-size:15px">Zone-4, danger 7: the ground itself</div>
 <div style="position:absolute;left:${260 + sx(470)}px;top:${sz(735)}px;color:#dde;font-weight:bold">Zone-3 (Phase 7)</div>

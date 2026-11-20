@@ -140,6 +140,20 @@
     {"name": "uplink_plans", "label": "Uplink plans (Ray\u2019s drawings)", "icon": "plans_blue", "stack": 1},
     {"name": "pistol_suppressed", "label": "Pistol, suppressed", "icon": "pistol_suppressed", "stack": 1},
     {"name": "rifle_rebuilt", "label": "Rifle, rebuilt (new barrel, scope)", "icon": "rifle_rebuilt", "stack": 1},
-    {"name": "plate_armor", "label": "Plate armour", "icon": "plate_armor", "stack": 1}
+    {"name": "plate_armor", "label": "Plate armour", "icon": "plate_armor", "stack": 1},
+
+    {"name": "hazard_suit", "label": "Hazard suit (lead-lined canvas, a filter mask)", "icon": "hazard_suit", "stack": 1},
+    {"name": "rad_tablets", "label": "Blue tablets (they bind a dose: −30)", "icon": "rad_tablets", "stack": 8},
+    {"name": "antenna_section", "label": "Antenna section (a dish panel)", "icon": "antenna_section", "stack": 4},
+    {"name": "rare_components", "label": "Rare components (amplifier, waveguide, oscillator)", "icon": "rare_components", "stack": 8},
+    {"name": "telescope_optics", "label": "Telescope optics (the mirror and its cell)", "icon": "telescope_optics", "stack": 1},
+    {"name": "sat_modem", "label": "Satellite modem (Ray’s, with its keys)", "icon": "sat_modem", "stack": 1},
+    {"name": "sat_antenna", "label": "Satellite antenna (assembled: take it to the hoist on the balcony)", "icon": "sat_antenna", "stack": 1},
+    {"name": "uplink_terminal", "label": "Uplink terminal (fit it to the builder’s computer)", "icon": "uplink_terminal", "stack": 1},
+    {"name": "spirit", "label": "Distilled spirit", "icon": "spirit", "stack": 16},
+    {"name": "antibiotics", "label": "Antibiotics (health back to its most, at once)", "icon": "antibiotics", "stack": 8},
+    {"name": "adrenaline", "label": "Adrenaline (a minute of half-felt blows and full focus)", "icon": "adrenaline", "stack": 4},
+    {"name": "thermal_optic", "label": "Thermal optic (carried: warm bodies show in focus, Q)", "icon": "thermal_optic", "stack": 1},
+    {"name": "engineer_armor", "label": "Engineer’s armour", "icon": "engineer_armor", "stack": 1}
   ]
 }

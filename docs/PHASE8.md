@@ -53,28 +53,28 @@ Each step is committed with its tests and marked DONE under "Progress".
 
 `docs/phase8-map.png`, drawn from the layout itself by `tools/zone4map.ts`. North is up. Every number below is in `ZONE4` (`src/gen/layout.ts`).
 
-**One road, the ridge road.** It is 488 m long, four wide, and lit the whole way: its lamp posts are the dam's own power line to the tower, which is why the tower's beacon still burns. Every place of the phase stands on it, in the order walked.
+**One road, the ridge road.** It is 494 m long, four wide, and lit the whole way: its lamp posts are the dam's own power line to the tower, which is why the tower's beacon still burns. Every place of the phase stands on it, in the order walked.
 
 | From the dam's west end | Distance | Height |
 |---|---|---|
 | The sign at the avenue's bend | 26 m | 83 |
-| The reservoir's shore (the water in sight for 50 m, a guard rail on its side) | 85–134 m | 83–87 |
-| The gate | 261 m | 87 |
-| The hut on the pass | 361 m | 110 |
-| The observatory | 462 m | 120 |
-| The tower's yard and the relay station | 514 m | 127 |
+| The reservoir's shore (the water in sight for 50 m, a parapet on its side, a landing with steps to the water) | 85–134 m | 83–87 |
+| The gate | 260 m | 87 |
+| The hut on the pass | 366 m | 109 |
+| The observatory | 467 m | 120 |
+| The tower's yard and the relay station | 520 m | 127 |
 
-*The brief asked for "near 450 m". It is 514.* Straight from the bend to the tower is 432 m; the 80 m more buy the run along the water's edge the brief asks for (50 m) and the arc round the sump (25 m). The way home is hold H.
+*The brief asked for "near 450 m". It is 520.* Straight from the bend to the tower is 432 m; the rest buys the run along the water's edge the brief asks for and the arc round the sump. The way home is hold H.
 
 **How a first-time player finds each place:**
 1. **The sign.** Walking off the dam, dead ahead at the bend where the avenue turns south: a lit board, "TORRE · OBSERVATORIO →", a radiation trefoil under it. A lit road runs north. The player has stood at this bend before: it is where the first Ashen was seen. The first time: a toast names the ridge road.
 2. **The shore.** The road swings to the reservoir's rim: water on the right, the dam behind. No Ashen come here (their nests are 60 m and more south of the dam, and they roam 14 m).
-3. **The gate** (261 m). A boom across the road, a booth, and a board as wide as the road: "ZONA CALIENTE · SOLO CON TRAJE" (hot zone, suit only). Beyond it the forest is dead: grey ground, bare trunks, no leaf. A line of warning signs runs along the edge of the dead ground both ways as far as you can see, as round Zone-2's rings. The first time: a toast says what the ground does, and how long you would last. Without the suit the dose meter says so in red.
+3. **The gate** (260 m). Barriers to walk round, a booth, and a board over the road as wide as the road: "ZONA CALIENTE · SOLO CON TRAJE" (hot zone, suit only). Beyond it the forest is dead: grey ground, bare trunks, no leaf. A line of warning signs runs along the edge of the dead ground both ways as far as you can see, as round Zone-2's rings. The first time: a toast says what the ground does, and how long you would last. Without the suit the dose meter says so in red.
 4. **The climb.** 100 m up the dead slope under the lamps. The tower stands on the skyline ahead the whole way.
-5. **The hut on the pass** (361 m). The road tops out between two rocky knolls. On the right a stone hut, "REFUGIO", a lantern over its door, smoke from its stove pipe. Round it the ground is green: grass and one living tree inside a ring of green boards, "ZONA LIMPIA". The dose meter stops. **Ray is met here.**
-6. **The sump** (on the left after the pass). The ridge opens: a hollow with a black pond in it, yellow drums round the pond, a ring of signs and tape. The tower is straight across it, 150 m off. The road bends right, round the hollow's rim.
-7. **The observatory** (462 m). A white dome on a knoll on the road's right, a lamp over its door, red light inside.
-8. **The tower's yard** (514 m). The road ends at the tower's feet: four steel legs 11 m apart, 60 m of lattice, a red beacon. A fallen dish lies in the yard. On the yard's south side the relay station, "ESTACIÓN DE ENLACE", a lit door.
+5. **The hut on the pass** (366 m). The road tops out between two rocky knolls. On the right a stone hut, "REFUGIO", a lantern over its door, smoke from its stove pipe. Round it the ground is green: grass and one living tree inside a ring of green boards, "ZONA LIMPIA". The dose meter stops. **Ray is met here.**
+6. **The sump** (on the left after the pass). The ridge opens: a hollow with a black pond in it, yellow drums round the pond, a ring of signs and tape. The tower is straight across it, 130 m off. The road bends right, round the hollow's rim.
+7. **The observatory** (467 m). A white dome on a knoll on the road's right, its telescope's tube out through the slit, a lamp over its door, red light inside.
+8. **The tower's yard** (520 m). The road ends at the tower's feet: four steel legs 11 m apart, 60 m of lattice, a red beacon. A fallen dish lies in the yard. On the yard's south side the relay station, "ESTACIÓN DE ENLACE", a lit door.
 
 ## Design calls (the phase session's; each with its reason)
 
@@ -97,15 +97,16 @@ Each step is committed with its tests and marked DONE under "Progress".
 | Place | Where | What is there |
 |---|---|---|
 | **The sign** | x 576, z 750–751, facing east | A two-wide board on posts, two lanterns: "TORRE · OBSERVATORIO →" and the trefoil. |
-| **The ridge road** | (580, 750) → (584, 730) → (612, 704) → (618, 655) → (531, 562) → (462, 490) → (456, 440) → (430, 397) → (396, 378) → (385, 386) | Cracked asphalt four wide, never more than one block up in two metres, a level landing at each bend. A lamp every 8 m, either side in turn, so their pools meet (Phase 7's lesson). On the shore a guard rail on the water's side. No trees within 6 m; none between the road and the water. |
-| **The gate** | (531, 562) | A boom to walk round, a booth (a shelf: one box of tablets), the board, lanterns. The fallout begins 7 m past it. |
+| **The ridge road** | (580, 750) → (584, 730) → (612, 704) → (618, 655) → (537, 574) → (537, 556) → (462, 490) → (456, 440) → (430, 397) → (396, 378) → (385, 386) | Cracked asphalt four wide, never more than one block up in two metres, a level landing at each bend. A lamp every 8 m, either side in turn, so their pools meet (Phase 7's lesson). No trees within 6 m; none between the road and the water. |
+| **The shore** | along (612, 704) → (618, 655) | A concrete parapet on the water's side. Halfway, **the landing**: ten steps down the bank northward from z 691, the last two under the water. *Why:* the reservoir's banks are three blocks sheer; someone who falls in beside the road needs a way out. |
+| **The gate** | (537, 563), on a straight run north | The board on a gantry over the road, concrete barriers to walk round, a booth (a shelf: one box of tablets), lanterns. The fallout begins 13 m past it. |
 | **The edge** | 484 m from (200, 200); x = gorge − 60 on the east | A warning sign every 16 m along the whole line, facing out. Inside it: dead ground, bare trunks, no plants. |
-| **The pass** | (462, 490), height 110 | Two knolls 14 m high either side. Clean ground: a circle of 13 m round (464, 480), marked with green boards, grass, one living tree. |
+| **The pass** | (462, 490), height 109 | Two knolls 14 m high either side. Clean ground: a circle of 13 m round (464, 480), marked with green boards, grass, one living tree. |
 | **The refuge hut** | x 466–472, z 474–480 | Stone and timber, one room, a door on the road. A stove (it cooks), a table and bench, a bedroll, a crate (food, water, tablets, bandages), the wardens' log (a note). A lantern inside and out. |
-| **The sump** | (411, 435), ring 30 m | A hollow 7 m deep, a black pond 7 m across, yellow waste drums, a ring of signs and tape posts every 8 m. The hottest ground: 60 a second at its heart without a suit. |
-| **The observatory** | (440, 388), a drum 11 m across | A concrete drum and a white dome with an open slit. Inside, lit red: the telescope on its pier (mine it for the optics), a desk with the observers' last page (a note), a crate (glass, wiring). The door faces the road. |
+| **The sump** | (418, 430), ring 22 m | A hollow 9 m deep that falls evenly from the road's edge, so the pond is seen from the road: black sludge 14 m across, yellow waste drums, a ring of signs and tape posts. The hottest ground: 60 a second at its heart without a suit. |
+| **The observatory** | (440, 388), a drum 11 m across | A concrete drum and a white dome with a slit toward the road, the telescope's tube out through it. Inside, lit: the telescope on its pier (mine it for the optics), a desk with the observers' last page (a note), a crate (glass, wiring). The door faces the road. |
 | **The tower's yard** | x 348–385, z 368–403, height 127 | Gravel, lamps. The tower at (360, 380): four legs, braced, 60 m, a red beacon at the top and one halfway. The fallen dish: three panels (mine each for an antenna section). |
-| **The relay station** | x 352–373, z 392–401 | Lit half (east, the door on the yard): six equipment racks (mine each for rare components), the spares crate (wiring, fittings, cells, tablets, one more antenna section), the field pharmacy manual on its shelf (read it: the medical bench and the distiller), solar panels on the roof. Dark half (west, its own open bay in the west wall): the battery hall, two Ashen. |
+| **The relay station** | x 352–373, z 392–401 | Lit half (east, the door on the yard): six equipment racks (mine each for rare components), the spares crate (wiring, fittings, cells, tablets, one more antenna section), the field pharmacy manual on its shelf (read it: the medical bench and the distiller), solar panels on the roof. Dark half (west, its own open bay in the west wall, a baffle wall inside so no daylight reaches the far end): the battery hall, two Ashen. |
 
 **Rock:** no cave opens under the road or the places. Ore under Zone-4 is as elsewhere.
 
@@ -131,7 +132,7 @@ Each step is committed with its tests and marked DONE under "Progress".
 
 - **The limit is 100.** Dose past it comes off health, one for one. Health is capped at 100 − 0.6 × dose (never under 40), as before. The dose fades by 4 a game day, as before.
 - **Without a suit** the road gives 6 a second: the limit 17 s past the gate, death some 7 s after. The hut is 25 s away at a walk. So the gate is a wall, and the meter says so: "No suit · limit in 0:17".
-- **In the suit**, walking the road: gate to hut 8, hut to tower 12. A careful trip there and back with the work indoors: about 45. Crossing the sump instead of going round: about 35 more, to save six seconds.
+- **In the suit**, walking the road: gate to hut 8, hut to tower 11. A careful trip there and back with the work indoors: about 45. Crossing the sump instead of going round: about 35 more, to save six seconds.
 - **The meter** shows the whole time you are in Zone-4 or have a dose: the dose, its rate ("+0.3/s"), "suit" or "no suit", and the time to the limit at this rate. The Geiger counter clicks by the rate, as in Zone-2.
 - **The hazard suit** (`hazard_suit`): workbench, canvas 4, scrap lead 4, glass 1, charcoal 2. The recipe shows once Ray has given his word (`suit_word`). Everything in it comes from Zones 1–3 and the kiln.
 - **Blue tablets** (`rad_tablets`): use one, the dose drops by 30. Found: the gate's booth (1), the hut's crate (2), the station's spares (2); Ray gives 2 at the meeting and sells more; made at the medical bench.
@@ -292,3 +293,10 @@ When all are done: *"M5 · the uplink. Everything the builder began is running. 
 ## Progress
 
 - **DONE: The plan, the map and the layout's numbers** (`ZONE4` in `src/gen/layout.ts`; `tools/zone4map.ts`). The ridge's shape, the road's line and heights, the fallout's field (`falloutAt`, folded into `radiationAt`) and Zone-4's new bounds are in. Baselines of the land as it was are in `tests/fixtures/zone3-places.json` and `tests/fixtures/west-outside-massif.json`. All 396 unit tests of the earlier phases pass with it.
+- **DONE: The land** (`src/gen/zone4.ts`, `src/gen/towerFrame.ts`), built to the map, with pictures looked at and faults in them fixed.
+  - The sign, the shore road with its parapet and landing, the gate, the line of warning signs (74 of them), the dead slope (grey ground, bare trunks, no moss), the pass with the hut and its green pocket, the sump, the observatory, the yard with the tower (about 900 blocks of lattice steel that cannot be mined, two beacons), the fallen dish and the relay station.
+  - *Changed from the first draft of the plan:* the road runs straight north for 18 m through the gate, so the board and barriers stand square to it. The sump moved 9 m toward the road and its hollow is a cone, not a bowl: from the road the pond was hidden behind the hollow's own lip. The battery hall has a baffle wall: without it daylight from the bay reached the far end. The road hugs the reservoir's rim (it stood 45 m back, from where the water cannot be seen), with a parapet and a landing.
+  - Far off, Zone-4 is drawn as grey ground with no canopy, and the pass's green pocket shows in it.
+  - The tower drawn in the sky is the same frame as the blocks (`towerBeams`), upright, and is left out within 150 m.
+  - The data for the whole phase is in (`data/*.json`, appended): 27 blocks, 13 items, 15 recipes, Ray's later catalogue; with textures and icons. The medical bench and the distiller are stations.
+  - Checks: `tests/phase8.test.ts`, 37 tests (layout, bounds, the fallout's table, the tower's frame, the three fixtures, every place built and lit). 424 columns of the world differ from `main`: none east of the gorge, none in the gorge's own column, 13 outside the massif (all on the road).

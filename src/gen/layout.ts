@@ -253,10 +253,14 @@ export const ZONE4 = {
   /** The ridge road's centre line, point to point, four wide. */
   road: {
     halfWidth: 2,
-    pts: [[580, 750], [584, 730], [612, 704], [618, 655], [531, 562], [462, 490], [456, 440], [430, 397], [396, 378], [385, 386]] as [number, number][],
-    /** Which of its points is which place; `shore`: the two between which it runs along the water's edge. */
-    shore: [2, 3], gate: 4, pass: 5, dome: 7,
+    pts: [[580, 750], [584, 730], [612, 704], [618, 655], [537, 574], [537, 556], [462, 490], [456, 440], [430, 397], [396, 378], [385, 386]] as [number, number][],
+    /** Which of its points is which place; `shore`: the two between which it runs along the water's edge; `gate`: the two between which it runs straight north through the gate. */
+    shore: [2, 3], gate: [4, 5], pass: 6, dome: 8,
   },
+  /** The gate: the board over the road, the barriers, the booth on the road's west side. The fallout begins a few metres past it. */
+  gate: { x: 537, z: 563 },
+  /** The landing on the reservoir's shore: steps down the bank from the road to the water (and the way out of it). `z`: the top step's row; it goes down northward. */
+  landing: { z: 691, steps: 10 },
   /** The sign at the bend, facing those who come off the dam. */
   sign: { x: 576, z: 750 },
   /** The pass: the road tops out between two knolls (+knoll m). The hut's yard here is clean ground. */
@@ -266,8 +270,12 @@ export const ZONE4 = {
   hut: { x0: 466, x1: 473, z0: 474, z1: 481, door: 477 },
   /** Where Ray stands, by the hut's door, the once he comes. */
   ray: { x: 464.5, z: 479.5 },
-  /** The sump: the hollow the wash water was dumped in, the hottest ground on the ridge. The straight line from the pass to the tower crosses it; the road goes round. */
-  sump: { x: 411, z: 435, r: 30, pond: 7, depth: 7, rate: 60 },
+  /**
+   * The sump: the hollow the wash water was dumped in, the hottest ground on the ridge, ringed with signs at `r`.
+   * The straight line from the pass to the tower crosses it; the road goes round. The hollow falls evenly from
+   * `reach` (the road's edge) to the pond, so the pond is seen from the road.
+   */
+  sump: { x: 418, z: 430, r: 22, pond: 7, depth: 9, reach: 27, rate: 60 },
   /** The observatory: a small dome on a knoll beside the road, its door (west) toward it. */
   observatory: { x: 440, z: 388, r: 5, knoll: 5 },
   /** The tower's yard: level ground round the tower's feet and the relay station. */
@@ -276,9 +284,13 @@ export const ZONE4 = {
    * The relay station on the yard's south side. East of `split` it is lit, its door (two columns from `door`)
    * on the yard; west of it, walled off and dark, with its own open bay (rows from `bay`) in the west wall.
    */
-  relay: { x0: 352, x1: 374, z0: 392, z1: 402, split: 362, door: 367, bay: 395 },
-  /** The one dark place: two Ashen in the station's battery hall, by Zone-3's rules (ZONE3.nests). */
-  nest: { name: 'relay', x: 356.5, z: 397, n: 2, under: false, path: [[348.5, 397], [348.5, 389.5]] as [number, number][] },
+  relay: { x0: 352, x1: 374, z0: 392, z1: 402, split: 362, door: 367, bay: 395, baffle: 356 },
+  /**
+   * The one dark place: two Ashen in the station's battery hall, by Zone-3's rules (ZONE3.nests). A baffle wall
+   * (the column `relay.baffle`, open at its south end) stands between the bay and where they keep, so no
+   * daylight reaches them. `path`: round the baffle, out of the bay, and north onto the yard.
+   */
+  nest: { name: 'relay', x: 359.5, z: 395, n: 2, under: false, path: [[357.5, 399.5], [354.5, 399.5], [354.5, 396.5], [348.5, 396.5], [348.5, 389.5]] as [number, number][] },
   /**
    * The dose a second without a suit: off the road, on it (asphalt sheds what soil and dead wood hold),
    * and indoors. The suit lets `suit` of it through.
@@ -1110,7 +1122,7 @@ function ridgeLift(x: number, z: number, nw: number): number {
   const Z = ZONE4;
   let h = 30 * smoothstep(500, 330, nw) - 10 * smoothstep(235, 180, nw) + 44 * smoothstep(170, 60, nw) + 12 * Math.exp(-(((nw - 242) / 45) ** 2));
   for (const [kx, kz] of Z.pass.knolls) h += Z.pass.knoll * (1 - smoothstep(6, Z.pass.knollRadius, Math.hypot(x - kx, z - kz)));
-  h -= Z.sump.depth * (1 - smoothstep(8, Z.sump.r + 4, Math.hypot(x - Z.sump.x, z - Z.sump.z)));
+  h -= Z.sump.depth * Math.max(0, 1 - Math.max(0, Math.hypot(x - Z.sump.x, z - Z.sump.z) - Z.sump.pond) / (Z.sump.reach - Z.sump.pond));
   h += Z.observatory.knoll * (1 - smoothstep(6, 24, Math.hypot(x - Z.observatory.x, z - Z.observatory.z)));
   return h;
 }
@@ -1177,7 +1189,7 @@ export function ridgeRoadHeight(s: number): number {
     const sm = smoothed(raw, 8).map((v, i) => mix(ZONE3.dam.crest, v, smoothstep(2, 22, i)));
     const R = ZONE4.road, n = R.pts.length;
     for (let k = 1; k < n; k++) {
-      const at = Math.round(ridgeRoadMark(k)), half = k === R.pass ? 13 : k === n - 1 ? 10 : 5, v = sm[Math.min(L, at)];
+      const at = Math.round(ridgeRoadMark(k)), half = k === R.pass ? 13 : k === n - 1 ? 10 : R.gate.includes(k) ? 9 : 5, v = sm[Math.min(L, at)];
       for (let i = Math.max(0, at - half); i <= Math.min(L, at + half); i++) sm[i] = v;
     }
     const out = sm.map((v) => Math.round(v));
@@ -1192,10 +1204,11 @@ export function ridgeRoadHeight(s: number): number {
 
 /** The floor of each Zone-4 place: the ridge road's height beside it. */
 export const zone4Floor = {
-  get gate() { return ridgeRoadHeight(ridgeRoadMark(ZONE4.road.gate)); },
+  get gate() { return ridgeRoadHeight(ridgeRoadAt(ZONE4.gate.x, ZONE4.gate.z).s); },
   get pass() { return ridgeRoadHeight(ridgeRoadMark(ZONE4.road.pass)); },
   get observatory() { return ridgeRoadHeight(ridgeRoadMark(ZONE4.road.dome)); },
   get tower() { return ridgeRoadHeight(ridgeRoadLength()); },
+  get sump() { return Math.round(naturalHeight(ZONE4.sump.x, ZONE4.sump.z, false)) - 1; },
 };
 
 /** The level ground of Zone-4's road and places, blended into the land; null elsewhere. */
@@ -1209,11 +1222,13 @@ function zone4Pad(x: number, z: number, natural: number): number | null {
     return d < blend ? Math.round(mix(floor, natural, smoothstep(0, blend, d))) : null;
   };
   const dx = Math.max(y.x0 - x, x - (y.x1 - 1), 0), dz = Math.max(y.z0 - z, z - (y.z1 - 1), 0), dy = Math.hypot(dx, dz);
-  const [gx, gz] = Z.road.pts[Z.road.gate];
+  const gx = Z.gate.x, gz = Z.gate.z;
   return (dy < 7 ? Math.round(mix(zone4Floor.tower, natural, smoothstep(0, 7, dy))) : null)
     ?? pad(Z.observatory.x, Z.observatory.z, 9, zone4Floor.observatory, 6)
     ?? pad(Z.clean.x, Z.clean.z, Z.clean.r, zone4Floor.pass, 6)
-    ?? pad(gx, gz, 7, zone4Floor.gate, 5)
+    // The sump's floor is level, a block below the hollow's own, so its pond lies flush and is seen from the rim.
+    ?? pad(Z.sump.x + 0.5, Z.sump.z + 0.5, Z.sump.pond + 3, zone4Floor.sump, 8)
+    ?? pad(gx - 2, gz, 8, zone4Floor.gate, 5)
     // The road's shoulders ease into the land, as the old road's do (but the reservoir's bank is left as it is).
     ?? (r.dist < hw + 3.5 && natural > ZONE3.dam.water + 2 ? Math.round(mix(ridgeRoadHeight(r.s), natural, smoothstep(hw, hw + 3.5, r.dist))) : null);
 }
