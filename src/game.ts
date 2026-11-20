@@ -2588,7 +2588,7 @@ export class Game {
   /** Each frame: the satellites' train in the night sky, and what the telescope is aimed at. */
   private tickScope(): void {
     const p = this.player;
-    this.renderer.setSats(this.hotbar.creative && this.opts.test ? [] : satTrain(this.time, this.hour));
+    this.renderer.setSats(satTrain(this.time, this.hour));
     if (!this.scoping) return;
     // Walked off, the telescope mined, or hurt: it is put down.
     const s = this.scoping;

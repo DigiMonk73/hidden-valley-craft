@@ -56,7 +56,7 @@ node tests/e2e/play.mjs
 
 The play-through is in parts, each a standalone script that sets its own scene and runs in about 15–25
 minutes here: `play-valley.mjs` (home and the way out), `play-near.mjs` and `play-mid.mjs` (Zone-1), `play-zone2.mjs`
-(Zone-2 and power) and `play-zone3.mjs` (Zone-3, the Ashen and hydro). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
+(Zone-2 and power), `play-zone3.mjs` (Zone-3, the Ashen and hydro) and `play-zone4.mjs` (Zone-4, the ridge, the uplink and the ending). `play.mjs` runs them one after another and sums the checks; `PARTS=zone2 node
 tests/e2e/play.mjs` runs only some, and `node tests/e2e/play-zone2.mjs` runs one directly.
 
 The saves have their own short browser check (about two minutes): a walk with no edit surviving a reload, a second

@@ -20,11 +20,19 @@ _The page to resume from. Keep it short; history lives in git._
   from before the rebuild is not opened is kept, and is now held by the save keeper for every copy of a save
   (FIXES.md, 10). The land outside the home is the same, column for column, before and after that merge.
 
+- **Phase 8 ("Zone-4 and the uplink", M5) is built on branch `phase8`** (2026-11-20), waiting for the lead's review, merge and publish. Plan, map, calls and progress: [PHASE8.md](PHASE8.md).
+  - **The place:** the north-west massif is Zone-4, the ridge under the fallout. One lit road, 494 m, from a sign at the dam avenue's bend: along the reservoir's rim, a gate with a warning board, up a dead slope to a pass with a refuge on clean ground, round the sump, past the observatory, to the relay tower's yard (a 60 m steel tower, a fallen dish, the relay station).
+  - **The danger is the ground:** a dose meter with a rate and a time to the limit. Without a hazard suit the road past the gate kills in about thirteen seconds; with one (carried), the round trip costs about half the limit. Blue tablets bind 30. Two Ashen nest in the station's dark half; the yard and the lit half are safe by day.
+  - **Ray:** gives his word and the suit's pattern after M4, meets you at the refuge by day, hands over the dam's modem.
+  - **M5 at home:** the antenna hoisted onto the cliff from the balcony's hoist; a telescope you can look through; the terminal fitted to the computer; the uplink page. It never speaks: rows only. Its first answer, the handsets still heard, is the closing beat, and the closing card follows once. Then the queries (dose map, nests, sun and moon, four drawings, the handsets) each change something you carry.
+  - **Also:** a medical bench and distiller (three medicines), a thermal optic, sonic lures, smoke pots, engineer's armour. Saves are version 4.
+  - **Engine changes others will meet:** saves count the days (`day`) and keep `lastPull` and `running`; `PaperScreen.computer` takes buttons, and has `uplink` and `ending`; a screen put down may open another (`closePaper` returns early); `Wild` senses take `smoke` and `calls`; a second person kind, `ray` (`isPerson`); `Renderer.setZoom`, `setSats`; the HUD's `setDose` takes a second line and `setChip` a small line under the bars.
+
 - **The owner has handed over the finish** (2026-11-19; AGENTS.md, "Finishing the game"). The road to version 1, with no stops for approval:
   1. Phase 7: merged into `main` (2026-11-19) and **published as version 10** (2026-11-20).
   2. The home makeover: merged into `main` and **published as version 11** (2026-11-20). What was built, what changed from the plan and what was left undone: docs/HOME.md.
   3. The review's fixes, on `main` after Phase 7, one session after another because they share `src/game.ts`: saves (N1), stakes (N2, N4), traps and the world-walk test (N3), creatures (N5), the first ten minutes (N6), failures (N8), splitting `src/game.ts` (N10).
-  4. Phase 8 (Zone-4, the tower, M5): the lead's brief is docs/PHASE8.md; its session is running on branch `phase8` (plan, map and land first; it stays out of `src/game.ts` until the home makeover and the fixes are merged, and the lead tells it when).
+  4. Phase 8 (Zone-4, the tower, M5): **built on branch `phase8`** (2026-11-20), with `main` (the home and the fixes) merged in, waiting for the lead's review and merge. What was built and every call made: docs/PHASE8.md.
   5. Phase 9 (finish), with the review's "worth doing at the end" list.
 
 - **The fixes are built** (branch `fixes`, docs/FIXES.md; 2026-11-20) and are being merged with the home makeover by their own session; the lead merges and publishes when it reports. **Two things it found and left, for Phase 9:**
