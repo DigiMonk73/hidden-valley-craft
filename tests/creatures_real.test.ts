@@ -68,7 +68,7 @@ const stands = (c: Creature, blockAt: BlockAt): boolean => corners(c).some(([x, 
  * What it is perched on, or '': a body whose middle is over air stands on what is under its flank, and that
  * must be the land, never a fence, a roof, a wreck or a tree (the lead, 2026-11-18: nothing stands on those).
  */
-const NOT_LAND = /^(log|leaves|tree_fern_trunk|fern_fronds|tin_roof|slab_|coop|hutch|chest|fence_|truck_|scrap_heap|bench|table|stone_railing|sandbags|supply_crate|oil_drum|concrete_slab)/;
+const NOT_LAND = /^(log|leaves|tree_fern_trunk|fern_fronds|banana_trunk|tin_roof|slab_|coop|hutch|chest|fence_|truck_|scrap_heap|bench|table|stone_railing|sandbags|supply_crate|oil_drum|concrete_slab)/;
 const perchedOn = (c: Creature, blockAt: BlockAt): string => {
   const y = Math.floor(c.y - 0.01);
   if (B_SOLID[blockAt(Math.floor(c.x), y, Math.floor(c.z))]) return '';

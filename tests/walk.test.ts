@@ -77,7 +77,7 @@ describe('the valley, walked from the foot of the home path', () => {
         if (flood.at(x, z, VALLEY.floor, 6)) continue;
         // What stands on the ground here?
         const what = blockName(at(x, valleyFloorHeight(x, z), z));
-        if (!['log', 'tree_fern_trunk'].includes(what)) missed.push(`(${x}, ${z}): ${what}`);
+        if (!['log', 'tree_fern_trunk', 'banana_trunk'].includes(what)) missed.push(`(${x}, ${z}): ${what}`);
       }
     expect(floor).toBeGreaterThan(20000);
     expect(missed, `floor columns never reached: ${missed.slice(0, 10).join('; ')}`).toEqual([]);
@@ -364,7 +364,7 @@ describe('the gorge, from one end of the world to the other', () => {
     const flood = new Flood(at, rims, { inside, barred: noDam });
     const home = new Set(rims);
     // (A hole in a tree's crown, down to the leaves or the trunk's top, is not the gorge's doing: those are left out.)
-    const crown = (s: Spot) => !s.swim && ['leaves', 'fern_fronds', 'log', 'tree_fern_trunk'].includes(blockName(at(s.x, Math.ceil(s.y) - 1, s.z)));
+    const crown = (s: Spot) => !s.swim && ['leaves', 'fern_fronds', 'log', 'tree_fern_trunk', 'leaves_pale', 'banana_trunk'].includes(blockName(at(s.x, Math.ceil(s.y) - 1, s.z)));
     const lost = clusters(flood.stuck((s) => home.has(s)).filter((s) => !crown(s)));
     expect(lost.length, `${lost.length} places with no way back: ${lost.slice(0, 8).map((p) => showPit(at, p)).join('; ')}`).toBe(0);
   });

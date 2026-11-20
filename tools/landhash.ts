@@ -20,7 +20,7 @@ function hashOfName(id: number): number {
 }
 
 export function columnHash(cx: number, cz: number): string {
-  const col = generateColumn(cx, cz);
+  const col = generateColumn(cx, cz, 'v13'); // version 13's plants, as the fixture was made (tests/plants.test.ts)
   let h = 2166136261;
   for (let y = 0; y < WORLD_Y; y++)
     for (let lz = 0; lz < CS; lz++)

@@ -25,6 +25,8 @@ export interface Settings {
   aa: boolean;
   /** Make the picture lighter by itself when the game runs slowly. */
   auto: boolean;
+  /** Effects that are only for show: glow, rain, birds (docs/PHASE9A.md). */
+  fx: boolean;
   /**
    * Settings this build does not know, kept as they were read and written back unchanged: another branch's
    * setting (Track A's `fx`), or a later build's, survives a load and a save here.
@@ -32,7 +34,7 @@ export interface Settings {
   others?: Record<string, boolean | number | string>;
 }
 
-export const DEFAULT_SETTINGS: Settings = { rd: 8, rdOwn: false, sens: 1, inv: false, vol: 0.8, scale: 1, aa: true, auto: true };
+export const DEFAULT_SETTINGS: Settings = { rd: 8, rdOwn: false, sens: 1, inv: false, vol: 0.8, scale: 1, aa: true, auto: true, fx: true };
 
 /** The offered value nearest a wanted one (the higher of two equally near). */
 function nearest(offered: number[], n: number): number {
@@ -65,6 +67,7 @@ export function readSettings(raw: unknown): Settings {
   if (num(r.scale)) s.scale = nearestScale(r.scale);
   if (typeof r.aa === 'boolean') s.aa = r.aa;
   if (typeof r.auto === 'boolean') s.auto = r.auto;
+  if (typeof r.fx === 'boolean') s.fx = r.fx;
   const others: Record<string, boolean | number | string> = {};
   for (const [k, v] of Object.entries(r)) {
     if (k in DEFAULT_SETTINGS || k === 'others' || k.length > 40) continue;

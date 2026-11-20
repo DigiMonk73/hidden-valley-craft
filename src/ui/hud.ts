@@ -120,6 +120,8 @@ export interface MenuActions {
   setAntialias(v: boolean): void;
   /** Whether the game may make the picture lighter by itself when it runs slowly. */
   setAuto(v: boolean): void;
+  /** Glow, rain and birds (docs/PHASE9A.md). */
+  setEffects(on: boolean): void;
 }
 
 export { VIEW_CHUNKS, nearestViewChunks } from '../game/settings.ts';
@@ -364,7 +366,12 @@ export class Hud {
     const vol = el('input', '', set);
     vol.type = 'range'; vol.min = '0'; vol.max = '1'; vol.step = '0.05'; vol.value = '0.8';
     vol.oninput = () => a.setVolume(Number(vol.value));
-    this.settingsInputs = { rd, sens, inv, vol, scale, aa, auto };
+    // One switch for everything that is only for show and costs a slow computer something (docs/PHASE9A.md).
+    el('label', '', set).textContent = 'Effects (glow, rain, birds)';
+    const fx = el('input', '', set);
+    fx.type = 'checkbox'; fx.checked = true;
+    fx.onchange = () => a.setEffects(fx.checked);
+    this.settingsInputs = { rd, sens, inv, vol, scale, aa, auto, fx };
   }
 
   /** Shows the settings as they are (when they are loaded, and when the game changes one by itself). */
@@ -377,6 +384,7 @@ export class Hud {
     i.sens.value = String(s.sens);
     i.inv.checked = s.inv;
     i.vol.value = String(s.vol);
+    i.fx.checked = s.fx;
   }
 
   private downloadBtn!: HTMLButtonElement;
@@ -470,7 +478,7 @@ export class Hud {
 
   setLoadingText(text: string): void { this.loadText.textContent = text; }
 
-  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement; scale: HTMLSelectElement; aa: HTMLInputElement; auto: HTMLInputElement };
+  settingsInputs!: { rd: HTMLSelectElement; sens: HTMLInputElement; inv: HTMLInputElement; vol: HTMLInputElement; scale: HTMLSelectElement; aa: HTMLInputElement; auto: HTMLInputElement; fx: HTMLInputElement };
 
   setLoading(done: number, total: number): void {
     this.loadBar.style.width = `${Math.round((done / Math.max(1, total)) * 100)}%`;

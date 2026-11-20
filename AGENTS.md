@@ -37,6 +37,7 @@ The owner has handed over the finish: "just finish building it to the best of yo
 - **Still bring to the owner:** accounts, passwords and money; anything that would change the script's vision; and each published build, with its link, at most 5 pictures and at most 10 lines.
 - **The owner's standing critiques:** simple, short, well lit, easy to find; nothing hidden that looks like everything around it; what you mine goes back matching; hold H to go home; animals can be caught and raised.
 - **Sub-sessions** run on Fable 5.2 at High effort.
+- **Until the owner says otherwise** (2026-11-20, their Fable credits nearly out): the lead runs on Opus 5.5 at extra effort, and every new session or agent runs on Opus 5.5 at extra effort (Agent tool: `model: "opus"`, `effort: "xhigh"`; a new session: `claude-opus-5-5`, `xhigh`).
 
 ## Sessions (the owner, 2026-11-17)
 

@@ -44,9 +44,10 @@ describe('settings are kept across sessions', () => {
     act(a, 'setScale', 0.5);
     act(a, 'setAntialias', false);
     act(a, 'setAuto', false);
+    act(a, 'setEffects', false);
     act(a, 'setRenderDistance', 4);
     await settle(a);
-    const want: Settings = { rd: 4, rdOwn: true, sens: 1.8, inv: true, vol: 0.25, scale: 0.5, aa: false, auto: false };
+    const want: Settings = { rd: 4, rdOwn: true, sens: 1.8, inv: true, vol: 0.25, scale: 0.5, aa: false, auto: false, fx: false };
     expect(await stored(a)).toEqual(want);
 
     const b = await openPage(store, pending, { renderChunks: undefined });

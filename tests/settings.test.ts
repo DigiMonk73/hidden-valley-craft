@@ -20,7 +20,7 @@ describe('view distance from older saved settings', () => {
 
 describe('settings kept across sessions (docs/PHASE9B.md, 2)', () => {
   it('come back as they were written', () => {
-    const s = { rd: 5, rdOwn: true, sens: 1.7, inv: true, vol: 0.35, scale: 0.5, aa: false, auto: false };
+    const s = { rd: 5, rdOwn: true, sens: 1.7, inv: true, vol: 0.35, scale: 0.5, aa: false, auto: false, fx: false };
     expect(parseSettings(encodeSettings(s))).toEqual(s);
   });
 
@@ -60,9 +60,11 @@ describe('settings kept across sessions (docs/PHASE9B.md, 2)', () => {
 
   it('a setting this build does not know (another branch’s, a later build’s) survives a load and a save unchanged', () => {
     const saved = new TextEncoder().encode(JSON.stringify({ rd: 10, vol: 0.5, fx: false, later: 'x', count: 3, junk: { a: 1 }, bad: null }));
+    // (Track A's `fx` is a known setting since the two tracks met; the others are still kept as they were.)
     const s = parseSettings(saved);
     expect(s.rd).toBe(10);
-    expect(s.others).toEqual({ fx: false, later: 'x', count: 3 }); // plain values only
+    expect(s.fx).toBe(false);
+    expect(s.others).toEqual({ later: 'x', count: 3 }); // plain values only
     s.vol = 0.9; // a setting changed in the menu
     const back = JSON.parse(new TextDecoder().decode(encodeSettings(s)));
     expect(back).toMatchObject({ rd: 10, vol: 0.9, fx: false, later: 'x', count: 3, scale: 1, aa: true, auto: true });

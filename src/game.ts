@@ -80,6 +80,8 @@ import { turning, liveFromSave, HYDRO_KW, chillJugs } from './sim/power.ts';
 import { wakeFrom, settleWake } from './sim/wake.ts';
 import { ashenOn, ashenDawn, ALL_ASHEN } from './entity/ashen.ts';
 import { isWaterId } from './world/blocks.ts';
+import { quetzalTree } from './gen/terrain.ts';
+import { rainAt } from './render/rain.ts';
 // Zone-4 and the uplink (docs/PHASE8.md).
 import { absorb, doseRate, meterLine, roadDose } from './sim/radiation.ts';
 import { isMedicine, useMedicine, medicineIdle, blowFelt, stepAdrenaline } from './sim/medicine.ts';
@@ -177,6 +179,12 @@ export interface BootOptions {
   effects?: boolean; // particles in test mode
 }
 
+/** What can be sat on (docs/PHASE9A.md, 8), by a block's base name; and those that face one way, as their sitter does. */
+export const SEATS: ReadonlySet<string> = new Set(['chair', 'dining_chair', 'desk_chair', 'patio_chair', 'armchair', 'sofa_end', 'sofa_end_r', 'sofa_mid', 'bench', 'window_seat', 'lounger_head', 'lounger_foot']);
+const SEAT_FACES: ReadonlySet<string> = new Set(['chair', 'dining_chair', 'desk_chair', 'patio_chair', 'armchair', 'sofa_end', 'sofa_end_r', 'sofa_mid']);
+/** A seat's height above its block's floor; and how far below a sitter's eye the body's feet are put (the eye is 1.62 above them: so the eye is 0.72 above the seat). */
+const SEAT_HEIGHT = 0.45, SEATED_EYE = EYE - 0.72;
+
 export class Game {
   world = new World();
   renderer: Renderer;
@@ -250,6 +258,11 @@ export class Game {
   running: Device[] = [];
   /** Seconds of adrenaline still in the blood. */
   adrenaline = 0;
+  /**
+   * Sitting (docs/PHASE9A.md, 8): the seat's block, and where the player stood before sitting down (they stand up
+   * there). While seated the body does not move; a step, a jump or a blow stands it up.
+   */
+  private seat: { x: number; y: number; z: number; from: [number, number, number] } | null = null;
   /** Looking through a telescope: where it stands (docs/PHASE8.md, 5). */
   private scoping: { x: number; y: number; z: number } | null = null;
   private scope: ScopeView | null = null;
@@ -405,6 +418,7 @@ export class Game {
         this.hud.toast(v ? 'Smooth edges will be on the next time the page is opened.' : 'Smooth edges will be off the next time the page is opened.', 5000);
       },
       setAuto: (v) => { this.changeSettings({ auto: v }); this.watch.reset(); },
+      setEffects: (on) => this.changeSettings({ fx: on }),
     });
     this.look.onDelta = (dx, dy) => {
       // Through the telescope the hand is as much finer as the view is narrower.
@@ -649,6 +663,11 @@ export class Game {
     cam.position.set(p.x + quake * Math.sin(this.time * 61), p.eyeY + quake * Math.sin(this.time * 47), p.z);
     cam.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
     this.sky = skyAt(this.hour);
+    // Where the eye is (docs/PHASE9A.md, 2): under water the picture is the water's, whatever body the camera has.
+    const ex = Math.floor(cam.position.x), ey = Math.floor(cam.position.y), ez = Math.floor(cam.position.z);
+    // (Open water is drawn an eighth of a block low: an eye in that top eighth is in the air.)
+    const wet = isWaterId(this.world.blockAt(ex, ey, ez)) && (cam.position.y - ey < 0.875 || this.world.blockAt(ex, ey + 1, ez) !== 0);
+    this.renderer.setEye(wet, this.world.lightAt(ex, ey, ez), dt, !this.opts.test || !!this.opts.effects);
     this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
     if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
@@ -658,6 +677,8 @@ export class Game {
     this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
     this.updateSound();
+    this.updateHand(dt);
+    this.updateBirds(dt);
     this.renderer.render();
 
     // HUD.
@@ -685,6 +706,44 @@ export class Game {
     if (this.playing && shouldAutosave({ unsaved: this.unsaved, played: this.playedSince, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
   }
 
+  /** The valley's birds and the afternoon's rain (docs/PHASE9A.md, 6 and 7): scenery; what of it is heard or said. */
+  private updateBirds(dt: number): void {
+    const p = this.player, r = this.renderer;
+    const lively = (!this.opts.test || !!this.opts.effects) && r.effects;
+    const events = r.birds.flock.update(dt, {
+      px: p.x, py: p.eyeY, pz: p.z, hour: this.hour, day: this.day, time: this.time, sprinting: this.sprinting,
+      blockAt: (x, y, z) => this.world.blockAt(x, y, z), tree: quetzalTree(),
+    }, lively);
+    for (const e of events) {
+      if (e.kind === 'quetzal_call') this.sound.quetzal(e.x, e.y, e.z);
+      else if (e.kind === 'flush') this.sound.flutter(e.x, e.y, e.z);
+      else if (this.playing) this.once('quetzal_seen', 'A quetzal, on the tree by the garden: green, a red breast, tail plumes as long as your arm. It comes some mornings, and leaves if you walk under its tree.', 9000);
+    }
+    r.birds.draw((x, y, z, out) => r.lightColor(this.world.lightAt(Math.floor(x), Math.floor(y), Math.floor(z)), out));
+    // Afternoon rain (docs/PHASE9A.md, 7): most days, for an hour or so from about two.
+    const rain = lively ? rainAt(this.day, this.hour) : 0;
+    r.rain.update(rain, r.camera.position, this.time, (x, y, z) => this.world.blockAt(x, y, z));
+    const head = this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z));
+    this.sound.rain(rain, Math.min(1, Math.max(0, ((head >> 4) - 4) / 10)));
+  }
+
+  /** The arm and what it holds (docs/PHASE9A.md, 1): told each frame what the player is doing. */
+  private handWas = { x: 0, z: 0, yaw: 0, pitch: 0 };
+  private updateHand(dt: number): void {
+    const p = this.player, was = this.handWas, held = this.hotbar.current?.id;
+    const busy = this.screen.isOpen || this.paper.isOpen;
+    const walked = p.onGround && !p.flying && !busy ? Math.min(0.5, Math.hypot(p.x - was.x, p.z - was.z)) : 0;
+    this.renderer.hand.update(dt, {
+      held, show: this.playing && !this.scoping,
+      mining: this.mining.active && !!this.target && !busy && mineSeconds(this.target.id, held ?? 0) >= 0,
+      aiming: (this.focus.active && isWeapon(held)) || this.drawing !== null,
+      draw: this.drawing !== null ? drawOf(this.playTime - this.drawing) : 0,
+      walked, turnX: p.yaw - was.yaw, turnY: p.pitch - was.pitch,
+      light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z))),
+    });
+    was.x = p.x; was.z = p.z; was.yaw = p.yaw; was.pitch = p.pitch;
+  }
+
   private tick(dt: number): void {
     // With a screen open the player's body waits (no hunger, no sinking); the world goes on.
     if (this.screen.isOpen || this.paper.isOpen) {
@@ -700,7 +759,8 @@ export class Game {
     const px = p.x, pz = p.z, vy = p.vy;
     // In focus the world runs slow, the player's body with it; only the aim (the mouse) is quick.
     const world = dt * this.focus.scale;
-    p.step(world, input, (x, y, z) => this.world.blockAt(x, y, z));
+    if (this.seat) this.keepSeat();
+    else p.step(world, input, (x, y, z) => this.world.blockAt(x, y, z));
     // Footsteps by the ground underfoot, and a splash on falling into water.
     if (p.onGround && !p.flying && !p.inWater) {
       this.stepDist += Math.hypot(p.x - px, p.z - pz);
@@ -721,7 +781,7 @@ export class Game {
     // close by: a starving or drowning player holding H used to be told "Not with danger this close", and died.
     const hurt = this.vitals.hp < this.hpBefore - this.bodyLoss - 0.01;
     this.bodyLoss = 0;
-    if (hurt) { this.lastHurt = this.playTime; this.endScope(); }
+    if (hurt) { this.lastHurt = this.playTime; this.endScope(); this.stand(); }
     this.hpBefore = this.vitals.hp;
     const h = this.home.update(dt, this.keys.has('KeyH'), hurt || (this.home.held !== null && this.ashenOnYou()));
     if (h === 'go') this.goHome();
@@ -967,7 +1027,7 @@ export class Game {
     const name = BLOCK_DEFS[t.id]?.base ?? blockName(t.id);
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationAt((x, y, z) => this.world.blockAt(x, y, z), t.x, t.y, t.z) || /^steel_door|^snare_caught/.test(blockName(t.id))
-      || blockName(t.id).startsWith('wardrobe_upper') || /^door_wood/.test(blockName(t.id))
+      || blockName(t.id).startsWith('wardrobe_upper') || /^door_wood/.test(blockName(t.id)) || (SEATS.has(name) && !isWeapon(this.hotbar.current?.id))
       || ['bed', 'bed_head', 'bed_foot', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
         'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate',
         'logbook_desk', 'hydro_generator', 'turbine', 'old_lathe', 'foundry_crucible', 'cenizos_board'].includes(name);
@@ -1233,6 +1293,13 @@ export class Game {
       const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r;
       if (inValleyBowl(x, z)) parts.firefly(x, valleyFloorHeight(x, z) + 0.6 + Math.random() * 2.8, z); // over the valley floor, not the rock of the home
     }
+    // Zone-4's sump breathes (docs/PHASE9A.md, 8): what the signs say, the pond shows.
+    const sump = ZONE4.sump;
+    if (this.renderer.effects && Math.hypot(p.x - sump.x, p.z - sump.z) < 90 && Math.random() < dt * 5) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * sump.pond;
+      const x = sump.x + Math.cos(a) * r, z = sump.z + Math.sin(a) * r;
+      parts.fume(x, outsideHeight(Math.floor(x), Math.floor(z)) + 0.2, z);
+    }
     // Blue morphos gather round the morpho tree in daylight.
     const m = PLACES.morphoTree;
     const daytime = h > 7.5 && h < 17;
@@ -1379,9 +1446,71 @@ export class Game {
     }
   }
 
+  /** Sits down on a chair, a sofa, a bench or a lounger; on the seat already sat in, stands up again. */
+  private sit(x: number, y: number, z: number, id: number): void {
+    const p = this.player;
+    if (this.seat && this.seat.x === x && this.seat.y === y && this.seat.z === z) { this.stand(); return; }
+    // From your feet, on the ground, out of the water; and not onto a seat with something standing on it.
+    if (p.flying || (!this.seat && (!p.onGround || p.inWater))) return;
+    const above = this.world.blockAt(x, y + 1, z);
+    if (BLOCK_DEFS[above]?.rests || BLOCK_DEFS[above]?.solid) { this.hud.toast('Something is on that seat'); return; }
+    const from: [number, number, number] = this.seat ? this.seat.from : [p.x, p.y, p.z];
+    this.endFocus();
+    this.home.cancel();
+    this.seat = { x, y, z, from };
+    // A chair faces one way: so does whoever sits in it. (A bench or a lounger is sat on as you came to it.)
+    const facing = BLOCK_DEFS[id]?.facingIndex;
+    if (facing !== undefined && SEAT_FACES.has(BLOCK_DEFS[id]?.base ?? '')) p.yaw = [0, -Math.PI / 2, Math.PI, Math.PI / 2][facing];
+    this.seatBody();
+    this.once('sat_down', 'Sitting. Step or jump to stand up.', 4000);
+  }
+
+  /** How high this seat is above its block's floor: a chair's seat is under half a block up, a window seat is a whole block. */
+  private seatHeight(): number {
+    const s = this.seat!, id = this.world.blockAt(s.x, s.y, s.z);
+    return (BLOCK_DEFS[id]?.base ?? blockName(id)) === 'window_seat' ? 1 : SEAT_HEIGHT;
+  }
+
+  /** Where a body on this seat is: its eye at a sitter's height (the feet, 1.62 below the eye, are under the seat). */
+  private seatBody(): void {
+    const s = this.seat!;
+    this.player.setPosition(s.x + 0.5, s.y + this.seatHeight() - SEATED_EYE, s.z + 0.5);
+    // The body's own step does not run while seated: what it would have found is set here.
+    this.player.onGround = true;
+    this.player.inWater = this.player.headInWater = false;
+  }
+
+  /**
+   * Each tick while seated, in place of the body's own step. If something else has moved the body (a death, the way
+   * home), the seat is simply left; if the seat has been mined from under it, it stands.
+   */
+  private keepSeat(): void {
+    const p = this.player, s = this.seat;
+    if (!s) return;
+    if (Math.abs(p.x - (s.x + 0.5)) > 0.01 || Math.abs(p.z - (s.z + 0.5)) > 0.01 || Math.abs(p.y - (s.y + this.seatHeight() - SEATED_EYE)) > 0.01) { this.seat = null; return; }
+    const under = this.world.blockAt(s.x, s.y, s.z);
+    if (!SEATS.has(BLOCK_DEFS[under]?.base ?? blockName(under))) { this.stand(); return; }
+    this.seatBody();
+  }
+
+  /** Stands up from a seat, where the player stood before sitting (or beside it, if something is there now). */
+  private stand(): void {
+    const s = this.seat;
+    if (!s) return;
+    this.seat = null;
+    const p = this.player, blockAt = (x: number, y: number, z: number) => this.world.blockAt(x, y, z);
+    const spots: [number, number, number][] = [s.from, [s.x + 0.5, s.y + 1, s.z + 0.5]];
+    const to = spots.find(([x, y, z]) => p.fitsAt(x, y, z, blockAt)) ?? s.from;
+    const yaw = p.yaw, pitch = p.pitch;
+    p.setPosition(to[0], to[1], to[2]);
+    p.yaw = yaw; p.pitch = pitch;
+  }
+
   /** The builder's things: the bed (any of its blocks), bookshelves, computer, phone, map table. True if one was used. */
   private useFurniture(x: number, y: number, z: number, id: number): boolean {
     const name = BLOCK_DEFS[id]?.base ?? blockName(id);
+    // (Not with a bow or a gun in hand: a seat in front of what you are shooting at must not take the shot.)
+    if (SEATS.has(name) && !isWeapon(this.hotbar.current?.id)) { this.sit(x, y, z, id); return true; }
     if (name === 'bed' || name === 'bed_head' || name === 'bed_foot') {
       if (this.hour < 17 && this.hour >= 6) { this.hud.toast('You can sleep from five in the evening'); return true; }
       // A night's sleep (up to thirteen hours) moves the garden on as if those hours had passed.
@@ -1829,6 +1958,8 @@ export class Game {
         if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.endScope();
         return;
       }
+      // (A fresh press: a key still held from walking up to the seat does not stand you straight up again.)
+      if (this.seat && !e.repeat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.stand();
       if (e.code === 'Escape' && this.playing) this.pause();
       // Esc on the pause menu goes back to the game (docs/PHASE9B.md, 3). Not on a key's repeats, and not in the
       // moment after the pause: where the browser hands the page the same Esc that took the mouse away, that press
@@ -1861,7 +1992,11 @@ export class Game {
       if (this.look.mode === 'off') { this.look.engage(); return; }
       if (this.scoping) { if (e.button === 2) this.endScope(); return; }
       if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
+      const shot = this.lastShot;
       if (e.button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
+      // The hand answers the click (docs/PHASE9A.md, 1): a blow or a thing set down swings it, a shot kicks it; a bow only bends.
+      if (this.lastShot !== shot) this.renderer.hand.kick();
+      else if (e.button === 0 || (e.button === 2 && this.drawing === null)) this.renderer.hand.swing();
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mining.active = false;
@@ -1974,6 +2109,7 @@ export class Game {
     this.look.invertY = s.inv;
     this.sound.volume = s.vol;
     this.renderer.setScale(s.scale);
+    this.renderer.effects = s.fx;
     writeHint('aa', s.aa ? 'on' : 'off');
   }
 
@@ -2038,7 +2174,9 @@ export class Game {
     return {
       format: SAVE_FORMAT, version: SAVE_VERSION, id: this.keeper?.id ?? '', seq: this.keeper?.seq ?? 0, layout: WORLD_LAYOUT, gen: this.gen, savedAt: new Date().toISOString(),
       mode: this.mode, endless: this.hotbar.creative, hour: this.hour,
-      player: { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
+      // Saved while sitting, the player is where they stood before sitting down (the seated body's feet are put
+      // under the seat: a save would open with them inside the floor).
+      player: { x: this.seat?.from[0] ?? p.x, y: this.seat?.from[1] ?? p.y, z: this.seat?.from[2] ?? p.z, yaw: p.yaw, pitch: p.pitch, flying: p.flying },
       hotbar: this.hotbar.toSave(), spill: this.spilled(), selected: this.hotbar.selected, palette, edits,
       containers: collectContainers(this.world),
       vitals: { ...this.vitals }, spawn: { ...this.spawn },

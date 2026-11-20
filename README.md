@@ -111,6 +111,11 @@ node --experimental-strip-types tools/texsheet.ts
 `node tools/showroom.mjs table chair@south` photographs pieces of furniture from where a player would stand.
 `node tools/shots-phase8.mjs` photographs Phase 8's screens as they are played: the dose meter, the telescope, the uplink's answers, the closing card, the map table (`out/p8h_*.png`).
 
+`node tools/shots9a.mjs <tag> valley water road far life rain sump sit hand` takes Phase 9A's pictures (docs/PHASE9A.md): the same
+cameras before and after a change, many to a page load (`out/9a/<tag>-<name>.png`); `BASE=` points it at another served build, `ONLY=`
+picks views by name. `node tools/handroom.mjs name item[:swing[:aim[:draw]]] …` photographs the hand and what it holds without loading
+the world, and `/tools/birdroom.html` shows the three birds; both need the dev server (`npx vite --port 5173`).
+
 `npm run map` draws the world layout as a picture (and `node --experimental-strip-types --no-warnings
 tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, `tools/zone3map.ts` Zone-3's into
 `docs/phase7-map.png`, and `tools/zone4map.ts` Zone-4's into `docs/phase8-map.png`); the second command draws every block texture side by side.
@@ -118,7 +123,8 @@ tools/zone2map.ts` draws Zone-2's, labelled, into `docs/phase6-map.png`, `tools/
 `node --experimental-strip-types --no-warnings tools/worldhash.ts out/now.json 21 63 0 63` hashes every generated
 column east of the river's gorge, and `tools/worldhash.ts --diff tests/fixtures/east-of-ravine.json out/now.json` lists
 those that differ from the land as it was before Phase 7. Run it after any change to the generator: only the
-dam road's five columns may differ. The gorge's east rim west of those columns is hashed row by row
+dam road's five columns may differ. (These hashes are taken with version 13's plants, `generateColumn(cx, cz, 'v13')`: Phase 9A's
+trees, bananas and vines differ from them only where a plant or open air was, which `tests/plants.test.ts` checks.) The gorge's east rim west of those columns is hashed row by row
 (`tools/worldhash.ts --rim out/rim.json`, baseline `tests/fixtures/east-rim.json`): a unit test checks that only
 the reservoir's shore and the dam's east end differ.
 
@@ -163,7 +169,7 @@ The stack is TypeScript, Vite and Three.js (WebGL 2), with Web Workers.
 | Streaming | `src/world/streamer.ts` |
 | Meshing (per-face, corner shading, smooth light) | `src/mesh/mesher.ts` |
 | Workers, with a main-thread fallback | `src/jobs/` |
-| Rendering and sky | `src/render/` |
+| Rendering and sky (the hand, glow, birds, rain, the far land) | `src/render/` |
 | Player, raycast and hotbar | `src/sim/` |
 | Browser-only code (storage, files, mouse) | `src/platform/` |
 | Saves | `src/save/` |
