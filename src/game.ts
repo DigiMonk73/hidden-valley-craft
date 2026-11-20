@@ -20,6 +20,7 @@ import { Hud } from './ui/hud.ts';
 import { DEFAULT_SETTINGS, FALLBACK_VIEW, parseSettings, encodeSettings, nearestViewChunks, nearestScale, type Settings } from './game/settings.ts';
 import { FrameWatch, lighter, lighterLine, type Picture } from './game/quality.ts';
 import { readHint, writeHint } from './platform/hints.ts';
+import { listenInput } from './platform/input.ts';
 import { InventoryScreen } from './ui/inventoryScreen.ts';
 import { PaperScreen } from './ui/paperScreen.ts';
 import { drawMap } from './ui/mapView.ts';
@@ -1931,84 +1932,90 @@ export class Game {
 
   // ---- Input ---------------------------------------------------------------------------------
 
+  /** The page's input, listened to in src/platform/input.ts; what each key and button does is here. */
   private bindInput(canvas: HTMLCanvasElement): void {
-    window.addEventListener('keydown', (e) => {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F3'].includes(e.code)) e.preventDefault();
-      this.keys.add(e.code);
-      if (this.screen.isOpen) {
-        if (e.code === 'Escape' || e.code === 'KeyE') this.closeScreen();
-        return;
-      }
-      if (this.paper.isOpen) {
-        // (Not on a held key's repeats: the E that put the uplink's page down would close the card it brought up.)
-        if (e.code === 'Escape' || e.code === 'KeyE') { if (!e.repeat) this.closePaper(); }
-        else this.paper.key(e.code);
-        return;
-      }
-      // At the telescope: E, Esc or a step away puts it down.
-      if (this.scoping) {
-        if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.endScope();
-        return;
-      }
-      // (A fresh press: a key still held from walking up to the seat does not stand you straight up again.)
-      if (this.seat && !e.repeat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) this.stand();
-      if (e.code === 'Escape' && this.playing) this.pause();
-      // Esc on the pause menu goes back to the game (docs/PHASE9B.md, 3). Not on a key's repeats, and not in the
-      // moment after the pause: where the browser hands the page the same Esc that took the mouse away, that press
-      // must not undo its own pause. If the browser will not give the mouse back yet, play goes on and it says "Click to look around".
-      else if (e.code === 'Escape' && !e.repeat && !this.playing && this.ready && this.flags.has(BEGUN) && !this.hud.introOpen && this.time - this.pausedAt > 0.4) this.resume();
-      if (e.code === 'KeyE' && this.playing) { this.openScreen(null); return; }
-      if (e.code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
-      if (e.code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
-      if (!this.playing) return;
-      if (e.code.startsWith('Digit')) { const n = Number(e.code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
-      if (e.code === 'KeyQ') this.toggleFocus();
-      if (e.code === 'KeyH' && !e.repeat) {
-        // Not an escape from the Ashen: with one hunting you close by, H does nothing (docs/PHASE7.md).
-        if (this.ashenOnYou() && !(this.player.flying && this.hotbar.creative)) { this.home.cancel(); this.hud.toast('Not with one of them on you'); return; }
-        const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
-        if (r === 'go') this.goHome();
-        else if (r === 'danger') this.hud.toast('Not with danger this close');
-      }
-      // Builder's mode only (docs/FIXES.md, N2): in Survival these keys do nothing at all.
-      if (this.mode !== 'builder') return;
-      if (e.code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
-      if (e.code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.edited(); this.hud.toast(this.hotbar.creative ? 'Blocks never run out' : 'Blocks are counted again'); }
-      if (e.code === 'BracketRight') this.turnSky(1);
-      if (e.code === 'BracketLeft') this.turnSky(-1);
+    listenInput(canvas, {
+      key: (code, repeat) => this.keyDown(code, repeat),
+      keyUp: (code) => this.keys.delete(code),
+      blur: () => { this.keys.clear(); this.mining.active = false; this.drawing = null; this.endGlass(); },
+      press: (button) => this.mouseDown(button),
+      release: (button) => {
+        if (button === 0) this.mining.active = false;
+        if (button === 2) { this.loose(); this.endGlass(); }
+      },
+      wheel: (down) => {
+        if (!this.playing) return false;
+        this.hotbar.select(this.hotbar.selected + (down ? 1 : -1));
+        return true;
+      },
+      // Leaving: the write has to start before this event returns, so it skips compression.
+      hidden: () => { this.saveNow(); this.sound.suspend(); },
+      shown: () => {
+        if (this.playing) this.sound.resume();
+        // Back in front: has another tab saved this valley meanwhile?
+        if (this.booted && !this.opts.test) void this.keeper.check().then((stopped) => { if (stopped) this.stoppedSaving(); });
+      },
+      leaving: () => this.saveNow(),
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.mining.active = false; this.drawing = null; this.endGlass(); });
-    canvas.addEventListener('mousedown', (e) => {
-      if (!this.playing) return;
-      if (this.look.mode === 'off') { this.look.engage(); return; }
-      if (this.scoping) { if (e.button === 2) this.endScope(); return; }
-      if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
-      const shot = this.lastShot;
-      if (e.button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
-      // The hand answers the click (docs/PHASE9A.md, 1): a blow or a thing set down swings it, a shot kicks it; a bow only bends.
-      if (this.lastShot !== shot) this.renderer.hand.kick();
-      else if (e.button === 0 || (e.button === 2 && this.drawing === null)) this.renderer.hand.swing();
-    });
-    window.addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.mining.active = false;
-      if (e.button === 2) { this.loose(); this.endGlass(); }
-    });
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    canvas.addEventListener('wheel', (e) => {
-      if (!this.playing) return;
-      e.preventDefault();
-      this.hotbar.select(this.hotbar.selected + (e.deltaY > 0 ? 1 : -1));
-    }, { passive: false });
-    // Leaving: the write has to start before this event returns, so it skips compression.
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { this.saveNow(); this.sound.suspend(); return; }
-      if (this.playing) this.sound.resume();
-      // Back in front: has another tab saved this valley meanwhile?
-      if (this.booted && !this.opts.test) void this.keeper.check().then((stopped) => { if (stopped) this.stoppedSaving(); });
-    });
-    window.addEventListener('pagehide', () => this.saveNow());
+  }
+
+  /** A key pressed (`repeat`: held down, not a fresh press). */
+  private keyDown(code: string, repeat: boolean): void {
+    this.keys.add(code);
+    if (this.screen.isOpen) {
+      if (code === 'Escape' || code === 'KeyE') this.closeScreen();
+      return;
+    }
+    if (this.paper.isOpen) {
+      // (Not on a held key's repeats: the E that put the uplink's page down would close the card it brought up.)
+      if (code === 'Escape' || code === 'KeyE') { if (!repeat) this.closePaper(); }
+      else this.paper.key(code);
+      return;
+    }
+    // At the telescope: E, Esc or a step away puts it down.
+    if (this.scoping) {
+      if (['Escape', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(code)) this.endScope();
+      return;
+    }
+    // (A fresh press: a key still held from walking up to the seat does not stand you straight up again.)
+    if (this.seat && !repeat && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(code)) this.stand();
+    if (code === 'Escape' && this.playing) this.pause();
+    // Esc on the pause menu goes back to the game (docs/PHASE9B.md, 3). Not on a key's repeats, and not in the
+    // moment after the pause: where the browser hands the page the same Esc that took the mouse away, that press
+    // must not undo its own pause. If the browser will not give the mouse back yet, play goes on and it says "Click to look around".
+    else if (code === 'Escape' && !repeat && !this.playing && this.ready && this.flags.has(BEGUN) && !this.hud.introOpen && this.time - this.pausedAt > 0.4) this.resume();
+    if (code === 'KeyE' && this.playing) { this.openScreen(null); return; }
+    if (code === 'KeyM') { this.sound.muted = !this.sound.muted; this.hud.toast(this.sound.muted ? 'Sound off' : 'Sound on'); }
+    if (code === 'F3') this.hud.debugVisible = !this.hud.debugVisible; // works paused too
+    if (!this.playing) return;
+    if (code.startsWith('Digit')) { const n = Number(code.slice(5)); if (n >= 1 && n <= 9) this.hotbar.select(n - 1); }
+    if (code === 'KeyQ') this.toggleFocus();
+    if (code === 'KeyH' && !repeat) {
+      // Not an escape from the Ashen: with one hunting you close by, H does nothing (docs/PHASE7.md).
+      if (this.ashenOnYou() && !(this.player.flying && this.hotbar.creative)) { this.home.cancel(); this.hud.toast('Not with one of them on you'); return; }
+      const r = this.home.press(this.playTime - this.lastHurt, this.player.flying && this.hotbar.creative);
+      if (r === 'go') this.goHome();
+      else if (r === 'danger') this.hud.toast('Not with danger this close');
+    }
+    // Builder's mode only (docs/FIXES.md, N2): in Survival these keys do nothing at all.
+    if (this.mode !== 'builder') return;
+    if (code === 'KeyF') { this.player.flying = !this.player.flying; this.hud.toast(this.player.flying ? 'Flying (Space up, Shift down)' : 'Walking'); }
+    if (code === 'KeyG') { this.hotbar.creative = !this.hotbar.creative; this.edited(); this.hud.toast(this.hotbar.creative ? 'Blocks never run out' : 'Blocks are counted again'); }
+    if (code === 'BracketRight') this.turnSky(1);
+    if (code === 'BracketLeft') this.turnSky(-1);
+  }
+
+  /** A mouse button pressed over the picture. */
+  private mouseDown(button: number): void {
+    if (!this.playing) return;
+    if (this.look.mode === 'off') { this.look.engage(); return; }
+    if (this.scoping) { if (button === 2) this.endScope(); return; }
+    if (button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
+    const shot = this.lastShot;
+    if (button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
+    // The hand answers the click (docs/PHASE9A.md, 1): a blow or a thing set down swings it, a shot kicks it; a bow only bends.
+    if (this.lastShot !== shot) this.renderer.hand.kick();
+    else if (button === 0 || (button === 2 && this.drawing === null)) this.renderer.hand.swing();
   }
 
   /** Before play first begins in a valley: Survival or Builder's mode. After that it is fixed. */
