@@ -594,22 +594,24 @@ as mended. To be sure the merge itself changed no land: all 4,096 columns outsid
 
 ---
 
-## Checks at the end (2026-11-20, on the pushed code, with `main` at ba4baf6 merged in)
+## Checks at the end (2026-11-20, on the pushed code, with `main` at 2b58020 merged in: the home rebuilt)
 
 - `npx tsc --noEmit`: clean.
-- `npx vitest run`: 46 files, **658 tests pass, 2 skipped** on purpose (the outpost's stealth route; the valley's
-  rim: both under "Left undone"). 394 passed before this branch; the new ones are in `saves_safe` (32), `failures`
-  (26), `creatures_real` (32), `walk` (59), `modes` (10), `money` (20), `first_minutes` (9), `people` (11), `wake`
-  (11) and the fresh review's three files.
-- `npm run build` (which now type-checks first): `dist/index.html` 1.14 MB.
+- `npx vitest run`: 48 files, **699 tests pass, 2 skipped** on purpose (the outpost's stealth route; the valley's
+  rim: both under "Left undone", both given to Phase 9 by the lead). 394 passed before this branch; the new ones
+  are in `saves_safe` (32), `failures` (26), `creatures_real` (32), `walk` (59), `modes` (10), `money` (20),
+  `first_minutes` (9), `people` (11), `wake` (11), `layout_rule` (10) and the fresh review's three files; the home's
+  own 31 came in with the merge.
+- `npm run build` (which type-checks first): `dist/index.html` 1.23 MB.
 - GitHub's own run of the three (`.github/workflows/checks.yml`): green on every push since the suite's time
-  limit was raised (the first two pushes failed there on one slow land sweep cut off at five seconds).
-- The saves in a real browser (`node tests/e2e/saves.mjs`): **16 of 16**.
-- The play-through, all five parts on the final build: **163 of 163 checks** (valley 38, near 25, mid 21, Zone-2
-  35, Zone-3 44), about 40 minutes in all now that it leaves the mouse uncaptured. Each part's first new check is
-  the opening card and its "Skip".
-- A fresh reviewer checked the branch by running things; its twelve findings are item 9.
+  limit was raised, the merge's pushes included.
+- The saves in a real browser (`node tests/e2e/saves.mjs`): **16 of 16** on the merged build.
+- The play-through, all five parts on the merged build, the mouse left uncaptured: **167 of 167 checks** (valley
+  42, near 25, mid 21, Zone-2 35, Zone-3 44). The valley's four new checks are the home's. On the first run of the
+  valley part one check failed (41 of 42): the script read the menu's first status line, which on this branch is
+  the line that says why Play is held back and was empty; the game itself had started fresh, at the balcony, and
+  said so. The script now reads every status line and the part was run again whole: 42 of 42.
+- A fresh reviewer checked the branch by running things before the merge; its twelve findings are item 9.
 
-This container was restarted three times while the checks ran. Nothing was lost (every step was pushed first),
-but two play-through runs were cut short and their unfinished parts run again; the counts above are from whole
-runs of each part on the final build.
+Before the merge, on d631280: 658 unit tests, 163 of 163 play-through checks. This container was restarted three
+times during those earlier runs; nothing was lost (every step was pushed first).
