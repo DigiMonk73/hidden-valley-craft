@@ -4,6 +4,11 @@ _The page to resume from. Keep it short; history lives in git._
 
 ## Now (2026-11-20)
 
+- **Tweaks from play** (the owner plays the published build and sends pictures; the lead answers and, when the owner says so, changes). Newest first:
+  - **Version 15 (2026-11-20): the garden says what to do.** The owner's beans did nothing on plain dirt, and the hoe did nothing on grass (the eye's ray stopped on the tall grass on top). Now the hoe clears tall grass, ferns and flowers as it tills; seeds and beans on untilled ground say to till it first; a hoe on what it can't till says what it tills; digging up a coffee bush says to right-click a ripe one instead. Tests: `tests/farming.test.ts`, `tests/garden.game.test.ts` (fail on the old code).
+  - **Answered, nothing changed:** the "tower" on the balcony is the builder's solar panel (the owner likes it as it is; a waist-high redraw was shown and declined); how replanting and coffee work.
+  - **The owner's word (2026-11-20):** a question gets an answer and options; change nothing unless they say so.
+
 - **Phase 9A ("the finish: feel and look", Track A of [PHASE9.md](PHASE9.md)) is built on branch `phase9a`**, waiting for the lead's review, merge and publish. Every call and its reason, the hooks in `src/game.ts`, and how it merges with Track B: [PHASE9A.md](PHASE9A.md).
   - **In hand:** an arm and what it holds, drawn over the world. Models for the tools and weapons, the block itself for a block. It chops while mining, kicks on a shot, comes up to the eye in focus, bends with the bow.
   - **Under water:** the water's colour, a fog a few metres deep, light without its red, bubbles. The tunnel reads as water and its lamps still lead.

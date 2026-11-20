@@ -63,4 +63,27 @@ describe('the garden', () => {
     expect(blockName(w.blockAt(1700, VALLEY.floor, 991))).toBe('coffee_bush_1');
     expect(inv.count(itemId('coffee_beans'))).toBe(3);
   });
+
+  it('the hoe tills ground with tall grass or a flower on it, clearing the plant (the owner, 2026-11-20)', () => {
+    const w = valley();
+    const x = 1700, z = 990, y = VALLEY.floor - 1;
+    for (const plant of ['tall_grass', 'fern', 'orchid']) {
+      w.setBlock(x, y, z, blockId('grass'));
+      w.setBlock(x, y + 1, z, blockId(plant));
+      expect(till(w, x, y + 1, z), `aimed at the ${plant}`).toBe(true); // the eye's ray stops on the plant
+      expect(w.blockAt(x, y, z)).toBe(FARMLAND);
+      expect(w.blockAt(x, y + 1, z)).toBe(AIR);
+      w.setBlock(x, y, z, blockId('grass'));
+      w.setBlock(x, y + 1, z, blockId(plant));
+      expect(till(w, x, y, z), `aimed at the grass under the ${plant}`).toBe(true);
+      expect(w.blockAt(x, y, z)).toBe(FARMLAND);
+    }
+    // Nothing built is cleared, and a crop is not a weed.
+    w.setBlock(x, y, z, blockId('grass'));
+    for (const thing of ['chest', 'crop_corn_2', 'coffee_bush_1']) {
+      w.setBlock(x, y + 1, z, blockId(thing));
+      expect(till(w, x, y, z), thing).toBe(false);
+      expect(blockName(w.blockAt(x, y + 1, z))).toBe(thing);
+    }
+  });
 });
