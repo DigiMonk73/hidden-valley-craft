@@ -14,7 +14,7 @@ import { mineSeconds, toolFor, toolOf } from './world/items.ts';
 import { breakBlock, placeBlock, placeTarget, toggleDoor } from './sim/interact.ts';
 import { stationAt, type Station } from './sim/crafting.ts';
 import { Gate, GATE_LEVER } from './sim/gate.ts';
-import { randomTicks, till, sow, pickCoffee, growWhileAway, FARMLAND } from './sim/farming.ts';
+import { randomTicks, till, sow, pickCoffee, pickBananas, growWhileAway, FARMLAND } from './sim/farming.ts';
 import { freshVitals, tickVitals, fallDamage, consume, type Vitals } from './sim/survival.ts';
 import { Hud } from './ui/hud.ts';
 import { DEFAULT_SETTINGS, FALLBACK_VIEW, parseSettings, encodeSettings, nearestViewChunks, nearestScale, type Settings } from './game/settings.ts';
@@ -1415,6 +1415,10 @@ export class Game {
     const apples = pickApple(this.world, this.hotbar, t.x, t.y, t.z);
     if (apples === 'full') { this.hud.toast('No room in your pack for the apples'); return; }
     if (apples) { this.sound.place('leaves'); this.hud.toast('Apples. The tree will fruit again.'); this.edited(); return; }
+    const bananas = pickBananas(this.world, this.hotbar, t.x, t.y, t.z);
+    if (bananas === 'full') { this.hud.toast('No room in your pack for the bananas'); return; }
+    if (bananas) { this.sound.place('leaves'); this.once('bananas_picked', 'Bananas. A green bunch hangs in its place: it will yellow in a few hours.', 7000); this.edited(); return; }
+    if (blockName(t.id) === 'banana_bunch_green') { this.hud.toast('Still green. It will yellow in a few hours.'); return; }
     const held = this.hotbar.current;
     if (held && held.id === itemId('steel_hoe') && till(this.world, t.x, t.y, t.z)) { this.hotbar.wearTool(); this.sound.dig('soil'); this.edited(); return; }
     const sowing = held ? sows(held.id) : undefined;

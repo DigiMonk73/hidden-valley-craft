@@ -233,6 +233,29 @@ describe('the binoculars do something', () => {
     expect(inner(p).glassing).toBe(false);
   });
 
+  it('a ripe bunch on a banana plant is picked with a right-click: bananas, a word the first time, and a green bunch that says it is green', async () => {
+    // Standing by the valley's banana plants, south-west of the home (Track A's plants, the real generated land).
+    const p = await onLand({ player: { x: 1719.5, y: 70, z: 977.5, yaw: 0, pitch: 0, flying: false } });
+    const g = p.game;
+    const RIPE = blockId('banana_bunch');
+    let at: [number, number, number] | null = null;
+    for (let y = 66; y < 90 && !at; y++) for (let z = 960; z < 1000 && !at; z++) for (let x = 1700; x < 1740 && !at; x++) if (g.world.blockAt(x, y, z) === RIPE) at = [x, y, z];
+    expect(at, 'a ripe bunch near the player').not.toBeNull();
+    const [x, y, z] = at!;
+    g.hotbar.slots.fill(null);
+    inner(p).target = { x, y, z, id: RIPE, nx: 0, ny: 0, nz: 1 };
+    inner(p).placeBlock();
+    expect(g.hotbar.count(itemId('banana'))).toBe(4);
+    expect(g.world.blockAt(x, y, z)).toBe(blockId('banana_bunch_green'));
+    expect(p.hud.toasts.join(' ')).toMatch(/Bananas\. A green bunch hangs in its place/);
+    inner(p).target = { x, y, z, id: blockId('banana_bunch_green'), nx: 0, ny: 0, nz: 1 };
+    inner(p).placeBlock();
+    expect(p.hud.toasts.at(-1)).toMatch(/Still green/);
+    expect(g.hotbar.count(itemId('banana'))).toBe(4);
+    // And the save keeps the picked plant as it is.
+    expect([...g.world.edits.values()].some((m) => [...m.values()].includes(blockId('banana_bunch_green')))).toBe(true);
+  });
+
   it('the headlamp lights the land round you while it is in the pack, anywhere in it, and not once it is gone', async () => {
     const p = await onLand();
     const g = p.game;
