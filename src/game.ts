@@ -492,6 +492,9 @@ export class Game {
         this.notice = NOTES.fresh;
       }
     }
+    // (Whether the page that handed it on gave valleys names at all: a version-1 save carries no id.)
+    const rawHanded = this.opts.handover as { id?: unknown } | null | undefined;
+    const handedNameless = !!rawHanded && typeof rawHanded === 'object' && typeof rawHanded.id !== 'string';
     let handed = this.opts.handover ? normaliseSave(this.opts.handover) : null;
     this.opts.handover = undefined;
     // Handed on by a page from before the home was rebuilt: not opened, like any save from that layout.
@@ -501,9 +504,13 @@ export class Game {
     // One more case (docs/PHASE9B.md, 3): a page from before valleys had names hands on a save whose name is made
     // from its own contents, so it never matches the store's copy of the same valley, and the play since the last
     // autosave was dropped. Two such copies are taken for the same valley, and the later-saved one is used.
+    // Only when both were written by such a page: the hand-over carried no name, and the store's copy has never been
+    // written since by a build that counts its writes (seq 0). A valley named `v-old-…` keeps that name for ever, and
+    // every hand-over is stamped with the moment it is made, so without this any later page's hand-over of any
+    // nameless-born valley would pass, stale or not (the fresh review, docs/PHASE9B.md, "The fresh review", 1).
     const unnamed = (id: string | null | undefined) => !!id && id.startsWith('v-old-');
     const later = (a: string | undefined, b: string | undefined) => { const ta = Date.parse(a ?? ''), tb = Date.parse(b ?? ''); return Number.isFinite(ta) && Number.isFinite(tb) && ta >= tb; };
-    const sameOld = !!handed && unnamed(handed.id) && unnamed(stored.id) && later(handed.savedAt, stored.at);
+    const sameOld = !!handed && handedNameless && unnamed(stored.id) && stored.seq === 0 && later(handed.savedAt, stored.at);
     const theirs = handed && (stored.id === null || (handed.id === stored.id && (handed.seq ?? 0) >= stored.seq) || sameOld);
     if (handed && theirs && !this.keeper.stopped && !this.store.degraded) { opened = handed; unsaved = true; this.fromHandover = true; }
     try {
@@ -1984,8 +1991,15 @@ export class Game {
     if (!next) return;
     this.settings.scale = next.scale;
     this.applySettings();
-    if (next.view !== now.view) this.setRenderDistance(next.view, true); // (keeps the settings and shows them in the menu)
-    else { this.hud.showSettings({ ...this.settings, rd: now.view }); void this.saveSettings(); }
+    // A view this page chose for itself (workers blocked: the fallback's short view) is shortened for this page
+    // only: the kept view is still the player's, for a browser where workers start (the fresh review, 2).
+    const ownView = now.view === this.settings.rd;
+    if (next.view !== now.view && ownView) this.setRenderDistance(next.view, true); // (keeps the settings and shows them in the menu)
+    else {
+      if (next.view !== now.view) this.setRenderDistance(next.view, false);
+      this.hud.showSettings({ ...this.settings, rd: next.view });
+      void this.saveSettings();
+    }
     this.hud.toast(lighterLine(now, next), 9000);
   }
 

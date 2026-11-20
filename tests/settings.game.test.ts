@@ -168,6 +168,20 @@ describe('the picture is made lighter by itself when the game runs slowly', () =
     expect(await stored(p)).toMatchObject({ scale: 0.5, rd: 4 });
   });
 
+  it('where the page keeps the view short by itself (workers blocked), a shorter view is for that page only (the fresh review, 2)', async () => {
+    const store = browserStore();
+    await store.set('settings', encodeSettings({ ...DEFAULT_SETTINGS, rd: 8 }));
+    const p = await openPage(store, memoryPending(), { renderChunks: undefined });
+    expect(p.game.exec.kind).toBe('main-thread');
+    inner(p).ready = true;
+    inner(p).playing = true;
+    for (let k = 0; k < 4; k++) slowFor(p, step);
+    expect(`${p.game.settings.scale}@${inner(p).streamer.radius}`).toBe('0.5@4');
+    expect(p.hud.shownSettings).toMatchObject({ scale: 0.5, rd: 4 }); // the menu shows what is drawn
+    await settle(p);
+    expect(await stored(p)).toMatchObject({ scale: 0.5, rd: 8 }); // the softness is kept; the view kept is still theirs
+  });
+
   it('at 60 frames a second nothing changes', async () => {
     const p = await playing();
     slowFor(p, 120, 60);

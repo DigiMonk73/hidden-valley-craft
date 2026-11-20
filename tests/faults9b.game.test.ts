@@ -229,6 +229,24 @@ describe('a hand-over from a page from before valleys had names', () => {
     expect(q.game.wallet).toBe(100);
   });
 
+  it('a valley born nameless and written since by a build that counts (the owner’s case) goes by name and number, whatever a hand-over’s date', async () => {
+    // Its name stays `v-old-…` for ever, and every hand-over is stamped with the moment it is made: the date alone
+    // let a stale page, or another valley, take its place (the fresh review, 1).
+    const store = browserStore();
+    await store.set(SAVE_KEY, await encodeSave(valley(100, { id: 'v-old-abc', seq: 10, savedAt: '2026-11-20T10:00:00.000Z' })));
+    const stale = await openPage(store, memoryPending(), { handover: valley(250, { id: 'v-old-abc', seq: 5, savedAt: '2026-11-20T11:00:00.000Z' }) });
+    expect(stale.game.wallet).toBe(100);
+    const other = await openPage(store, memoryPending(), { handover: valley(999, { id: 'v-old-zzz', seq: 1, savedAt: '2026-11-20T11:00:00.000Z' }) });
+    expect(other.game.wallet).toBe(100);
+    expect((other.game as unknown as { fromHandover: boolean }).fromHandover).toBe(false);
+    // A nameless hand-over over it is a version 11 page left open: stale by definition.
+    const v11 = await openPage(store, memoryPending(), { handover: v1(250, '2030-01-01T00:00:00.000Z') });
+    expect(v11.game.wallet).toBe(100);
+    // The same valley, named, a later write: still taken.
+    const next = await openPage(store, memoryPending(), { handover: valley(300, { id: 'v-old-abc', seq: 11 }) });
+    expect(next.game.wallet).toBe(300);
+  });
+
   it('a hand-over between pages of this build still goes by name and number', async () => {
     const store = browserStore();
     await store.set(SAVE_KEY, await encodeSave(valley(100, { id: 'v-real', seq: 4 })));
