@@ -6,6 +6,8 @@ _The phase session's page (branch `phase9b`, begun 2026-11-20). The lead's brief
 
 **Where it stands.** Steps 1 to 7 are built and pushed (the first session's checkpoint, `c2f3c1f`). Since then: saves record the world generator's version (`8823ca3`, step 3, "Generator version"), and the lead's two calls on the rim are written in step 3. A fresh reviewer is going through `git diff origin/main...phase9b` (saves, settings, the rim and brush, the weaker-computer path).
 
+**Agents:** the owner's instruction, passed on by the lead (2026-11-20, 16:53): every agent this track opens runs on Opus 5.5 at extra effort (Agent tool: `model: "opus"`, `effort: "xhigh"`), a fresh reviewer included. (The review below was opened before this word, at the default.)
+
 **The order of what is left** (the lead's brief to this session):
 
 1. **Now:** the fresh review's findings, each fixed with a test that fails on the old code or answered here with evidence. Push after each.
