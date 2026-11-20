@@ -4,6 +4,7 @@
 
 import { CS, PS, PADDED_VOLUME, paddedIndex } from '../world/constants.ts';
 import { B_OPAQUE, B_RENDER, B_LAYER, B_FACE_TEX, B_FILTER, B_BOXES, B_BOX_TEX, B_BOX_GLOW, BOX_FLAME, RENDER, LAYER, FALLING_WATER } from '../world/blocks.ts';
+import { GLOW_OF } from '../world/glow.ts';
 
 export interface MeshPart {
   quads: number;
@@ -16,6 +17,8 @@ export interface MeshPart {
 export interface ChunkMesh {
   solid: MeshPart; // opaque and cut-out blocks and plants
   water: MeshPart; // translucent water
+  /** The chunk's lamps and fires, for the glow drawn round each (src/world/glow.ts): GLOW_STRIDE numbers apiece. */
+  glows: Float32Array;
 }
 
 // Corners of each face, counter-clockwise seen from outside; face order matches FACE_DIRS.
@@ -103,6 +106,7 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
   const light = lightForDrawing(blocks, sourceLight);
   const solid = new PartBuilder();
   const water = new PartBuilder();
+  const glows: number[] = [];
 
   for (let y = 0; y < CS; y++)
     for (let z = 0; z < CS; z++)
@@ -111,6 +115,8 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
         const id = blocks[pi];
         const render = B_RENDER[id];
         if (render === RENDER.none) continue;
+        const glow = GLOW_OF[id];
+        if (glow) addGlow(glows, blocks, light, pi, x, y, z, id);
 
         if (render === RENDER.cross) {
           // Two crossed quads, each emitted both ways round so they show from either side.
@@ -208,7 +214,31 @@ export function meshChunk(blocks: Uint16Array, sourceLight: Uint8Array): ChunkMe
         }
       }
 
-  return { solid: solid.finish(), water: water.finish() };
+  return { solid: solid.finish(), water: water.finish(), glows: new Float32Array(glows) };
+}
+
+/**
+ * A lamp or a fire in the chunk: where its glow sits, and how much of the sky's light reaches it (a lamp in
+ * daylight glows faintly). A lit block set whole into a wall puts its glow at the faces left open, so it is
+ * not seen through the rock from behind; one walled in on every side has none.
+ */
+function addGlow(out: number[], blocks: Uint16Array, light: Uint8Array, pi: number, x: number, y: number, z: number, id: number): void {
+  const g = GLOW_OF[id]!;
+  let gx = g.x, gy = g.y, gz = g.z, sky = light[pi] >> 4;
+  if (g.inWall) {
+    let ox = 0, oy = 0, oz = 0, open = 0;
+    for (const n of FACE_NORMALS) {
+      const ni = pi + n[0] * AXIS_STRIDE[0] + n[1] * AXIS_STRIDE[1] + n[2] * AXIS_STRIDE[2];
+      if (B_OPAQUE[blocks[ni]]) continue;
+      open++; ox += n[0]; oy += n[1]; oz += n[2];
+      sky = Math.max(sky, light[ni] >> 4);
+    }
+    if (!open) return;
+    const len = Math.hypot(ox, oy, oz);
+    // A little out in front of the open face, so the wall does not cut the glow in half.
+    if (len > 0) { gx += (ox / len) * 0.72; gy += (oy / len) * 0.72; gz += (oz / len) * 0.72; }
+  }
+  out.push(x + gx, y + gy, z + gz, id, sky);
 }
 
 /**

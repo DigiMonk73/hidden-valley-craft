@@ -6,7 +6,7 @@ import { TEXTURE_NAMES } from '../world/blocks.ts';
 import { buildTextureStack, buildCrackStages, TEX } from './textures.ts';
 import { createSkyDome, applySky, SKY_COLOR_GLSL, type SkyState } from './sky.ts';
 import type { ChunkMesh, MeshPart } from '../mesh/mesher.ts';
-import { CS } from '../world/constants.ts';
+import { CS, COLS_X, COLS_Z } from '../world/constants.ts';
 import { Particles } from './particles.ts';
 import { FarLand } from './farland.ts';
 import { Clouds } from './clouds.ts';
@@ -19,10 +19,20 @@ import { CreatureRenderer } from './creatures.ts';
 import type { FarMesh } from '../gen/farland.ts';
 import { disposeChunkGeometry } from './chunkGeometry.ts';
 import { watchContext, type ContextWatch } from '../platform/context.ts';
+import { HandView } from './hand.ts';
+import { Glows } from './glow.ts';
+import { hideFarLand } from './farmask.ts';
 
 /** One atmosphere for everything: blocks, distant land and particles fade into the sky alike. */
 const FOG_NEAR = 150;
 const FOG_FAR = 1350;
+/** Under water (docs/PHASE9A.md, 2): half gone at eight metres, all gone by eighteen. */
+const WATER_FOG_NEAR = -2;
+const WATER_FOG_FAR = 18;
+/** What water does to light: the red goes first. */
+const UNDERWATER_LIGHT = new THREE.Color(0.5, 0.86, 0.95);
+/** The colour of lamplight and firelight on what they light. */
+const BLOCK_LIGHT = new THREE.Color('#ffd08c');
 
 const BLOCK_VERT = /* glsl */ `
 in vec4 aPack;
@@ -192,6 +202,22 @@ export class Renderer {
   private flue = new SmokeColumn([HOME_FIT.flueCap.x + 0.5, HOME_FIT.flueCap.y + 0.8, HOME_FIT.flueCap.z + 0.5], FLUE);
   /** The wild's creatures and arrows. */
   readonly creatures: CreatureRenderer;
+  private scratchLight = new THREE.Color();
+  /** A soft light round every lamp and fire (docs/PHASE9A.md, 3). */
+  readonly glows = new Glows();
+  /**
+   * The effects that cost something and can be done without (docs/PHASE9A.md): the glow round lamps, bubbles,
+   * rain, birds. One setting turns them all off.
+   */
+  private fx = true;
+  get effects(): boolean { return this.fx; }
+  set effects(on: boolean) { this.fx = on; this.glows.mesh.visible = on; }
+  /** Is the eye under water, and the light there (docs/PHASE9A.md, 2)? Set by the game each frame. */
+  private under = false;
+  private eyeLight = 0xf0;
+  private waterSky: SkyState | null = null;
+  /** The player's arm and what the hand holds, drawn over the world (docs/PHASE9A.md, 1). */
+  readonly hand = new HandView();
   /** Which columns have real blocks drawn: the distant land stays out of them. */
   private drawnTex = (() => {
     const t = new THREE.DataTexture(new Uint8Array(64 * 64), 64, 64, THREE.RedFormat, THREE.UnsignedByteType);
@@ -210,7 +236,9 @@ export class Renderer {
   private clearColor = new THREE.Color();
 
   constructor(canvas: HTMLCanvasElement) {
-    this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    // A stencil bit marks where real blocks were drawn, so the distant land can fill what they left and nothing else
+    // (docs/PHASE9A.md, 4).
+    this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });
     // Listened for after three.js's own listeners (made with the renderer above), so on a restore
     // three has already set its new context up by the time restore() runs.
     this.context = watchContext(canvas, {
@@ -219,6 +247,8 @@ export class Renderer {
       onStuck: () => this.onContextStuck(),
     });
     this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    // A frame is more than one pass (the world, then the hand): its counts are zeroed once a frame, in render().
+    this.gl.info.autoReset = false;
     this.gl.outputColorSpace = THREE.LinearSRGBColorSpace; // colours are authored for the screen as-is
     this.camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.08, 2000);
     this.scene.add(this.sky);
@@ -239,7 +269,7 @@ export class Renderer {
       uTime: { value: 0 },
       uDaylight: { value: 1 },
       uSkyLight: { value: new THREE.Color(1, 1, 1) },
-      uBlockLight: { value: new THREE.Color('#ffd08c') },
+      uBlockLight: { value: BLOCK_LIGHT.clone() },
       uZenith: { value: new THREE.Color() },
       uHorizon: { value: new THREE.Color() },
       uSunGlow: { value: new THREE.Color() },
@@ -253,7 +283,10 @@ export class Renderer {
       uValley: { value: new THREE.Vector3(1700, 1024, 100) },
       uCutout: { value: true },
     });
-    this.solidMat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: BLOCK_VERT, fragmentShader: BLOCK_FRAG, uniforms: uniforms() });
+    this.solidMat = new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3, vertexShader: BLOCK_VERT, fragmentShader: BLOCK_FRAG, uniforms: uniforms(),
+      stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp,
+    });
     this.waterMat = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3, vertexShader: BLOCK_VERT, fragmentShader: BLOCK_FRAG, uniforms: uniforms(),
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
@@ -298,6 +331,37 @@ export class Renderer {
     this.scene.add(this.steam.mesh);
     this.scene.add(this.chimney.mesh);
     this.scene.add(this.flue.mesh);
+    this.scene.add(this.glows.mesh);
+  }
+
+  /**
+   * Where the eye is: under water or not, and the world's light byte there. Under water everything is seen through
+   * a few metres of blue-green (applySky), and bubbles rise round the swimmer (`lively`: not in still pictures).
+   */
+  setEye(underwater: boolean, lv: number, dt: number, lively: boolean): void {
+    this.under = underwater;
+    this.eyeLight = lv;
+    if (underwater && lively && this.fx) {
+      const c = this.camera.position;
+      this.bubbleDebt += dt * 5;
+      while (this.bubbleDebt >= 1) { this.bubbleDebt--; this.particles.bubble(c.x + (Math.random() - 0.5) * 7, c.y - 0.6 - Math.random() * 1.6, c.z + (Math.random() - 0.5) * 7); }
+    }
+  }
+  private bubbleDebt = 0;
+
+  /**
+   * The sky as seen from under water: no sky at all, only the water's own colour, brighter where there is more
+   * light at the eye (a noon pool is bright blue-green, the tunnel a lamp-lit murk, a pool at night nearly black).
+   */
+  private underwaterSky(s: SkyState): SkyState {
+    const w = (this.waterSky ??= { ...s, zenith: new THREE.Color(), horizon: new THREE.Color(), sunGlow: new THREE.Color(0, 0, 0), skyLight: new THREE.Color(), fog: new THREE.Color(), mistColor: new THREE.Color() });
+    const l = this.lightColor(this.eyeLight);
+    const b = 0.4 + 0.6 * Math.min(1, Math.max(l.r, l.g, l.b));
+    w.zenith.setRGB(0.1 * b, 0.5 * b, 0.56 * b);
+    w.horizon.copy(w.zenith); w.fog.copy(w.zenith);
+    w.skyLight.copy(s.skyLight).multiply(UNDERWATER_LIGHT);
+    w.sunDir = s.sunDir; w.daylight = s.daylight; w.mist = 0;
+    return w;
   }
 
   /** True while the browser has taken the picture away. */
@@ -362,11 +426,23 @@ export class Renderer {
   }
 
   setDrawnColumns(mask: Uint8Array): void {
-    // The texture reads bytes as 0–1, so a drawn column is stored as 255.
+    this.drawnMask.set(mask);
+    this.farMaskAt = -1; // worked out again at the next frame
+  }
+
+  /** Where the distant land hides (src/render/farmask.ts): worked out again when the drawn columns change or the eye crosses into another column. */
+  private updateFarMask(): void {
+    const c = this.camera.position;
+    const ecx = Math.floor(c.x / CS), ecz = Math.floor(c.z / CS);
+    const at = ecz * COLS_X + ecx;
+    if (at === this.farMaskAt) return;
+    this.farMaskAt = at;
     const data = this.drawnTex.image.data as Uint8Array;
-    for (let i = 0; i < mask.length; i++) data[i] = mask[i] ? 255 : 0;
+    hideFarLand(this.drawnMask, ecx, ecz, data);
     this.drawnTex.needsUpdate = true;
   }
+  private drawnMask = new Uint8Array(COLS_X * COLS_Z);
+  private farMaskAt = -1;
 
   /** The distant landscape, once a worker has built it. */
   setFarLand(m: FarMesh): void {
@@ -375,12 +451,20 @@ export class Renderer {
   }
 
   applySky(s: SkyState, time: number): void {
+    // Under water: the water's colour in place of the sky's, and a fog a few metres deep in place of the long haze.
+    let fogNear = FOG_NEAR, fogFar = FOG_FAR;
+    if (this.under) { s = this.underwaterSky(s); fogNear = WATER_FOG_NEAR; fogFar = WATER_FOG_FAR; }
     applySky(this.sky, s);
+    if (this.under) this.sky.material.uniforms.uDaylight.value = 1; // no stars or moon through the water
+    this.clouds.mesh.visible = !this.under;
     for (const m of [this.solidMat, this.waterMat]) {
       const u = m.uniforms;
       u.uTime.value = time;
       u.uDaylight.value = s.daylight;
       u.uSkyLight.value.copy(s.skyLight);
+      // Lamplight too loses its red under water: the tunnel's walls go from warm brown to green.
+      u.uBlockLight.value.copy(BLOCK_LIGHT);
+      if (this.under) u.uBlockLight.value.multiply(UNDERWATER_LIGHT);
       u.uZenith.value.copy(s.zenith);
       u.uHorizon.value.copy(s.horizon);
       u.uSunGlow.value.copy(s.sunGlow);
@@ -388,16 +472,19 @@ export class Renderer {
       u.uSunDirV.value.copy(s.sunDir);
       u.uMist.value = s.mist;
       u.uMistColor.value.copy(s.mistColor);
+      u.uFogNear.value = fogNear;
+      u.uFogFar.value = fogFar;
     }
     this.gl.setClearColor(this.clearColor.copy(s.fog));
-    this.particles.sync(this.gl.domElement.height, this.camera.fov, FOG_NEAR, FOG_FAR, s);
-    this.farland?.sync(s, FOG_NEAR, FOG_FAR);
-    this.tower.sync(s, FOG_NEAR, FOG_FAR);
-    this.smoke.sync(s, FOG_NEAR, FOG_FAR, time);
-    this.steam.sync(s, FOG_NEAR, FOG_FAR, time);
-    this.chimney.sync(s, FOG_NEAR, FOG_FAR, time);
-    this.flue.sync(s, FOG_NEAR, FOG_FAR, time);
+    this.particles.sync(this.gl.domElement.height, this.camera.fov, fogNear, fogFar, s);
+    this.farland?.sync(s, fogNear, fogFar);
+    this.tower.sync(s, fogNear, fogFar);
+    this.smoke.sync(s, fogNear, fogFar, time);
+    this.steam.sync(s, fogNear, fogFar, time);
+    this.chimney.sync(s, fogNear, fogFar, time);
+    this.flue.sync(s, fogNear, fogFar, time);
     this.clouds.sync(s, this.camera.position.x, this.camera.position.z, time);
+    this.glows.sync(s, fogNear, fogFar, time);
   }
 
   private makePart(part: MeshPart, mat: THREE.Material, key: number, cx: number, cy: number, cz: number): THREE.Mesh | undefined {
@@ -426,9 +513,11 @@ export class Renderer {
     const water = this.makePart(mesh.water, this.waterMat, key, cx, cy, cz);
     if (water) water.renderOrder = 10;
     if (solid || water) this.meshes.set(key, { solid, water });
+    this.glows.setChunk(key, cx, cy, cz, mesh.glows);
   }
 
   removeChunk(key: number): void {
+    this.glows.removeChunk(key);
     const old = this.meshes.get(key);
     if (!old) return;
     for (const m of [old.solid, old.water]) {
@@ -464,7 +553,22 @@ export class Renderer {
     for (const v of this.meshes.values()) quads += (v.solid?.geometry.drawRange.count ?? 0) / 6 + (v.water?.geometry.drawRange.count ?? 0) / 6;
     this.stats.chunks = this.meshes.size;
     this.stats.quads = quads;
+    this.updateFarMask();
+    this.gl.info.reset();
     this.gl.render(this.scene, this.camera);
+    this.hand.render(this.gl, this.camera.aspect);
+  }
+
+  /**
+   * The light on something at a place, as the block shader lights a face there: the sky's light by the hour, or
+   * the lamps', whichever is brighter. `lv` is the world's light byte (sky in the high half, lamps in the low).
+   */
+  lightColor(lv: number, out = this.scratchLight): THREE.Color {
+    const curve = (l: number) => l / (2.2 - 1.2 * l);
+    const u = this.solidMat.uniforms;
+    const sky = curve((lv >> 4) / 15) * u.uDaylight.value, blk = curve((lv & 15) / 15);
+    const s = u.uSkyLight.value as THREE.Color, b = u.uBlockLight.value as THREE.Color;
+    return out.setRGB(Math.max(s.r * sky, b.r * blk, 0.06), Math.max(s.g * sky, b.g * blk, 0.06), Math.max(s.b * sky, b.b * blk, 0.06));
   }
 
   get renderDistance(): number { return this.fogDist; }

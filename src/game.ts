@@ -343,6 +343,7 @@ export class Game {
       setSensitivity: (v) => { this.look.sensitivity = 0.0022 * v; void this.saveSettings(); },
       setInvertY: (v) => { this.look.invertY = v; void this.saveSettings(); },
       setVolume: (v) => { this.sound.volume = v; void this.saveSettings(); },
+      setEffects: (on) => { this.renderer.effects = on; void this.saveSettings(); },
     });
     this.look.onDelta = (dx, dy) => {
       // Through the telescope the hand is as much finer as the view is narrower.
@@ -552,6 +553,9 @@ export class Game {
     cam.position.set(p.x + quake * Math.sin(this.time * 61), p.eyeY + quake * Math.sin(this.time * 47), p.z);
     cam.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
     this.sky = skyAt(this.hour);
+    // Where the eye is (docs/PHASE9A.md, 2): under water the picture is the water's, whatever body the camera has.
+    const ex = Math.floor(cam.position.x), ey = Math.floor(cam.position.y), ez = Math.floor(cam.position.z);
+    this.renderer.setEye(isWaterId(this.world.blockAt(ex, ey, ez)), this.world.lightAt(ex, ey, ez), dt, !this.opts.test || !!this.opts.effects);
     this.renderer.applySky(this.sky, this.opts.test ? 0 : this.time);
     if (!this.opts.test || this.opts.effects) this.emitParticles(dt);
     this.renderer.particles.update(dt, this.time, (x, y, z) => this.world.blockAt(x, y, z), this.sky.daylight);
@@ -561,6 +565,7 @@ export class Game {
     this.renderer.creatures.sync(this.wild.creatures, this.wild.arrows, (x, y, z) => this.world.lightAt(x, y, z), cam.position);
     this.updateTarget();
     this.updateSound();
+    this.updateHand(dt);
     this.renderer.render();
 
     // HUD.
@@ -586,6 +591,24 @@ export class Game {
     }
     // Save a couple of seconds after the player stops changing things, and at least once a minute.
     if (this.playing && shouldAutosave({ unsaved: this.unsaved, played: this.playedSince, saving: this.saving, now: this.time, lastEdit: this.lastEdit, lastSave: this.lastSave, lastFailure: this.lastFailure })) void this.save(false);
+  }
+
+  /** The arm and what it holds (docs/PHASE9A.md, 1): told each frame what the player is doing. */
+  private handWas = { x: 0, z: 0, yaw: 0, pitch: 0 };
+  private updateHand(dt: number): void {
+    const p = this.player, was = this.handWas, held = this.hotbar.current?.id;
+    const busy = this.screen.isOpen || this.paper.isOpen;
+    const walked = p.onGround && !p.flying && !busy ? Math.min(0.5, Math.hypot(p.x - was.x, p.z - was.z)) : 0;
+    this.renderer.hand.update(dt, {
+      held, show: this.playing && !this.scoping,
+      mining: this.mining.active && !!this.target && !busy && mineSeconds(this.target.id, held ?? 0) >= 0,
+      aiming: (this.focus.active && isWeapon(held)) || this.drawing !== null,
+      draw: this.drawing !== null ? drawOf(this.playTime - this.drawing) : 0,
+      walked, turnX: p.yaw - was.yaw, turnY: p.pitch - was.pitch,
+      light: this.renderer.lightColor(this.world.lightAt(Math.floor(p.x), Math.floor(p.eyeY), Math.floor(p.z))),
+      tint: null, tintAmount: 0,
+    });
+    was.x = p.x; was.z = p.z; was.yaw = p.yaw; was.pitch = p.pitch;
   }
 
   private tick(dt: number): void {
@@ -1717,7 +1740,11 @@ export class Game {
       if (this.look.mode === 'off') { this.look.engage(); return; }
       if (this.scoping) { if (e.button === 2) this.endScope(); return; }
       if (e.button === 0 && !this.strike()) { this.mining.active = true; this.mining.progress = 0; }
+      const shot = this.lastShot;
       if (e.button === 2 && !this.useCreature() && !this.aim()) this.placeBlock();
+      // The hand answers the click (docs/PHASE9A.md, 1): a blow or a thing set down swings it, a shot kicks it; a bow only bends.
+      if (this.lastShot !== shot) this.renderer.hand.kick();
+      else if (e.button === 0 || (e.button === 2 && this.drawing === null)) this.renderer.hand.swing();
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mining.active = false;
@@ -2151,7 +2178,7 @@ export class Game {
   }
 
   private async saveSettings(): Promise<void> {
-    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume };
+    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume, fx: this.renderer.effects };
     await this.store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify(s)));
   }
 
@@ -2165,6 +2192,7 @@ export class Game {
       if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }
       if (typeof s.inv === 'boolean') { this.look.invertY = s.inv; this.hud.settingsInputs.inv.checked = s.inv; }
       if (typeof s.vol === 'number') { this.sound.volume = s.vol; this.hud.settingsInputs.vol.value = String(s.vol); }
+      if (typeof s.fx === 'boolean') { this.renderer.effects = s.fx; this.hud.settingsInputs.fx.checked = s.fx; }
     } catch { /* bad settings are ignored */ }
   }
 

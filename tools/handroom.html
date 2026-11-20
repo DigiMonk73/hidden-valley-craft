@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- Phase 9A's viewer for the hand and what it holds (docs/PHASE9A.md, 1): tools/handroom.mjs photographs it.
+     Served by the dev server (npm run dev): /tools/handroom.html?items=steel_pickaxe,hunting_rifle:0:1 -->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#222}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { HandView } from '/src/render/hand.ts';
+import { itemId } from '/src/world/items.ts';
+const q = new URLSearchParams(location.search);
+// Each cell: name[:swing[:aim[:draw[:recoil]]]]; "none" is the empty hand.
+const cells = (q.get('items') || 'none').split(',').map((s) => s.split(':'));
+const cols = Number(q.get('cols') || Math.min(3, cells.length)), rows = Math.ceil(cells.length / cols);
+const CW = Number(q.get('w') || 480), CH = Number(q.get('h') || 270);
+const canvas = document.getElementById('c');
+const gl = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+gl.setSize(CW * cols, CH * rows, false); canvas.style.width = CW * cols + 'px';
+gl.outputColorSpace = THREE.LinearSRGBColorSpace;
+gl.setScissorTest(true);
+// A stand-in for the world behind: sky over green over stone, so the hand is judged against the game's colours.
+const bg = new THREE.Scene(), bgCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const tex = (() => { const d = new Uint8Array([0x6b, 0x8a, 0x4a, 255, 0x7d, 0x9c, 0x58, 255, 0x9d, 0xb8, 0xc8, 255, 0x6f, 0xa3, 0xd6, 255]); const t = new THREE.DataTexture(d, 1, 4); t.magFilter = THREE.LinearFilter; t.needsUpdate = true; return t; })();
+bg.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: tex, depthTest: false })));
+const light = new THREE.Color(Number(q.get('light') || 1), Number(q.get('light') || 1), Number(q.get('light') || 1));
+const views = cells.map(() => new HandView());
+function draw() {
+  cells.forEach(([name, swing, aim, drawn, recoil], i) => {
+    const v = views[i], x = (i % cols) * CW, y = (rows - 1 - Math.floor(i / cols)) * CH;
+    gl.setViewport(x, y, CW, CH); gl.setScissor(x, y, CW, CH);
+    gl.autoClear = true; gl.render(bg, bgCam);
+    const held = name === 'none' ? 0 : itemId(name);
+    const f = { held, show: true, mining: false, aiming: Number(aim || 0) > 0, draw: Number(drawn || 0), walked: 0, turnX: 0, turnY: 0, light, tint: null, tintAmount: 0 };
+    for (let k = 0; k < 60; k++) v.update(0.05, f); // settle: raised, aimed
+    v.state.swing = Number(swing || 0); v.state.recoil = Number(recoil || 0); v.state.aim = Number(aim || 0);
+    v.update(0, f);
+    v.render(gl, CW / CH);
+  });
+  window.__done = true;
+}
+draw();
+</script></body></html>

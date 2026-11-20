@@ -52,5 +52,6 @@ export function runJob(job: Job): { result: JobResult; transfer: ArrayBuffer[] }
   const mesh = meshChunk(job.blocks, job.light);
   const transfer: ArrayBuffer[] = [];
   for (const part of [mesh.solid, mesh.water]) transfer.push(part.positions.buffer as ArrayBuffer, part.pack.buffer as ArrayBuffer, part.layers.buffer as ArrayBuffer, part.uvs.buffer as ArrayBuffer);
+  if (mesh.glows.length) transfer.push(mesh.glows.buffer as ArrayBuffer);
   return { result: { kind: 'mesh', key: job.key, version: job.version, mesh }, transfer };
 }

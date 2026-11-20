@@ -22,7 +22,9 @@ const C = (h: string) => new THREE.Color(h);
 const DAY = { zenith: C('#3f7fc4'), horizon: C('#a8cbe3'), light: C('#fffaf0') };
 const GOLD = { zenith: C('#3b5e93'), horizon: C('#f2a15c'), light: C('#ffcf9a') };
 const DUSK = { zenith: C('#1a2547'), horizon: C('#7a5a7a'), light: C('#a08cb8') };
-const NIGHT = { zenith: C('#070c18'), horizon: C('#142236'), light: C('#8193c4') };
+// Moonlight is drawn brighter than its number (docs/PHASE9A.md, 3): the night's `daylight` stays 0.3, because the
+// Ashen live by it (src/game.ts, lightAt), so the lift is in the light's colour, which only the picture reads.
+const NIGHT = { zenith: C('#070c18'), horizon: C('#142236'), light: C('#a8bcf2').multiplyScalar(1.7) };
 
 function lerp3(a: THREE.Color, b: THREE.Color, t: number): THREE.Color {
   return a.clone().lerp(b, Math.min(1, Math.max(0, t)));
