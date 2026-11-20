@@ -570,6 +570,7 @@
     {"name": "leaves_pale", "label": "Guarumo leaves", "tex": "leaves_pale", "render": "cube", "layer": "cutout", "solid": true, "opaque": false, "filter": 1, "hardness": 0.1},
     {"name": "banana_trunk", "label": "Banana stem", "tex": {"top": "banana_stem_top", "side": "banana_stem", "bottom": "banana_stem_top"}, "render": "model", "boxes": [[4, 0, 4, 12, 16, 12]], "layer": "cutout", "solid": true, "opaque": false, "hardness": 0.3},
     {"name": "banana_leaves", "label": "Banana leaves", "tex": "banana_leaves", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1},
+    {"name": "banana_bunch", "label": "Bunch of bananas", "tex": "banana_bunch", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1},
     {"name": "vine", "label": "Vine", "tex": "vine", "render": "model", "boxes": [[0, 0, 15, 16, 16, 15]], "layer": "cutout", "solid": false, "opaque": false, "facing": true, "hardness": 0.05}
   ]
 }

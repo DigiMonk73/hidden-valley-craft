@@ -54,7 +54,7 @@ export function dropOf(block: number): number {
 }
 
 const SHOVEL = new Set(['dirt', 'grass', 'forest_floor', 'clay', 'sand', 'gravel', 'mud', 'moss']);
-const AXE = new Set(['log', 'planks', 'tree_fern_trunk', 'bamboo', 'leaves', 'fern_fronds', 'leaves_pale', 'banana_trunk', 'banana_leaves']);
+const AXE = new Set(['log', 'planks', 'tree_fern_trunk', 'bamboo', 'leaves', 'fern_fronds', 'leaves_pale', 'banana_trunk', 'banana_leaves', 'banana_bunch']);
 
 /** Which tool mines a block at full speed (null: anything, e.g. plants). */
 export function toolFor(block: number): ToolDef['kind'] | null {

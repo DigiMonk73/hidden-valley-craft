@@ -12,7 +12,7 @@ export function materialOf(id: number): Material {
   if (n === 'dirt' || n === 'clay' || n === 'mud') return 'soil';
   if (n === 'sand' || n === 'gravel') return 'sand';
   if (n === 'log' || n === 'planks' || n === 'tree_fern_trunk' || n === 'bamboo' || n === 'banana_trunk') return 'wood';
-  if (n === 'leaves' || n === 'fern_fronds' || n === 'bromeliad' || n === 'orchid' || n === 'leaves_pale' || n === 'banana_leaves' || n.startsWith('vine')) return 'leaves';
+  if (n === 'leaves' || n === 'fern_fronds' || n === 'bromeliad' || n === 'orchid' || n === 'leaves_pale' || n === 'banana_leaves' || n === 'banana_bunch' || n.startsWith('vine')) return 'leaves';
   if (n === 'glass' || n === 'lantern') return 'glass';
   return 'stone';
 }

@@ -60,6 +60,7 @@ const DEAD_TRUNK = blockId('dead_trunk');
 const LEAVES_PALE = blockId('leaves_pale');
 const BANANA_TRUNK = blockId('banana_trunk');
 const BANANA_LEAVES = blockId('banana_leaves');
+const BANANA_BUNCH = blockId('banana_bunch');
 /** A vine by the side its rock is on: +z, −x, −z, +x (the block's sheet hangs against that face). */
 const VINES = [blockId('vine'), blockId('vine@east'), blockId('vine@south'), blockId('vine@west')];
 
@@ -869,7 +870,7 @@ function placeTrees(col: Uint16Array, x0: number, z0: number, plants: Plants = '
     if (lx < 0 || lz < 0 || lx >= CS || lz >= CS || y < 0 || y >= WORLD_Y) return;
     const i = ci(lx, y, lz);
     const cur = col[i];
-    if (cur === AIR || (replaceSoft && (cur === FERN || cur === TALL_GRASS || cur === LEAVES || cur === FRONDS || cur === LEAVES_PALE || cur === BANANA_LEAVES))) col[i] = id;
+    if (cur === AIR || (replaceSoft && (cur === FERN || cur === TALL_GRASS || cur === LEAVES || cur === FRONDS || cur === LEAVES_PALE || cur === BANANA_LEAVES || cur === BANANA_BUNCH))) col[i] = id;
   };
   const gx0 = Math.floor((x0 - M) / TREE_CELL), gx1 = Math.floor((x0 + CS + M) / TREE_CELL);
   const gz0 = Math.floor((z0 - M) / TREE_CELL), gz1 = Math.floor((z0 + CS + M) / TREE_CELL);
@@ -945,6 +946,11 @@ function placeTrees(col: Uint16Array, x0: number, z0: number, plants: Plants = '
             if (h > 2) set(sx + dx * 3, top - 1, sz + dz * 3, BANANA_LEAVES, false);
           }
           for (const [dx, dz] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) set(sx + dx, top + 1, sz + dz, BANANA_LEAVES, false);
+          // A tall stem carries a bunch, two times in three: hanging beside the top of the stem, under a leaf.
+          if (h > 2 && r(n * 3 + 7) < 0.67) {
+            const [dx, dz] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(r(n * 3 + 9) * 4)];
+            set(sx + dx, top - 1, sz + dz, BANANA_BUNCH, false);
+          }
         }
       } else if (t.kind === 'broadleaf') {
         // A cloud-forest canopy tree: tall trunk, broad flat crown, epiphytes on top.

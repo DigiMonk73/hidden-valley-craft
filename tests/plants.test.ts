@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateColumn } from '../src/gen/terrain.ts';
-import { blockName, blockId, B_SOLID } from '../src/world/blocks.ts';
+import { blockName, blockId, B_SOLID, BLOCK_DEFS } from '../src/world/blocks.ts';
 import { GARDEN, VALLEY, SPRINGS, distToValley, valleyFloorHeight, ravineX } from '../src/gen/layout.ts';
 import { CS, WORLD_Y, PADDED_VOLUME, paddedIndex } from '../src/world/constants.ts';
 import { meshChunk } from '../src/mesh/mesher.ts';
@@ -10,7 +10,7 @@ import { meshChunk } from '../src/mesh/mesher.ts';
 // earlier phases (tools/worldhash.ts, tools/landhash.ts) are hashed with version 13's plants (`'v13'`), so they
 // still compare like with like; this file ties the plants of today to those.
 
-const PLANT = /^(air|log|leaves|leaves_pale|tree_fern_trunk|fern_fronds|bamboo|banana_trunk|banana_leaves|vine(@\w+)?|bromeliad|orchid|fern|tall_grass)$/;
+const PLANT = /^(air|log|leaves|leaves_pale|tree_fern_trunk|fern_fronds|bamboo|banana_trunk|banana_leaves|banana_bunch|vine(@\w+)?|bromeliad|orchid|fern|tall_grass)$/;
 const at = (lx: number, y: number, lz: number) => (y << 10) | (lz << 5) | lx;
 
 /** The valley and the home; the old road from the gorge to the canyon; and every fourth column of the whole world. */
@@ -46,13 +46,18 @@ describe('the plants of today against version 13\'s', () => {
     expect(inGarden).toBe(0);
   });
 
-  it('every new plant is there: pale leaves, banana stems and leaves, vines on all four sides', () => {
+  it('every new plant is there: pale leaves, banana stems, leaves and bunches, vines on all four sides', () => {
     for (const name of ['leaves_pale', 'banana_trunk', 'banana_leaves', 'vine', 'vine@east', 'vine@south', 'vine@west']) expect(counts[name] ?? 0, name).toBeGreaterThan(20);
+    expect(counts.banana_bunch ?? 0).toBeGreaterThan(5);
   });
 
   it('version 13\'s plants have none of them', () => {
-    const newIds = new Set(['leaves_pale', 'banana_trunk', 'banana_leaves', 'vine', 'vine@east', 'vine@south', 'vine@west'].map(blockId));
-    for (const [cx, cz] of COLUMNS.slice(0, 40)) for (const id of generateColumn(cx, cz, 'v13')) expect(newIds.has(id)).toBe(false);
+    // (Counted, then checked once: an assertion for each of eight million cells took 35 s on the build machine and timed out.)
+    const isNew = new Uint8Array(BLOCK_DEFS.length);
+    for (const n of ['leaves_pale', 'banana_trunk', 'banana_leaves', 'banana_bunch', 'vine', 'vine@east', 'vine@south', 'vine@west']) isNew[blockId(n)] = 1;
+    let found = 0;
+    for (const [cx, cz] of COLUMNS.slice(0, 40)) for (const id of generateColumn(cx, cz, 'v13')) found += isNew[id];
+    expect(found).toBe(0);
   });
 });
 
@@ -171,5 +176,23 @@ describe('a vine in the picture', () => {
     }
     expect(marked).toBe(2); // the sheet, seen from either side
     expect(plain).toBeGreaterThanOrEqual(5); // the rock's open faces
+  });
+});
+
+describe('a bunch of bananas (scenery now; Track B makes it something to pick)', () => {
+  it('hangs beside the top of a banana\'s stem, under its leaves, and nowhere else', () => {
+    const BUNCH = blockId('banana_bunch'), STEM = blockId('banana_trunk'), LEAF = blockId('banana_leaves');
+    let n = 0;
+    for (let cz = 30; cz <= 34; cz++) for (let cx = 50; cx <= 55; cx++) {
+      const col = generateColumn(cx, cz);
+      for (let y = 1; y < WORLD_Y - 1; y++) for (let lz = 1; lz < CS - 1; lz++) for (let lx = 1; lx < CS - 1; lx++) {
+        if (col[at(lx, y, lz)] !== BUNCH) continue;
+        n++;
+        const beside = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => col[at(lx + dx, y, lz + dz)] === STEM);
+        expect(beside, `a bunch at ${cx * CS + lx}, ${y}, ${cz * CS + lz} with no stem beside it`).toBe(true);
+        expect(col[at(lx, y + 1, lz)]).toBe(LEAF);
+      }
+    }
+    expect(n).toBeGreaterThan(3);
   });
 });

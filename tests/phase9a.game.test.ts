@@ -11,7 +11,8 @@ vi.mock('../src/ui/icons.ts', async () => (await import('./game/stubs.ts')).icon
 vi.mock('../src/ui/mapView.ts', async () => (await import('./game/stubs.ts')).mapModule);
 vi.mock('../src/platform/tablock.ts', async () => (await import('./game/stubs.ts')).tablockModule);
 
-import { openPage, fire, play, type Page } from './game/harness.ts';
+import { openPage, fire, play, browserStore, settle, type Page } from './game/harness.ts';
+const SETTINGS_KEY = 'settings'; // (src/game.ts)
 import { runJob, type GenResult } from '../src/jobs/tasks.ts';
 import { blockId, blockName, BLOCK_DEFS } from '../src/world/blocks.ts';
 import { CS } from '../src/world/constants.ts';
@@ -142,5 +143,36 @@ describe('sitting (docs/PHASE9A.md, 8)', () => {
     play(p, 0.2);
     expect(inside(p).seat).toBeNull();
     expect(p.game.player.x).toBeCloseTo(1798.5, 1); // and it was not pulled back to the chair
+  });
+});
+
+describe('the Effects setting (docs/PHASE9A.md)', () => {
+  const read = async (store: ReturnType<typeof browserStore>) => JSON.parse(new TextDecoder().decode((await store.get(SETTINGS_KEY))!));
+  const renderer = (p: Page) => (p.game as unknown as { renderer: { effects: boolean } }).renderer;
+
+  it('is on unless it was turned off; it is kept, and it turns the renderer\'s effects off and on', async () => {
+    const store = browserStore();
+    const first = await openPage(store);
+    expect(renderer(first).effects).toBe(true);
+    (first.hud.actions.setEffects as unknown as (on: boolean) => void)(false);
+    await settle();
+    expect(renderer(first).effects).toBe(false);
+    expect((await read(store)).fx).toBe(false);
+    const second = await openPage(store); // the page opened again
+    expect(renderer(second).effects).toBe(false);
+    expect((second.hud.settingsInputs as unknown as { fx: { checked: boolean } }).fx.checked).toBe(false);
+  });
+
+  it('a setting this build does not know is kept across a load and a save, not dropped', async () => {
+    const store = browserStore();
+    await store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify({ rd: 8, vol: 0.3, scale: 0.75, somethingNew: { a: 1 } })));
+    const p = await openPage(store);
+    (p.hud.actions.setVolume as unknown as (v: number) => void)(0.6);
+    await settle();
+    const kept = await read(store);
+    expect(kept.vol).toBe(0.6);
+    expect(kept.scale).toBe(0.75);
+    expect(kept.somethingNew).toEqual({ a: 1 });
+    expect(kept.fx).toBe(true);
   });
 });

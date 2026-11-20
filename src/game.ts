@@ -2272,8 +2272,11 @@ export class Game {
     this.hud.setLoadingVisible();
   }
 
+  /** The settings as last read from the store, whole: what is saved is laid over them. */
+  private settingsKept: Record<string, unknown> = {};
   private async saveSettings(): Promise<void> {
-    const s = { rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume, fx: this.renderer.effects };
+    // (Over whatever was stored: a key this build does not know, another build's setting, is kept as it was.)
+    const s = { ...this.settingsKept, rd: this.streamer.radius, sens: this.look.sensitivity / 0.0022, inv: this.look.invertY, vol: this.sound.volume, fx: this.renderer.effects };
     await this.store.set(SETTINGS_KEY, new TextEncoder().encode(JSON.stringify(s)));
   }
 
@@ -2282,6 +2285,7 @@ export class Game {
       const b = await this.store.get(SETTINGS_KEY);
       if (!b) return;
       const s = JSON.parse(new TextDecoder().decode(b));
+      if (s && typeof s === 'object' && !Array.isArray(s)) this.settingsKept = s;
       // Older builds allowed 4 and 6; the least now is 7 (224 m), and the menu offers 7, 8, 10 and 12.
       if (typeof s.rd === 'number') this.hud.settingsInputs.rd.value = String(nearestViewChunks(s.rd));
       if (typeof s.sens === 'number') { this.look.sensitivity = 0.0022 * s.sens; this.hud.settingsInputs.sens.value = String(s.sens); }

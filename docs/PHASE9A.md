@@ -51,7 +51,7 @@ Every item is judged by eye. Before anything was changed, one set of pictures wa
 - **Fires flicker,** each to its own time; lamps are steady. (The flames themselves already wavered; block light does not flicker: it is baked into the land's light, and one flickering uniform would make every lamp in the world pulse together.)
 - **A lamp sealed in rock** (the tunnel's) puts its glow just in front of its open face, so the wall does not cut it in half and it is not seen through the rock from behind.
 - **Moonlight is drawn 1.7 times brighter and bluer** (`src/render/sky.ts`, `NIGHT.light`). The night's `daylight` number stays 0.3: the Ashen live by it (`src/game.ts`, `lightAt`), so the lift is in the light's colour, which only the picture reads. Before, a moonlit cliff top came out at 7% grey: black on most screens.
-- **Off with one setting:** "Effects (glow, rain, birds)" in the menu (`fx` in the saved settings; default on).
+- **Off with one setting:** "Effects (glow, rain, birds)" in the menu (`fx` in the saved settings; default on). Saving the settings no longer drops a key this build does not know (the lead's word, so Track B's new settings and this one survive each other's builds): what is saved is laid over what was read (`tests/phase9a.game.test.ts`).
 
 ### 4. The far land
 
@@ -66,7 +66,7 @@ Every item is judged by eye. Before anything was changed, one set of pictures wa
 ### 5. Trees and plants
 
 - **Four broadleaf shapes where there was one** (`src/gen/terrain.ts`, `shapeOf`): the flat-topped canopy tree (version 13's); an **emergent**, a giant with a bare trunk on buttresses and a crown in three tiers; a low **round** tree, branching near the ground (the valley's fruit trees, old farmland); and the **guarumo**, a slender pioneer with a few bare limbs each ending in a hand of pale leaves (a new block, `leaves_pale`). Each zone has its own mix: round trees in the valley and on the farmland, emergents in the deep band.
-- **Bananas** (`banana_trunk`, `banana_leaves`): clumps of stout green stems with broad leaves on crossed sheets, so they move in the wind like the ferns. They stand where a tree fern did: half of those in the valley and on the old farmland, a few along the buffer's road. The tree fern stays everywhere else. They are scenery; Track B's fruit can hang on them.
+- **Bananas** (`banana_trunk`, `banana_leaves`): clumps of stout green stems with broad leaves on crossed sheets, so they move in the wind like the ferns. They stand where a tree fern did: half of those in the valley and on the old farmland, a few along the buffer's road. The tree fern stays everywhere else. A tall stem carries a bunch (`banana_bunch`), two times in three, hanging beside its top under a leaf. All of it is scenery here: by the lead's word (2026-11-20) Track B makes the bunch something to pick once this branch is merged, and adds no second plant.
 - **Vines on the valley's cliffs** (`vine`, a sheet against the rock, four facings): in curtains where the wall is damp, thick near the falls, hardly any between. Never by the home's face, the path, the falls' curtain or the tunnel's mouths, and never below three blocks above the floor: nothing that is used hides behind one.
 - **Nothing built moves.** Plants are the generator's last step and only fill open air. `tests/plants.test.ts` proves it against version 13: the two worlds differ only where a plant or open air was (3.4 million cells in the whole world, none of them rock, water or anything built; none in the home or over the garden).
 - **The fixtures still pin the land.** `generateColumn(cx, cz, 'v13')` grows exactly version 13's plants; the hashes of earlier phases (`tools/worldhash.ts`, `tools/landhash.ts`) are taken that way, so every old fixture still compares like with like and none was regenerated.
@@ -121,3 +121,7 @@ Track B's first push (`phase9b` at 16cb1a3, seen 2026-11-20) meets this branch i
 - **`src/ui/hud.ts` and `src/game.ts` (settings):** B moved the settings into `src/game/settings.ts`. The Effects checkbox becomes one more field there (`fx: boolean`, default true), shown by `showSettings`, and its action `setEffects` sets `renderer.effects`.
 - **`src/render/renderer.ts`:** B chooses anti-aliasing when the context is made. Keep `stencil: true` in the same options (the far land needs it: without a stencil buffer it would cover the real land in every column at the edge of what is loaded), and `gl.info.autoReset = false` after it.
 - **`src/jobs/tasks.ts` / the mesher:** a chunk's mesh now carries `glows` (a small `Float32Array`); if B releases a mesh's CPU arrays after upload, `glows` is read once in `Renderer.setChunkMesh` and can go with them.
+
+## The build machine
+
+- **GitHub's checks failed once on this branch** (bf80e1f): `tests/plants.test.ts`, "version 13's plants have none of them", made one assertion for each of eight million cells and took 35 s there against the 30 s limit (it passed here). It counts and asserts once now. Nothing was skipped.
