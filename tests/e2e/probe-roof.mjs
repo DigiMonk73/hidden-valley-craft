@@ -1,6 +1,7 @@
 // A probe, not a check: the minute in which the lead's tab died (docs/PHASE7.md). On the outpost's roof with
 // the rifle in hand, turned to face the gunman every 50 ms, for MINUTES (default 4). Run with MEM=1 to see
-// what grows: MEM=1 node tests/e2e/probe-roof.mjs
+// what grows: LOCK=1 MEM=1 node tests/e2e/probe-roof.mjs
+// (LOCK=1 captures the mouse as the play-through used to: that was the cause. Without it the page is quiet.)
 import { start } from './lib.mjs';
 
 const { page, g, P, standAt, hold, LONG } = await start();
