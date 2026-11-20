@@ -20,6 +20,31 @@ export async function start(query = 'rd=4&hour=12') {
   if (process.env.HC) await page.addInitScript((n) => Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => n }), Number(process.env.HC));
   // NOAUDIO=1 takes Web Audio away from the page (the game then runs silent): for telling whether sound is what grows.
   if (process.env.NOAUDIO) await page.addInitScript(() => { delete window.AudioContext; delete window.webkitAudioContext; });
+  // CPU=1 prints, every thirty seconds, where the page's main thread spent its time (self time by function;
+  // build with `npx vite build --minify false` for readable names): for finding what blocks the page.
+  if (process.env.CPU) {
+    const prof = await ctx.newCDPSession(page);
+    await prof.send('Profiler.enable');
+    await prof.send('Profiler.setSamplingInterval', { interval: 5000 });
+    await prof.send('Profiler.start');
+    const t0 = Date.now();
+    let busy = false;
+    const timer = setInterval(async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const { profile } = await prof.send('Profiler.stop');
+        await prof.send('Profiler.start');
+        const self = new Map(), dt = profile.timeDeltas ?? [], byId = new Map(profile.nodes.map((n) => [n.id, n]));
+        (profile.samples ?? []).forEach((id, i) => { const f = byId.get(id).callFrame, k = `${f.functionName || '(anonymous)'} :${f.lineNumber}`; self.set(k, (self.get(k) ?? 0) + (dt[i] ?? 0)); });
+        const top = [...self].sort((a, b) => b[1] - a[1]).slice(0, 9).map(([k, v]) => `${Math.round(v / 1000)} ms ${k}`);
+        console.log(`CPU ${Math.round((Date.now() - t0) / 1000)}s main thread: ${top.join(' | ')}`);
+      } catch { /* the page is gone */ }
+      busy = false;
+    }, 30_000);
+    page.on('close', () => clearInterval(timer));
+    page.on('crash', () => clearInterval(timer));
+  }
   const errors = [];
   page.on('crash', () => { errors.push('the page crashed'); console.log('FAIL the page crashed (the renderer died: memory?)'); });
   page.on('pageerror', (e) => errors.push(e.message));
