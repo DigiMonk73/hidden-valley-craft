@@ -7,4 +7,4 @@ _Each version of the page at https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, 
 | 14 | 2026-11-20 | `abab030` | 4 | Phase 9, Track A: the hand, under water, glow, far cliffs, trees and bananas, birds, rain, sitting |
 | 15 | 2026-11-20 | `4ce74c1` | 4 | The garden says what to do: the hoe clears tall grass as it tills; planting and picking explain themselves |
 | 16 | 2026-11-20 | `4636bbd` | 4 | A bare hand on the hotbar, left of slot 1 (the key left of 1) |
-| 17 | 2026-11-20 | (this commit) | 5 | Phase 9, Track B: settings for weaker computers, the rim mended, save fixes, handbooks, headlamp, bananas picked, tools that do something |
+| 17 | 2026-11-20 | `ddd26e4` | 5 | Phase 9, Track B: settings for weaker computers, the rim mended, save fixes, handbooks, headlamp, bananas picked, tools that do something |
