@@ -96,10 +96,11 @@ EVAL="window.__hv.manOutpost(); window.__hv.game.wild.creatures.find(c => c.kind
   DSF=1 RD=7 node tools/shot.mjs outpost=872,112,1012,180,-45,15
 ```
 
-The game's icon is drawn by `node --experimental-strip-types --no-warnings tools/icon.ts`: it writes
-`assets/icon/` (PNGs at 16, 32, 48, 180, 192, 256, 512 and 1024 px, `icon.ico`, `icon.svg`) and the inline
-favicon links in `index.html`. `node tools/icon-sheet.mjs` shows every size and a browser tab in
-`docs/review/icon-sheet.png`.
+The game's icon is drawn by code in `tools/icon.ts`, in four designs (`scene`, `falls`, `doorway`, `pixel`).
+`node --experimental-strip-types --no-warnings tools/icon-sheet.ts` compares them in
+`docs/review/icon-options.png`. Once the owner picks one, `node --experimental-strip-types --no-warnings tools/icon.ts <design>`
+writes `assets/icon/` (PNGs at 16, 32, 48, 180, 192, 256, 512 and 1024 px, and `icon.ico`) and the inline favicon
+links in `index.html`. The PNGs are not in the source bundle; rerun that command after a restore.
 
 Two more drawing tools write into `out/`:
 
