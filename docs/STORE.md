@@ -1,6 +1,18 @@
-# Selling Hidden Valley Blocks: the plan
+# Selling Under the Falls: the plan
 
 _Written by the lead (2026-11-21) at the owner's word. The owner chose itch.io first, $7.99 with a free demo, and asked for a prompt that their Grok assistant can work from. Claude (the lead) is in charge of the code and the technical side of every store; Grok handles most of the rest; the owner holds accounts, money and every final call._
+
+## The approved plan (the owner, 2026-11-21)
+
+- **Store title: Under the Falls.** On store pages and posts: "Under the Falls: a voxel survival game". Renamed from Hidden Valley Blocks because Quickspin holds a live US "Hidden Valley" trademark covering video games; "Under the Falls" checked low risk (no game, app or US trademark), to be re-checked right before launch. The story, the valley's name in it and the GitHub project name stay. The game's own screens say Under the Falls since version 22.
+- **itch.io, two files on one page:**
+  - **The free demo** plays in the browser and is marked as a demo, so it is always free: the valley, the way out and Zone 1, up to M1, ending on a card that points to Menu → Copy save code.
+  - **The full game, $7.99, buyers may pay more:** a paid download (a zip) that opens from a file. itch.io cannot limit browser play to buyers, and its own guide says to sell a download. Opened from a file it runs at full speed and saves in Chrome (tested by the lead); Safari and Firefox still to check (the owner tests Safari on the Mac).
+- **Payouts:** itch.io collects payment and handles sales tax, and pays out through PayPal or Payoneer. The owner does the tax interview and the ID check.
+- **AI disclosure:** yes, for **Code, Graphics and Sound**, and also **Text**: the journal, the field guide, the notes and the people's lines were written by Claude from the owner's script. The textures and sounds are drawn and made by code Claude wrote.
+- **Browser saves already use names that are this game's own:** the browser storage keys start with `hvb:` and the save database is named `hidden-valley-blocks`. They stay as they are, so no save is ever lost; no other game uses them.
+- **Still to confirm on a draft page:** whether one upload can be both the browser version and the demo.
+- **Before launch, in order:** the owner says version 1 is done; makes the repository private; Claude builds and tests (the demo, the download, Safari and Firefox); Grok drafts the store page; the owner sets up the account and a draft page; Claude reviews and the owner approves; launch.
 
 The prompt below is what the owner gives Grok. The lead keeps this file current as steps are done.
 
@@ -8,7 +20,7 @@ The prompt below is what the owner gives Grok. The lead keeps this file current 
 
 ## Prompt for Grok
 
-You are helping the owner of **Hidden Valley Blocks** (full name: *Hidden Valley — Block Edition*) put the game on sale. The owner is not a developer. Explain in plain words, give one recommendation at a time, and keep every account, password, payment detail and final decision with the owner.
+You are helping the owner of **Under the Falls** (on stores: "Under the Falls: a voxel survival game"; formerly *Hidden Valley Blocks*) put the game on sale. The approved plan is above this prompt and wins where they differ. The owner is not a developer. Explain in plain words, give one recommendation at a time, and keep every account, password, payment detail and final decision with the owner.
 
 ### Who does what
 
