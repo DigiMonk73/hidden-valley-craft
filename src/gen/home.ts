@@ -30,6 +30,8 @@ export const HOME_FIT = {
   desk: { computer: [1814, F + 1, 1028], phone: [1814, F + 1, 1029], chair: [1813, F, 1028] } as Record<string, [number, number, number]>,
   /** The journal: any of the bookshelves in the living room's south-east corner. */
   bookshelf: [1814, F + 1, 1031] as [number, number, number],
+  /** The builder's field guide, open on a reading stand in front of the south shelves, facing the room (the reader stands north of it). */
+  guideStand: [1811, F, 1031] as [number, number, number],
   mapTable: [1812, F, 1020] as [number, number, number],
   /** The builder's hoist on the balcony, in the north corner by the rock: where the satellite antenna is sent up from (docs/PHASE8.md). */
   hoist: [1800, F, 1014] as [number, number, number],
@@ -207,6 +209,10 @@ export function fitOutHome(col: Uint16Array, x0: number, z0: number): void {
   put(...HOME_FIT.desk.phone, 'phone');
   put(...HOME_FIT.desk.chair, 'desk_chair@east');
   rug('blue', 1810, 1814, 1027, 1031);
+  // The field guide on its reading stand, on the rug in front of the shelves: a book apart from the journal, and in plain sight.
+  put(...HOME_FIT.guideStand, 'field_guide_stand');
+  // and a lamp on the shelf above it to read by (the corner is the room's darkest).
+  put(HOME_FIT.guideStand[0], F + 2, HOME_FIT.guideStand[2], 'wall_lamp');
   // A corner to read in, by the fire: an armchair, a small table and its lamp.
   put(1814, F, 1017, 'armchair@west');
   put(1814, F, 1016, 'nightstand@west');

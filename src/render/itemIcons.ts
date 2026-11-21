@@ -133,6 +133,12 @@ const DRAW: Record<string, (i: Icon) => void> = {
   slip: (i) => { i.line(3, 13, 12, 4, '#6e4a2a', 1); i.line(9, 7, 12, 6, '#5e9b3c'); i.disc(12, 4, 1, '#76b24c'); i.rect(3, 12, 3, 2, '#c8a96a'); },
   apple: (i) => { i.disc(8, 9, 5, '#b8322a'); i.disc(6, 7, 1, '#e86a5a'); i.line(8, 4, 9, 2, '#5e3c20'); i.rect(9, 2, 3, 1, '#5e9b3c'); },
   journal: (i) => { i.rect(3, 2, 10, 12, '#6b3e26'); i.rect(4, 3, 8, 10, '#7d4a2e'); i.rect(12, 2, 1, 12, '#e8dcc0'); i.line(5, 6, 10, 6, '#c9a227'); },
+  // The field guide: not the journal's brown. A green cloth notebook with a pale leaf on it, the pages showing, a red ribbon.
+  field_guide: (i) => {
+    i.rect(2, 1, 11, 14, '#22452b'); i.rect(3, 2, 9, 12, '#2f5d3a'); i.rect(13, 2, 1, 12, '#efe6cc'); i.rect(13, 2, 1, 1, '#cdbf9c');
+    i.line(7, 4, 7, 11, '#cfe3b0'); i.line(5, 6, 7, 8, '#cfe3b0'); i.line(9, 6, 7, 8, '#cfe3b0'); i.line(5, 9, 7, 11, '#cfe3b0'); i.line(9, 9, 7, 11, '#cfe3b0');
+    i.rect(10, 14, 1, 2, '#a8322a');
+  },
   // Zone-2's salvage, power and ammunition (docs/PHASE6.md).
   pv_panel: (i) => { i.rect(2, 3, 12, 10, '#1d3354'); for (const x of [2, 6, 10, 13]) i.line(x, 3, x, 12, '#b9c2c9'); for (const y of [3, 8, 12]) i.line(2, y, 13, y, '#b9c2c9'); i.line(3, 4, 5, 6, '#6f8fb8'); },
   wiring: (i) => { for (let k = 0; k < 3; k++) for (let a = 0; a < 24; a++) { const t = (a / 24) * Math.PI * 2; i.set(8 + Math.cos(t) * (5 - k), 8 + Math.sin(t) * (5 - k), k === 1 ? '#e08a4e' : '#c06c3a'); } i.line(12, 11, 15, 14, '#2b2b2b'); },

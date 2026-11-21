@@ -26,7 +26,8 @@ import { InventoryScreen } from './ui/inventoryScreen.ts';
 import { PaperScreen } from './ui/paperScreen.ts';
 import { drawMap } from './ui/mapView.ts';
 import journalData from '../data/journal.json' with { type: 'json' };
-import { homeChestAt } from './gen/inheritance.ts';
+import { guidePages, markGuideRead, owesGuideCopy, GUIDE_GIVEN } from './sim/fieldGuide.ts';
+import { homeChestAt, HOME_CHESTS } from './gen/inheritance.ts';
 import { itemId, foodOf } from './world/items.ts';
 import { BACKPACK_SLOTS } from './sim/inventory.ts';
 import { Sound, materialOf } from './audio/audio.ts';
@@ -1383,6 +1384,8 @@ export class Game {
     if (chest) {
       const title = homeChestAt(t.x, t.y, t.z)?.title;
       if (title === 'Armory' && !this.flags.has('armory_found')) { this.flags.add('armory_found'); this.edited(); }
+      // The wardrobe, opened in a build that put the field guide in it: this valley has had its copy.
+      if (homeChestAt(t.x, t.y, t.z)?.items.some(([n]) => n === 'field_guide') && !this.flags.has(GUIDE_GIVEN)) { this.flags.add(GUIDE_GIVEN); this.edited(); }
       this.openScreen({ title: title ?? (BLOCK_DEFS[t.id]?.label || 'Chest'), slots: chest });
       this.openSack = t.id === SACK ? [t.x, t.y, t.z] : null;
       return;
@@ -1553,6 +1556,8 @@ export class Game {
       return true;
     }
     if (name === 'bookshelf') { this.openJournal(); return true; }
+    // The field guide on its reading stand, beside the shelves: how things are done, not the builder's story.
+    if (name === 'field_guide_stand') { this.openGuide(); return true; }
     // Zone-1's mid and deep bands (docs/PHASE5.md).
     if (name === 'photo_frame') { this.hud.toast('A framed photo, faded, the glass cracked: four smiling people in hunting clothes beside a buck. Somebody’s best day.', 8000); return true; }
     if (name === 'leghold_trap') {
@@ -1602,11 +1607,38 @@ export class Game {
     if (!this.flags.has(BOOKS_READ)) {
       this.flags.add(BOOKS_READ);
       this.edited();
-      this.sayAfterPaper = 'Beside the journal, the builder’s handbooks: smelting, smithing, the kiln, tanning. The workshop’s stations now show what you can make.';
+      this.sayAfterPaper = 'Beside the journal, the builder’s handbooks: smelting, smithing, the kiln, tanning. The workshop’s stations now show what you can make. How to live here is in his field guide, on the reading stand by the shelves.';
     }
     const notes = journalData.notes.filter((n) => this.flags.has(n.flag)).map((n) => ({ title: n.title, text: n.text, by: 'Your notes' }));
     const all = [...journalData.entries, ...notes];
     this.openPaper(() => this.paper.journal(all, notes.length ? all.length - 1 : 0)); // at your newest note
+  }
+
+  /** The builder's field guide (data/fieldguide.json): the pages reached so far, the new ones marked, then all marked seen. */
+  private openGuide(): void {
+    const pages = guidePages(this.flags);
+    if (markGuideRead(this.flags)) this.edited();
+    this.openPaper(() => this.paper.guide(pages));
+  }
+
+  /**
+   * A valley that opened the wardrobe before the field guide was in it is given a copy, into the pack, once (a full
+   * pack: back into the wardrobe). Run on load, after the flags and the chests are restored.
+   */
+  private handOverGuide(): void {
+    const w = HOME_CHESTS.find((c) => c.items.some(([n]) => n === 'field_guide'));
+    const at = w ? packPos(w.x, w.y, w.z) : -1;
+    const opened = this.world.containers.has(at);
+    if (!owesGuideCopy(this.flags, opened) || this.hotbar.count(itemId('field_guide')) > 0) return;
+    this.edited();
+    if (this.hotbar.add(itemId('field_guide'), 1) === 0) {
+      this.sayAtPlay = 'The builder left a field guide too, apart from his journal: it is in your pack. Hold it and right-click to read it, or read it on the stand by the bookshelves.';
+      return;
+    }
+    const slots = this.world.containers.get(at)!;
+    const k = slots.findIndex((s) => !s);
+    if (k >= 0) slots[k] = { id: itemId('field_guide'), count: 1 };
+    this.sayAtPlay = 'The builder left a field guide too, apart from his journal: it is on the stand by the bookshelves, and a copy is in the wardrobe.';
   }
 
   /** The builder's phone: his dead contacts, and Marco once his number has been found at the shelter. */
@@ -1879,6 +1911,7 @@ export class Game {
     }
     if (!held) return false;
     if (held.id === itemId('builders_journal')) { this.openJournal(); return true; }
+    if (held.id === itemId('field_guide')) { this.openGuide(); return true; }
     if (held.id === itemId('map_scrap')) {
       this.openPaper(() => this.paper.map(drawMapScrap(), 'The scout’s map scrap · a ridge, a bend in a road, an arrow, and “Las Cruces” in pencil'));
       return true;
@@ -2307,6 +2340,7 @@ export class Game {
     this.explored = new Uint8Array(64 * 64);
     for (const i of d.explored ?? []) this.explored[i] = 1;
     this.spawn = d.spawn ? { ...d.spawn } : { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, yaw: SPAWN.yaw };
+    this.handOverGuide();
     this.hud.showMode(this.mode, !this.flags.has(BEGUN));
     this.keeper?.adopt(d);
   }

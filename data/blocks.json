@@ -573,6 +573,7 @@
     {"name": "banana_leaves", "label": "Banana leaves", "tex": "banana_leaves", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1},
     {"name": "banana_bunch", "label": "Bunch of bananas (ripe)", "tex": "banana_bunch", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1, "crop": {"kind": "banana", "stage": 1}},
     {"name": "banana_bunch_green", "label": "Bunch of bananas (green)", "tex": "banana_bunch_green", "render": "cross", "layer": "cutout", "solid": false, "opaque": false, "hardness": 0.1, "crop": {"kind": "banana", "stage": 0}},
-    {"name": "vine", "label": "Vine", "tex": "vine", "render": "model", "boxes": [[0, 0, 15, 16, 16, 15]], "layer": "cutout", "solid": false, "opaque": false, "facing": true, "hardness": 0.05}
+    {"name": "vine", "label": "Vine", "tex": "vine", "render": "model", "boxes": [[0, 0, 15, 16, 16, 15]], "layer": "cutout", "solid": false, "opaque": false, "facing": true, "hardness": 0.05},
+    {"name": "field_guide_stand", "label": "Reading stand: the builder’s field guide (right-click to read)", "tex": "walnut", "render": "model", "boxes": [[3, 0, 4, 13, 1, 12], [7, 1, 7, 9, 10, 9], [4, 9, 5, 12, 11, 11], [2, 11, 2, 14, 12, 6], [2, 11, 6, 14, 13, 10], [2, 11, 10, 14, 14, 14], [2, 12, 1, 14, 14, 2], [3, 12, 2, 13, 13, 6], [3, 13, 6, 13, 14, 10], [3, 14, 10, 13, 15, 14]], "boxTex": ["walnut", "walnut", "walnut", "walnut", "walnut", "walnut", "walnut", {"top": "book_open", "side": "book_pages", "bottom": "guide_cloth"}, {"top": "book_open", "side": "book_pages", "bottom": "guide_cloth"}, {"top": "book_open", "side": "book_pages", "bottom": "guide_cloth"}], "layer": "cutout", "solid": true, "opaque": false, "facing": true, "hardness": 0.5}
   ]
 }

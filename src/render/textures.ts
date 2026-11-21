@@ -1264,6 +1264,22 @@ DRAW.bookshelf = (c) => {
   for (let x = 0; x < TEX; x++) { c.set(x, 0, hex('#6b4627')); c.set(x, 7, hex('#7a5130')); c.set(x, 8, hex('#553621')); c.set(x, 15, hex('#6b4627')); }
   for (let y = 0; y < TEX; y++) { c.set(0, y, hex('#5e3c20')); c.set(15, y, hex('#5e3c20')); }
 };
+// The builder's field guide on its reading stand: a green cloth cover, open to two pages of notes and a sketch.
+const GUIDE_GREEN = hex('#2f5d3a'), GUIDE_GREEN_D = hex('#22452b'), PAGE = hex('#f6f0dc'), GUIDE_INK = hex('#a39a86');
+DRAW.guide_cloth = (c) => { c.noise(GUIDE_GREEN, 5, [GUIDE_GREEN_D, hex('#3a6b45')], 0.25); for (let k = 0; k < TEX; k += 3) c.shade(k, (k * 5) & 15, 0.85); };
+DRAW.book_pages = (c) => { c.noise(PAGE, 3); for (let x = 0; x < TEX; x++) for (let y = 1; y < TEX; y += 2) c.shade(x, y, 0.9); };
+DRAW.book_open = (c) => {
+  // Read across the stand: the cover's edge at columns 3 and 12, the left page 4–7, the fold at 8, the right page 9–11.
+  // Bright paper with a few faint lines, so it reads as an open book even in lamplight.
+  c.noise(PAGE, 2);
+  for (let y = 0; y < TEX; y++) {
+    for (const x of [0, 1, 2, 3, 12, 13, 14, 15]) c.set(x, y, (x === 3 || x === 12) ? GUIDE_GREEN : GUIDE_GREEN_D);
+    c.set(8, y, hex('#d9ccaa'));
+  }
+  for (let y = 2; y < TEX - 1; y += 3) { for (let x = 4; x <= 6; x++) c.set(x, y, GUIDE_INK); for (let x = 9; x <= 11; x++) if (y > 6) c.set(x, y, GUIDE_INK); }
+  // A small sketch of a leaf at the head of the right page.
+  for (const [x, y] of [[10, 1], [9, 2], [10, 2], [11, 2], [10, 3], [10, 4]]) c.set(x, y, hex('#5f8f45'));
+};
 DRAW.anvil = (c) => { c.noise(hex('#3b4046'), 5, [hex('#30343a'), hex('#474d54')], 0.25); for (let x = 0; x < TEX; x++) { c.set(x, 2, hex('#6a727a')); c.shade(x, 5, 0.8); c.set(x, 0, hex('#59616a')); } };
 DRAW.hide = (c) => { c.noise(hex('#b08a5e'), 8, [hex('#9a744a'), hex('#c49e70')], 0.25); };
 DRAW.hide_stretched = (c) => {

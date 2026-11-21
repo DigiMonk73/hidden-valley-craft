@@ -1,0 +1,77 @@
+{
+  "_comment": "The builder's field guide: how things are done here, in his voice, read at the reading stand in the study or from the copy in the wardrobe. Not the journal (his story, data/journal.json). Each page shows once its `after` flag is set (no `after`: from the start), so nothing ahead is told; a page not yet seen is marked new. Every number and place here is the code's: change one, change the other (tests/fieldguide.test.ts checks the ones that can drift).",
+  "pages": [
+    {
+      "id": "home",
+      "title": "Getting out, and home",
+      "text": "The way out is under the waterfall, across the valley on its west wall. Swim straight through the white water and down to the lamp over the tunnel, low in the rock. The tunnel is lit, and one breath will do it. Halfway along is my gate: swim up to it and it lifts by itself, and shuts behind you.\n\nYou come up in the canyon pool. Do not follow the stream down the canyon bed. On the far side of the pool from the falls, a grey gravel path zig-zags up the canyon's west wall. At its top the old road begins, and runs west.\n\nIf you are ever lost out there, hold the H key for two seconds and you are home, where you wake, with nothing lost. Not while you are being hurt, and not with one of the grey ones close: get clear first. A run that ends that way is not walking home, so it does not count for your first trip."
+    },
+    {
+      "id": "water",
+      "title": "Water",
+      "text": "The valley's water comes up through the limestone, and it is clean: the pool, the creek, the falls. With an empty hand (the key left of 1) right-click any water to drink, or hold an empty jug and right-click water to fill it. A jug drunk gives the jug back.\n\nOutside the valley the water is not clean. A drink still quenches, but it turns the stomach and costs some health, and I would not fill a jug with it. My water filter makes it safe: it only has to be in your pack. It is in the expedition kit, in the vault."
+    },
+    {
+      "id": "garden",
+      "title": "The garden",
+      "text": "The steel hoe is on the tool wall in the workshop. Hold it and right-click grass, dirt or forest floor to till it; it clears tall grass, ferns and flowers as it goes. Then hold seeds and right-click the top of the tilled soil. The seed chest is in the pantry.\n\nCrops want light (the sun, or a lantern close by), and they grow only while I am somewhere near them: about a quarter of an hour from seed to harvest. A night's sleep moves them on too. Mine a ripe crop and it gives its crop and seeds back, two of most, one of herbs. Potatoes grow from a potato. Mine one too early and you get a seed back, nothing more."
+    },
+    {
+      "id": "coffee",
+      "title": "Coffee",
+      "text": "The bushes along the south side of the garden carry red cherries when ripe. Right-click a ripe bush to pick three beans: the bush stays and ripens again. Do not dig it up.\n\nA bean sown in tilled soil grows into a new bush. To brew, right-click the range on the balcony or the fireplace: three beans and a jug of water make three cups, and the jug comes back. A cup takes the edge off thirst and puts a spring in your step for a minute and a half."
+    },
+    {
+      "id": "food",
+      "title": "Cooking, and food",
+      "text": "Raw meat or fish will keep you going, but only just: a raw trout is worth a mouthful, cooked it is a meal. Right-click the range on the balcony or the fireplace to cook. Trout, rabbit, venison, pork and chicken cook one for one; two eggs make a fried egg; corn and salt make rice; bean pods and water make beans; potato, corn, tomato and herbs make a stew.\n\nNothing here spoils. What is in the pantry and the pack keeps as long as you need it. To eat, hold the food and right-click."
+    },
+    {
+      "id": "carry",
+      "title": "What I carry",
+      "text": "Left of the first slot is the bare hand (the key left of 1). The clock beside it tells the hour: from five in the evening it turns warm, and the bed can be slept in until six in the morning. Sleep in mine and you wake there from then on.\n\nWith the bow or a gun in hand, the Q key slows the world for up to four seconds; it takes about twelve to come back. The binoculars: hold them and hold the right mouse button to look, let go to lower them.\n\nThe headlamp and the water filter work from the pack, just carried. The expedition backpack is different: hold it and right-click once, and the pack has nine more slots. All four are in the expedition kit in the vault."
+    },
+    {
+      "id": "marco",
+      "after": "left_valley",
+      "title": "Marco",
+      "text": "Take the old road west from the top of the canyon path, up over the saddle between two knolls. Just past it, on the road's north side, is a bus shelter with its lantern lit. His number is scratched on the timetable: stand there and it is in my satellite phone.\n\nThe phone is on the desk in the study, and it only works from the valley. Call him and he will meet you at the shelter by daylight, from seven in the morning until six in the evening; after dark he waits for morning. Right-click him to trade. He pays half what a thing is worth, and says so.\n\nHe is paid from, and pays into, the hot wallet: the phone shows it. The cold wallet in the safe stays cold. You do not need it to trade."
+    },
+    {
+      "id": "hunting",
+      "after": "armory_found",
+      "title": "Hunting, and the dogs",
+      "text": "The armory chest in the vault holds my rifle and forty rounds, the bow and thirty arrows, a machete and the vest. With the bow, hold the right mouse button to draw and let go to loose: a full draw takes a second and hits nearly twice as hard as a snatched one. An arrow into a man who has not seen you does three times the harm. The rifle fires with a right-click, and hits hard.\n\nDogs live in the farm's house. They climb a single step but no more, and a bite cannot reach two blocks up: get up on a rock, a wall, or a pillar of blocks, and strike down at them. When one crouches and snarls it is about to spring: step back, then hit it (left-click). The vest takes about a third off every blow, and it only has to be in your pack."
+    },
+    {
+      "id": "chickens",
+      "after": "m1_done",
+      "title": "Chickens, and the coop",
+      "text": "There are hens loose at the farm on the old road. Walk right up to one (do not run, or she runs too) and right-click to catch her; she goes into your pack. Two make a pair.\n\nThe coop is made at the workbench: six planks, two wire mesh and eight nails. The barn's crates have the mesh. Set it down at home, right-click it, and put the hens in (shift-click moves them from your pack). Each morning every hen lays an egg, up to eight waiting. Leave an egg in overnight and it may hatch."
+    },
+    {
+      "id": "keeping",
+      "after": "m1_done",
+      "title": "Rabbits, and keeping meat",
+      "text": "Snares (two sticks and two cordage at the workbench, two at a time) set out past the valley catch rabbits alive. A hutch (six planks, four sticks, four nails) with two rabbits in it breeds each morning.\n\nNothing spoils, but meat put by goes further. A smoker (six cobble, four planks, six nails) smokes raw meat by the next watch of the day; a jerky rack (three planks, two cordage) cures it by morning. Right-click either and put the raw meat in."
+    },
+    {
+      "id": "power",
+      "after": "m2_done",
+      "title": "Power",
+      "text": "A solar array wants open sky at home: the balcony, or the cliff above it. Under rock or a roof it makes nothing. By day it makes the home's power; a battery bank keeps it through the night.\n\nA mining rig earns sats straight into the hot wallet while it has power. Two arrays run one rig day and night once there is a bank. Right-click any of them to see how it is doing."
+    },
+    {
+      "id": "creek",
+      "after": "m3_done",
+      "title": "The creek's power",
+      "text": "The sun only goes so far. A hydro generator set in the valley's creek, at the water, turns day and night, rain or shine. More than one rig needs it.\n\nRay's drawings show how to build one, with turbine parts and steel. Steel comes from a crucible furnace, which wants the foundry's crucible."
+    },
+    {
+      "id": "ashen",
+      "after": "ashen_seen",
+      "title": "The grey ones",
+      "text": "By day, and in lamplight, they are slow and half blind: I have walked past them. In the dark they are fast. Keep to the light, and walk: they hear running and shots through walls, a walk or a pick only with nothing between.\n\nThey strike once, a lunge you can see coming: step out of its way. With one hunting close, holding H for home does nothing. They never come into the valley."
+    }
+  ]
+}

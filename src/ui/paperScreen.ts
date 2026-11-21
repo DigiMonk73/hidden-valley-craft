@@ -34,6 +34,19 @@ const CSS = `
 .pp-trade img { width: 24px; height: 24px; image-rendering: pixelated; vertical-align: middle; margin-right: 6px; }
 .pp-trade .pp-btn { background: rgba(185,243,200,.14); padding: 4px 10px; }
 @media (max-width: 560px) { .pp-trade { grid-template-columns: 1fr; } }
+/* The builder's field guide: a green cloth notebook, never to be taken for the journal's cream and brown. */
+.pp-guide { background: #e4ead6; color: #1f2a1d; font-family: Georgia, 'Iowan Old Style', serif; border-top: 10px solid #2f5d3a; }
+.pp-guide .pp-book { font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: #2f5d3a; font-weight: 700; margin-bottom: 2px; }
+.pp-guide .pp-meta { font-size: 12px; opacity: .65; margin-bottom: 12px; }
+.pp-guide h2 { margin: 0 0 10px; font-size: 22px; color: #2f5d3a; }
+.pp-guide p { font-size: 15px; line-height: 1.5; margin: 0 0 10px; }
+.pp-guide .pp-new { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 9px; background: #c77d1a; color: #fff; font: 700 11px system-ui, sans-serif; letter-spacing: .4px; vertical-align: middle; }
+.pp-guide .pp-toc { list-style: none; padding: 0; margin: 4px 0 0; }
+.pp-guide .pp-toc li { border-bottom: 1px dashed rgba(47,93,58,.3); }
+.pp-guide .pp-toc button { all: unset; cursor: pointer; display: block; width: 100%; padding: 8px 2px; font-size: 16px; }
+.pp-guide .pp-toc button:hover { color: #2f5d3a; }
+.pp-guide .pp-btn { background: rgba(47,93,58,.14); }
+
 `;
 
 export interface TradeRow { icon: string; label: string; price: string; button: string; can: boolean; act: () => string }
@@ -119,6 +132,48 @@ export class PaperScreen {
       this.footer(p);
     };
     show();
+  }
+
+  /**
+   * The builder's field guide: its contents first (each page reached, a new one marked), then one page at a time.
+   * `start`: a page to open at instead of the contents.
+   */
+  guide(pages: { title: string; text: string; fresh?: boolean }[], start: number | null = null): void {
+    const head = (p: HTMLElement, meta: string) => p.append(this.el('div', 'The builder’s field guide', 'pp-book'), this.el('div', meta, 'pp-meta'));
+    const mark = (e: HTMLElement, fresh?: boolean) => { if (fresh) e.append(this.el('span', 'new', 'pp-new')); return e; };
+    const contents = () => {
+      const p = this.open('pp-paper');
+      p.classList.add('pp-guide');
+      const fresh = pages.filter((g) => g.fresh).length;
+      head(p, `How things are done here · ${pages.length} page${pages.length === 1 ? '' : 's'}${fresh ? ` · ${fresh} new` : ''}`);
+      const list = this.el('ul', '', 'pp-toc');
+      pages.forEach((g, k) => {
+        const b = mark(this.el('button', g.title), g.fresh);
+        b.onclick = () => page(k);
+        const li = this.el('li');
+        li.append(b);
+        list.append(li);
+      });
+      p.append(list);
+      this.footer(p);
+    };
+    const page = (i: number) => {
+      const p = this.open('pp-paper');
+      p.classList.add('pp-guide');
+      head(p, `${i + 1} of ${pages.length}`);
+      p.append(mark(this.el('h2', pages[i].title), pages[i].fresh));
+      for (const para of pages[i].text.split('\n\n')) p.append(this.el('p', para));
+      const nav = this.el('div', '', 'pp-nav');
+      const prev = this.el('button', '← Before', 'pp-btn'), toc = this.el('button', 'Contents', 'pp-btn'), next = this.el('button', 'Next →', 'pp-btn');
+      prev.disabled = i === 0; next.disabled = i === pages.length - 1;
+      prev.onclick = () => page(i - 1);
+      next.onclick = () => page(i + 1);
+      toc.onclick = contents;
+      nav.append(prev, toc, next);
+      p.append(nav);
+      this.footer(p);
+    };
+    if (start !== null && pages[start]) page(start); else contents();
   }
 
   /** The uplink page of the builder's computer (docs/PHASE8.md, 6). */

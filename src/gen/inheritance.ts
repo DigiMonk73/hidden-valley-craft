@@ -18,7 +18,7 @@ export interface HomeChest { x: number; y: number; z: number; title: string; ite
 export const HOME_CHESTS: HomeChest[] = [
   // The bedroom's wardrobe holds what the linen chest held.
   { x: 1806, y: 82, z: 1041, title: 'Wardrobe: linen and lamps', block: 'wardrobe_lower', items: [
-    ['builders_journal', 1], ['bandage', 8], ['poultice', 6], ['lantern', 8], ['glass', 16],
+    ['builders_journal', 1], ['field_guide', 1], ['bandage', 8], ['poultice', 6], ['lantern', 8], ['glass', 16],
   ] },
   { x: 1830, y: 82, z: 1007, title: 'Tool wall', items: [
     ['steel_hoe', 1], ['hunting_knife', 1], ['hammer', 1], ['handsaw', 1], ['shears', 1], ['fishing_rod', 1],

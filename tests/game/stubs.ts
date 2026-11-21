@@ -112,7 +112,10 @@ export class FakePaper {
   uplink(v: import('../../src/ui/uplinkScreen.ts').UplinkView) { this.isOpen = true; this.uplinkView = v; this.shown.push('uplink'); this.putDown = null; }
   ending(back: () => void) { this.isOpen = true; this.endingBack = back; this.shown.push('ending'); this.putDown = null; }
   phone(_title: string, rows: { name: string; status: string; call?: () => string }[]) { this.isOpen = true; this.phoneRows = rows; }
-  journal() { this.isOpen = true; }
+  journal() { this.isOpen = true; this.shown.push('journal'); }
+  /** The field guide's pages as last shown. */
+  guidePages: { title: string; text: string; fresh?: boolean }[] = [];
+  guide(pages: { title: string; text: string; fresh?: boolean }[]) { this.isOpen = true; this.guidePages = pages; this.shown.push('guide'); }
   map() { this.isOpen = true; }
   keypad() { this.isOpen = true; }
   close() { this.isOpen = false; const f = this.putDown; this.putDown = null; f?.(); }

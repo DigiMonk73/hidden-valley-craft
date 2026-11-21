@@ -7,7 +7,7 @@ export interface Step { flag: string; label: string }
 
 export const M1_STEPS: Step[] = [
   { flag: 'gate_both', label: 'Swim out through the gate, and back home' },
-  { flag: 'marco_trust1', label: 'Meet Marco and trade with him' },
+  { flag: 'marco_trust1', label: 'Meet Marco and trade: his bus shelter is on the old road, just past the saddle' },
   { flag: 'extracted', label: 'Reach Zone 1, and come home alive' },
   { flag: 'pistol_taken', label: 'Take the dead scout’s pistol' },
 ];

@@ -98,11 +98,11 @@ describe('the home, rebuilt', () => {
       expect(w.containerAt(c.x, c.y, c.z), c.title).not.toBeNull();
       expect(reachable(c.x, c.y, c.z), c.title).toBe(true);
     }
-    // The wardrobe holds what the linen chest held, the journal among it; its top half is part of it.
+    // The wardrobe holds what the linen chest held, the journal and the field guide among it; its top half is part of it.
     const [wx, wy, wz] = HOME_FIT.wardrobe;
     expect(name(w, wx, wy, wz)).toBe('wardrobe_lower');
     expect(name(w, wx, wy + 1, wz)).toBe('wardrobe_upper');
-    expect(w.containerAt(wx, wy, wz)!.filter(Boolean).length).toBe(5);
+    expect(w.containerAt(wx, wy, wz)!.filter(Boolean).length).toBe(6); // the journal and, beside it, the field guide
   });
 
   it('everything that does something is where the game says, and can be reached', () => {
