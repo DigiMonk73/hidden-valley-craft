@@ -84,6 +84,9 @@ const SETS = {
     hand_empty: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: `(() => { const g = window.__hv.game; g.hotbar.slots[0] = null; g.hotbar.selected = 0; })()` },
     hand_pickaxe: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: hold('steel_pickaxe') },
     hand_rifle: { cam: '1790,83.62,1024.5,90,-6,15', play: true, run: hold('hunting_rifle') },
+    // The builder's field guide: its stand in the study, and the book open (the owner, 2026-11-21).
+    guide_stand: { cam: '1811.5,83.62,1027.8,180,-24,20', play: true, run: hold('steel_pickaxe') },
+    guide_open: { cam: '1811.5,83.62,1027.5,0,-22,20', play: true, wait: 3000, run: `(() => { const g = window.__hv.game; ['left_valley', 'armory_found', 'saddle_seen'].forEach((f) => g.flags.add(f)); g.openGuide(); })()` },
     // The clock at the start of the hotbar: mid-afternoon, and from five when the bed can be slept in (the owner, 2026-11-20).
     clock_day: { cam: '1790,83.62,1024.5,90,-6,15.6', play: true, run: hold('steel_pickaxe') },
     clock_evening: { cam: '1790,83.62,1024.5,90,-6,17.4', play: true, run: hold('steel_pickaxe') },

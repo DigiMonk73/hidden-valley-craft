@@ -1267,7 +1267,7 @@ DRAW.bookshelf = (c) => {
 // The builder's field guide on its reading stand: a green cloth cover, open to two pages of notes and a sketch.
 const GUIDE_GREEN = hex('#2f5d3a'), GUIDE_GREEN_D = hex('#22452b'), PAGE = hex('#f6f0dc'), GUIDE_INK = hex('#a39a86');
 DRAW.guide_cloth = (c) => { c.noise(GUIDE_GREEN, 5, [GUIDE_GREEN_D, hex('#3a6b45')], 0.25); for (let k = 0; k < TEX; k += 3) c.shade(k, (k * 5) & 15, 0.85); };
-DRAW.book_pages = (c) => { c.noise(PAGE, 3); for (let x = 0; x < TEX; x++) for (let y = 1; y < TEX; y += 2) c.shade(x, y, 0.9); };
+DRAW.lit_book_pages = (c) => { c.noise(PAGE, 3); for (let x = 0; x < TEX; x++) for (let y = 1; y < TEX; y += 2) c.shade(x, y, 0.9); };
 DRAW.book_open = (c) => {
   // Read across the stand: the cover's edge at columns 3 and 12, the left page 4–7, the fold at 8, the right page 9–11.
   // Bright paper with a few faint lines, so it reads as an open book even in lamplight.
