@@ -18,7 +18,7 @@
     "thirsty": "Thirsty. Right-click any water with an empty hand (the key left of 1), or drink from a jug in your hand.",
     "safeWrong": "Not that. The builder wrote the day down in his journal: four digits, the month first.",
     "noSky": "This array is under rock or a roof: it makes nothing. Set it under open sky, at home.",
-    "smoker": "A smoker. Put raw meat in it (right-click): by the next watch of the day it is smoked, and keeps.",
+    "smoker": "A smoker. Put raw meat in it with some wood (right-click): a log, planks, sticks or charcoal. Each piece smokes four by the next watch of the day.",
     "jerky_rack": "A jerky rack. Hang raw meat on it (right-click): it is cured by morning.",
     "hutch": "A hutch. Put two live rabbits in it (right-click): they breed each morning. Snares in the buffer catch them."
   }

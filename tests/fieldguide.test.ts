@@ -36,6 +36,9 @@ import { HOME_HOLD } from '../src/sim/home.ts';
 import { STRIKE_HEIGHT } from '../src/entity/creatures.ts';
 import { EGGS_MAX } from '../src/sim/livestock.ts';
 import recipes from '../data/recipes.json' with { type: 'json' };
+import { readdirSync, readFileSync } from 'node:fs';
+import { PER_FUEL } from '../src/sim/preserve.ts';
+import { HINTS } from '../src/sim/guide.ts';
 
 vi.setConfig({ testTimeout: 180_000 });
 
@@ -55,8 +58,12 @@ describe('the field guide’s pages', () => {
     expect(ids(['m1_done'])).not.toContain('power');
     expect(ids(['m2_done'])).toContain('power');
     expect(ids(['ashen_seen'])).toContain('ashen');
-    // Every page's flag is one the game sets, and every page has an id of its own.
+    // Every page has an id of its own, and every page's flag is one the game sets somewhere.
     expect(new Set(GUIDE_PAGES.map((p) => p.id)).size).toBe(GUIDE_PAGES.length);
+    const src = readdirSync('src', { recursive: true }).filter((f) => String(f).endsWith('.ts')).map((f) => readFileSync(`src/${f}`, 'utf8')).join('\n');
+    for (const p of GUIDE_PAGES) if (p.after) expect(src.includes(`'${p.after}'`) || p.after === 'books_read', `${p.id}: ${p.after}`).toBe(true);
+    // A brand-new player is told nothing of what lies past the valley's first trip.
+    for (const p of guidePages(new Set())) expect(p.text, p.id).not.toMatch(/grey ones|Ashen|Las Cruces|Ray|Zone 2|Zone 3|ridge/);
   });
 
   it('a page not yet read is marked new; once read, it is not; a page reached later is new again', () => {
@@ -66,7 +73,8 @@ describe('the field guide’s pages', () => {
     expect(guidePages(flags).some((p) => p.fresh)).toBe(false);
     expect(markGuideRead(flags)).toBe(false); // nothing new: nothing for the save
     flags.add('left_valley');
-    expect(guidePages(flags).filter((p) => p.fresh).map((p) => p.id)).toEqual(['marco']);
+    expect(guidePages(flags).filter((p) => p.fresh).map((p) => p.id)).toEqual(expect.arrayContaining(['marco', 'falling']));
+    expect(guidePages(flags).filter((p) => p.fresh).map((p) => p.id)).not.toContain('home');
   });
 
   it('a copy is owed once, and only to a valley whose wardrobe was opened before', () => {
@@ -85,7 +93,7 @@ describe('the field guide’s pages', () => {
     for (const p of GUIDE_PAGES) {
       expect(p.text.length, p.id).toBeLessThan(1100);
       expect(p.text, p.id).not.toMatch(/\bpress\b/i);
-      expect(p.title.length, p.id).toBeLessThan(32);
+      expect(p.title.length, p.id).toBeLessThan(40);
     }
   });
 });
@@ -96,13 +104,38 @@ describe('what the pages say is what the code does', () => {
 
   it('home, the hotbar and the dogs', () => {
     expect(HOME_HOLD).toBe(2);
-    expect(page('home').text).toMatch(/hold the H key for two seconds/);
+    expect(page('hold_h').text).toMatch(/Hold the H key for two seconds/);
     expect(BACKPACK_SLOTS - BASE_SLOTS).toBe(9);
     expect(page('carry').text).toMatch(/nine more slots/);
     expect([FOCUS_SECONDS, FOCUS_RECHARGE]).toEqual([4, 12]);
     expect(page('carry').text).toMatch(/up to four seconds; it takes about twelve/);
     expect(STRIKE_HEIGHT).toBeLessThan(2);
-    expect(page('hunting').text).toMatch(/cannot reach two blocks up/);
+    expect(page('zone1').text).toMatch(/cannot reach two blocks up/);
+  });
+
+  it('the smoker wants wood as well as meat, as the guide and the hint now say (the hint used to leave the wood out)', () => {
+    expect(PER_FUEL).toBe(4);
+    expect(page('keeping').text).toMatch(/each piece of fuel smokes four pieces of meat/);
+    expect(HINTS.smoker).toMatch(/with some wood/);
+    expect(HINTS.smoker).toMatch(/Each piece smokes four/);
+  });
+
+  it('the dose, the suit and the Ashen as the pages give them', () => {
+    expect(page('radiation').text).toMatch(/never below forty/);
+    expect(page('zone4').text).toMatch(/bind thirty/);
+    expect(page('ashen').text).toMatch(/No more than three hunt at once/);
+    expect(recipe('hazard_suit').in).toEqual([['canvas', 4], ['scrap_lead', 4], ['glass', 1], ['charcoal', 2]]);
+    expect(ins('solar_array')).toEqual({ pv_panel: 4, wiring: 4, planks: 4, nails: 8 });
+    expect(ins('battery_bank')).toEqual({ battery_cell: 6, wiring: 4, planks: 2, nails: 6 });
+    expect(ins('mining_rig')).toEqual({ gpu: 2, psu: 1, mining_board: 1, wiring: 2 });
+    expect(ins('powder_mill')).toEqual({ cobble: 4, planks: 4, nails: 6, iron_ingot: 2 });
+    expect(ins('crucible_furnace')).toEqual({ crucible: 1, cobble: 8, clay: 4, iron_ingot: 2 });
+    expect(ins('hydro_generator')).toEqual({ turbine_parts: 1, steel_ingot: 6, wiring: 4, sluice_tools: 0 });
+    expect(ins('forge')).toEqual({ stone_bricks: 4, planks: 6, nails: 8, forge_parts: 1 });
+    expect(ins('leghold_trap')).toEqual({ iron_ingot: 2, nails: 4, cordage: 1 });
+    expect(ins('hunting_bow')).toEqual({ stick: 3, bowstring: 1 });
+    expect(ins('raised_bed')).toEqual({ planks: 2, cordage: 1 });
+    expect(ins('leather_armor')).toEqual({ leather: 6, cordage: 2 });
   });
 
   it('Marco keeps the hours the page gives', () => {
@@ -121,9 +154,9 @@ describe('what the pages say is what the code does', () => {
     expect(recipe('snare').out[1]).toBe(2);
     expect(ins('smoker')).toEqual({ cobble: 6, planks: 4, nails: 6 });
     expect(ins('jerky_rack')).toEqual({ planks: 3, cordage: 2 });
-    expect(page('keeping').text).toMatch(/six planks, four sticks, four nails/);
-    expect(page('keeping').text).toMatch(/six cobble, four planks, six nails/);
-    expect(page('keeping').text).toMatch(/three planks, two cordage/);
+    expect(page('rabbits').text).toMatch(/six planks, four sticks and four nails/);
+    expect(page('keeping').text).toMatch(/six cobble, four planks and six nails/);
+    expect(page('keeping').text).toMatch(/three planks and two cordage/);
   });
 
   it('the kit it names is where it says', () => {

@@ -1,11 +1,30 @@
 {
-  "_comment": "The builder's field guide: how things are done here, in his voice, read at the reading stand in the study or from the copy in the wardrobe. Not the journal (his story, data/journal.json). Each page shows once its `after` flag is set (no `after`: from the start), so nothing ahead is told; a page not yet seen is marked new. Every number and place here is the code's: change one, change the other (tests/fieldguide.test.ts checks the ones that can drift).",
+  "_comment": "The builder's field guide: how things are done here, in his voice, read at the reading stand in the study or from the copy in the wardrobe. Not the journal (his story, data/journal.json). Each page shows once its `after` flag is set (no `after`: from the start), so nothing ahead is told; a page not yet seen is marked new. `section` groups the contents. Every number, recipe and place here is the code's: change one, change the other (tests/fieldguide.test.ts checks the ones that can drift, and that every `after` flag is one the game sets).",
   "pages": [
     {
       "id": "home",
       "section": "Getting about",
       "title": "Getting out, and home",
-      "text": "The way out is under the waterfall, across the valley on its west wall. Swim straight through the white water and down to the lamp over the tunnel, low in the rock. The tunnel is lit, and one breath will do it. Halfway along is my gate: swim up to it and it lifts by itself, and shuts behind you.\n\nYou come up in the canyon pool. Do not follow the stream down the canyon bed. On the far side of the pool from the falls, a grey gravel path zig-zags up the canyon's west wall. At its top the old road begins, and runs west.\n\nIf you are ever lost out there, hold the H key for two seconds and you are home, where you wake, with nothing lost. Not while you are being hurt, and not with one of the grey ones close: get clear first. A run that ends that way is not walking home, so it does not count for your first trip."
+      "text": "The way out is under the waterfall, across the valley on its west wall. Swim straight through the white water and down to the lamp over the tunnel, low in the rock. The tunnel is lit, and one breath will do it. Halfway along is my gate: swim up to it and it lifts by itself, and shuts behind you.\n\nYou come up in the canyon pool. Do not follow the stream down the canyon bed. On the far side of the pool from the falls, a grey gravel path zig-zags up the canyon's west wall. At its top the old road begins, and runs west.\n\nIf you are ever lost out there, hold the H key and you are home. The next page says when it works."
+    },
+    {
+      "id": "hold_h",
+      "section": "Getting about",
+      "title": "Holding H for home",
+      "text": "Hold the H key for two seconds, from anywhere, and you are home where you wake: my bed if you have slept in it, else the balcony. Nothing is lost and the clock does not move.\n\nIt will not start if something has hurt you in the last ten seconds, and a blow, a shot or a fall while you hold it stops it: get clear first. Hunger, thirst and holding your breath do not stop it. Opening a screen or sitting down lets it go.\n\nOne thing it does not do: a run that ends with H is not walking home, so it does not count for the first trip out (M1). Swim and walk that one yourself."
+    },
+    {
+      "id": "falling",
+      "section": "Getting about",
+      "after": "left_valley",
+      "title": "If you fall out there",
+      "text": "In the valley nothing is lost: you wake at the cave, as hungry and thirsty as you were. Eat and drink.\n\nOutside it, everything you carried is left where you fell, in a sack, and you wake at home with nothing. The sack never goes away: go back for it, right-click it and take it all back. Anything half done on that trip (the gate, Zone 1) has to be done again.\n\nSo before a long trip, leave at home what you cannot bear to fetch."
+    },
+    {
+      "id": "carry",
+      "section": "Getting about",
+      "title": "What I carry",
+      "text": "Left of the first slot is the bare hand (the key left of 1). The clock beside it tells the hour: from five in the evening it turns warm, and a bed can be slept in until six in the morning. A day here passes in about twenty minutes.\n\nWith the bow or a gun in hand, the Q key slows the world for up to four seconds; it takes about twelve to come back. The binoculars: hold them and hold the right mouse button to look, let go to lower them.\n\nThe headlamp and the water filter work from the pack, just carried. The expedition backpack is different: hold it and right-click once, and the pack has nine more slots. All four are in the expedition kit in the vault."
     },
     {
       "id": "water",
@@ -22,69 +41,257 @@
     {
       "id": "coffee",
       "section": "At home",
-      "title": "Coffee",
-      "text": "The bushes along the south side of the garden carry red cherries when ripe. Right-click a ripe bush to pick three beans: the bush stays and ripens again. Do not dig it up.\n\nA bean sown in tilled soil grows into a new bush. To brew, right-click the range on the balcony or the fireplace: three beans and a jug of water make three cups, and the jug comes back. A cup takes the edge off thirst and puts a spring in your step for a minute and a half."
+      "title": "Coffee, and bananas",
+      "text": "The bushes along the south side of the garden carry red cherries when ripe. Right-click a ripe bush to pick three beans: the bush stays and ripens again. Do not dig it up. A bean sown in tilled soil grows into a new bush.\n\nTo brew, right-click the range on the balcony or the fireplace: three beans and a jug of water make three cups, and the jug comes back. A cup takes the edge off thirst and puts a spring in your step for a minute and a half.\n\nThe banana plants work the same way: right-click a yellow bunch for four bananas, and a green one hangs in its place and yellows in a few hours."
     },
     {
       "id": "food",
       "section": "At home",
       "title": "Cooking, and food",
-      "text": "Raw meat or fish will keep you going, but only just: a raw trout is worth a mouthful, cooked it is a meal. Right-click the range on the balcony or the fireplace to cook. Trout, rabbit, venison, pork and chicken cook one for one; two eggs make a fried egg; corn and salt make rice; bean pods and water make beans; potato, corn, tomato and herbs make a stew.\n\nNothing here spoils. What is in the pantry and the pack keeps as long as you need it. To eat, hold the food and right-click."
+      "text": "Raw meat or fish will keep you going, but only just: a raw trout is worth a mouthful, cooked it is a meal. Right-click the range on the balcony or the fireplace to cook. Trout, rabbit, venison, pork and chicken cook one for one; two eggs make fried eggs; corn and salt make rice; bean pods and water make beans; potato, corn, tomato and herbs make a stew.\n\nNothing here spoils. What is in the pantry and the pack keeps as long as you need it. To eat, hold the food and right-click. The trout in the pool take a rod (on the tool wall): right-click the water to cast, and again when one bites."
     },
     {
-      "id": "carry",
-      "section": "Getting about",
-      "title": "What I carry",
-      "text": "Left of the first slot is the bare hand (the key left of 1). The clock beside it tells the hour: from five in the evening it turns warm, and the bed can be slept in until six in the morning. Sleep in mine and you wake there from then on.\n\nWith the bow or a gun in hand, the Q key slows the world for up to four seconds; it takes about twelve to come back. The binoculars: hold them and hold the right mouse button to look, let go to lower them.\n\nThe headlamp and the water filter work from the pack, just carried. The expedition backpack is different: hold it and right-click once, and the pack has nine more slots. All four are in the expedition kit in the vault."
+      "id": "sleep",
+      "section": "At home",
+      "title": "Sleep, and the night",
+      "text": "A bed can be slept in from five in the evening until six in the morning: right-click it. You wake at six with some health back and a little hungrier, and the garden near you has grown as if the night had passed. The coop, the hutch and the jerky rack do their morning's work.\n\nSleep in my bed, through the double door on the cave's south side, and you wake at its foot from then on. A bed you make yourself (three planks, two cordage and eight plant fibre at the workbench) will do too.\n\nOutside the valley, the night is when things hunt. Be home by dark until you know the road."
     },
     {
-      "id": "marco",
-      "section": "Out there",
+      "id": "workshop",
+      "section": "At home",
+      "title": "The workshop and my handbooks",
+      "text": "The workshop is through the hall at the back of the cave: the workbench, the smelter, the kiln, the anvil and the tannery rack. Right-click one to see what it makes; the E key shows what you can make by hand.\n\nMy handbooks stand beside the journal on the bookshelves: read them once (right-click the shelves) and the smelter, the kiln, the anvil and the tannery show their work. The kiln burns logs to charcoal and sand to glass; the smelter makes iron from the pantry wall's ore with charcoal; the anvil makes nails, tools, lanterns, arrowheads and arrows.\n\nSome things show greyed out, with the milestone that opens them. They come in their time."
+    },
+    {
+      "id": "rabbits",
+      "section": "At home",
       "after": "left_valley",
-      "title": "Marco",
-      "text": "Take the old road west from the top of the canyon path, up over the saddle between two knolls. Just past it, on the road's north side, is a bus shelter with its lantern lit. His number is scratched on the timetable: stand there and it is in my satellite phone.\n\nThe phone is on the desk in the study, and it only works from the valley. Call him and he will meet you at the shelter by daylight, from seven in the morning until six in the evening; after dark he waits for morning. Right-click him to trade. He pays half what a thing is worth, and says so.\n\nHe is paid from, and pays into, the hot wallet: the phone shows it. The cold wallet in the safe stays cold. You do not need it to trade."
-    },
-    {
-      "id": "hunting",
-      "section": "Out there",
-      "after": "armory_found",
-      "title": "Hunting, and the dogs",
-      "text": "The armory chest in the vault holds my rifle and forty rounds, the bow and thirty arrows, a machete and the vest. With the bow, hold the right mouse button to draw and let go to loose: a full draw takes a second and hits nearly twice as hard as a snatched one. An arrow into a man who has not seen you does three times the harm. The rifle fires with a right-click, and hits hard.\n\nDogs live in the farm's house. They climb a single step but no more, and a bite cannot reach two blocks up: get up on a rock, a wall, or a pillar of blocks, and strike down at them. When one crouches and snarls it is about to spring: step back, then hit it (left-click). The vest takes about a third off every blow, and it only has to be in your pack."
+      "title": "Snares, and rabbits",
+      "text": "Rabbits live past the canyon, east of the saddle, and come out by day. A snare (two sticks and two cordage at the workbench make two) set on the ground there catches one alive, but only while you are about. Traps cannot be set in the valley.\n\nWhen it rustles, right-click the caught snare: the rabbit goes into your pack, and the snare is set again.\n\nA hutch (six planks, four sticks and four nails at the workbench) at home with two or more rabbits in it gains one every morning, up to eight. Right-click it and put them in."
     },
     {
       "id": "chickens",
       "section": "At home",
       "after": "m1_done",
       "title": "Chickens, and the coop",
-      "text": "There are hens loose at the farm on the old road. Walk right up to one (do not run, or she runs too) and right-click to catch her; she goes into your pack. Two make a pair.\n\nThe coop is made at the workbench: six planks, two wire mesh and eight nails. The barn's crates have the mesh. Set it down at home, right-click it, and put the hens in (shift-click moves them from your pack). Each morning every hen lays an egg, up to eight waiting. Leave an egg in overnight and it may hatch."
+      "text": "There are hens loose by day at the farm on the old road; one more turns up each day. Walk right up to one (do not run, or she runs too) and right-click to catch her; she goes into your pack. Two make a pair.\n\nThe coop is made at the workbench: six planks, two wire mesh and eight nails. The barn's crates have the mesh. Set it down at home, right-click it, and put the hens in (shift-click moves them from your pack). With a pair in it, each hen lays an egg every morning, up to eight waiting, and a feather.\n\nLeave an egg in overnight and it may hatch: one more hen, up to eight. Your hens walk about the coop; right-click one to pick her up again."
     },
     {
       "id": "keeping",
       "section": "At home",
       "after": "m1_done",
-      "title": "Rabbits, and keeping meat",
-      "text": "Snares (two sticks and two cordage at the workbench, two at a time) set out past the valley catch rabbits alive. A hutch (six planks, four sticks, four nails) with two rabbits in it breeds each morning.\n\nNothing spoils, but meat put by goes further. A smoker (six cobble, four planks, six nails) smokes raw meat by the next watch of the day; a jerky rack (three planks, two cordage) cures it by morning. Right-click either and put the raw meat in."
+      "title": "Keeping meat",
+      "text": "Nothing spoils, but smoked meat and jerky feed far better than raw.\n\nThe smoker (six cobble, four planks and six nails at the workbench) needs wood as well as meat: right-click it and put in raw meat and some fuel (a log, planks, sticks or charcoal). Every four hours of the clock each piece of fuel smokes four pieces of meat.\n\nThe jerky rack (three planks and two cordage) needs no fuel: hang raw meat on it and by morning it is jerky."
     },
     {
-      "id": "power",
-      "section": "Power and making",
-      "after": "m2_done",
-      "title": "Power",
-      "text": "A solar array wants open sky at home: the balcony, or the cliff above it. Under rock or a roof it makes nothing. By day it makes the home's power; a battery bank keeps it through the night.\n\nA mining rig earns sats straight into the hot wallet while it has power. Two arrays run one rig day and night once there is a bank. Right-click any of them to see how it is doing."
+      "id": "crops",
+      "section": "At home",
+      "after": "m1_done",
+      "title": "New crops",
+      "text": "Marco sells quinoa seed, six for a few coins. The old apple tree at the farm, just east of the barn, gives a slip: right-click its trunk (one slip at a time). Plant either in tilled soil. A ripe apple tree is picked with a right-click, three apples, and it fruits again.\n\nRaised beds (two planks and a cordage make two) are tilled soil you can set down anywhere. Later the planter boxes do the same on stone."
     },
     {
-      "id": "creek",
-      "section": "Power and making",
-      "after": "m3_done",
-      "title": "The creek's power",
-      "text": "The sun only goes so far. A hydro generator set in the valley's creek, at the water, turns day and night, rain or shine. More than one rig needs it.\n\nRay's drawings show how to build one, with turbine parts and steel. Steel comes from a crucible furnace, which wants the foundry's crucible."
+      "id": "leather",
+      "section": "At home",
+      "after": "books_read",
+      "title": "Hides and leather",
+      "text": "Most animals out there give a hide: rabbits, deer, boar, dogs, coyotes. At the tannery rack in the workshop a hide and a pinch of salt make two leather; a big cat's pelt makes more. The pantry has salt.\n\nSix leather and two cordage at the workbench make leather armour: carried in the pack, it takes some of the sting out of every blow."
+    },
+    {
+      "id": "marco",
+      "section": "People",
+      "after": "left_valley",
+      "title": "Marco",
+      "text": "Take the old road west from the top of the canyon path, up over the saddle between two knolls. Just past it, on the road's north side, is a bus shelter with its lantern lit. His number is scratched on the timetable: stand there and it is in my satellite phone.\n\nThe phone is on the desk in the study, and it only works from the valley. Call him and he will meet you at the shelter by daylight, from seven in the morning until six in the evening; after dark he waits for morning. Right-click him to trade. He pays half what a thing is worth, and says so, and he carries only so much coin a day.\n\nHe is paid from, and pays into, the hot wallet: the phone shows it. The cold wallet in the safe stays cold. You do not need it to trade."
+    },
+    {
+      "id": "marco_guns",
+      "section": "People",
+      "after": "marco_trust2",
+      "title": "Marco's guns",
+      "text": "Now he trusts me he sells real things: a pistol, the raiders' rifle, pistol and rifle rounds, and primers by the ten. They are dear; rounds you make yourself go further."
+    },
+    {
+      "id": "doc",
+      "section": "People",
+      "after": "doc_known",
+      "title": "Doc",
+      "text": "Dr. Ibáñez answers the satellite phone, from the cave like Marco. Call him and pay from the hot wallet: his wound care puts your health back as far as your dose allows, and his treatment takes the dose away altogether, for more."
+    },
+    {
+      "id": "ray",
+      "section": "People",
+      "after": "ray_known",
+      "title": "Ray",
+      "text": "Ray Quispe was the dam's engineer: his number was in the logbook. Call him from the cave. He sells his drawings for a hydro generator, and parts: steel, graphics cards, power supplies, boards, wiring. Once a generator turns in the creek, call him again."
+    },
+    {
+      "id": "hunting",
+      "section": "Out there",
+      "after": "armory_found",
+      "title": "Weapons, and hunting",
+      "text": "The armory chest in the vault holds my rifle and forty rounds, the bow and thirty arrows, a machete and the vest. Left-click strikes with what is in your hand. The rifle fires with a right-click, and hits hard.\n\nWith a bow, hold the right mouse button to draw and let go to loose: a full draw takes a second and hits half again as hard as a snatched one, and more. An arrow into a man who has not seen you does three times the harm. Walk over a spent arrow to pick it up.\n\nThe vest takes nearly a third off every blow, and it only has to be in your pack. Deer bolt when you come near; a boar charges if you come close or hurt it. Both give meat and a hide."
+    },
+    {
+      "id": "bow",
+      "section": "Out there",
+      "after": "armory_found",
+      "title": "Bows and arrows",
+      "text": "Four arrows at the workbench: two sticks, four arrowheads, and a plant fibre or a feather. At the anvil (once my handbooks are read) a flint will do for the heads. Arrowheads: a bone at the workbench makes two; an iron ingot makes six at the anvil.\n\nA bow of your own is three sticks and a bowstring, once the first trip is done. Bowstrings I could never make: you will have to find them."
+    },
+    {
+      "id": "buffer",
+      "section": "Out there",
+      "after": "left_valley",
+      "title": "Between the canyon and the saddle",
+      "text": "The land from the canyon to the saddle is quiet by day: rabbits, deer, a boar or two. Give a boar room.\n\nAt night a puma hunts it. It circles to your back. Turn and face it, with nothing between you, and it stops; hold it in your eye long enough and it gives up. Let it close and it rushes. Better: be home by dark."
+    },
+    {
+      "id": "zone1",
+      "section": "Out there",
+      "after": "saddle_seen",
+      "title": "Zone 1: the farm, and the dogs",
+      "text": "Past the saddle the danger rises, and more at night. The farm off the road's south side has hens in the yard, the barn's crates, the old apple tree, and three dogs living in the house. Killed, they stay dead.\n\nWhen a dog crouches and snarls it is about to spring: step back, then strike (left-click). They climb a single step and no more, and a bite cannot reach two blocks up: get up on a rock, a wall or a pillar of blocks and strike down at them.\n\nAt night coyotes run the road in twos and threes, from the sides. Step back when one crouches. A gunshot brings anything angry near it running, and scatters the rest."
+    },
+    {
+      "id": "outpost",
+      "section": "Out there",
+      "after": "outpost_seen",
+      "title": "The outpost",
+      "text": "Three of them hold the old tienda south of the road: a lookout with a rifle on the roof watching the road east, a man with a pistol behind the sandbags, a man with a machete in the doorway. None of them sees behind him.\n\nThe quiet way: leave the road east of it, where a game trail goes south through tall brush, round to the back. A blade (the knife, the machete, a spear) into a man who has not been alarmed is silent, and the others hear nothing. Crates against the back wall step up to the roof.\n\nIf they see you: every shot comes after an aim. A glint on the roof, or a click, means get behind something solid. A shot anywhere near wakes all three. Once quiet, they stay quiet: search the back room, and mine the forge to take it home."
+    },
+    {
+      "id": "forge",
+      "section": "Out there",
+      "after": "outpost_cleared",
+      "title": "The forge",
+      "text": "The raiders' forge comes away with a pickaxe as a set of forge parts. At the workbench four stone bricks, six planks, eight nails and the parts make a forge, and a tool rack with it. Set it in the workshop.\n\nAt the forge three scrap and a coal or charcoal make two iron; one iron makes eight arrowheads or twelve nails. Later it casts bullets."
+    },
+    {
+      "id": "camp",
+      "section": "Out there",
+      "after": "camp_seen",
+      "title": "The hunters' camp, and the mine",
+      "text": "The trail north from the antlered post (COTO DE CAZA) leads to the camp. The lodge has a chest; hides hang curing in the drying shed (mine them for leather); a rusted trap lies by the shed (right-click it to learn how it is made).\n\nThe jaguar is not looking for a fight. Keep five paces off and do not shoot near it, and it goes. If it does turn: step back when it crouches, then strike, and expect to be hurt.\n\nThe old mine south of the road is lit all the way down; its chamber walls are thick with iron and coal."
+    },
+    {
+      "id": "leghold",
+      "section": "Out there",
+      "after": "leghold_learned",
+      "title": "The leghold trap",
+      "text": "Two iron, four nails and a cordage at the workbench make one. Set it outside the valley where deer or boar walk. One that steps in is held for a minute: go and finish it, and its meat and hide go to your pack. The trap stays set; mine it to take it up."
+    },
+    {
+      "id": "zone2",
+      "section": "Out there",
+      "after": "zone2_seen",
+      "title": "Zone 2: faction ground",
+      "text": "The highway north from the hunters' camp is lit all the way to Las Cruces. Two patrols walk it, a sentry walks the ruins, and two guards stand in the gate towers. They shoot strangers.\n\nThe scout's armband, carried, passes you for one of theirs from more than fourteen paces. Closer, they take a second look: back off, or fight. A shot near them, or hurting one, ends the pretence for that visit. Those you kill are replaced by the next dawn.\n\nLas Cruces itself is reinforced concrete: no way in, and no tool touches it. Go round."
+    },
+    {
+      "id": "ruins",
+      "section": "Out there",
+      "after": "ruins_seen",
+      "title": "The ruins",
+      "text": "Mine what was left: solar panels off the roofs, cable trays for wiring, copper pipe, car batteries for lead, the supermarket's fridges. In the exchange the server racks give graphics cards, power supplies and boards, and the UPS cabinets battery cells. The hardware store's stock has a pump unit, casings and primers. The pharmacy is the first shop you reach walking north: right-click its counter."
+    },
+    {
+      "id": "radiation",
+      "section": "Out there",
+      "after": "rad_near",
+      "title": "Radiation, and the dose",
+      "text": "Yellow signs and tape ring the hot places. Stay outside them. Inside, the dose climbs, and the meter shows how fast and how long to the limit.\n\nThe dose caps your health (never below forty) until it fades, about four a day, wherever you are. Past the limit it takes health itself. Doc can clear it."
+    },
+    {
+      "id": "cave",
+      "section": "Out there",
+      "after": "cave_seen",
+      "title": "The hot-spring cave",
+      "text": "A lit trail runs east off the highway to it. White saltpeter crusts the walls of the way down, and yellow sulfur rims the pool: mine both. With charcoal they make gunpowder."
+    },
+    {
+      "id": "zone3",
+      "section": "Out there",
+      "after": "zone3_entered",
+      "title": "Zone 3: the works",
+      "text": "Across the dam the street lamps still burn: keep to them. The control house at the dam has a logbook on the desk (right-click it). The powerhouse, the machine shop, the foundry, the rail yard and its mine are along the avenue south. Their dark halves are not empty.\n\nThe foundry's crucible and the machine shop's old lathe come away with a pick, for home."
     },
     {
       "id": "ashen",
       "section": "Out there",
       "after": "ashen_seen",
       "title": "The grey ones",
-      "text": "By day, and in lamplight, they are slow and half blind: I have walked past them. In the dark they are fast. Keep to the light, and walk: they hear running and shots through walls, a walk or a pick only with nothing between.\n\nThey strike once, a lunge you can see coming: step out of its way. With one hunting close, holding H for home does nothing. They never come into the valley."
+      "text": "By day, and in lamplight, they are slow and half blind: they see a few paces, only in front, and do not hear a walk. In the dark they are fast and see all round. Keep to the light, and walk: they hear running and shots through walls, a walk or a pick only with nothing between.\n\nThey give a rattle before they come, and strike with one lunge you can see: it rears, then throws itself at where you stood. Step aside. No more than three hunt at once.\n\nThey nest in the dark halves of the buildings, the engine shed and the mine. By night they come out to their doors. Killed, others drift in by dawn. With one hunting close, holding H does nothing. They never come into the valley, onto the dam, or east of the gorge."
+    },
+    {
+      "id": "zone4",
+      "section": "Out there",
+      "after": "ridge_gate",
+      "title": "The ridge",
+      "text": "Past the gate the ground itself is poison: without a suit, on the road, the limit comes in about eight seconds, and death soon after. Off the road it is worse; indoors, less.\n\nThe hazard suit, carried in the pack, lets almost nothing through: on the road the limit is minutes away, enough to walk up and back. Watch the meter.\n\nBlue tablets bind thirty of the dose: right-click to take one. There are some in the refuge on the pass."
+    },
+    {
+      "id": "refuge",
+      "section": "Out there",
+      "after": "suit_word",
+      "title": "Meeting Ray",
+      "text": "Four canvas, four lead, a glass and two charcoal at the workbench make the hazard suit, or Ray will sell one. Once you carry it, the phone has a row to ask Ray to meet you at the refuge on the pass. He waits there by day, six to six, in an orange suit: right-click him. Make room in your pack first."
+    },
+    {
+      "id": "power",
+      "section": "Power and making",
+      "after": "m2_done",
+      "title": "Solar power",
+      "text": "A solar array (four panels, four wiring, four planks, eight nails) works only at home, under open sky: the balcony, or the cliff above it. Under rock or a roof it makes nothing. It makes the most at noon and nothing from six in the evening to six in the morning.\n\nA battery bank (six battery cells, four wiring, two planks, six nails) keeps the power through the night. Right-click any of them to see how it is doing."
+    },
+    {
+      "id": "rig",
+      "section": "Power and making",
+      "after": "bank_built",
+      "title": "The rig, the fridge, the pump",
+      "text": "A mining rig (two graphics cards, a power supply, a board, two wiring) earns sats into the hot wallet while it has power. My computer shows what it has mined, today and in all. Two arrays and a bank run one rig day and night. A second rig needs a hydro generator.\n\nThe fridge (a fridge unit, two wiring, two planks, four nails) turns a water jug in it to cold water each hour it has power; cold water mends a little. The water pump (a pump unit, two wiring, two pipe fittings, two planks): right-click it to fill every empty jug you carry. When power runs short the rig stops first."
+    },
+    {
+      "id": "ammo",
+      "section": "Power and making",
+      "after": "m2_done",
+      "title": "Making rounds",
+      "text": "A powder mill (four cobble, four planks, six nails, two iron): two saltpeter, a charcoal and a sulfur make two gunpowder. At the forge, two iron and a stick make a bullet mold; a lead and a coal or charcoal cast eight bullets.\n\nAt the workbench a gunpowder, four casings, four bullets and four primers make four pistol rounds; with two gunpowder, four rifle rounds. Casings do not come back: what you find is what you have."
+    },
+    {
+      "id": "steel",
+      "section": "Power and making",
+      "after": "m3_done",
+      "title": "Steel, and the lathe",
+      "text": "The crucible furnace (the foundry's crucible, eight cobble, four clay, two iron): two steel stock and a coal make two steel, or two iron and two coal make one. Steel stock comes from the works' racks, rails and crates.\n\nThe lathe (the old lathe's parts, four steel, two wiring, two planks) fits found guns: a pistol becomes a quiet one, the raiders' rifle a good one. It also makes plate armour (the vest, four steel, two leather), which stops half of every blow from the pack, and a steel pickaxe."
+    },
+    {
+      "id": "creek",
+      "section": "Power and making",
+      "after": "m3_done",
+      "title": "The hydro generator",
+      "text": "Ray's drawings, bought by phone, show how: turbine parts, six steel and four wiring at the workbench, with the sluice tools (kept). The parts are in the powerhouse's crate and its tool locker.\n\nSet it at home in the creek, at the water's edge: it turns two kilowatts day and night, rain or shine. With it, more than one rig runs; three at once is a farm."
+    },
+    {
+      "id": "uplink",
+      "section": "Power and making",
+      "after": "m4_done",
+      "title": "The uplink",
+      "text": "Three things and power. The antenna (three dish sections from the tower yard, four steel, two wiring, two pipe fittings): hold it and right-click the hoist in the balcony's north corner, and it goes up onto the cliff. The telescope (the observatory's optics, two steel, a glass, two planks, at the lathe), set at home under open sky: right-click to look, move the mouse to aim, E to step back. The terminal (Ray's modem, two rare components, four wiring, with the plans): hold it and right-click my computer.\n\nWith a generator turning in the creek, the computer has an Uplink page. Ask it things: each answer changes what you carry or what the map shows."
+    },
+    {
+      "id": "medicine",
+      "section": "Power and making",
+      "after": "pharma_learned",
+      "title": "Medicine",
+      "text": "The medical bench and the distiller work only while a generator turns. At the distiller four corn or four potatoes, a jug of water and a charcoal make spirit. At the bench: blue tablets (spirit, iron, two herbs, a charcoal), antibiotics that mend you as far as your dose allows (spirit, three herbs, honey), and adrenaline (spirit, four coffee beans, salt): for a minute blows hurt half as much."
+    },
+    {
+      "id": "drawings",
+      "section": "Power and making",
+      "after": "uplink_live",
+      "title": "Its drawings",
+      "text": "The uplink sends one drawing every six hours. The thermal optic, carried, shows warm bodies while you focus (Q). A sonic lure, set down and right-clicked, wails for forty seconds and draws them to it. A smoke pot burns for a minute and none of them will step within eight paces. Engineer's armour, from plate armour, stops most of a blow."
     }
   ]
 }
