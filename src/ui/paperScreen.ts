@@ -43,7 +43,8 @@ const CSS = `
 .pp-guide .pp-new { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 9px; background: #c77d1a; color: #fff; font: 700 11px system-ui, sans-serif; letter-spacing: .4px; vertical-align: middle; }
 .pp-guide .pp-toc { list-style: none; padding: 0; margin: 4px 0 0; }
 .pp-guide .pp-toc li { border-bottom: 1px dashed rgba(47,93,58,.3); }
-.pp-guide .pp-toc button { all: unset; cursor: pointer; display: block; width: 100%; padding: 8px 2px; font-size: 16px; }
+.pp-guide .pp-toc li.pp-sec { border: 0; padding: 12px 0 2px; font: 700 11px system-ui, sans-serif; letter-spacing: .8px; text-transform: uppercase; color: #2f5d3a; }
+.pp-guide .pp-toc button { all: unset; cursor: pointer; display: block; width: 100%; padding: 6px 2px; font-size: 15px; }
 .pp-guide .pp-toc button:hover { color: #2f5d3a; }
 .pp-guide .pp-btn { background: rgba(47,93,58,.14); }
 
@@ -138,7 +139,7 @@ export class PaperScreen {
    * The builder's field guide: its contents first (each page reached, a new one marked), then one page at a time.
    * `start`: a page to open at instead of the contents.
    */
-  guide(pages: { title: string; text: string; fresh?: boolean }[], start: number | null = null): void {
+  guide(pages: { title: string; text: string; fresh?: boolean; section?: string }[], start: number | null = null): void {
     const head = (p: HTMLElement, meta: string) => p.append(this.el('div', 'The builder’s field guide', 'pp-book'), this.el('div', meta, 'pp-meta'));
     const mark = (e: HTMLElement, fresh?: boolean) => { if (fresh) e.append(this.el('span', 'new', 'pp-new')); return e; };
     const contents = () => {
@@ -148,6 +149,8 @@ export class PaperScreen {
       head(p, `How things are done here · ${pages.length} page${pages.length === 1 ? '' : 's'}${fresh ? ` · ${fresh} new` : ''}`);
       const list = this.el('ul', '', 'pp-toc');
       pages.forEach((g, k) => {
+        // A heading where a new part of the book starts (at home, out there, power…).
+        if (g.section && g.section !== pages[k - 1]?.section) list.append(this.el('li', g.section, 'pp-sec'));
         const b = mark(this.el('button', g.title), g.fresh);
         b.onclick = () => page(k);
         const li = this.el('li');

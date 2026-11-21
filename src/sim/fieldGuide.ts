@@ -4,7 +4,8 @@
 
 import data from '../../data/fieldguide.json' with { type: 'json' };
 
-export interface GuidePage { id: string; title: string; text: string; after?: string }
+/** `section`: the part of the book it is in (its contents are grouped by these, in the book's order). */
+export interface GuidePage { id: string; section: string; title: string; text: string; after?: string }
 export interface GuideView extends GuidePage { fresh: boolean }
 
 export const GUIDE_PAGES: GuidePage[] = data.pages;
