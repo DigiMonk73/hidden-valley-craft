@@ -11,7 +11,7 @@ _Written by the lead (2026-11-21) at the owner's word. The owner chose itch.io f
 - **Payouts:** itch.io collects payment and handles sales tax, and pays out through PayPal or Payoneer. The owner does the tax interview and the ID check.
 - **AI disclosure:** yes, for **Code, Graphics and Sound**, and also **Text**: the journal, the field guide, the notes and the people's lines were written by Claude from the owner's script. The textures and sounds are drawn and made by code Claude wrote.
 - **Browser saves already use names that are this game's own:** the browser storage keys start with `hvb:` and the save database is named `hidden-valley-blocks`. They stay as they are, so no save is ever lost; no other game uses them.
-- **Still to confirm on a draft page:** whether one upload can be both the browser version and the demo.
+- **Still to confirm on a draft page:** whether one upload can be both the browser version and the demo; and **saving in Safari**. On 2026-11-21 the owner opened the claude.ai page in Safari and the game could not save there ("the last save did not go through"), while it saves in Chrome: Safari is stricter about storage in embedded pages, and itch.io also embeds the game. Claude tests the demo's saving in Safari on the draft page and makes sure a Safari player is told plainly and keeps their progress (the save file and save code).
 - **Before launch, in order:** the owner says version 1 is done; makes the repository private; Claude builds and tests (the demo, the download, Safari and Firefox); Grok drafts the store page; the owner sets up the account and a draft page; Claude reviews and the owner approves; launch.
 
 The prompt below is what the owner gives Grok. The lead keeps this file current as steps are done.
