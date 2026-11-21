@@ -29,7 +29,7 @@ const CSS = `
 .hv-slot img { position: absolute; inset: 1px; width: 44px; height: 44px; image-rendering: pixelated; }
 .hv-slot span { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
 /* The time and the day: a plate the height of a slot, warm from five in the evening, when the bed can be slept in. */
-.hv-clock { width: 88px; height: 50px; margin-right: 6px; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background: rgba(0,0,0,.35);
+.hv-clock { min-width: 88px; padding: 0 8px; box-sizing: border-box; height: 50px; white-space: nowrap; margin-right: 6px; border: 2px solid rgba(255,255,255,.18); border-radius: 6px; background: rgba(0,0,0,.35);
   display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hv-clock b { font-size: 17px; font-weight: 700; letter-spacing: .3px; text-shadow: 0 1px 2px #000; }
 .hv-clock small { font-size: 11px; opacity: .7; }

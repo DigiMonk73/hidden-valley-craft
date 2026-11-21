@@ -20,3 +20,14 @@ describe('the clock', () => {
     expect(canSleep(6)).toBe(false);
   });
 });
+
+import { readFileSync } from 'node:fs';
+describe('the clock plate', () => {
+  it('keeps "10:00 AM" on one line in a narrow window: no fixed width, no wrapping (2026-11-21)', () => {
+    // Layout is not measured here (no browser); the rule is pinned, and the picture at 960 px wide was looked at.
+    const css = readFileSync(new URL('../src/ui/hud.ts', import.meta.url), 'utf8');
+    const rule = css.match(/\.hv-clock \{[^}]*\}/)![0];
+    expect(rule).toContain('white-space: nowrap');
+    expect(rule).not.toMatch(/[^-]width: \d/); // a min-width only: the plate grows to fit its text
+  });
+});
