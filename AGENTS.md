@@ -56,7 +56,7 @@ The owner has handed over the finish: "just finish building it to the best of yo
 
 ## Where it lives
 
-- **The repository:** https://github.com/DigiMonk73/hidden-valley-craft, branch `main`. The owner made it for this game and asked for everything to be pushed there.
+- **The repository:** https://github.com/DigiMonk73/hidden-valley-blocks, branch `main` (renamed from `hidden-valley-craft` by the owner on 2026-11-21; GitHub redirects the old name). The owner made it for this game and asked for everything to be pushed there.
 - **Commits:** each finished step is committed and pushed.
 
 ## Publishing a build
