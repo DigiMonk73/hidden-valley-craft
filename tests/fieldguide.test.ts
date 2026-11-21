@@ -173,7 +173,7 @@ describe('the reading stand in the study', () => {
 });
 
 const valley = (extra: Partial<SaveData> = {}): SaveData => ({ ...newSave(), flags: [BEGUN], ...extra });
-const inner = (p: Page) => p.game as unknown as { target: unknown; placeBlock(): void; useHeldItem(): boolean };
+const inner = (p: Page) => p.game as unknown as { target: unknown; placeBlock(): void; useHeldItem(): boolean; aim(): boolean };
 async function onLand(save: SaveData): Promise<Page> {
   const store = browserStore();
   await store.set(SAVE_KEY, await encodeSave(save));
@@ -252,12 +252,27 @@ describe('reading it in the game', () => {
     expect(q.game.flags.has(GUIDE_GIVEN)).toBe(true);
   });
 
-  it('with a full pack the copy goes back into the wardrobe instead', async () => {
+  it('with a full pack the copy is put down in a sack at the player’s feet, and the message says so', async () => {
     const w = HOME_CHESTS.find((c) => c.block === 'wardrobe_lower')!;
     const full = Array.from({ length: BASE_SLOTS }, () => ({ name: 'cobble', count: 64 }));
     const p = await onLand(valley({ hotbar: full, containers: [[w.x, w.y, w.z, [null, null]]] }));
     expect(p.game.hotbar.count(itemId('field_guide'))).toBe(0);
-    expect(p.game.world.containers.get(Array.from(p.game.world.containers.keys()).find((k) => p.game.world.containers.get(k)!.some((s) => s?.id === itemId('field_guide')))!)).toBeTruthy();
-    expect(p.hud.toasts.join(' ')).toMatch(/copy is in the wardrobe/);
+    const sack = Array.from(p.game.world.containers.values()).find((c) => c.some((s) => s?.id === itemId('field_guide')));
+    expect(sack).toBeTruthy();
+    expect(p.hud.toasts.join(' ')).toMatch(/pack is full, so it is in a sack at your feet/);
+  });
+
+  it('with a bow in hand, a right-click on the stand still opens the guide, as on the shelves (it used to draw the bow)', async () => {
+    const p = await onLand(valley());
+    const g = p.game;
+    const [x, y, z] = HOME_FIT.guideStand;
+    g.hotbar.slots[0] = { id: itemId('compound_bow'), count: 1 };
+    g.hotbar.slots[1] = { id: itemId('arrow'), count: 10 };
+    g.hotbar.selected = 0;
+    inner(p).target = { x, y, z, id: g.world.blockAt(x, y, z), nx: 0, ny: 0, nz: -1 };
+    // The right button: the bow is not drawn at the stand (aim declines), so the click uses the stand.
+    expect(inner(p).aim()).toBe(false);
+    inner(p).placeBlock();
+    expect(paper().shown.at(-1)).toBe('guide');
   });
 });

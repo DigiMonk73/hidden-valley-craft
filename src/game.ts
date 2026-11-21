@@ -1028,7 +1028,7 @@ export class Game {
     const scoutLegs = blockName(t.id).startsWith('scout_legs') && !!this.world.containerAt(t.x - 1, t.y, t.z);
     return !!this.world.containerAt(t.x, t.y, t.z) || scoutLegs || t.id === GATE_LEVER || !!stationAt((x, y, z) => this.world.blockAt(x, y, z), t.x, t.y, t.z) || /^steel_door|^snare_caught/.test(blockName(t.id))
       || blockName(t.id).startsWith('wardrobe_upper') || /^door_wood/.test(blockName(t.id)) || (SEATS.has(name) && !isWeapon(this.hotbar.current?.id))
-      || ['bed', 'bed_head', 'bed_foot', 'bookshelf', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
+      || ['bed', 'bed_head', 'bed_foot', 'bookshelf', 'field_guide_stand', 'computer', 'phone', 'map_table', 'photo_frame', 'leghold_trap', 'apple_trunk', 'pale_body', 'pale_legs', 'raider_forge',
         'water_pump', 'mining_rig', 'battery_bank', 'solar_array', 'pharmacy_counter', 'compound_wall', 'compound_mark', 'steel_gate',
         'logbook_desk', 'hydro_generator', 'turbine', 'old_lathe', 'foundry_crucible', 'cenizos_board'].includes(name);
   }
@@ -1627,18 +1627,18 @@ export class Game {
    */
   private handOverGuide(): void {
     const w = HOME_CHESTS.find((c) => c.items.some(([n]) => n === 'field_guide'));
-    const at = w ? packPos(w.x, w.y, w.z) : -1;
-    const opened = this.world.containers.has(at);
-    if (!owesGuideCopy(this.flags, opened) || this.hotbar.count(itemId('field_guide')) > 0) return;
+    if (!w) return;
+    const at = packPos(w.x, w.y, w.z);
+    if (!owesGuideCopy(this.flags, this.world.containers.has(at)) || this.hotbar.count(itemId('field_guide')) > 0) return;
     this.edited();
+    const say = (line: string) => { this.sayAtPlay = this.sayAtPlay ? `${this.sayAtPlay} ${line}` : line; };
     if (this.hotbar.add(itemId('field_guide'), 1) === 0) {
-      this.sayAtPlay = 'The builder left a field guide too, apart from his journal: it is in your pack. Hold it and right-click to read it, or read it on the stand by the bookshelves.';
+      say('The builder left a field guide too, apart from his journal: it is in your pack. Hold it and right-click to read it, or read it on the stand by the bookshelves.');
       return;
     }
-    const slots = this.world.containers.get(at)!;
-    const k = slots.findIndex((s) => !s);
-    if (k >= 0) slots[k] = { id: itemId('field_guide'), count: 1 };
-    this.sayAtPlay = 'The builder left a field guide too, apart from his journal: it is on the stand by the bookshelves, and a copy is in the wardrobe.';
+    // A full pack: it waits with what a pack could not hold, and is put down in a sack at the player's feet.
+    this.spill.push({ id: itemId('field_guide'), count: 1 });
+    say('The builder left a field guide too, apart from his journal: your pack is full, so it is in a sack at your feet. It is also on the stand by the bookshelves.');
   }
 
   /** The builder's phone: his dead contacts, and Marco once his number has been found at the shelter. */
