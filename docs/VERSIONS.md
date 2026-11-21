@@ -14,3 +14,4 @@ _Each version of the page at https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, 
 | 21 | 2026-11-21 | `004916d` | 5 | The builder's field guide: a reading stand in the study and a carried copy; the Marco line says where |
 | 22 | 2026-11-21 | `2689517` | 5 | The game is called Under the Falls on its own screens; saves unchanged |
 | 23 | 2026-11-21 | `3327978` | 5 | The game's icon (waterfall, glowing doorway, pool), in the page and in all sizes for the stores |
+| 24 | 2026-11-21 | `2622b42` | 5 | M1's step home says it is walked and swum, and that holding H doesn't count |
