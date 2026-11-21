@@ -187,16 +187,22 @@ describe('the reading stand in the study', () => {
     return blockName(c[(y << 10) | ((z & (CS - 1)) << 5) | (x & (CS - 1))]);
   };
 
-  it('stands on the study’s floor in front of the shelves, facing the room, with room to stand and read it', () => {
+  it('stands against the south wall between the shelves and the bedroom doorway, under a lamp that pairs with the doorway’s other', () => {
+    // The owner's spot (2026-11-21): the plain wall left of the bedroom's double door, the lamp over it level with the
+    // one right of the door, so the two frame the doorway. (It stood first in front of the shelves.)
     const [x, y, z] = HOME_FIT.guideStand;
     expect(y).toBe(F);
     expect(at(x, y, z)).toBe('field_guide_stand'); // its front to the north: the reader stands at z − 1
-    expect(at(x, y, z + 1)).toBe('bookshelf');
-    expect(at(x, y - 1, z)).toMatch(/^rug_blue_/);
+    expect(at(x + 1, y, z)).toBe('bookshelf'); // the shelves end beside it
+    expect(at(x, y, z + 1)).toMatch(/^planks|^plaster|^stone_bricks|^limestone/); // the wall behind (the bedroom's timber partition)
+    for (const [dx, dz] of HOME_FIT.door.map(([dx, , dz]) => [dx, dz])) expect(dx === x && dz === z, 'not in the doorway').toBe(false);
     for (const yy of [F, F + 1]) expect(at(x, yy, z - 1), `the reader’s place, ${yy}`).toBe('air');
-    // Nothing above it; the journal’s shelf and the desk are as they were.
+    for (const yy of [F, F + 1]) for (const [dx] of HOME_FIT.door) expect(at(dx, yy, z), `the way to the door, ${dx},${yy}`).toBe('air');
     expect(at(x, F + 1, z)).toBe('air');
-    expect(at(x, F + 2, z)).toBe('wall_lamp'); // a lamp on the shelf to read by
+    expect(at(x, F + 2, z)).toBe('wall_lamp');
+    expect(at(1805, F + 2, z)).toBe('wall_lamp'); // its pair, right of the doorway
+    expect(at(1811, F, 1031)).toBe('air'); // the old place, in front of the shelves, is clear
+    expect(at(1811, F + 2, 1031)).toBe('air');
     expect(at(...HOME_FIT.bookshelf)).toBe('bookshelf');
     expect(at(...HOME_FIT.desk.computer)).toBe('computer@west');
     const def = BLOCK_DEFS[blockId('field_guide_stand')];
