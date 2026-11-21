@@ -41,7 +41,10 @@ const CSS = `
 .pp-guide h2 { margin: 0 0 10px; font-size: 22px; color: #2f5d3a; }
 .pp-guide p { font-size: 15px; line-height: 1.5; margin: 0 0 10px; }
 .pp-guide .pp-new { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 9px; background: #c77d1a; color: #fff; font: 700 11px system-ui, sans-serif; letter-spacing: .4px; vertical-align: middle; }
-.pp-guide .pp-toc { list-style: none; padding: 0; margin: 4px 0 0; }
+.pp-guide .pp-toc { list-style: none; padding: 0; margin: 4px 0 0; columns: 2; column-gap: 28px; }
+.pp-guide .pp-toc li { break-inside: avoid; }
+.pp-guide .pp-toc li.pp-sec { break-after: avoid; }
+@media (max-width: 560px) { .pp-guide .pp-toc { columns: 1; } }
 .pp-guide .pp-toc li { border-bottom: 1px dashed rgba(47,93,58,.3); }
 .pp-guide .pp-toc li.pp-sec { border: 0; padding: 12px 0 2px; font: 700 11px system-ui, sans-serif; letter-spacing: .8px; text-transform: uppercase; color: #2f5d3a; }
 .pp-guide .pp-toc button { all: unset; cursor: pointer; display: block; width: 100%; padding: 6px 2px; font-size: 15px; }

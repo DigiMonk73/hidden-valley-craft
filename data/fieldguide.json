@@ -11,7 +11,7 @@
       "id": "hold_h",
       "section": "Getting about",
       "title": "Holding H for home",
-      "text": "Hold the H key for two seconds, from anywhere, and you are home where you wake: my bed if you have slept in it, else the balcony. Nothing is lost and the clock does not move.\n\nIt will not start if something has hurt you in the last ten seconds, and a blow, a shot or a fall while you hold it stops it: get clear first. Hunger, thirst and holding your breath do not stop it. Opening a screen or sitting down lets it go.\n\nOne thing it does not do: a run that ends with H is not walking home, so it does not count for the first trip out (M1). Swim and walk that one yourself."
+      "text": "Hold the H key for two seconds, from anywhere, and you are home where you wake: the bed you last slept in, else the balcony. Nothing is lost and the clock does not move.\n\nIt will not start if something has hurt you in the last ten seconds, and a blow, a shot or a fall while you hold it stops it: get clear first. Hunger, thirst and holding your breath do not stop it. Opening a screen or sitting down lets it go.\n\nOne thing it does not do: a run that ends with H is not walking home, so it does not count for the first trip out (M1). Swim and walk that one yourself."
     },
     {
       "id": "falling",
@@ -74,7 +74,7 @@
       "section": "At home",
       "after": "m1_done",
       "title": "Chickens, and the coop",
-      "text": "There are hens loose by day at the farm on the old road; one more turns up each day. Walk right up to one (do not run, or she runs too) and right-click to catch her; she goes into your pack. Two make a pair.\n\nThe coop is made at the workbench: six planks, two wire mesh and eight nails. The barn's crates have the mesh. Set it down at home, right-click it, and put the hens in (shift-click moves them from your pack). With a pair in it, each hen lays an egg every morning, up to eight waiting, and a feather.\n\nLeave an egg in overnight and it may hatch: one more hen, up to eight. Your hens walk about the coop; right-click one to pick her up again."
+      "text": "There are hens loose by day at the farm on the old road; one more turns up each day. Walk right up to one (do not run, or she runs too) and right-click to catch her; she goes into your pack. Two make a pair.\n\nThe coop is made at the workbench: six planks, two wire mesh and eight nails. The barn's crates have the mesh. Set it down at home, right-click it, and put the hens in (shift-click moves them from your pack). With a pair in it, each hen lays an egg every morning, up to eight waiting, and the coop gives a feather.\n\nLeave an egg in overnight and it may hatch: one more hen, up to eight. Your hens walk about the coop; right-click one to pick her up again."
     },
     {
       "id": "keeping",
@@ -88,12 +88,12 @@
       "section": "At home",
       "after": "m1_done",
       "title": "New crops",
-      "text": "Marco sells quinoa seed, six for a few coins. The old apple tree at the farm, just east of the barn, gives a slip: right-click its trunk (one slip at a time). Plant either in tilled soil. A ripe apple tree is picked with a right-click, three apples, and it fruits again.\n\nRaised beds (two planks and a cordage make two) are tilled soil you can set down anywhere. Later the planter boxes do the same on stone."
+      "text": "Marco sells quinoa seed, six for a few coins. The old apple tree in the farmyard's south-east corner, past the barn, gives a slip: right-click its trunk (one slip at a time). Plant either in tilled soil. A ripe apple tree is picked with a right-click, three apples, and it fruits again.\n\nRaised beds (two planks and a cordage make two) are tilled soil you can set down anywhere. Later the planter boxes do the same on stone."
     },
     {
       "id": "leather",
       "section": "At home",
-      "after": "books_read",
+      "after": "left_valley",
       "title": "Hides and leather",
       "text": "Most animals out there give a hide: rabbits, deer, boar, dogs, coyotes. At the tannery rack in the workshop a hide and a pinch of salt make two leather; a big cat's pelt makes more. The pantry has salt.\n\nSix leather and two cordage at the workbench make leather armour: carried in the pack, it takes some of the sting out of every blow."
     },
@@ -235,14 +235,14 @@
       "section": "Out there",
       "after": "suit_word",
       "title": "Meeting Ray",
-      "text": "Four canvas, four lead, a glass and two charcoal at the workbench make the hazard suit, or Ray will sell one. Once you carry it, the phone has a row to ask Ray to meet you at the refuge on the pass. He waits there by day, six to six, in an orange suit: right-click him. Make room in your pack first."
+      "text": "Four canvas, four lead, a glass and two charcoal at the workbench make the hazard suit, or Ray will sell one. The phone now has a row to ask Ray to meet you at the refuge on the pass; he comes only once you carry the suit. He waits there by day, six to six, in an orange suit: right-click him. Make room in your pack first."
     },
     {
       "id": "power",
       "section": "Power and making",
       "after": "m2_done",
       "title": "Solar power",
-      "text": "A solar array (four panels, four wiring, four planks, eight nails) works only at home, under open sky: the balcony, or the cliff above it. Under rock or a roof it makes nothing. It makes the most at noon and nothing from six in the evening to six in the morning.\n\nA battery bank (six battery cells, four wiring, two planks, six nails) keeps the power through the night. Right-click any of them to see how it is doing."
+      "text": "A solar array (four panels, four wiring, four planks, eight nails) works only at home, under open sky: the balcony, the valley floor, or the cliff above. Under rock or a roof it makes nothing. It makes the most at noon and nothing from six in the evening to six in the morning.\n\nA battery bank (six battery cells, four wiring, two planks, six nails) keeps the power through the night. Right-click any of them to see how it is doing."
     },
     {
       "id": "rig",
@@ -256,7 +256,7 @@
       "section": "Power and making",
       "after": "m2_done",
       "title": "Making rounds",
-      "text": "A powder mill (four cobble, four planks, six nails, two iron): two saltpeter, a charcoal and a sulfur make two gunpowder. At the forge, two iron and a stick make a bullet mold; a lead and a coal or charcoal cast eight bullets.\n\nAt the workbench a gunpowder, four casings, four bullets and four primers make four pistol rounds; with two gunpowder, four rifle rounds. Casings do not come back: what you find is what you have."
+      "text": "A powder mill (four cobble, four planks, six nails, two iron): two saltpeter, a charcoal and a sulfur make two gunpowder. At the forge, two iron and a stick make a bullet mold; a lead and a coal or charcoal cast eight bullets.\n\nAt the workbench a gunpowder, four casings, four bullets and four primers make four pistol rounds; with two gunpowder, four rifle rounds. Casings do not come back: find more (the faction's patrols carry a few)."
     },
     {
       "id": "steel",
@@ -277,7 +277,7 @@
       "section": "Power and making",
       "after": "m4_done",
       "title": "The uplink",
-      "text": "Three things and power. The antenna (three dish sections from the tower yard, four steel, two wiring, two pipe fittings): hold it and right-click the hoist in the balcony's north corner, and it goes up onto the cliff. The telescope (the observatory's optics, two steel, a glass, two planks, at the lathe), set at home under open sky: right-click to look, move the mouse to aim, E to step back. The terminal (Ray's modem, two rare components, four wiring, with the plans): hold it and right-click my computer.\n\nWith a generator turning in the creek, the computer has an Uplink page. Ask it things: each answer changes what you carry or what the map shows."
+      "text": "Three things and power. The antenna (three dish sections from the tower yard, four steel, two wiring, two pipe fittings): hold it and right-click the hoist in the balcony's north corner, and it goes up onto the cliff. The telescope (the observatory's optics, two steel, a glass, two planks, at the lathe), set at home under open sky: right-click to look, move the mouse to aim, E to step back. The terminal (Ray's modem, two rare components, four wiring, with the plans): hold it and right-click my computer.\n\nFit the terminal and the computer has an Uplink page. With the antenna up, the telescope set and a generator turning in the creek, the link opens. Ask it things: each answer puts something on the map, on the screen when you are out, or among what you can make."
     },
     {
       "id": "medicine",
