@@ -275,8 +275,8 @@ export class Hud {
 
   private buildMenu(a: MenuActions): void {
     const p = el('div', 'hv-panel', this.menu);
-    el('h1', '', p).textContent = 'Hidden Valley';
-    el('p', 'hv-sub', p).textContent = 'Block edition. A hidden valley that is safe for good, a dead man’s home in its cliff, and a world outside that is not.';
+    el('h1', '', p).textContent = 'Under the Falls';
+    el('p', 'hv-sub', p).textContent = 'A hidden valley that is safe for good, a dead man’s home in its cliff, and a world outside that is not.';
 
     this.loadBox = el('div', 'hv-load', p);
     this.loadText = el('div', '', this.loadBox);

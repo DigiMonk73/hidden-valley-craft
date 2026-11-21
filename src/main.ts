@@ -46,8 +46,8 @@ function fail(err: unknown, started = false): void {
   box.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;pointer-events:auto';
   const why = err instanceof Error ? err.message : String(err);
   box.textContent = started
-    ? `Hidden Valley couldn't finish starting: ${why}. Reload the page to try again. Your saved valley has not been touched.`
-    : `Hidden Valley couldn't start here: ${why}. It needs a browser with WebGL 2 (current Chrome, Safari, Firefox or Edge).`;
+    ? `Under the Falls couldn't finish starting: ${why}. Reload the page to try again. Your saved valley has not been touched.`
+    : `Under the Falls couldn't start here: ${why}. It needs a browser with WebGL 2 (current Chrome, Safari, Firefox or Edge).`;
   ui.appendChild(box);
 }
 

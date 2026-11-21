@@ -148,7 +148,7 @@ const SPAWN = START;
 /** Said when the browser's main storage held the valley last time and could not be opened now. */
 export const DEGRADED = 'This browser’s storage did not open just now, so your saved valley can’t be reached. Nothing has been lost: reload the page to try again. What you do meanwhile is kept apart and will not replace it.';
 /** Said in a second tab while a first one has the valley open. */
-export const SECOND_TAB = 'Hidden Valley is already open in another tab or window. Play there, or close it: this one will then open your valley.';
+export const SECOND_TAB = 'Under the Falls is already open in another tab or window. Play there, or close it: this one will then open your valley.';
 const stackSlot = (s: Stack): Slot => ({ name: itemName(s.id), count: s.count, ...(s.wear ? { wear: s.wear } : {}) });
 
 export interface BootOptions {
@@ -2432,7 +2432,7 @@ export class Game {
   private async downloadSave(): Promise<void> {
     const code = this.cachedCode ?? saveToCode(await encodeSave(this.snapshot()));
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-    const filename = `hidden-valley-save-${stamp}.txt`;
+    const filename = `under-the-falls-save-${stamp}.txt`;
     if (this.downloads) {
       try {
         await this.downloads.save({ filename, data: code });
@@ -2457,7 +2457,7 @@ export class Game {
     const r = await parseSave(bytes, normaliseSave);
     if (!r.ok) {
       this.hud.toast(r.why === 'newer' ? 'That save was made by a newer build of the game. Reload this page to get the new build, then load it again.'
-        : r.why === 'damaged' ? 'That save is damaged and can’t be opened. Your valley is untouched.' : 'That isn’t a Hidden Valley save', 7000);
+        : r.why === 'damaged' ? 'That save is damaged and can’t be opened. Your valley is untouched.' : 'That isn’t a save from Under the Falls', 7000);
       return;
     }
     if (fromEarlierLayout(r.data)) { this.hud.toast('That save was made by an earlier build, before the home was rebuilt. It can’t be opened in this one; your valley here is untouched.', 9000); return; }
