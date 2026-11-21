@@ -21,3 +21,16 @@ describe('the title', () => {
     expect(SAVE_VERSION).toBe(5);
   });
 });
+
+import { M1_STEPS } from '../src/sim/milestones.ts';
+import { nextGoal } from '../src/sim/guide.ts';
+describe('the M1 step home', () => {
+  it('says the way home is walked and swum, and that H does not count (the owner, 2026-11-21)', () => {
+    const step = M1_STEPS.find((s) => s.flag === 'extracted')!;
+    expect(step.label).toMatch(/walk and swim home/);
+    expect(step.label).toMatch(/H doesn’t count/);
+    // As the Next line shows it, with the first steps done.
+    const shown = nextGoal(new Set(['ate', 'drank', 'journal_read', 'armory_found', 'slept', 'left_valley', 'gate_both', 'marco_trust1', 'books_read']));
+    expect(shown).toContain('walk and swim home');
+  });
+});
