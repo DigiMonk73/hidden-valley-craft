@@ -12,3 +12,4 @@ _Each version of the page at https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, 
 | 19 | 2026-11-20 | `b6833a8` | 5 | The study's desk moved back against the wall; the shelves behind it removed |
 | 20 | 2026-11-21 | `5139089` | 5 | The clock keeps its time on one line in a narrow window |
 | 21 | 2026-11-21 | `004916d` | 5 | The builder's field guide: a reading stand in the study and a carried copy; the Marco line says where |
+| 22 | 2026-11-21 | `2689517` | 5 | The game is called Under the Falls on its own screens; saves unchanged |
