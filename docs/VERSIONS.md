@@ -10,3 +10,4 @@ _Each version of the page at https://claude.ai/artifact/596gciq89ZDYLMHEeE8XWa, 
 | 17 | 2026-11-20 | `ddd26e4` | 5 | Phase 9, Track B: settings for weaker computers, the rim mended, save fixes, handbooks, headlamp, bananas picked, tools that do something |
 | 18 | 2026-11-20 | `8956c62` | 5 | The time and the day at the start of the hotbar, warm from 5 PM when the bed can be slept in |
 | 19 | 2026-11-20 | `b6833a8` | 5 | The study's desk moved back against the wall; the shelves behind it removed |
+| 20 | 2026-11-21 | `5139089` | 5 | The clock keeps its time on one line in a narrow window |
