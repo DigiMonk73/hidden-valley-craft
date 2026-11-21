@@ -19,7 +19,16 @@ describe('the icon', () => {
     }
     const i = file('assets/icon/icon.ico');
     expect([i.readUInt16LE(2), i.readUInt16LE(4)]).toEqual([1, 3]);
-    expect([0, 1, 2].map((n) => i[6 + 16 * n])).toEqual([16, 32, 48]);
+    // Each directory entry: width, height, 32-bit colour, and a PNG of that size at its offset and length.
+    let next = 6 + 16 * 3;
+    [16, 32, 48].forEach((s, n) => {
+      const e = 6 + 16 * n, len = i.readUInt32LE(e + 8), at = i.readUInt32LE(e + 12);
+      expect([i[e], i[e + 1], i.readUInt16LE(e + 4), i.readUInt16LE(e + 6)]).toEqual([s, s, 1, 32]);
+      expect(at).toBe(next);
+      expect(pngSize(i.subarray(at, at + len))).toEqual([s, s]);
+      next = at + len;
+    });
+    expect(next).toBe(i.length);
     expect(i.equals(ico([16, 32, 48]))).toBe(true);
     expect(file('assets/icon/icon.svg').toString()).toBe(svg());
   });

@@ -4,7 +4,6 @@
 // Writes assets/icon/ (PNGs at every store size, icon.ico, icon.svg) and the favicon links in index.html.
 // Run: node --experimental-strip-types --no-warnings tools/icon.ts
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { encodePng } from './png.ts';
 
 type RGB = [number, number, number];
@@ -216,7 +215,7 @@ export function faviconLinks(): string {
 
 const MARK = /    <!-- icon: written by tools\/icon\.ts -->\n[\s\S]*?    <!-- \/icon -->\n/;
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1]?.endsWith('icon.ts')) {
   mkdirSync('assets/icon', { recursive: true });
   for (const s of SIZES) writeFileSync(`assets/icon/icon-${s}.png`, pngFor(s));
   writeFileSync('assets/icon/icon.ico', ico([16, 32, 48]));
